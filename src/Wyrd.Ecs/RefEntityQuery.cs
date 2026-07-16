@@ -3,21 +3,16 @@ using Wyrd.Ecs.Internal;
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The hidden-chunk convenience tier: a <c>foreach</c>-able sequence of one component
-/// accessor per matching entity, walking archetypes internally so no chunk or
-/// archetype vocabulary is required to write a query. Returned by
-/// <see cref="IWorld.Query{TAccess0}()"/>. Each yielded <typeparamref name="TAccess0"/>
-/// has <c>Length == 1</c> — index it at <c>[0]</c> (the design spec's zero-index
-/// illustrative example doesn't compile as written against the committed
-/// <see cref="IWorld"/> contract, since <see cref="Enumerator.Current"/> returns
-/// <typeparamref name="TAccess0"/> itself, a chunk-shaped accessor).
+/// Hidden-chunk convenience query, read-only: a <c>foreach</c>-able sequence of
+/// read-only references to entities' <typeparamref name="T"/> component. Never marks
+/// anything dirty. Returned by <see cref="IWorld.QueryRef{T}"/>.
 /// </summary>
-public readonly ref struct EntityQuery<TAccess0> where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
+public readonly ref struct RefEntityQuery<T> where T : struct, IComponent
 {
     private readonly Dictionary<ArchetypeSignature, Archetype>.ValueCollection _archetypes;
     private readonly int _typeIndex;
 
-    internal EntityQuery(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex)
+    internal RefEntityQuery(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex)
     {
         _archetypes = archetypes;
         _typeIndex = typeIndex;
@@ -26,12 +21,12 @@ public readonly ref struct EntityQuery<TAccess0> where TAccess0 : struct, ICompo
     /// <summary>Returns the enumerator for this query.</summary>
     public Enumerator GetEnumerator() => new(_archetypes, _typeIndex);
 
-    /// <summary>Enumerates one <typeparamref name="TAccess0"/> accessor per matching entity.</summary>
+    /// <summary>Enumerates one read-only <typeparamref name="T"/> reference per matching entity.</summary>
     public ref struct Enumerator
     {
         private Dictionary<ArchetypeSignature, Archetype>.ValueCollection.Enumerator _archetypes;
         private readonly int _typeIndex;
-        private IComponentStorage? _storage;
+        private ReadOnlySpan<T> _items;
         private int _row;
         private int _count;
 
@@ -39,13 +34,13 @@ public readonly ref struct EntityQuery<TAccess0> where TAccess0 : struct, ICompo
         {
             _archetypes = archetypes.GetEnumerator();
             _typeIndex = typeIndex;
-            _storage = null;
+            _items = default;
             _row = -1;
             _count = 0;
         }
 
-        /// <summary>The current entity's component accessor (<c>Length == 1</c>).</summary>
-        public TAccess0 Current => TAccess0.CreateChunk(_storage!.RawItems, _storage.RawDirty, _row, 1);
+        /// <summary>A read-only reference to the current entity's component.</summary>
+        public ref readonly T Current => ref _items[_row];
 
         /// <summary>Advances to the next matching entity.</summary>
         public bool MoveNext()
@@ -63,7 +58,8 @@ public readonly ref struct EntityQuery<TAccess0> where TAccess0 : struct, ICompo
                     continue;
                 }
 
-                _storage = archetype.Storages[_typeIndex];
+                var storage = archetype.Storages[_typeIndex];
+                _items = ((T[])storage.RawItems).AsSpan(0, archetype.Count);
                 _count = archetype.Count;
                 _row = 0;
             }

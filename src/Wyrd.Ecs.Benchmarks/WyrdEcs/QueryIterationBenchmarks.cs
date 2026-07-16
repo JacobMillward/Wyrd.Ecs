@@ -49,8 +49,8 @@ public class QueryIterationBenchmarks
     [Benchmark]
     public void OneComponent_HiddenChunkForEach()
     {
-        foreach (var position in _world1.Query<Mut<Position>>())
-            position[0].X += position[0].Y * 0f;
+        foreach (ref var position in _world1.QueryMut<Position>())
+            position.X += position.Y * 0f;
     }
 
     [Benchmark]

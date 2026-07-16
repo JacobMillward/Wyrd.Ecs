@@ -198,8 +198,12 @@ public sealed class World : IWorld
     }
 
     /// <inheritdoc/>
-    public EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct =>
-        new(_archetypes.Values, TAccess0.TypeIndex);
+    public MutEntityQuery<T> QueryMut<T>() where T : struct, IComponent =>
+        new(_archetypes.Values, TypeIndex<T>.Value);
+
+    /// <inheritdoc/>
+    public RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent =>
+        new(_archetypes.Values, TypeIndex<T>.Value);
 
     private void RequireAlive(Entity entity)
     {

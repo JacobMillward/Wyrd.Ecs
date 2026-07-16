@@ -64,11 +64,19 @@ public interface IWorld
         where TAccess1 : struct, IComponentAccessor<TAccess1>, allows ref struct;
 
     /// <summary>
-    /// Hidden-chunk convenience query: returns a <c>foreach</c>-able sequence of one
-    /// <typeparamref name="TAccess0"/> accessor per matching entity, with no chunk or
-    /// archetype vocabulary required. Supersedes the scaffold phase's
-    /// <c>ForEach&lt;T0&gt;(EntityAction&lt;T0&gt;)</c> entirely — see
-    /// <see cref="EntityQuery{TAccess0}"/>.
+    /// Hidden-chunk convenience query, tracked/mutable: returns a <c>foreach</c>-able
+    /// sequence of direct references to matching entities' <typeparamref name="T"/>
+    /// component, with no chunk or archetype vocabulary required. Must be consumed as
+    /// <c>foreach (ref var x in world.QueryMut&lt;T&gt;())</c> — see
+    /// <see cref="MutEntityQuery{T}"/>. Supersedes the archetype-storage phase's
+    /// no-callback <c>Query&lt;TAccess0&gt;()</c> entirely, not alongside it.
     /// </summary>
-    EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct;
+    MutEntityQuery<T> QueryMut<T>() where T : struct, IComponent;
+
+    /// <summary>
+    /// Hidden-chunk convenience query, read-only: returns a <c>foreach</c>-able
+    /// sequence of read-only references to matching entities' <typeparamref name="T"/>
+    /// component. Never marks anything dirty — see <see cref="RefEntityQuery{T}"/>.
+    /// </summary>
+    RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent;
 }

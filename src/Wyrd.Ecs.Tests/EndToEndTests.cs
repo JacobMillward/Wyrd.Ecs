@@ -24,8 +24,8 @@ public class EndToEndTests
 
         // Simulate one tick over the hidden-chunk tier — the intended "no chunk/
         // archetype vocabulary" onramp.
-        foreach (var energy in world.Query<Mut<Energy>>())
-            energy[0].Current -= energy[0].DrainPerSecond;
+        foreach (ref var energy in world.QueryMut<Energy>())
+            energy.Current -= energy.DrainPerSecond;
 
         foreach (var entity in entities)
             world.GetComponent<Energy>(entity).Current.Should().Be(90f);
