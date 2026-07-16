@@ -269,6 +269,39 @@ public class WorldQueryTests
         velocityStorage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
     }
 
+    [Fact]
+    public void WorldIndexer_GetsTheCurrentComponentByEntity()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 9f;
+
+        world[entity].GetComponent<Position>().X.Should().Be(9f);
+    }
+
+    [Fact]
+    public void WorldIndexer_WritesThroughToRealStorage()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+
+        world[entity].GetComponent<Position>().X += 10f;
+
+        world.GetComponent<Position>(entity).X.Should().Be(11f);
+    }
+
+    [Fact]
+    public void WorldIndexer_ResolvesCorrectlyAfterAStructuralMove()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+        world.AddTag<Marker>(entity); // forces a structural move to a different archetype
+
+        world[entity].GetComponent<Position>().X.Should().Be(1f);
+    }
+
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)
     {
         var field = typeof(World).GetField("_locations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;

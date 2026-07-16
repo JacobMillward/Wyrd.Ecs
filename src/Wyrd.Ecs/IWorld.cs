@@ -48,6 +48,12 @@ public interface IWorld
     /// </summary>
     ref T GetComponent<T>(Entity entity) where T : struct, IComponent;
 
+    /// <summary>
+    /// A non-storable, <see cref="World"/>-scoped bound view over <paramref name="entity"/>
+    /// — see <see cref="EntityView"/>.
+    /// </summary>
+    EntityView this[Entity entity] { get; }
+
     /// <summary>Copies <paramref name="entity"/>'s <typeparamref name="T"/> without marking it dirty.</summary>
     bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent;
 

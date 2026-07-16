@@ -111,6 +111,9 @@ public sealed class World : IWorld
     }
 
     /// <inheritdoc/>
+    public EntityView this[Entity entity] => new(this, entity);
+
+    /// <inheritdoc/>
     public bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent
     {
         RequireAlive(entity);
