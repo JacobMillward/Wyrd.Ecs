@@ -84,3 +84,98 @@ public readonly ref struct Query<T0> where T0 : struct, IComponent
         }
     }
 }
+
+/// <summary>Two-component overload of <see cref="Query{T0}"/>.</summary>
+public readonly ref struct Query<T0, T1>
+    where T0 : struct, IComponent
+    where T1 : struct, IComponent
+{
+    private readonly Dictionary<ArchetypeSignature, Archetype>.ValueCollection _archetypes;
+    private readonly int _typeIndex0;
+    private readonly int _typeIndex1;
+    private readonly int _tick;
+
+    internal Query(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex0, int typeIndex1, int tick)
+    {
+        _archetypes = archetypes;
+        _typeIndex0 = typeIndex0;
+        _typeIndex1 = typeIndex1;
+        _tick = tick;
+    }
+
+    /// <inheritdoc cref="Query{T0}.GetEnumerator"/>
+    public Enumerator GetEnumerator() => new(_archetypes, _typeIndex0, _typeIndex1, _tick);
+
+    /// <inheritdoc cref="Query{T0}.Enumerator"/>
+    public ref struct Enumerator
+    {
+        private Dictionary<ArchetypeSignature, Archetype>.ValueCollection.Enumerator _archetypes;
+        private readonly int _typeIndex0;
+        private readonly int _typeIndex1;
+        private readonly int _tick;
+        private Span<T0> _items0;
+        private Span<int> _lastMarkedTick0;
+        private DirtyLog _dirtyLog0;
+        private Span<T1> _items1;
+        private Span<int> _lastMarkedTick1;
+        private DirtyLog _dirtyLog1;
+        private Entity[] _entities;
+        private int _row;
+        private int _count;
+
+        internal Enumerator(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex0, int typeIndex1, int tick)
+        {
+            _archetypes = archetypes.GetEnumerator();
+            _typeIndex0 = typeIndex0;
+            _typeIndex1 = typeIndex1;
+            _tick = tick;
+            _items0 = default;
+            _lastMarkedTick0 = default;
+            _dirtyLog0 = null!;
+            _items1 = default;
+            _lastMarkedTick1 = default;
+            _dirtyLog1 = null!;
+            _entities = Array.Empty<Entity>();
+            _row = -1;
+            _count = 0;
+        }
+
+        /// <inheritdoc cref="Query{T0}.Enumerator.Current"/>
+        public QueryRow<T0, T1> Current => new(
+            _items0, _lastMarkedTick0, _dirtyLog0,
+            _items1, _lastMarkedTick1, _dirtyLog1,
+            _tick, _row, _entities[_row]);
+
+        /// <inheritdoc cref="Query{T0}.Enumerator.MoveNext"/>
+        public bool MoveNext()
+        {
+            _row++;
+            while (_row >= _count)
+            {
+                if (!_archetypes.MoveNext()) return false;
+
+                var archetype = _archetypes.Current;
+                if (archetype.Count == 0 || !archetype.Signature.Contains(_typeIndex0) || !archetype.Signature.Contains(_typeIndex1))
+                {
+                    _count = 0;
+                    _row = 0;
+                    continue;
+                }
+
+                var storage0 = archetype.Storages[_typeIndex0];
+                var storage1 = archetype.Storages[_typeIndex1];
+                _items0 = ((T0[])storage0.RawItems).AsSpan(0, archetype.Count);
+                _lastMarkedTick0 = storage0.RawLastMarkedTick.AsSpan(0, archetype.Count);
+                _dirtyLog0 = storage0.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
+                _items1 = ((T1[])storage1.RawItems).AsSpan(0, archetype.Count);
+                _lastMarkedTick1 = storage1.RawLastMarkedTick.AsSpan(0, archetype.Count);
+                _dirtyLog1 = storage1.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
+                _entities = archetype.Entities;
+                _count = archetype.Count;
+                _row = 0;
+            }
+
+            return true;
+        }
+    }
+}

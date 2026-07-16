@@ -88,6 +88,9 @@ public interface IWorld
     /// </summary>
     Query<T0> Query<T0>() where T0 : struct, IComponent;
 
+    /// <inheritdoc cref="Query{T0}()"/>
+    Query<T0, T1> Query<T0, T1>() where T0 : struct, IComponent where T1 : struct, IComponent;
+
     /// <summary>
     /// Non-destructive, cursor-based read of <typeparamref name="T"/>'s change log:
     /// every entity marked dirty on a tick after <paramref name="sinceTick"/>, across

@@ -216,6 +216,10 @@ public sealed class World : IWorld
         new(_archetypes.Values, TypeIndex<T0>.Value, _currentTick);
 
     /// <inheritdoc/>
+    public Query<T0, T1> Query<T0, T1>() where T0 : struct, IComponent where T1 : struct, IComponent =>
+        new(_archetypes.Values, TypeIndex<T0>.Value, TypeIndex<T1>.Value, _currentTick);
+
+    /// <inheritdoc/>
     public DirtyReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>
         new(_archetypes.Values, TypeIndex<T>.Value, sinceTick);
 

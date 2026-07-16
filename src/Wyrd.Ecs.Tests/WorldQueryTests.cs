@@ -186,6 +186,89 @@ public class WorldQueryTests
         count.Should().Be(0);
     }
 
+    [Fact]
+    public void TwoComponent_RequiresBothComponents()
+    {
+        var world = new World();
+        var both = world.CreateEntity();
+        world.AddComponent<Position>(both).X = 1f;
+        world.AddComponent<Velocity>(both).X = 2f;
+        var positionOnly = world.CreateEntity();
+        world.AddComponent<Position>(positionOnly);
+
+        var visited = new List<Entity>();
+        foreach (var row in world.Query<Position, Velocity>())
+            visited.Add(row.Entity);
+
+        visited.Should().Equal(both);
+    }
+
+    [Fact]
+    public void TwoComponent_GetReadsBothComponentsCorrectly()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 3f;
+        world.AddComponent<Velocity>(entity).X = 4f;
+
+        var sums = new List<float>();
+        foreach (var row in world.Query<Position, Velocity>())
+            sums.Add(row.Get<Position>().X + row.Get<Velocity>().X);
+
+        sums.Should().Equal(7f);
+    }
+
+    [Fact]
+    public void TwoComponent_GettingOneComponentDoesNotMarkTheOtherDirty()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+        world.AddComponent<Velocity>(entity);
+        world.AdvanceTick();
+
+        foreach (var row in world.Query<Position, Velocity>())
+            _ = row.Get<Position>();
+
+        var archetype = GetArchetype(world, entity);
+        var velocityStorage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Velocity>.Value];
+        velocityStorage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+    }
+
+    [Fact]
+    public void TwoComponent_Deconstructs()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 5f;
+        world.AddComponent<Velocity>(entity).X = 6f;
+
+        var sums = new List<float>();
+        foreach (var (position, velocity) in world.Query<Position, Velocity>())
+            sums.Add(position.X + velocity.X);
+
+        sums.Should().Equal(11f);
+    }
+
+    [Fact]
+    public void TwoComponent_DeconstructNeverMarksDirty()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+        world.AddComponent<Velocity>(entity);
+        world.AdvanceTick();
+
+        foreach (var (position, velocity) in world.Query<Position, Velocity>())
+            _ = (position, velocity);
+
+        var archetype = GetArchetype(world, entity);
+        var positionStorage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        var velocityStorage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Velocity>.Value];
+        positionStorage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+        velocityStorage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+    }
+
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)
     {
         var field = typeof(World).GetField("_locations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
