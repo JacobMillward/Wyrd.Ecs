@@ -84,8 +84,9 @@ internal static class ArityTemplates
             sb.AppendLine("    /// <summary>");
             sb.AppendLine("    /// Marks the entity dirty for <typeparamref name=\"T\"/> (deduplicated per tick),");
             sb.AppendLine("    /// then returns a mutable reference to its <typeparamref name=\"T\"/> component.");
-            sb.AppendLine("    /// <typeparamref name=\"T\"/> must be one of this row's declared type arguments;");
-            sb.AppendLine("    /// see this plan's Global Constraints for why that isn't compiler-enforced.");
+            sb.AppendLine("    /// <typeparamref name=\"T\"/> must be one of this row's declared type arguments —");
+            sb.AppendLine("    /// C# has no generic constraint expressing \"one of these specific types\", so a");
+            sb.AppendLine("    /// mismatched <typeparamref name=\"T\"/> throws at runtime instead.");
             sb.AppendLine("    /// </summary>");
         }
         else

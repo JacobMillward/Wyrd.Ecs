@@ -7,18 +7,15 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Wyrd.Ecs.Analyzers;
 
 /// <summary>
-/// Reports WYRD002 when a local variable is declared from
+/// Reports WYRD001 when a local variable is declared from
 /// <c>Wyrd.Ecs.QueryRow&lt;...&gt;.Get&lt;T&gt;()</c> without <c>ref</c>. Without
 /// <c>ref</c>, the ref-returning call is read by value — a silent copy — and any
-/// write through the local is lost instead of reaching the real component. The
-/// successor to the retired WYRD001, retargeted from the deleted
-/// <c>MutEntityQuery&lt;T&gt;</c> foreach shape to the new <c>Get&lt;T&gt;()</c>
-/// call-site shape.
+/// write through the local is lost instead of reaching the real component.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ForgottenRefOnGetAnalyzer : DiagnosticAnalyzer
 {
-    public const string DiagnosticId = "WYRD002";
+    public const string DiagnosticId = "WYRD001";
 
     private static readonly DiagnosticDescriptor Rule = new(
         DiagnosticId,
@@ -52,8 +49,8 @@ public sealed class ForgottenRefOnGetAnalyzer : DiagnosticAnalyzer
 
         var componentType = symbol.TypeArguments.Length == 1 ? symbol.TypeArguments[0].Name : "T";
         // Report on the whole local-declaration statement (`var x = row.Get<T>();`),
-        // not just the declarator — matches WYRD001's precedent of flagging the whole
-        // enclosing statement, and is what a reader actually wants highlighted.
+        // not just the declarator, since that's what a reader actually wants
+        // highlighted.
         var location = declaration.Parent is LocalDeclarationStatementSyntax localDeclaration
             ? localDeclaration.GetLocation()
             : declaration.GetLocation();
