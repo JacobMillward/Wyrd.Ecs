@@ -37,6 +37,7 @@ public sealed class GetInterceptorGenerator : IIncrementalGenerator
             {
                 if (semanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol { Name: "Get", ReturnsByRef: true } method) continue;
                 if (!IsQueryRow(method.ContainingType)) continue;
+                if (!ReadOnlyProof.IsProvablyReadOnly(invocation, semanticModel, default)) continue;
 
                 var location = semanticModel.GetInterceptableLocation(invocation);
                 if (location is null) continue;

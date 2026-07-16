@@ -74,7 +74,7 @@ public class WorldQueryTests
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
-            _ = row.Get<Position>();
+            row.Get<Position>().X += 1f;
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
@@ -92,8 +92,8 @@ public class WorldQueryTests
 
         foreach (var row in world.Query<Position>())
         {
-            _ = row.Get<Position>();
-            _ = row.Get<Position>();
+            row.Get<Position>().X += 1f;
+            row.Get<Position>().X += 1f;
         }
 
         var archetype = GetArchetype(world, entity);
@@ -358,7 +358,7 @@ public class WorldQueryTests
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position, Velocity, Acceleration>())
-            _ = row.Get<Velocity>();
+            row.Get<Velocity>().X += 1f;
 
         var archetype = GetArchetype(world, entity);
         archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value].RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);

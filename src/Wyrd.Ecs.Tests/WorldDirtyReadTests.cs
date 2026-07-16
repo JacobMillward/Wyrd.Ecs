@@ -98,13 +98,14 @@ public class WorldDirtyReadTests
         var world = new World();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
+        var cursorAfterAdd = world.CurrentTick;
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
-            _ = row.Get<Position>();
+            row.Get<Position>().X += 1f;
 
         var seen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
+        foreach (var entry in world.ReadDirty<Position>(cursorAfterAdd))
             seen.Add(entry.Entity);
 
         seen.Should().Contain(entity);
