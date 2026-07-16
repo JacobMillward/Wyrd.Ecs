@@ -72,20 +72,65 @@ public sealed class World : IWorld
         return _permanentIds[entity.Id];
     }
 
-    public ref T AddComponent<T>(Entity entity) where T : struct, IComponent =>
-        throw new NotImplementedException();
+    /// <inheritdoc/>
+    public ref T AddComponent<T>(Entity entity) where T : struct, IComponent
+    {
+        RequireAlive(entity);
+        var typeIndex = TypeIndex<T>.Value;
+        var (source, sourceRow) = _locations[entity.Id];
+        if (source.Signature.Contains(typeIndex))
+            throw new InvalidOperationException($"Entity {entity} already has component {typeof(T)}.");
 
-    public ref T GetComponent<T>(Entity entity) where T : struct, IComponent =>
-        throw new NotImplementedException();
+        var target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+        var targetRow = MoveEntity(entity, source, sourceRow, target);
 
-    public bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent =>
-        throw new NotImplementedException();
+        return ref target.GetOrCreateStorage<T>()[targetRow];
+    }
 
-    public bool HasComponent<T>(Entity entity) where T : struct, IComponent =>
-        throw new NotImplementedException();
+    /// <inheritdoc/>
+    public ref T GetComponent<T>(Entity entity) where T : struct, IComponent
+    {
+        RequireAlive(entity);
+        var (archetype, row) = _locations[entity.Id];
+        if (!archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
+            throw new InvalidOperationException($"Entity {entity} does not have component {typeof(T)}.");
 
-    public void RemoveComponent<T>(Entity entity) where T : struct, IComponent =>
-        throw new NotImplementedException();
+        return ref ((ComponentStorage<T>)storage)[row];
+    }
+
+    /// <inheritdoc/>
+    public bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent
+    {
+        RequireAlive(entity);
+        var (archetype, row) = _locations[entity.Id];
+        if (archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
+        {
+            value = ((ComponentStorage<T>)storage)[row];
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+
+    /// <inheritdoc/>
+    public bool HasComponent<T>(Entity entity) where T : struct, IComponent
+    {
+        RequireAlive(entity);
+        return _locations[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
+    }
+
+    /// <inheritdoc/>
+    public void RemoveComponent<T>(Entity entity) where T : struct, IComponent
+    {
+        RequireAlive(entity);
+        var typeIndex = TypeIndex<T>.Value;
+        var (source, sourceRow) = _locations[entity.Id];
+        if (!source.Signature.Contains(typeIndex)) return;
+
+        var target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source, excludeTypeIndex: typeIndex);
+        MoveEntity(entity, source, sourceRow, target);
+    }
 
     public void AddTag<T>(Entity entity) where T : struct, ITag => throw new NotImplementedException();
 
@@ -117,5 +162,38 @@ public sealed class World : IWorld
         Array.Resize(ref _generations, newLength);
         Array.Resize(ref _permanentIds, newLength);
         Array.Resize(ref _locations, newLength);
+    }
+
+    private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource, int? excludeTypeIndex = null)
+    {
+        if (_archetypes.TryGetValue(signature, out var existing)) return existing;
+
+        var created = new Archetype(signature);
+        foreach (var (typeIndex, sourceStorage) in templateSource.Storages)
+        {
+            if (typeIndex == excludeTypeIndex) continue;
+            created.Storages[typeIndex] = sourceStorage.CreateEmpty();
+        }
+
+        _archetypes[signature] = created;
+        return created;
+    }
+
+    private int MoveEntity(Entity entity, Archetype source, int sourceRow, Archetype target)
+    {
+        var targetRow = target.AddRow(entity);
+
+        foreach (var (typeIndex, sourceStorage) in source.Storages)
+        {
+            if (target.Storages.TryGetValue(typeIndex, out var targetStorage))
+                sourceStorage.CopyRowTo(sourceRow, targetStorage, targetRow);
+        }
+
+        var moved = source.RemoveRow(sourceRow);
+        if (!moved.IsNull)
+            _locations[moved.Id] = (source, sourceRow);
+
+        _locations[entity.Id] = (target, targetRow);
+        return targetRow;
     }
 }
