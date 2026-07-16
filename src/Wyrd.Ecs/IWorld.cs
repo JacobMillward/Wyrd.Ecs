@@ -95,4 +95,14 @@ public interface IWorld
     /// component. Never marks anything dirty — see <see cref="RefEntityQuery{T}"/>.
     /// </summary>
     RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent;
+
+    /// <summary>
+    /// Non-destructive, cursor-based read of <typeparamref name="T"/>'s change log:
+    /// every entity marked dirty on a tick after <paramref name="sinceTick"/>, across
+    /// every archetype. Multiple independent reads with different cursors observe the
+    /// same underlying log without affecting each other — see
+    /// <see cref="DirtyReadQuery{T}"/> and the design's Streaming the change log to
+    /// multiple independent consumers section.
+    /// </summary>
+    DirtyReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent;
 }

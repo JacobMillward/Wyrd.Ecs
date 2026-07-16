@@ -219,6 +219,10 @@ public sealed class World : IWorld
     public RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent =>
         new(_archetypes.Values, TypeIndex<T>.Value);
 
+    /// <inheritdoc/>
+    public DirtyReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>
+        new(_archetypes.Values, TypeIndex<T>.Value, sinceTick);
+
     private void RequireAlive(Entity entity)
     {
         if (!IsAlive(entity))
