@@ -1,7 +1,7 @@
 using BenchmarkDotNet.Attributes;
 using Friflo.Engine.ECS;
 
-namespace Wyrd.Ecs.Benchmarks.Friflo;
+namespace FrifloBenchmarks;
 
 [MemoryDiagnoser]
 public class MultiQueryTickBenchmarks

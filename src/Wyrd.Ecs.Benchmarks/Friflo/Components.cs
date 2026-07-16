@@ -1,6 +1,6 @@
 using Friflo.Engine.ECS;
 
-namespace Wyrd.Ecs.Benchmarks.Friflo;
+namespace FrifloBenchmarks;
 
 // "Real" data components, reused across every benchmark category.
 public struct Position : IComponent { public float X, Y, Z; }
