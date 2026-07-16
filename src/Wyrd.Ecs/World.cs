@@ -92,7 +92,9 @@ public sealed class World : IWorld
         var target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
         var targetRow = MoveEntity(entity, source, sourceRow, target);
 
-        return ref target.GetOrCreateStorage<T>()[targetRow];
+        var storage = target.GetOrCreateStorage<T>();
+        storage.MarkDirty(targetRow, entity, _currentTick);
+        return ref storage[targetRow];
     }
 
     /// <inheritdoc/>
@@ -103,7 +105,9 @@ public sealed class World : IWorld
         if (!archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
             throw new InvalidOperationException($"Entity {entity} does not have component {typeof(T)}.");
 
-        return ref ((ComponentStorage<T>)storage)[row];
+        var typed = (ComponentStorage<T>)storage;
+        typed.MarkDirty(row, entity, _currentTick);
+        return ref typed[row];
     }
 
     /// <inheritdoc/>
