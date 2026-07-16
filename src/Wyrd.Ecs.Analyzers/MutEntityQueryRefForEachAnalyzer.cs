@@ -21,7 +21,7 @@ public sealed class MutEntityQueryRefForEachAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor Rule = new(
         DiagnosticId,
         title: "foreach over MutEntityQuery<T> must bind the loop variable with 'ref'",
-        messageFormat: "foreach over 'MutEntityQuery<{0}>' must use 'foreach (ref var ... in ...)' — without 'ref', writes to the loop variable are silently lost",
+        messageFormat: "foreach over 'MutEntityQuery<{0}>' must use 'foreach (ref var ... in ...)'. Without 'ref', writes to the loop variable are silently lost.",
         category: "Correctness",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
