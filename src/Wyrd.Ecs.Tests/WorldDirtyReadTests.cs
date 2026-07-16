@@ -109,4 +109,52 @@ public class WorldDirtyReadTests
 
         seen.Should().Contain(entity);
     }
+
+    [Fact]
+    public void ReadDirty_TwoIndependentCursors_BothSeeTheSameEntryWithoutInterference()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+
+        var firstReaderSeen = new List<Entity>();
+        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
+            firstReaderSeen.Add(entry.Entity);
+
+        // A second, independent reader starting fresh from 0 must see the same entry —
+        // the first reader having already "read" it must not consume or hide it.
+        var secondReaderSeen = new List<Entity>();
+        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
+            secondReaderSeen.Add(entry.Entity);
+
+        firstReaderSeen.Should().Equal(entity);
+        secondReaderSeen.Should().Equal(entity);
+    }
+
+    [Fact]
+    public void ReadDirty_TwoCursorsAtDifferentPositions_EachSeeOnlyTheirOwnNewEntries()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity); // tick 1
+        var slowConsumerCursor = 0; // has never read anything
+
+        world.AdvanceTick();
+        world.GetComponent<Position>(entity).X = 2f; // tick 2
+        var fastConsumerCursor = world.CurrentTick; // has already caught up to tick 2
+
+        world.AdvanceTick();
+        world.GetComponent<Position>(entity).X = 3f; // tick 3
+
+        var slowConsumerSeenTicks = new List<int>();
+        foreach (var entry in world.ReadDirty<Position>(slowConsumerCursor))
+            slowConsumerSeenTicks.Add(entry.Tick);
+
+        var fastConsumerSeenTicks = new List<int>();
+        foreach (var entry in world.ReadDirty<Position>(fastConsumerCursor))
+            fastConsumerSeenTicks.Add(entry.Tick);
+
+        slowConsumerSeenTicks.Should().Equal(1, 2, 3);
+        fastConsumerSeenTicks.Should().Equal(3);
+    }
 }
