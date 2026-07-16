@@ -10,7 +10,7 @@ namespace Wyrd.Ecs;
 /// indexer is an archetype-storage-phase implementation detail — this phase fixes
 /// only the public shape.
 /// </summary>
-public readonly ref struct EntityQuery<TAccess0> where TAccess0 : struct, IComponentAccessor<TAccess0>
+public readonly ref struct EntityQuery<TAccess0> where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
 {
     /// <summary>Returns the enumerator for this query.</summary>
     public Enumerator GetEnumerator() => throw new NotImplementedException();

@@ -163,15 +163,40 @@ public sealed class World : IWorld
         return _locations[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
-    public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0> =>
-        throw new NotImplementedException();
+    /// <inheritdoc/>
+    public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
+    {
+        var typeIndex = TAccess0.TypeIndex;
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0 || !archetype.Signature.Contains(typeIndex)) continue;
 
+            var storage = archetype.Storages[typeIndex];
+            action(TAccess0.CreateChunk(storage.RawItems, storage.RawDirty, 0, archetype.Count));
+        }
+    }
+
+    /// <inheritdoc/>
     public void Query<TAccess0, TAccess1>(ChunkAction<TAccess0, TAccess1> action)
-        where TAccess0 : struct, IComponentAccessor<TAccess0>
-        where TAccess1 : struct, IComponentAccessor<TAccess1> =>
-        throw new NotImplementedException();
+        where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
+        where TAccess1 : struct, IComponentAccessor<TAccess1>, allows ref struct
+    {
+        var index0 = TAccess0.TypeIndex;
+        var index1 = TAccess1.TypeIndex;
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0 || !archetype.Signature.Contains(index0) || !archetype.Signature.Contains(index1))
+                continue;
 
-    public EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0> =>
+            var storage0 = archetype.Storages[index0];
+            var storage1 = archetype.Storages[index1];
+            action(
+                TAccess0.CreateChunk(storage0.RawItems, storage0.RawDirty, 0, archetype.Count),
+                TAccess1.CreateChunk(storage1.RawItems, storage1.RawDirty, 0, archetype.Count));
+        }
+    }
+
+    public EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct =>
         throw new NotImplementedException();
 
     private void RequireAlive(Entity entity)
