@@ -132,11 +132,36 @@ public sealed class World : IWorld
         MoveEntity(entity, source, sourceRow, target);
     }
 
-    public void AddTag<T>(Entity entity) where T : struct, ITag => throw new NotImplementedException();
+    /// <inheritdoc/>
+    public void AddTag<T>(Entity entity) where T : struct, ITag
+    {
+        RequireAlive(entity);
+        var typeIndex = TypeIndex<T>.Value;
+        var (source, sourceRow) = _locations[entity.Id];
+        if (source.Signature.Contains(typeIndex)) return;
 
-    public void RemoveTag<T>(Entity entity) where T : struct, ITag => throw new NotImplementedException();
+        var target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+        MoveEntity(entity, source, sourceRow, target);
+    }
 
-    public bool HasTag<T>(Entity entity) where T : struct, ITag => throw new NotImplementedException();
+    /// <inheritdoc/>
+    public void RemoveTag<T>(Entity entity) where T : struct, ITag
+    {
+        RequireAlive(entity);
+        var typeIndex = TypeIndex<T>.Value;
+        var (source, sourceRow) = _locations[entity.Id];
+        if (!source.Signature.Contains(typeIndex)) return;
+
+        var target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source);
+        MoveEntity(entity, source, sourceRow, target);
+    }
+
+    /// <inheritdoc/>
+    public bool HasTag<T>(Entity entity) where T : struct, ITag
+    {
+        RequireAlive(entity);
+        return _locations[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
+    }
 
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor =>
         throw new NotImplementedException();
