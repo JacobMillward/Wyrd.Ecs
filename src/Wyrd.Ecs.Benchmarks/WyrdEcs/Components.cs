@@ -1,0 +1,60 @@
+using Wyrd.Ecs;
+
+namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+
+public struct Position : IComponent { public float X, Y, Z; }
+public struct Velocity : IComponent { public float X, Y, Z; }
+public struct Health : IComponent { public float Current, Max; }
+public struct Payload8 : IComponent { public long A, B, C, D; }
+public struct Filler1 : IComponent { public int Value; }
+public struct Filler2 : IComponent { public int Value; }
+public struct Filler3 : IComponent { public int Value; }
+public struct Filler4 : IComponent { public int Value; }
+
+public struct Marker : ITag;
+
+public struct Frag0 : ITag;
+public struct Frag1 : ITag;
+public struct Frag2 : ITag;
+public struct Frag3 : ITag;
+public struct Frag4 : ITag;
+public struct Frag5 : ITag;
+public struct Frag6 : ITag;
+public struct Frag7 : ITag;
+public struct Frag8 : ITag;
+public struct Frag9 : ITag;
+public struct Frag10 : ITag;
+public struct Frag11 : ITag;
+public struct Frag12 : ITag;
+public struct Frag13 : ITag;
+public struct Frag14 : ITag;
+public struct Frag15 : ITag;
+
+/// <summary>Mirrors <c>Wyrd.Ecs.Benchmarks.Friflo.Fragmentation</c> for the WyrdEcs backend.</summary>
+public static class Fragmentation
+{
+    public const int SlotCount = 16;
+
+    public static void AddFragTag(World world, Entity entity, int slot)
+    {
+        switch (slot % SlotCount)
+        {
+            case 0: world.AddTag<Frag0>(entity); break;
+            case 1: world.AddTag<Frag1>(entity); break;
+            case 2: world.AddTag<Frag2>(entity); break;
+            case 3: world.AddTag<Frag3>(entity); break;
+            case 4: world.AddTag<Frag4>(entity); break;
+            case 5: world.AddTag<Frag5>(entity); break;
+            case 6: world.AddTag<Frag6>(entity); break;
+            case 7: world.AddTag<Frag7>(entity); break;
+            case 8: world.AddTag<Frag8>(entity); break;
+            case 9: world.AddTag<Frag9>(entity); break;
+            case 10: world.AddTag<Frag10>(entity); break;
+            case 11: world.AddTag<Frag11>(entity); break;
+            case 12: world.AddTag<Frag12>(entity); break;
+            case 13: world.AddTag<Frag13>(entity); break;
+            case 14: world.AddTag<Frag14>(entity); break;
+            case 15: world.AddTag<Frag15>(entity); break;
+        }
+    }
+}
