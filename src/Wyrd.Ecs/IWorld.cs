@@ -21,6 +21,22 @@ public interface IWorld
     EntityId GetPermanentId(Entity entity);
 
     /// <summary>
+    /// The current tick, starting at 1 and advanced by <see cref="AdvanceTick"/>. Used
+    /// by the tracked mutation path's per-tick dedup — see the design's Dirty-tracking
+    /// section: an entity touched many times in one tick produces one change-log entry,
+    /// not many.
+    /// </summary>
+    int CurrentTick { get; }
+
+    /// <summary>
+    /// Advances to the next tick. Marking an entity dirty on a later tick produces a
+    /// new change-log entry even if it was already marked on an earlier one — see
+    /// <see cref="ReadDirty{T}"/> and the design's Streaming the change log to multiple
+    /// independent consumers section.
+    /// </summary>
+    void AdvanceTick();
+
+    /// <summary>
     /// Adds <typeparamref name="T"/> to <paramref name="entity"/> and returns a
     /// tracked mutable reference to it. Throws if the entity already has the component.
     /// </summary>

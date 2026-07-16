@@ -18,6 +18,7 @@ public sealed class World : IWorld
     private (Archetype Archetype, int Row)[] _locations = new (Archetype, int)[4];
     private readonly Stack<int> _freeIds = new();
     private int _nextId = 1; // Id 0 is reserved for Entity.Null.
+    private int _currentTick = 1;
 
     /// <summary>Creates a new, empty world.</summary>
     public World()
@@ -72,6 +73,12 @@ public sealed class World : IWorld
         RequireAlive(entity);
         return _permanentIds[entity.Id];
     }
+
+    /// <inheritdoc/>
+    public int CurrentTick => _currentTick;
+
+    /// <inheritdoc/>
+    public void AdvanceTick() => _currentTick++;
 
     /// <inheritdoc/>
     public ref T AddComponent<T>(Entity entity) where T : struct, IComponent
