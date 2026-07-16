@@ -184,7 +184,8 @@ public sealed class World : IWorld
             if (archetype.Count == 0 || !archetype.Signature.Contains(typeIndex)) continue;
 
             var storage = archetype.Storages[typeIndex];
-            action(TAccess0.CreateChunk(storage.RawItems, storage.RawDirty, 0, archetype.Count));
+            var dirtyLog = storage.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
+            action(TAccess0.CreateChunk(storage.RawItems, storage.RawLastMarkedTick, _currentTick, dirtyLog, 0, archetype.Count));
         }
     }
 
@@ -202,9 +203,11 @@ public sealed class World : IWorld
 
             var storage0 = archetype.Storages[index0];
             var storage1 = archetype.Storages[index1];
+            var dirtyLog0 = storage0.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
+            var dirtyLog1 = storage1.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
             action(
-                TAccess0.CreateChunk(storage0.RawItems, storage0.RawDirty, 0, archetype.Count),
-                TAccess1.CreateChunk(storage1.RawItems, storage1.RawDirty, 0, archetype.Count));
+                TAccess0.CreateChunk(storage0.RawItems, storage0.RawLastMarkedTick, _currentTick, dirtyLog0, 0, archetype.Count),
+                TAccess1.CreateChunk(storage1.RawItems, storage1.RawLastMarkedTick, _currentTick, dirtyLog1, 0, archetype.Count));
         }
     }
 

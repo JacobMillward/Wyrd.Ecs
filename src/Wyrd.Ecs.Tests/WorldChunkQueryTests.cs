@@ -64,6 +64,7 @@ public class WorldChunkQueryTests
         var world = new World();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
+        world.AdvanceTick();
 
         world.Query<Ref<Position>>(chunk =>
         {
@@ -73,7 +74,7 @@ public class WorldChunkQueryTests
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.RawDirty[0].Should().BeFalse();
+        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
     }
 
     [Fact]
@@ -86,14 +87,35 @@ public class WorldChunkQueryTests
             entities[i] = world.CreateEntity();
             world.AddComponent<Position>(entities[i]);
         }
+        world.AdvanceTick();
 
         world.Query<Mut<Position>>(chunk => { chunk[0].X += 0f; });
 
         var archetype = GetArchetype(world, entities[0]);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.RawDirty[0].Should().BeTrue();
-        storage.RawDirty[1].Should().BeFalse();
-        storage.RawDirty[2].Should().BeFalse();
+        storage.RawLastMarkedTick[0].Should().Be(world.CurrentTick);
+        storage.RawLastMarkedTick[1].Should().NotBe(world.CurrentTick);
+        storage.RawLastMarkedTick[2].Should().NotBe(world.CurrentTick);
+    }
+
+    [Fact]
+    public void MutQuery_TouchingAnEntity_LogsExactlyOneEntryThisTick()
+    {
+        var world = new World();
+        var entities = new Entity[3];
+        for (var i = 0; i < 3; i++)
+        {
+            entities[i] = world.CreateEntity();
+            world.AddComponent<Position>(entities[i]);
+        }
+        world.AdvanceTick();
+
+        world.Query<Mut<Position>>(chunk => { chunk[0].X += 0f; });
+
+        var archetype = GetArchetype(world, entities[0]);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.ReadDirtyLogSince(sinceTick: 0).ToArray().Should()
+            .Equal(new DirtyEntry(entities[0], world.CurrentTick));
     }
 
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)
