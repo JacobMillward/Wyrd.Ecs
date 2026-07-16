@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Analyzers\Wyrd.Ecs.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\Wyrd.Ecs.Interceptors\Wyrd.Ecs.Interceptors.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\Wyrd.Ecs.SystemGenerators\Wyrd.Ecs.SystemGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>
