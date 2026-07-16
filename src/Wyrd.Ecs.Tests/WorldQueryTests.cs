@@ -12,6 +12,16 @@ public class WorldQueryTests
         public float X;
     }
 
+    private struct Acceleration : IComponent
+    {
+        public float X;
+    }
+
+    private struct C4 : IComponent { public float X; }
+    private struct C5 : IComponent { public float X; }
+    private struct C6 : IComponent { public float X; }
+    private struct C7 : IComponent { public float X; }
+
     private struct Marker : ITag;
 
     [Fact]
@@ -300,6 +310,107 @@ public class WorldQueryTests
         world.AddTag<Marker>(entity); // forces a structural move to a different archetype
 
         world[entity].GetComponent<Position>().X.Should().Be(1f);
+    }
+
+    [Fact]
+    public void ThreeComponent_RequiresAllThreeComponents()
+    {
+        var world = new World();
+        var all = world.CreateEntity();
+        world.AddComponent<Position>(all);
+        world.AddComponent<Velocity>(all);
+        world.AddComponent<Acceleration>(all);
+        var missingOne = world.CreateEntity();
+        world.AddComponent<Position>(missingOne);
+        world.AddComponent<Velocity>(missingOne);
+
+        var visited = new List<Entity>();
+        foreach (var row in world.Query<Position, Velocity, Acceleration>())
+            visited.Add(row.Entity);
+
+        visited.Should().Equal(all);
+    }
+
+    [Fact]
+    public void ThreeComponent_GetReadsAllThreeCorrectly()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+        world.AddComponent<Velocity>(entity).X = 2f;
+        world.AddComponent<Acceleration>(entity).X = 3f;
+
+        var sums = new List<float>();
+        foreach (var row in world.Query<Position, Velocity, Acceleration>())
+            sums.Add(row.Get<Position>().X + row.Get<Velocity>().X + row.Get<Acceleration>().X);
+
+        sums.Should().Equal(6f);
+    }
+
+    [Fact]
+    public void ThreeComponent_MarksOnlyTheComponentTouched()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+        world.AddComponent<Velocity>(entity);
+        world.AddComponent<Acceleration>(entity);
+        world.AdvanceTick();
+
+        foreach (var row in world.Query<Position, Velocity, Acceleration>())
+            _ = row.Get<Velocity>();
+
+        var archetype = GetArchetype(world, entity);
+        archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value].RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+        archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Velocity>.Value].RawLastMarkedTick[0].Should().Be(world.CurrentTick);
+        archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Acceleration>.Value].RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+    }
+
+    [Fact]
+    public void ThreeComponent_Deconstructs()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+        world.AddComponent<Velocity>(entity).X = 2f;
+        world.AddComponent<Acceleration>(entity).X = 3f;
+
+        var sums = new List<float>();
+        foreach (var (position, velocity, acceleration) in world.Query<Position, Velocity, Acceleration>())
+            sums.Add(position.X + velocity.X + acceleration.X);
+
+        sums.Should().Equal(6f);
+    }
+
+    [Fact]
+    public void EightComponent_RequiresAllEightComponents()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+        world.AddComponent<Velocity>(entity).X = 1f;
+        world.AddComponent<Acceleration>(entity).X = 1f;
+        world.AddComponent<C4>(entity).X = 1f;
+        world.AddComponent<C5>(entity).X = 1f;
+        world.AddComponent<C6>(entity).X = 1f;
+        world.AddComponent<C7>(entity).X = 1f;
+        world.AddTag<Marker>(entity);
+
+        var missingOne = world.CreateEntity();
+        world.AddComponent<Position>(missingOne).X = 1f;
+        world.AddComponent<Velocity>(missingOne).X = 1f;
+        world.AddComponent<Acceleration>(missingOne).X = 1f;
+        world.AddComponent<C4>(missingOne).X = 1f;
+        world.AddComponent<C5>(missingOne).X = 1f;
+        world.AddComponent<C6>(missingOne).X = 1f;
+        // no C7
+
+        var sums = new List<float>();
+        foreach (var row in world.Query<Position, Velocity, Acceleration, C4, C5, C6, C7>())
+            sums.Add(row.Get<Position>().X + row.Get<Velocity>().X + row.Get<Acceleration>().X
+                + row.Get<C4>().X + row.Get<C5>().X + row.Get<C6>().X + row.Get<C7>().X);
+
+        sums.Should().Equal(7f);
     }
 
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)

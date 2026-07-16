@@ -8,7 +8,7 @@ namespace Wyrd.Ecs;
 /// <see cref="Archetype"/>; adding/removing a component or tag moves the entity between
 /// archetypes.
 /// </summary>
-public sealed class World : IWorld
+public sealed partial class World : IWorld
 {
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Archetype _emptyArchetype;
@@ -214,13 +214,8 @@ public sealed class World : IWorld
         }
     }
 
-    /// <inheritdoc/>
-    public Query<T0> Query<T0>() where T0 : struct, IComponent =>
-        new(_archetypes.Values, TypeIndex<T0>.Value, _currentTick);
-
-    /// <inheritdoc/>
-    public Query<T0, T1> Query<T0, T1>() where T0 : struct, IComponent where T1 : struct, IComponent =>
-        new(_archetypes.Values, TypeIndex<T0>.Value, TypeIndex<T1>.Value, _currentTick);
+    // Query<T0..T{QueryArity.Max-1}>() implementations are generated — see
+    // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <inheritdoc/>
     public DirtyReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>

@@ -6,7 +6,7 @@ namespace Wyrd.Ecs;
 /// Every mutable component accessor here is the tracked path — see the design's
 /// Dirty-tracking section; there is no separate untracked accessor to bypass it.
 /// </summary>
-public interface IWorld
+public partial interface IWorld
 {
     /// <summary>Creates a new, empty entity.</summary>
     Entity CreateEntity();
@@ -85,17 +85,9 @@ public interface IWorld
         where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
         where TAccess1 : struct, IComponentAccessor<TAccess1>, allows ref struct;
 
-    /// <summary>
-    /// Unified entity-tier query, one component: a <c>foreach</c>-able sequence of
-    /// <see cref="QueryRow{T0}"/>, one per matching entity, with no chunk or
-    /// archetype vocabulary required. Replaces <c>QueryMut&lt;T&gt;</c>/
-    /// <c>QueryRef&lt;T&gt;</c> outright — see the design's Unified entity-tier query
-    /// section.
-    /// </summary>
-    Query<T0> Query<T0>() where T0 : struct, IComponent;
-
-    /// <inheritdoc cref="Query{T0}()"/>
-    Query<T0, T1> Query<T0, T1>() where T0 : struct, IComponent where T1 : struct, IComponent;
+    // Query<T0..T{QueryArity.Max-1}>() (the unified entity-tier query, replacing
+    // QueryMut<T>/QueryRef<T> outright) is generated — see
+    // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <summary>
     /// Non-destructive, cursor-based read of <typeparamref name="T"/>'s change log:
