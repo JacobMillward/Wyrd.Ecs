@@ -14,7 +14,7 @@ public readonly ref struct Ref<T> : IComponentAccessor<Ref<T>> where T : struct,
     public static int TypeIndex => Internal.TypeIndex<T>.Value;
 
     /// <inheritdoc/>
-    public static Ref<T> CreateChunk(Array items, bool[] dirty, int start, int length) =>
+    public static Ref<T> CreateChunk(Array items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length) =>
         new(((T[])items).AsSpan(start, length));
 
     /// <summary>The number of components accessible through this instance.</summary>
