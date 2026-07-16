@@ -19,6 +19,7 @@ public sealed class World : IWorld
     private readonly Stack<int> _freeIds = new();
     private int _nextId = 1; // Id 0 is reserved for Entity.Null.
 
+    /// <summary>Creates a new, empty world.</summary>
     public World()
     {
         _emptyArchetype = new Archetype(ArchetypeSignature.Empty);
@@ -196,8 +197,9 @@ public sealed class World : IWorld
         }
     }
 
+    /// <inheritdoc/>
     public EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct =>
-        throw new NotImplementedException();
+        new(_archetypes.Values, TAccess0.TypeIndex);
 
     private void RequireAlive(Entity entity)
     {
