@@ -108,13 +108,14 @@ public class WorldChunkQueryTests
             entities[i] = world.CreateEntity();
             world.AddComponent<Position>(entities[i]);
         }
+        var cursorAfterAdds = world.CurrentTick;
         world.AdvanceTick();
 
         world.Query<Mut<Position>>(chunk => { chunk[0].X += 0f; });
 
         var archetype = GetArchetype(world, entities[0]);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.ReadDirtyLogSince(sinceTick: 0).ToArray().Should()
+        storage.ReadDirtyLogSince(cursorAfterAdds).ToArray().Should()
             .Equal(new DirtyEntry(entities[0], world.CurrentTick));
     }
 

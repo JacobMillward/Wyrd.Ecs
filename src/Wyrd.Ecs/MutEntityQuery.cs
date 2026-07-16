@@ -17,32 +17,38 @@ public readonly ref struct MutEntityQuery<T> where T : struct, IComponent
 {
     private readonly Dictionary<ArchetypeSignature, Archetype>.ValueCollection _archetypes;
     private readonly int _typeIndex;
+    private readonly int _tick;
 
-    internal MutEntityQuery(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex)
+    internal MutEntityQuery(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex, int tick)
     {
         _archetypes = archetypes;
         _typeIndex = typeIndex;
+        _tick = tick;
     }
 
     /// <summary>Returns the enumerator for this query.</summary>
-    public Enumerator GetEnumerator() => new(_archetypes, _typeIndex);
+    public Enumerator GetEnumerator() => new(_archetypes, _typeIndex, _tick);
 
     /// <summary>Enumerates one <typeparamref name="T"/> reference per matching entity.</summary>
     public ref struct Enumerator
     {
         private Dictionary<ArchetypeSignature, Archetype>.ValueCollection.Enumerator _archetypes;
         private readonly int _typeIndex;
+        private readonly int _tick;
         private Span<T> _items;
-        private Span<bool> _dirty;
+        private Span<int> _lastMarkedTick;
+        private DirtyLog _dirtyLog;
         private int _row;
         private int _count;
 
-        internal Enumerator(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex)
+        internal Enumerator(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex, int tick)
         {
             _archetypes = archetypes.GetEnumerator();
             _typeIndex = typeIndex;
+            _tick = tick;
             _items = default;
-            _dirty = default;
+            _lastMarkedTick = default;
+            _dirtyLog = null!;
             _row = -1;
             _count = 0;
         }
@@ -52,7 +58,12 @@ public readonly ref struct MutEntityQuery<T> where T : struct, IComponent
         {
             get
             {
-                _dirty[_row] = true;
+                if (_lastMarkedTick[_row] != _tick)
+                {
+                    _lastMarkedTick[_row] = _tick;
+                    _dirtyLog.Entries[_dirtyLog.Count] = new DirtyEntry(_dirtyLog.ArchetypeEntities[_row], _tick);
+                    _dirtyLog.Count++;
+                }
                 return ref _items[_row];
             }
         }
@@ -75,7 +86,8 @@ public readonly ref struct MutEntityQuery<T> where T : struct, IComponent
 
                 var storage = archetype.Storages[_typeIndex];
                 _items = ((T[])storage.RawItems).AsSpan(0, archetype.Count);
-                _dirty = storage.RawDirty.AsSpan(0, archetype.Count);
+                _lastMarkedTick = storage.RawLastMarkedTick.AsSpan(0, archetype.Count);
+                _dirtyLog = storage.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
                 _count = archetype.Count;
                 _row = 0;
             }

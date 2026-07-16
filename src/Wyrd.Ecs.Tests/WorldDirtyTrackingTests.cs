@@ -2,10 +2,7 @@ namespace Wyrd.Ecs.Tests;
 
 public class WorldDirtyTrackingTests
 {
-    private struct Position : IComponent
-    {
-        public float X;
-    }
+    private struct Position : IComponent;
 
     [Fact]
     public void GetComponent_MarksTheComponentDirtyAtTheCurrentTick()
@@ -41,6 +38,7 @@ public class WorldDirtyTrackingTests
         var world = new World();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
+        var cursorAfterAdd = world.CurrentTick;
         world.AdvanceTick();
 
         _ = world.GetComponent<Position>(entity);
@@ -48,7 +46,7 @@ public class WorldDirtyTrackingTests
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.ReadDirtyLogSince(sinceTick: 0).ToArray().Should()
+        storage.ReadDirtyLogSince(cursorAfterAdd).ToArray().Should()
             .Equal(new DirtyEntry(entity, world.CurrentTick));
     }
 

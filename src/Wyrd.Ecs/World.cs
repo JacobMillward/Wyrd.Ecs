@@ -213,7 +213,7 @@ public sealed class World : IWorld
 
     /// <inheritdoc/>
     public MutEntityQuery<T> QueryMut<T>() where T : struct, IComponent =>
-        new(_archetypes.Values, TypeIndex<T>.Value);
+        new(_archetypes.Values, TypeIndex<T>.Value, _currentTick);
 
     /// <inheritdoc/>
     public RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent =>

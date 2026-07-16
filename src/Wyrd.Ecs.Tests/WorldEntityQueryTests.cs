@@ -56,13 +56,32 @@ public class WorldEntityQueryTests
         var world = new World();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
+        world.AdvanceTick();
 
         foreach (ref var position in world.QueryMut<Position>())
             _ = position;
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.RawDirty[0].Should().BeTrue();
+        storage.RawLastMarkedTick[0].Should().Be(world.CurrentTick);
+    }
+
+    [Fact]
+    public void QueryMut_AccessingCurrent_LogsExactlyOneEntryThisTick()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+        var cursorAfterAdd = world.CurrentTick;
+        world.AdvanceTick();
+
+        foreach (ref var position in world.QueryMut<Position>())
+            _ = position;
+
+        var archetype = GetArchetype(world, entity);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.ReadDirtyLogSince(cursorAfterAdd).ToArray().Should()
+            .Equal(new DirtyEntry(entity, world.CurrentTick));
     }
 
     [Fact]
@@ -71,13 +90,14 @@ public class WorldEntityQueryTests
         var world = new World();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
+        world.AdvanceTick();
 
         foreach (var position in world.QueryRef<Position>())
             _ = position.X;
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.RawDirty[0].Should().BeFalse();
+        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
     }
 
     [Fact]
