@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Tests;
 
 public class EndToEndTests
 {
-    private struct Energy : IComponent
+    internal struct Energy : IComponent
     {
         public float Current;
         public float DrainPerSecond;

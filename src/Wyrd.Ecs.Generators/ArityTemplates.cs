@@ -113,6 +113,23 @@ internal static class ArityTemplates
         sb.AppendLine($"        throw new InvalidOperationException($\"Get<{{typeof(T)}}>() was called on a QueryRow<{typeList}> — {{typeof(T)}} is not one of its declared component types.\");");
         sb.AppendLine("    }");
 
+        sb.AppendLine();
+        sb.AppendLine(n == 1
+            ? "    /// <summary>\n"
+                + "    /// Returns a mutable reference to <typeparamref name=\"T\"/> without marking\n"
+                + "    /// anything dirty. Not meant to be called directly: use <see cref=\"Get{T}\"/>.\n"
+                + "    /// The interceptor generator is the only intended caller, substituting this in\n"
+                + "    /// for <see cref=\"Get{T}\"/> at call sites it can prove never write.\n"
+                + "    /// </summary>"
+            : "    /// <inheritdoc cref=\"QueryRow{T0}.GetUnmarked{T}\"/>");
+        sb.AppendLine("    public ref T GetUnmarked<T>() where T : struct, IComponent");
+        sb.AppendLine("    {");
+        foreach (var i in Indices(n))
+            sb.AppendLine($"        if (typeof(T) == typeof(T{i})) return ref Unsafe.As<T{i}, T>(ref _items{i}[_row]);");
+        sb.AppendLine();
+        sb.AppendLine($"        throw new InvalidOperationException($\"GetUnmarked<{{typeof(T)}}>() was called on a QueryRow<{typeList}> — {{typeof(T)}} is not one of its declared component types.\");");
+        sb.AppendLine("    }");
+
         if (n >= 2)
         {
             sb.AppendLine();

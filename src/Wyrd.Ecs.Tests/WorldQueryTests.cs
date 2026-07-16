@@ -2,25 +2,25 @@ namespace Wyrd.Ecs.Tests;
 
 public class WorldQueryTests
 {
-    private struct Position : IComponent
+    internal struct Position : IComponent
     {
         public float X;
     }
 
-    private struct Velocity : IComponent
+    internal struct Velocity : IComponent
     {
         public float X;
     }
 
-    private struct Acceleration : IComponent
+    internal struct Acceleration : IComponent
     {
         public float X;
     }
 
-    private struct C4 : IComponent { public float X; }
-    private struct C5 : IComponent { public float X; }
-    private struct C6 : IComponent { public float X; }
-    private struct C7 : IComponent { public float X; }
+    internal struct C4 : IComponent { public float X; }
+    internal struct C5 : IComponent { public float X; }
+    internal struct C6 : IComponent { public float X; }
+    internal struct C7 : IComponent { public float X; }
 
     private struct Marker : ITag;
 
@@ -411,6 +411,37 @@ public class WorldQueryTests
                 + row.Get<C4>().X + row.Get<C5>().X + row.Get<C6>().X + row.Get<C7>().X);
 
         sums.Should().Equal(7f);
+    }
+
+    [Fact]
+    public void GetUnmarked_ReadsTheCurrentValueWithoutMarkingDirty()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 7f;
+        world.AdvanceTick();
+
+        var seen = 0f;
+        foreach (var row in world.Query<Position>())
+            seen = row.GetUnmarked<Position>().X;
+
+        seen.Should().Be(7f);
+        var archetype = GetArchetype(world, entity);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+    }
+
+    [Fact]
+    public void GetUnmarked_WritesThroughToRealStorageAnyway()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+
+        foreach (var row in world.Query<Position>())
+            row.GetUnmarked<Position>().X += 10f;
+
+        world.GetComponent<Position>(entity).X.Should().Be(11f);
     }
 
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)

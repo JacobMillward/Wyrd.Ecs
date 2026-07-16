@@ -2,12 +2,12 @@ namespace Wyrd.Ecs.Tests;
 
 public class WorldDirtyReadTests
 {
-    private struct Position : IComponent
+    internal struct Position : IComponent
     {
         public float X;
     }
 
-    private struct Velocity : IComponent;
+    internal struct Velocity : IComponent;
 
     [Fact]
     public void ReadDirty_SinceZero_ReturnsEveryDirtyEntity()
