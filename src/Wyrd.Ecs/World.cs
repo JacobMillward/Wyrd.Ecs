@@ -163,15 +163,15 @@ public sealed class World : IWorld
         return _locations[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
-    public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor =>
+    public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0> =>
         throw new NotImplementedException();
 
     public void Query<TAccess0, TAccess1>(ChunkAction<TAccess0, TAccess1> action)
-        where TAccess0 : struct, IComponentAccessor
-        where TAccess1 : struct, IComponentAccessor =>
+        where TAccess0 : struct, IComponentAccessor<TAccess0>
+        where TAccess1 : struct, IComponentAccessor<TAccess1> =>
         throw new NotImplementedException();
 
-    public EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor =>
+    public EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0> =>
         throw new NotImplementedException();
 
     private void RequireAlive(Entity entity)

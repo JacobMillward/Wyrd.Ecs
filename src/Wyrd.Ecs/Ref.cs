@@ -2,18 +2,27 @@ namespace Wyrd.Ecs;
 
 /// <summary>
 /// Read-only chunk-level access to a <typeparamref name="T"/> component. Indexing
-/// never marks anything dirty. The backing storage behind these members is an
-/// archetype-storage-phase implementation detail — this phase fixes only the public
-/// shape.
+/// never marks anything dirty.
 /// </summary>
-public readonly ref struct Ref<T> : IComponentAccessor where T : struct, IComponent
+public readonly ref struct Ref<T> : IComponentAccessor<Ref<T>> where T : struct, IComponent
 {
+    private readonly ReadOnlySpan<T> _items;
+
+    private Ref(ReadOnlySpan<T> items) => _items = items;
+
+    /// <inheritdoc/>
+    public static int TypeIndex => Internal.TypeIndex<T>.Value;
+
+    /// <inheritdoc/>
+    public static Ref<T> CreateChunk(Array items, bool[] dirty, int start, int length) =>
+        new(((T[])items).AsSpan(start, length));
+
     /// <summary>The number of components accessible through this instance.</summary>
-    public int Length => throw new NotImplementedException();
+    public int Length => _items.Length;
 
     /// <summary>
     /// Returns a read-only reference to the <typeparamref name="T"/> component at
     /// <paramref name="index"/>.
     /// </summary>
-    public ref readonly T this[int index] => throw new NotImplementedException();
+    public ref readonly T this[int index] => ref _items[index];
 }

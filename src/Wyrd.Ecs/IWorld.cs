@@ -56,12 +56,12 @@ public interface IWorld
     /// API for systems that run every tick over many entities — see
     /// <see cref="ChunkAction{TAccess0}"/>.
     /// </summary>
-    void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor;
+    void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>;
 
     /// <summary>Two-component overload, using <see cref="ChunkAction{TAccess0, TAccess1}"/>.</summary>
     void Query<TAccess0, TAccess1>(ChunkAction<TAccess0, TAccess1> action)
-        where TAccess0 : struct, IComponentAccessor
-        where TAccess1 : struct, IComponentAccessor;
+        where TAccess0 : struct, IComponentAccessor<TAccess0>
+        where TAccess1 : struct, IComponentAccessor<TAccess1>;
 
     /// <summary>
     /// Hidden-chunk convenience query: returns a <c>foreach</c>-able sequence of one
@@ -70,5 +70,5 @@ public interface IWorld
     /// <c>ForEach&lt;T0&gt;(EntityAction&lt;T0&gt;)</c> entirely — see
     /// <see cref="EntityQuery{TAccess0}"/>.
     /// </summary>
-    EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor;
+    EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor<TAccess0>;
 }
