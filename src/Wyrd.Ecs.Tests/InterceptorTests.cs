@@ -152,8 +152,8 @@ public class InterceptorTests
 
     private static bool MarkedThisTick(World world, Entity entity)
     {
-        var field = typeof(World).GetField("_locations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var locations = (System.ValueTuple<Wyrd.Ecs.Internal.Archetype, int>[])field.GetValue(world)!;
+        var field = typeof(World).GetField("_locations", global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance)!;
+        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])field.GetValue(world)!;
         var (archetype, row) = locations[entity.Id];
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
         return storage.RawLastMarkedTick[row] == world.CurrentTick;

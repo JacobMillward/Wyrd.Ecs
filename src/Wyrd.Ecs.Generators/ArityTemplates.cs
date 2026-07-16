@@ -314,4 +314,37 @@ internal static class ArityTemplates
                $"    public Query<{tp}> Query<{tp}>() {where} =>\n" +
                $"        new(_archetypes.Values, {indexArgs}, _currentTick);";
     }
+
+    /// <summary>Emits <c>QuerySystem&lt;T0..TN-1&gt;</c>, the single-query System base for arity <paramref name="n"/>.</summary>
+    internal static string QuerySystem(int n)
+    {
+        var tp = TypeParams(n);
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "/// <summary>"
+            : $"/// <summary>{n}-component overload of <see cref=\"QuerySystem{{T0}}\"/>.</summary>");
+        if (n == 1)
+        {
+            sb.AppendLine("/// A System whose <see cref=\"System.OnUpdate\"/> is a single query over one or");
+            sb.AppendLine("/// more component types, generated to call <see cref=\"Execute\"/> once per");
+            sb.AppendLine("/// matching entity. Deriving classes must be declared <c>partial</c> and");
+            sb.AppendLine("/// implement only <see cref=\"Execute\"/>; the generator supplies <c>OnUpdate</c>.");
+            sb.AppendLine("/// This class itself leaves <c>OnUpdate</c> unimplemented on purpose: inlining a");
+            sb.AppendLine("/// specific override's body only makes sense once that override exists, which");
+            sb.AppendLine("/// means once per concrete derived class, not once here.");
+            sb.AppendLine("/// </summary>");
+        }
+
+        sb.AppendLine($"public abstract class QuerySystem<{tp}> : System");
+        sb.AppendLine(WhereClauses(n, "    "));
+        sb.AppendLine("{");
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Runs once per matching entity. <paramref name=\"tick\"/> is whatever the caller's own tick counter is; see <see cref=\"System.OnUpdate\"/>.</summary>"
+            : "    /// <inheritdoc cref=\"QuerySystem{T0}.Execute\"/>");
+        var executeParams = string.Join(", ", Indices(n).Select(i => $"ref T{i} component{i}"));
+        sb.AppendLine($"    protected abstract void Execute(World world, ulong tick, {executeParams});");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
 }

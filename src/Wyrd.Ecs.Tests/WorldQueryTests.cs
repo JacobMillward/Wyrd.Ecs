@@ -446,8 +446,8 @@ public class WorldQueryTests
 
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)
     {
-        var field = typeof(World).GetField("_locations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var locations = (System.ValueTuple<Wyrd.Ecs.Internal.Archetype, int>[])field.GetValue(world)!;
-        return locations[entity.Id].Item1;
+        var field = typeof(World).GetField("_locations", global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance)!;
+        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])field.GetValue(world)!;
+        return locations[entity.Id].Archetype;
     }
 }
