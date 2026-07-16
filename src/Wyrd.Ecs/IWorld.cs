@@ -80,21 +80,13 @@ public interface IWorld
         where TAccess1 : struct, IComponentAccessor<TAccess1>, allows ref struct;
 
     /// <summary>
-    /// Hidden-chunk convenience query, tracked/mutable: returns a <c>foreach</c>-able
-    /// sequence of direct references to matching entities' <typeparamref name="T"/>
-    /// component, with no chunk or archetype vocabulary required. Must be consumed as
-    /// <c>foreach (ref var x in world.QueryMut&lt;T&gt;())</c> — see
-    /// <see cref="MutEntityQuery{T}"/>. Supersedes the archetype-storage phase's
-    /// no-callback <c>Query&lt;TAccess0&gt;()</c> entirely, not alongside it.
+    /// Unified entity-tier query, one component: a <c>foreach</c>-able sequence of
+    /// <see cref="QueryRow{T0}"/>, one per matching entity, with no chunk or
+    /// archetype vocabulary required. Replaces <c>QueryMut&lt;T&gt;</c>/
+    /// <c>QueryRef&lt;T&gt;</c> outright — see the design's Unified entity-tier query
+    /// section.
     /// </summary>
-    MutEntityQuery<T> QueryMut<T>() where T : struct, IComponent;
-
-    /// <summary>
-    /// Hidden-chunk convenience query, read-only: returns a <c>foreach</c>-able
-    /// sequence of read-only references to matching entities' <typeparamref name="T"/>
-    /// component. Never marks anything dirty — see <see cref="RefEntityQuery{T}"/>.
-    /// </summary>
-    RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent;
+    Query<T0> Query<T0>() where T0 : struct, IComponent;
 
     /// <summary>
     /// Non-destructive, cursor-based read of <typeparamref name="T"/>'s change log:

@@ -212,12 +212,8 @@ public sealed class World : IWorld
     }
 
     /// <inheritdoc/>
-    public MutEntityQuery<T> QueryMut<T>() where T : struct, IComponent =>
-        new(_archetypes.Values, TypeIndex<T>.Value, _currentTick);
-
-    /// <inheritdoc/>
-    public RefEntityQuery<T> QueryRef<T>() where T : struct, IComponent =>
-        new(_archetypes.Values, TypeIndex<T>.Value);
+    public Query<T0> Query<T0>() where T0 : struct, IComponent =>
+        new(_archetypes.Values, TypeIndex<T0>.Value, _currentTick);
 
     /// <inheritdoc/>
     public DirtyReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>

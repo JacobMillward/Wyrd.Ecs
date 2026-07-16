@@ -100,8 +100,8 @@ public class WorldDirtyReadTests
         world.AddComponent<Position>(entity);
         world.AdvanceTick();
 
-        foreach (ref var position in world.QueryMut<Position>())
-            _ = position;
+        foreach (var row in world.Query<Position>())
+            _ = row.Get<Position>();
 
         var seen = new List<Entity>();
         foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
