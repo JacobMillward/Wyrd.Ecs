@@ -39,6 +39,7 @@ public class QueryIterationBenchmarks
     [Benchmark(Baseline = true)]
     public void OneComponent_ChunkCallback()
     {
+        _world1.AdvanceTick();
         _world1.Query<Mut<Position>>(chunk =>
         {
             for (var i = 0; i < chunk.Length; i++)
@@ -49,6 +50,7 @@ public class QueryIterationBenchmarks
     [Benchmark]
     public void OneComponent_HiddenChunkForEach()
     {
+        _world1.AdvanceTick();
         foreach (ref var position in _world1.QueryMut<Position>())
             position.X += position.Y * 0f;
     }
@@ -56,6 +58,7 @@ public class QueryIterationBenchmarks
     [Benchmark]
     public void TwoComponent_ChunkCallback()
     {
+        _world2.AdvanceTick();
         _world2.Query<Mut<Position>, Ref<Velocity>>((position, velocity) =>
         {
             for (var i = 0; i < position.Length; i++)

@@ -21,6 +21,7 @@ public class StructuralChangeBenchmarks
     [Benchmark(Baseline = true)]
     public void MutateExistingComponent()
     {
+        _world.AdvanceTick();
         ref var position = ref _world.GetComponent<Position>(_entity);
         position.X += 0f;
     }
