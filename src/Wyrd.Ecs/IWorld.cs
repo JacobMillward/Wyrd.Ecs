@@ -52,24 +52,23 @@ public interface IWorld
 
     /// <summary>
     /// Hot-path query: invokes <paramref name="action"/> once per matching archetype
-    /// chunk with contiguous component spans. The primary API for systems that run
-    /// every tick over many entities — see <see cref="ChunkAction{T0}"/>.
+    /// chunk with a <typeparamref name="TAccess0"/> component accessor. The primary
+    /// API for systems that run every tick over many entities — see
+    /// <see cref="ChunkAction{TAccess0}"/>.
     /// </summary>
-    void Query<T0>(ChunkAction<T0> action) where T0 : struct, IComponent;
+    void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor;
 
-    /// <summary>Two-component overload of <see cref="Query{T0}"/>.</summary>
-    void Query<T0, T1>(ChunkAction<T0, T1> action)
-        where T0 : struct, IComponent
-        where T1 : struct, IComponent;
+    /// <summary>Two-component overload, using <see cref="ChunkAction{TAccess0, TAccess1}"/>.</summary>
+    void Query<TAccess0, TAccess1>(ChunkAction<TAccess0, TAccess1> action)
+        where TAccess0 : struct, IComponentAccessor
+        where TAccess1 : struct, IComponentAccessor;
 
     /// <summary>
-    /// Convenience query: invokes <paramref name="action"/> once per matching entity.
-    /// Costs more than <see cref="Query{T0}"/> — reserved for non-hot-path code.
+    /// Hidden-chunk convenience query: returns a <c>foreach</c>-able sequence of one
+    /// <typeparamref name="TAccess0"/> accessor per matching entity, with no chunk or
+    /// archetype vocabulary required. Supersedes the scaffold phase's
+    /// <c>ForEach&lt;T0&gt;(EntityAction&lt;T0&gt;)</c> entirely — see
+    /// <see cref="EntityQuery{TAccess0}"/>.
     /// </summary>
-    void ForEach<T0>(EntityAction<T0> action) where T0 : struct, IComponent;
-
-    /// <summary>Two-component overload of <see cref="ForEach{T0}"/>.</summary>
-    void ForEach<T0, T1>(EntityAction<T0, T1> action)
-        where T0 : struct, IComponent
-        where T1 : struct, IComponent;
+    EntityQuery<TAccess0> Query<TAccess0>() where TAccess0 : struct, IComponentAccessor;
 }
