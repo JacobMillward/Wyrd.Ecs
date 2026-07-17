@@ -11,6 +11,7 @@ namespace Wyrd.Ecs;
 public sealed partial class World : IWorld
 {
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
+    private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
     private readonly Archetype _emptyArchetype;
 
     private EntityId[] _permanentIds = new EntityId[4];
@@ -89,7 +90,12 @@ public sealed partial class World : IWorld
         if (source.Signature.Contains(typeIndex))
             throw new InvalidOperationException($"Entity {entity} already has component {typeof(T)}.");
 
-        var target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+        if (!source.TryGetAddEdge(typeIndex, out var target))
+        {
+            target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+            source.SetAddEdge(typeIndex, target);
+        }
+
         var targetRow = MoveEntity(entity, source, sourceRow, target);
 
         var storage = target.GetOrCreateStorage<T>();
@@ -143,7 +149,12 @@ public sealed partial class World : IWorld
         var (source, sourceRow) = _locations[entity.Id];
         if (!source.Signature.Contains(typeIndex)) return;
 
-        var target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source, excludeTypeIndex: typeIndex);
+        if (!source.TryGetRemoveEdge(typeIndex, out var target))
+        {
+            target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source, excludeTypeIndex: typeIndex);
+            source.SetRemoveEdge(typeIndex, target);
+        }
+
         MoveEntity(entity, source, sourceRow, target);
     }
 
@@ -155,7 +166,12 @@ public sealed partial class World : IWorld
         var (source, sourceRow) = _locations[entity.Id];
         if (source.Signature.Contains(typeIndex)) return;
 
-        var target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+        if (!source.TryGetAddEdge(typeIndex, out var target))
+        {
+            target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+            source.SetAddEdge(typeIndex, target);
+        }
+
         MoveEntity(entity, source, sourceRow, target);
     }
 
@@ -167,7 +183,12 @@ public sealed partial class World : IWorld
         var (source, sourceRow) = _locations[entity.Id];
         if (!source.Signature.Contains(typeIndex)) return;
 
-        var target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source);
+        if (!source.TryGetRemoveEdge(typeIndex, out var target))
+        {
+            target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source);
+            source.SetRemoveEdge(typeIndex, target);
+        }
+
         MoveEntity(entity, source, sourceRow, target);
     }
 
@@ -182,9 +203,9 @@ public sealed partial class World : IWorld
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {
         var typeIndex = TAccess0.TypeIndex;
-        foreach (var archetype in _archetypes.Values)
+        foreach (var archetype in GetMatchingArchetypes(Internal.QuerySignature<TAccess0>.Value))
         {
-            if (archetype.Count == 0 || !archetype.Signature.Contains(typeIndex)) continue;
+            if (archetype.Count == 0) continue;
 
             var storage = archetype.Storages[typeIndex];
             var dirtyLog = storage.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
@@ -199,10 +220,9 @@ public sealed partial class World : IWorld
     {
         var index0 = TAccess0.TypeIndex;
         var index1 = TAccess1.TypeIndex;
-        foreach (var archetype in _archetypes.Values)
+        foreach (var archetype in GetMatchingArchetypes(Internal.QuerySignature<TAccess0, TAccess1>.Value))
         {
-            if (archetype.Count == 0 || !archetype.Signature.Contains(index0) || !archetype.Signature.Contains(index1))
-                continue;
+            if (archetype.Count == 0) continue;
 
             var storage0 = archetype.Storages[index0];
             var storage1 = archetype.Storages[index1];
@@ -218,7 +238,7 @@ public sealed partial class World : IWorld
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <inheritdoc/>
-    public DirtyReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>
+    public ChangeReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>
         new(_archetypes.Values, TypeIndex<T>.Value, sinceTick);
 
     private void RequireAlive(Entity entity)
@@ -248,7 +268,29 @@ public sealed partial class World : IWorld
         }
 
         _archetypes[signature] = created;
+        _queryCache.Clear();
         return created;
+    }
+
+    /// <summary>
+    /// Every archetype whose signature contains all of <paramref name="required"/>'s bits,
+    /// cached per required set and invalidated whenever a new archetype is created. A
+    /// query only needs to walk this array, not every archetype in the world.
+    /// </summary>
+    internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required)
+    {
+        if (_queryCache.TryGetValue(required, out var cached)) return cached;
+
+        var matches = new List<Archetype>();
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (required.IsSubsetOf(archetype.Signature))
+                matches.Add(archetype);
+        }
+
+        var result = matches.ToArray();
+        _queryCache[required] = result;
+        return result;
     }
 
     private int MoveEntity(Entity entity, Archetype source, int sourceRow, Archetype target)

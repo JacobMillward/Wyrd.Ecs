@@ -4,19 +4,19 @@ namespace Wyrd.Ecs;
 
 /// <summary>
 /// Non-destructive, cursor-based read over one component type's change log across
-/// every archetype that has it. Returned by <see cref="IWorld.ReadDirty{T}"/>. Reading
-/// never clears or reorders the log — any number of independent reads, each with its
-/// own <c>sinceTick</c>, observe the same underlying entries without affecting each
-/// other. See the design's Streaming the change log to multiple independent consumers
-/// section.
+/// every archetype that has it. Obtained from <see cref="ChangeConsumer{T}.ReadChanges"/>.
+/// Reading never clears or reorders the log, so any number of independent consumers,
+/// each with their own cursor, observe the same underlying entries without affecting
+/// each other. See the design's Streaming the change log to multiple independent
+/// consumers section.
 /// </summary>
-public readonly ref struct DirtyReadQuery<T> where T : struct, IComponent
+public readonly ref struct ChangeReadQuery<T> where T : struct, IComponent
 {
     private readonly Dictionary<ArchetypeSignature, Archetype>.ValueCollection _archetypes;
     private readonly int _typeIndex;
     private readonly int _sinceTick;
 
-    internal DirtyReadQuery(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex, int sinceTick)
+    internal ChangeReadQuery(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, int typeIndex, int sinceTick)
     {
         _archetypes = archetypes;
         _typeIndex = typeIndex;
