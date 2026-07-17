@@ -54,6 +54,7 @@ internal static class ArityTemplates
             sb.AppendLine($"    private readonly Span<T{i}> _items{i};");
             sb.AppendLine($"    private readonly Span<int> _lastMarkedTick{i};");
             sb.AppendLine($"    private readonly DirtyLog _dirtyLog{i};");
+            sb.AppendLine($"    private readonly bool _tracked{i};");
         }
         sb.AppendLine("    private readonly int _tick;");
         sb.AppendLine("    private readonly int _row;");
@@ -62,11 +63,11 @@ internal static class ArityTemplates
 
         sb.AppendLine("    internal QueryRow(");
         sb.AppendLine(string.Join(",\n", Indices(n).Select(i =>
-            $"        Span<T{i}> items{i}, Span<int> lastMarkedTick{i}, DirtyLog dirtyLog{i}")));
+            $"        Span<T{i}> items{i}, Span<int> lastMarkedTick{i}, DirtyLog dirtyLog{i}, bool tracked{i}")));
         sb.AppendLine("        , int tick, int row, Entity entity)");
         sb.AppendLine("    {");
         foreach (var i in Indices(n))
-            sb.AppendLine($"        _items{i} = items{i}; _lastMarkedTick{i} = lastMarkedTick{i}; _dirtyLog{i} = dirtyLog{i};");
+            sb.AppendLine($"        _items{i} = items{i}; _lastMarkedTick{i} = lastMarkedTick{i}; _dirtyLog{i} = dirtyLog{i}; _tracked{i} = tracked{i};");
         sb.AppendLine("        _tick = tick;");
         sb.AppendLine("        _row = row;");
         sb.AppendLine("        _entity = entity;");
@@ -99,7 +100,7 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"        if (typeof(T) == typeof(T{i}))");
             sb.AppendLine("        {");
-            sb.AppendLine($"            if (_lastMarkedTick{i}[_row] != _tick)");
+            sb.AppendLine($"            if (_tracked{i} && _lastMarkedTick{i}[_row] != _tick)");
             sb.AppendLine("            {");
             sb.AppendLine($"                _lastMarkedTick{i}[_row] = _tick;");
             sb.AppendLine($"                _dirtyLog{i}.Entries[_dirtyLog{i}.Count] = new DirtyEntry(_entity, _tick);");
@@ -181,23 +182,26 @@ internal static class ArityTemplates
         sb.AppendLine($"public readonly ref struct Query<{tp}>");
         sb.AppendLine(WhereClauses(n, "    "));
         sb.AppendLine("{");
-        sb.AppendLine("    private readonly Dictionary<ArchetypeSignature, Archetype>.ValueCollection _archetypes;");
+        sb.AppendLine("    private readonly Archetype[] _archetypes;");
         foreach (var i in Indices(n))
+        {
             sb.AppendLine($"    private readonly int _typeIndex{i};");
+            sb.AppendLine($"    private readonly bool _tracked{i};");
+        }
         sb.AppendLine("    private readonly int _tick;");
         sb.AppendLine();
 
-        var ctorIndexParams = string.Join(", ", Indices(n).Select(i => $"int typeIndex{i}"));
-        sb.AppendLine($"    internal Query(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, {ctorIndexParams}, int tick)");
+        var ctorIndexParams = string.Join(", ", Indices(n).Select(i => $"int typeIndex{i}, bool tracked{i}"));
+        sb.AppendLine($"    internal Query(Archetype[] archetypes, {ctorIndexParams}, int tick)");
         sb.AppendLine("    {");
         sb.AppendLine("        _archetypes = archetypes;");
         foreach (var i in Indices(n))
-            sb.AppendLine($"        _typeIndex{i} = typeIndex{i};");
+            sb.AppendLine($"        _typeIndex{i} = typeIndex{i}; _tracked{i} = tracked{i};");
         sb.AppendLine("        _tick = tick;");
         sb.AppendLine("    }");
         sb.AppendLine();
 
-        var enumCtorArgs = string.Join(", ", Indices(n).Select(i => $"_typeIndex{i}"));
+        var enumCtorArgs = string.Join(", ", Indices(n).Select(i => $"_typeIndex{i}, _tracked{i}"));
         sb.AppendLine(n == 1
             ? "    /// <summary>Returns the enumerator for this query.</summary>"
             : "    /// <inheritdoc cref=\"Query{T0}.GetEnumerator\"/>");
@@ -209,9 +213,12 @@ internal static class ArityTemplates
             : "    /// <inheritdoc cref=\"Query{T0}.Enumerator\"/>");
         sb.AppendLine("    public ref struct Enumerator");
         sb.AppendLine("    {");
-        sb.AppendLine("        private Dictionary<ArchetypeSignature, Archetype>.ValueCollection.Enumerator _archetypes;");
+        sb.AppendLine("        private readonly Archetype[] _archetypes;");
+        sb.AppendLine("        private int _archetypeIndex;");
         foreach (var i in Indices(n))
             sb.AppendLine($"        private readonly int _typeIndex{i};");
+        foreach (var i in Indices(n))
+            sb.AppendLine($"        private readonly bool _tracked{i};");
         sb.AppendLine("        private readonly int _tick;");
         foreach (var i in Indices(n))
         {
@@ -224,12 +231,13 @@ internal static class ArityTemplates
         sb.AppendLine("        private int _count;");
         sb.AppendLine();
 
-        var enumCtorParams = string.Join(", ", Indices(n).Select(i => $"int typeIndex{i}"));
-        sb.AppendLine($"        internal Enumerator(Dictionary<ArchetypeSignature, Archetype>.ValueCollection archetypes, {enumCtorParams}, int tick)");
+        var enumCtorParams = string.Join(", ", Indices(n).Select(i => $"int typeIndex{i}, bool tracked{i}"));
+        sb.AppendLine($"        internal Enumerator(Archetype[] archetypes, {enumCtorParams}, int tick)");
         sb.AppendLine("        {");
-        sb.AppendLine("            _archetypes = archetypes.GetEnumerator();");
+        sb.AppendLine("            _archetypes = archetypes;");
+        sb.AppendLine("            _archetypeIndex = -1;");
         foreach (var i in Indices(n))
-            sb.AppendLine($"            _typeIndex{i} = typeIndex{i};");
+            sb.AppendLine($"            _typeIndex{i} = typeIndex{i}; _tracked{i} = tracked{i};");
         sb.AppendLine("            _tick = tick;");
         foreach (var i in Indices(n))
             sb.AppendLine($"            _items{i} = default; _lastMarkedTick{i} = default; _dirtyLog{i} = null!;");
@@ -242,25 +250,23 @@ internal static class ArityTemplates
         sb.AppendLine(n == 1
             ? "        /// <summary>The current row.</summary>"
             : "        /// <inheritdoc cref=\"Query{T0}.Enumerator.Current\"/>");
-        var currentArgs = string.Join(", ", Indices(n).Select(i => $"_items{i}, _lastMarkedTick{i}, _dirtyLog{i}"));
+        var currentArgs = string.Join(", ", Indices(n).Select(i => $"_items{i}, _lastMarkedTick{i}, _dirtyLog{i}, _tracked{i}"));
         sb.AppendLine($"        public QueryRow<{tp}> Current => new({currentArgs}, _tick, _row, _entities[_row]);");
         sb.AppendLine();
 
         sb.AppendLine(n == 1
-            ? "        /// <summary>Advances to the next matching entity, caching a new archetype's storage exactly once per transition.</summary>"
+            ? "        /// <summary>Advances to the next matching entity, caching a new archetype's storage exactly once per transition. Only walks the archetypes already known to match this query's component set, not every archetype in the world.</summary>"
             : "        /// <inheritdoc cref=\"Query{T0}.Enumerator.MoveNext\"/>");
         sb.AppendLine("        public bool MoveNext()");
         sb.AppendLine("        {");
         sb.AppendLine("            _row++;");
         sb.AppendLine("            while (_row >= _count)");
         sb.AppendLine("            {");
-        sb.AppendLine("                if (!_archetypes.MoveNext()) return false;");
+        sb.AppendLine("                _archetypeIndex++;");
+        sb.AppendLine("                if (_archetypeIndex >= _archetypes.Length) return false;");
         sb.AppendLine();
-        sb.AppendLine("                var archetype = _archetypes.Current;");
-        sb.Append("                if (archetype.Count == 0");
-        foreach (var i in Indices(n))
-            sb.Append($" || !archetype.Signature.Contains(_typeIndex{i})");
-        sb.AppendLine(")");
+        sb.AppendLine("                var archetype = _archetypes[_archetypeIndex];");
+        sb.AppendLine("                if (archetype.Count == 0)");
         sb.AppendLine("                {");
         sb.AppendLine("                    _count = 0;");
         sb.AppendLine("                    _row = 0;");
@@ -273,7 +279,7 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"                _items{i} = ((T{i}[])storage{i}.RawItems).AsSpan(0, archetype.Count);");
             sb.AppendLine($"                _lastMarkedTick{i} = storage{i}.RawLastMarkedTick.AsSpan(0, archetype.Count);");
-            sb.AppendLine($"                _dirtyLog{i} = storage{i}.GetDirtyLogForChunk(archetype.Entities, archetype.Count);");
+            sb.AppendLine($"                _dirtyLog{i} = _tracked{i} ? storage{i}.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;");
         }
         sb.AppendLine("                _entities = archetype.Entities;");
         sb.AppendLine("                _count = archetype.Count;");
@@ -283,6 +289,29 @@ internal static class ArityTemplates
         sb.AppendLine("            return true;");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits <c>QuerySignature&lt;T0..TN-1&gt;</c>: the required archetype signature for
+    /// a <c>Query&lt;T0..TN-1&gt;</c>, resolved once per closed generic instantiation
+    /// (the same pattern <c>TypeIndex&lt;T&gt;</c> uses) so <c>World</c>'s query members
+    /// can look up matching archetypes without rebuilding this signature every call.
+    /// </summary>
+    internal static string QuerySignature(int n)
+    {
+        var tp = TypeParams(n);
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "/// <summary>The required archetype signature for a <see cref=\"Query{T0}\"/>.</summary>"
+            : $"/// <summary>{n}-component overload of <see cref=\"QuerySignature{{T0}}\"/>.</summary>");
+        sb.AppendLine($"internal static class QuerySignature<{tp}>");
+        sb.AppendLine(WhereClauses(n, "    "));
+        sb.AppendLine("{");
+        var withChain = string.Join("", Indices(n).Select(i => $".With(TypeIndex<T{i}>.Value)"));
+        sb.AppendLine($"    internal static readonly ArchetypeSignature Value = ArchetypeSignature.Empty{withChain};");
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -309,10 +338,10 @@ internal static class ArityTemplates
     {
         var tp = TypeParams(n);
         var where = WhereClausesInline(n);
-        var indexArgs = string.Join(", ", Indices(n).Select(i => $"TypeIndex<T{i}>.Value"));
+        var ctorArgs = string.Join(", ", Indices(n).Select(i => $"TypeIndex<T{i}>.Value, IsTracked(TypeIndex<T{i}>.Value)"));
         return $"    /// <inheritdoc/>\n" +
                $"    public Query<{tp}> Query<{tp}>() {where} =>\n" +
-               $"        new(_archetypes.Values, {indexArgs}, _currentTick);";
+               $"        new(GetMatchingArchetypes(QuerySignature<{tp}>.Value), {ctorArgs}, _currentTick);";
     }
 
     /// <summary>Emits <c>QuerySystem&lt;T0..TN-1&gt;</c>, the single-query System base for arity <paramref name="n"/>.</summary>

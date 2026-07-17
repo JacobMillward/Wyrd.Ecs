@@ -69,6 +69,7 @@ public class WorldQueryTests
     public void OneComponent_GetMarksThatEntityDirty()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AdvanceTick();
@@ -85,6 +86,7 @@ public class WorldQueryTests
     public void OneComponent_TouchingAnEntityTwiceInOneTick_LogsExactlyOneEntry()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         var cursorAfterAdd = world.CurrentTick;
@@ -100,6 +102,22 @@ public class WorldQueryTests
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
         storage.ReadDirtyLogSince(cursorAfterAdd).ToArray().Should()
             .Equal(new DirtyEntry(entity, world.CurrentTick));
+    }
+
+    [Fact]
+    public void OneComponent_WithNoRegisteredConsumer_NeverMarksDirty()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+        world.AdvanceTick();
+
+        foreach (var row in world.Query<Position>())
+            row.Get<Position>().X += 1f;
+
+        var archetype = GetArchetype(world, entity);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
     }
 
     [Fact]
@@ -232,6 +250,8 @@ public class WorldQueryTests
     public void TwoComponent_GettingOneComponentDoesNotMarkTheOtherDirty()
     {
         var world = new World();
+        using var positionConsumer = world.RegisterChangeConsumer<Position>();
+        using var velocityConsumer = world.RegisterChangeConsumer<Velocity>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AddComponent<Velocity>(entity);
@@ -264,6 +284,8 @@ public class WorldQueryTests
     public void TwoComponent_DeconstructNeverMarksDirty()
     {
         var world = new World();
+        using var positionConsumer = world.RegisterChangeConsumer<Position>();
+        using var velocityConsumer = world.RegisterChangeConsumer<Velocity>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AddComponent<Velocity>(entity);
@@ -351,6 +373,9 @@ public class WorldQueryTests
     public void ThreeComponent_MarksOnlyTheComponentTouched()
     {
         var world = new World();
+        using var positionConsumer = world.RegisterChangeConsumer<Position>();
+        using var velocityConsumer = world.RegisterChangeConsumer<Velocity>();
+        using var accelerationConsumer = world.RegisterChangeConsumer<Acceleration>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AddComponent<Velocity>(entity);
@@ -417,6 +442,7 @@ public class WorldQueryTests
     public void GetUnmarked_ReadsTheCurrentValueWithoutMarkingDirty()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 7f;
         world.AdvanceTick();
