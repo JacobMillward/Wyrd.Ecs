@@ -104,7 +104,8 @@ public sealed partial class World : IWorld
         var targetRow = MoveEntity(entity, source, sourceRow, target);
 
         var storage = target.GetOrCreateStorage<T>();
-        storage.MarkDirty(targetRow, entity, _currentTick);
+        if (IsTracked(typeIndex))
+            storage.MarkDirty(targetRow, entity, _currentTick);
         return ref storage[targetRow];
     }
 
@@ -117,7 +118,8 @@ public sealed partial class World : IWorld
             throw new InvalidOperationException($"Entity {entity} does not have component {typeof(T)}.");
 
         var typed = (ComponentStorage<T>)storage;
-        typed.MarkDirty(row, entity, _currentTick);
+        if (IsTracked(TypeIndex<T>.Value))
+            typed.MarkDirty(row, entity, _currentTick);
         return ref typed[row];
     }
 

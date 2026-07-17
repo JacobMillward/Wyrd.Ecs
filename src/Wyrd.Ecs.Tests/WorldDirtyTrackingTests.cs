@@ -8,6 +8,7 @@ public class WorldDirtyTrackingTests
     public void GetComponent_MarksTheComponentDirtyAtTheCurrentTick()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AdvanceTick();
@@ -23,6 +24,7 @@ public class WorldDirtyTrackingTests
     public void AddComponent_MarksTheNewComponentDirtyAtTheCurrentTick()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
 
         world.AddComponent<Position>(entity);
@@ -36,6 +38,7 @@ public class WorldDirtyTrackingTests
     public void GetComponent_TouchedTwiceSameTick_LogsOnlyOneEntry()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         var cursorAfterAdd = world.CurrentTick;
@@ -54,6 +57,7 @@ public class WorldDirtyTrackingTests
     public void TryGetComponent_NeverMarksDirty()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AdvanceTick();
@@ -62,6 +66,23 @@ public class WorldDirtyTrackingTests
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+    }
+
+    [Fact]
+    public void GetComponent_WithNoRegisteredConsumer_NeverMarksDirty()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+        var archetype = GetArchetype(world, entity);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        var tickAfterAdd = storage.RawLastMarkedTick[0]; // AddComponent above also went unmarked
+        world.AdvanceTick();
+
+        _ = world.GetComponent<Position>(entity);
+
+        storage.RawLastMarkedTick[0].Should().Be(tickAfterAdd);
         storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
     }
 
