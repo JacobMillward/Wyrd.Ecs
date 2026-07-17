@@ -12,6 +12,8 @@ public sealed partial class World : IWorld
 {
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
+    private readonly Dictionary<int, List<Internal.IChangeConsumerHandle>> _consumersByType = new();
+    private int[] _consumerCounts = [];
     private readonly Archetype _emptyArchetype;
 
     private EntityId[] _permanentIds = new EntityId[4];
@@ -77,6 +79,9 @@ public sealed partial class World : IWorld
 
     /// <inheritdoc/>
     public int CurrentTick => _currentTick;
+
+    /// <summary>The live archetype collection, for <see cref="ChangeConsumer{T}"/> to build a <see cref="ChangeReadQuery{T}"/> from.</summary>
+    internal Dictionary<ArchetypeSignature, Archetype>.ValueCollection Archetypes => _archetypes.Values;
 
     /// <inheritdoc/>
     public void AdvanceTick() => _currentTick++;
@@ -238,8 +243,29 @@ public sealed partial class World : IWorld
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <inheritdoc/>
-    public ChangeReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent =>
-        new(_archetypes.Values, TypeIndex<T>.Value, sinceTick);
+    public ChangeConsumer<T> RegisterChangeConsumer<T>() where T : struct, IComponent
+    {
+        var typeIndex = TypeIndex<T>.Value;
+        EnsureConsumerCountCapacity(typeIndex + 1);
+        _consumerCounts[typeIndex]++;
+
+        var consumer = new ChangeConsumer<T>(this, typeIndex, _currentTick);
+        if (!_consumersByType.TryGetValue(typeIndex, out var handles))
+            _consumersByType[typeIndex] = handles = new List<Internal.IChangeConsumerHandle>();
+        handles.Add(consumer);
+
+        return consumer;
+    }
+
+    /// <summary>Unregisters a <see cref="ChangeConsumer{T}"/>. Called only by <see cref="ChangeConsumer{T}.Dispose"/>.</summary>
+    internal void UnregisterChangeConsumer<T>(int typeIndex, ChangeConsumer<T> consumer) where T : struct, IComponent
+    {
+        _consumerCounts[typeIndex]--;
+        _consumersByType[typeIndex].Remove(consumer);
+    }
+
+    /// <summary>True when at least one consumer is currently registered for <paramref name="typeIndex"/>.</summary>
+    internal bool IsTracked(int typeIndex) => typeIndex < _consumerCounts.Length && _consumerCounts[typeIndex] > 0;
 
     private void RequireAlive(Entity entity)
     {
@@ -254,6 +280,12 @@ public sealed partial class World : IWorld
         Array.Resize(ref _generations, newLength);
         Array.Resize(ref _permanentIds, newLength);
         Array.Resize(ref _locations, newLength);
+    }
+
+    private void EnsureConsumerCountCapacity(int capacity)
+    {
+        if (_consumerCounts.Length >= capacity) return;
+        Array.Resize(ref _consumerCounts, Math.Max(capacity, Math.Max(_consumerCounts.Length * 2, 4)));
     }
 
     private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource, int? excludeTypeIndex = null)

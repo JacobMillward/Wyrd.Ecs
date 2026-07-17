@@ -10,57 +10,50 @@ public class WorldDirtyReadTests
     internal struct Velocity : IComponent;
 
     [Fact]
-    public void ReadDirty_SinceZero_ReturnsEveryDirtyEntity()
-    {
-        var world = new World();
-        var a = world.CreateEntity();
-        var b = world.CreateEntity();
-        world.AddComponent<Position>(a);
-        world.AddComponent<Position>(b);
-
-        var seen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
-            seen.Add(entry.Entity);
-
-        seen.Should().BeEquivalentTo(new[] { a, b });
-    }
-
-    [Fact]
-    public void ReadDirty_SinceCurrentTick_ReturnsNothingUntilTheNextTick()
+    public void ReadChanges_RegisteredAfterAWrite_DoesNotSeeThatWrite()
     {
         var world = new World();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
+        world.AdvanceTick();
+
+        using var consumer = world.RegisterChangeConsumer<Position>();
 
         var seen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: world.CurrentTick))
+        foreach (var entry in consumer.ReadChanges())
             seen.Add(entry.Entity);
 
         seen.Should().BeEmpty();
     }
 
     [Fact]
-    public void ReadDirty_SkipsEntriesFromBeforeTheCursor()
+    public void Advance_SkipsEntriesFromBeforeTheNewPosition()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity); // recorded at tick 1
-        var cursorAfterFirstWrite = world.CurrentTick;
+        var afterFirstWrite = world.CurrentTick;
 
         world.AdvanceTick();
         world.GetComponent<Position>(entity).X = 2f; // recorded at tick 2
 
+        consumer.Advance(afterFirstWrite);
+
         var seenTicks = new List<int>();
-        foreach (var entry in world.ReadDirty<Position>(cursorAfterFirstWrite))
+        foreach (var entry in consumer.ReadChanges())
             seenTicks.Add(entry.Tick);
 
         seenTicks.Should().Equal(2);
     }
 
     [Fact]
-    public void ReadDirty_SpansMultipleArchetypes()
+    public void ReadChanges_SpansMultipleArchetypes()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
+        world.AdvanceTick(); // entries recorded in the same tick as registration are never visible to it
+
         var onlyPosition = world.CreateEntity();
         world.AddComponent<Position>(onlyPosition);
 
@@ -69,16 +62,17 @@ public class WorldDirtyReadTests
         world.AddComponent<Velocity>(withVelocity);
 
         var seen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
+        foreach (var entry in consumer.ReadChanges())
             seen.Add(entry.Entity);
 
         seen.Should().BeEquivalentTo(new[] { onlyPosition, withVelocity });
     }
 
     [Fact]
-    public void ReadDirty_ReflectsChunkQueryMutations()
+    public void ReadChanges_ReflectsChunkQueryMutations()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AdvanceTick();
@@ -86,76 +80,127 @@ public class WorldDirtyReadTests
         world.Query<Mut<Position>>(chunk => { chunk[0].X += 0f; });
 
         var seen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
+        foreach (var entry in consumer.ReadChanges())
             seen.Add(entry.Entity);
 
         seen.Should().Contain(entity);
     }
 
     [Fact]
-    public void ReadDirty_ReflectsHiddenChunkQueryMutations()
+    public void ReadChanges_ReflectsHiddenChunkQueryMutations()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
-        var cursorAfterAdd = world.CurrentTick;
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
             row.Get<Position>().X += 1f;
 
         var seen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(cursorAfterAdd))
+        foreach (var entry in consumer.ReadChanges())
             seen.Add(entry.Entity);
 
         seen.Should().Contain(entity);
     }
 
     [Fact]
-    public void ReadDirty_TwoIndependentCursors_BothSeeTheSameEntryWithoutInterference()
+    public void TwoIndependentConsumers_BothSeeTheSameEntryWithoutInterference()
     {
         var world = new World();
         var entity = world.CreateEntity();
+
+        using var first = world.RegisterChangeConsumer<Position>();
+        using var second = world.RegisterChangeConsumer<Position>();
+        world.AdvanceTick(); // entries recorded in the same tick as registration are never visible to it
         world.AddComponent<Position>(entity);
 
-        var firstReaderSeen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
-            firstReaderSeen.Add(entry.Entity);
+        var firstSeen = new List<Entity>();
+        foreach (var entry in first.ReadChanges())
+            firstSeen.Add(entry.Entity);
 
-        // A second, independent reader starting fresh from 0 must see the same entry —
-        // the first reader having already "read" it must not consume or hide it.
-        var secondReaderSeen = new List<Entity>();
-        foreach (var entry in world.ReadDirty<Position>(sinceTick: 0))
-            secondReaderSeen.Add(entry.Entity);
+        var secondSeen = new List<Entity>();
+        foreach (var entry in second.ReadChanges())
+            secondSeen.Add(entry.Entity);
 
-        firstReaderSeen.Should().Equal(entity);
-        secondReaderSeen.Should().Equal(entity);
+        firstSeen.Should().Equal(entity);
+        secondSeen.Should().Equal(entity);
     }
 
     [Fact]
-    public void ReadDirty_TwoCursorsAtDifferentPositions_EachSeeOnlyTheirOwnNewEntries()
+    public void TwoConsumersAtDifferentPositions_EachSeeOnlyTheirOwnNewEntries()
     {
         var world = new World();
         var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity); // tick 1
-        var slowConsumerCursor = 0; // has never read anything
+
+        using var slowConsumer = world.RegisterChangeConsumer<Position>();
+        world.AdvanceTick(); // entries recorded in the same tick as registration are never visible to it
+        world.AddComponent<Position>(entity); // tick 2
 
         world.AdvanceTick();
-        world.GetComponent<Position>(entity).X = 2f; // tick 2
-        var fastConsumerCursor = world.CurrentTick; // has already caught up to tick 2
+        world.GetComponent<Position>(entity).X = 2f; // tick 3
+        using var fastConsumer = world.RegisterChangeConsumer<Position>(); // starts at tick 3, has "caught up"
 
         world.AdvanceTick();
-        world.GetComponent<Position>(entity).X = 3f; // tick 3
+        world.GetComponent<Position>(entity).X = 3f; // tick 4
 
-        var slowConsumerSeenTicks = new List<int>();
-        foreach (var entry in world.ReadDirty<Position>(slowConsumerCursor))
-            slowConsumerSeenTicks.Add(entry.Tick);
+        var slowSeenTicks = new List<int>();
+        foreach (var entry in slowConsumer.ReadChanges())
+            slowSeenTicks.Add(entry.Tick);
 
-        var fastConsumerSeenTicks = new List<int>();
-        foreach (var entry in world.ReadDirty<Position>(fastConsumerCursor))
-            fastConsumerSeenTicks.Add(entry.Tick);
+        var fastSeenTicks = new List<int>();
+        foreach (var entry in fastConsumer.ReadChanges())
+            fastSeenTicks.Add(entry.Tick);
 
-        slowConsumerSeenTicks.Should().Equal(1, 2, 3);
-        fastConsumerSeenTicks.Should().Equal(3);
+        slowSeenTicks.Should().Equal(2, 3, 4);
+        fastSeenTicks.Should().Equal(4);
+    }
+
+    [Fact]
+    public void ReadChanges_OnADisposedConsumer_Throws()
+    {
+        var world = new World();
+        var consumer = world.RegisterChangeConsumer<Position>();
+        consumer.Dispose();
+
+        Action act = () => consumer.ReadChanges();
+
+        act.Should().Throw<ObjectDisposedException>();
+    }
+
+    [Fact]
+    public void Advance_OnADisposedConsumer_Throws()
+    {
+        var world = new World();
+        var consumer = world.RegisterChangeConsumer<Position>();
+        consumer.Dispose();
+
+        var act = () => consumer.Advance(world.CurrentTick);
+
+        act.Should().Throw<ObjectDisposedException>();
+    }
+
+    [Fact]
+    public void Advance_ToATickBeforeTheCurrentPosition_Throws()
+    {
+        var world = new World();
+        world.AdvanceTick();
+        using var consumer = world.RegisterChangeConsumer<Position>();
+
+        var act = () => consumer.Advance(0);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Advance_PastTheWorldsCurrentTick_Throws()
+    {
+        var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
+
+        var act = () => consumer.Advance(world.CurrentTick + 1);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 }

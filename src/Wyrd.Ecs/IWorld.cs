@@ -31,8 +31,8 @@ public partial interface IWorld
     /// <summary>
     /// Advances to the next tick. Marking an entity dirty on a later tick produces a
     /// new change-log entry even if it was already marked on an earlier one — see
-    /// <see cref="ReadDirty{T}"/> and the design's Streaming the change log to multiple
-    /// independent consumers section.
+    /// <see cref="RegisterChangeConsumer{T}"/> and the design's Streaming the change log
+    /// to multiple independent consumers section.
     /// </summary>
     void AdvanceTick();
 
@@ -90,12 +90,12 @@ public partial interface IWorld
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <summary>
-    /// Non-destructive, cursor-based read of <typeparamref name="T"/>'s change log:
-    /// every entity marked dirty on a tick after <paramref name="sinceTick"/>, across
-    /// every archetype. Multiple independent reads with different cursors observe the
-    /// same underlying log without affecting each other — see
-    /// <see cref="ChangeReadQuery{T}"/> and the design's Streaming the change log to
-    /// multiple independent consumers section.
+    /// Registers a reader of <typeparamref name="T"/>'s change log and returns a
+    /// handle to it. This is the only way to observe <typeparamref name="T"/>'s
+    /// changes: registering turns tracking on for <typeparamref name="T"/>, and the
+    /// returned consumer's own advanced position is what makes log retention safe.
+    /// See <see cref="ChangeConsumer{T}"/> and the design's Streaming the change log
+    /// to multiple independent consumers section.
     /// </summary>
-    ChangeReadQuery<T> ReadDirty<T>(int sinceTick) where T : struct, IComponent;
+    ChangeConsumer<T> RegisterChangeConsumer<T>() where T : struct, IComponent;
 }
