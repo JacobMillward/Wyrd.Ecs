@@ -13,12 +13,18 @@ public class QueryIterationBenchmarks
 
     private World _world1 = null!;
     private World _world2 = null!;
+    private ChangeConsumer<Position> _world1PositionConsumer = null!;
+    private ChangeConsumer<Position> _world2PositionConsumer = null!;
+    private ChangeConsumer<Velocity> _world2VelocityConsumer = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         _world1 = new World();
         _world2 = new World();
+        _world1PositionConsumer = _world1.RegisterChangeConsumer<Position>();
+        _world2PositionConsumer = _world2.RegisterChangeConsumer<Position>();
+        _world2VelocityConsumer = _world2.RegisterChangeConsumer<Velocity>();
 
         for (var i = 0; i < EntityCount; i++)
         {
