@@ -30,6 +30,17 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
         return new ArchetypeSignature(words);
     }
 
+    /// <summary>True when every bit set in this signature is also set in <paramref name="other"/>.</summary>
+    internal bool IsSubsetOf(ArchetypeSignature other)
+    {
+        for (var i = 0; i < _words.Length; i++)
+        {
+            var theirs = i < other._words.Length ? other._words[i] : 0UL;
+            if ((_words[i] & theirs) != _words[i]) return false;
+        }
+        return true;
+    }
+
     internal ArchetypeSignature Without(int typeIndex)
     {
         var word = typeIndex >> 6;
