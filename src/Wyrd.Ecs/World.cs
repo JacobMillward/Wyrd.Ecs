@@ -12,7 +12,7 @@ public sealed partial class World : IWorld
 {
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
-    private readonly Dictionary<int, List<Internal.IChangeConsumerHandle>> _consumersByType = new();
+    private readonly Dictionary<int, Internal.TrackedType> _trackedTypes = new();
     private int[] _consumerCounts = [];
     private readonly Archetype _emptyArchetype;
 
@@ -92,20 +92,37 @@ public sealed partial class World : IWorld
 
     private void TrimRetiredEntries()
     {
-        foreach (var (typeIndex, consumers) in _consumersByType)
+        foreach (var (typeIndex, state) in _trackedTypes)
         {
-            if (consumers.Count == 0) continue;
+            if (state.Consumers.Count == 0) continue;
 
             var minTick = int.MaxValue;
-            foreach (var consumer in consumers)
+            foreach (var consumer in state.Consumers)
                 minTick = Math.Min(minTick, consumer.Tick);
 
-            foreach (var archetype in _archetypes.Values)
-            {
-                if (archetype.Storages.TryGetValue(typeIndex, out var storage))
-                    storage.TrimBefore(minTick);
-            }
+            var archetypes = state.CachedArchetypes ??= ComputeArchetypesWithComponent(typeIndex);
+            foreach (var archetype in archetypes)
+                archetype.Storages[typeIndex].TrimBefore(minTick);
         }
+    }
+
+    /// <summary>
+    /// Every archetype whose signature contains <paramref name="typeIndex"/>. Every
+    /// archetype returned here is guaranteed to have a <see cref="Internal.ArchetypeStorages"/>
+    /// entry for <paramref name="typeIndex"/>, since only real component type indices
+    /// (never tags) are ever passed in here. The caller caches the result on the
+    /// matching <see cref="Internal.TrackedType"/>.
+    /// </summary>
+    private Archetype[] ComputeArchetypesWithComponent(int typeIndex)
+    {
+        var matches = new List<Archetype>();
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Signature.Contains(typeIndex))
+                matches.Add(archetype);
+        }
+
+        return matches.ToArray();
     }
 
     /// <inheritdoc/>
@@ -277,9 +294,9 @@ public sealed partial class World : IWorld
         _consumerCounts[typeIndex]++;
 
         var consumer = new ChangeConsumer<T>(this, typeIndex, _currentTick);
-        if (!_consumersByType.TryGetValue(typeIndex, out var handles))
-            _consumersByType[typeIndex] = handles = new List<Internal.IChangeConsumerHandle>();
-        handles.Add(consumer);
+        if (!_trackedTypes.TryGetValue(typeIndex, out var state))
+            _trackedTypes[typeIndex] = state = new Internal.TrackedType();
+        state.Consumers.Add(consumer);
 
         return consumer;
     }
@@ -288,7 +305,7 @@ public sealed partial class World : IWorld
     internal void UnregisterChangeConsumer<T>(int typeIndex, ChangeConsumer<T> consumer) where T : struct, IComponent
     {
         _consumerCounts[typeIndex]--;
-        _consumersByType[typeIndex].Remove(consumer);
+        _trackedTypes[typeIndex].Consumers.Remove(consumer);
     }
 
     /// <summary>True when at least one consumer is currently registered for <paramref name="typeIndex"/>.</summary>
@@ -328,6 +345,8 @@ public sealed partial class World : IWorld
 
         _archetypes[signature] = created;
         _queryCache.Clear();
+        foreach (var state in _trackedTypes.Values)
+            state.CachedArchetypes = null;
         return created;
     }
 
