@@ -18,4 +18,7 @@ internal interface IComponentStorage
     IComponentStorage CreateEmpty();
     DirtyLog GetDirtyLogForChunk(Entity[] archetypeEntities, int additionalCapacity);
     ReadOnlySpan<DirtyEntry> ReadDirtyLogSince(int sinceTick);
+
+    /// <summary>Removes every log entry with <c>Tick &lt;= tick</c>, keeping entries in order.</summary>
+    void TrimBefore(int tick);
 }

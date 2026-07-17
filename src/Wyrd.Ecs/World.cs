@@ -84,7 +84,29 @@ public sealed partial class World : IWorld
     internal Dictionary<ArchetypeSignature, Archetype>.ValueCollection Archetypes => _archetypes.Values;
 
     /// <inheritdoc/>
-    public void AdvanceTick() => _currentTick++;
+    public void AdvanceTick()
+    {
+        _currentTick++;
+        TrimRetiredEntries();
+    }
+
+    private void TrimRetiredEntries()
+    {
+        foreach (var (typeIndex, consumers) in _consumersByType)
+        {
+            if (consumers.Count == 0) continue;
+
+            var minTick = int.MaxValue;
+            foreach (var consumer in consumers)
+                minTick = Math.Min(minTick, consumer.Tick);
+
+            foreach (var archetype in _archetypes.Values)
+            {
+                if (archetype.Storages.TryGetValue(typeIndex, out var storage))
+                    storage.TrimBefore(minTick);
+            }
+        }
+    }
 
     /// <inheritdoc/>
     public ref T AddComponent<T>(Entity entity) where T : struct, IComponent

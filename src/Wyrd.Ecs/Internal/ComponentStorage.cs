@@ -77,6 +77,24 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
         return entries[start..];
     }
 
+    /// <summary>
+    /// Drops every log entry with <c>Tick &lt;= tick</c> from the front of the log,
+    /// shifting the remaining entries down. Called once per tick, only for component
+    /// types with at least one live <see cref="ChangeConsumer{T}"/>, down to the
+    /// minimum tick that consumer has advanced past.
+    /// </summary>
+    public void TrimBefore(int tick)
+    {
+        var entries = _dirtyLog.Entries.AsSpan(0, _dirtyLog.Count);
+        var keepFrom = DirtyLogSearch.FindFirstAfter(entries, tick);
+        if (keepFrom == 0) return;
+
+        var remaining = _dirtyLog.Count - keepFrom;
+        if (remaining > 0)
+            Array.Copy(_dirtyLog.Entries, keepFrom, _dirtyLog.Entries, 0, remaining);
+        _dirtyLog.Count = remaining;
+    }
+
     private void EnsureDirtyLogCapacity(int additionalCapacity)
     {
         var required = _dirtyLog.Count + additionalCapacity;
