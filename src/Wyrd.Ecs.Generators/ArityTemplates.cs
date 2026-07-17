@@ -344,6 +344,53 @@ internal static class ArityTemplates
                $"        new(GetMatchingArchetypes(QuerySignature<{tp}>.Value), {ctorArgs}, _currentTick);";
     }
 
+    /// <summary>Emits the <c>IWorld</c> declaration <c>Entity CreateEntity&lt;T0..TN-1&gt;(...)</c>.</summary>
+    internal static string IWorldCreateEntityMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
+        return n == 1
+            ? "    /// <summary>\n"
+                + "    /// Creates a new entity with its component already set, going directly to\n"
+                + "    /// the matching archetype in one step instead of creating an empty entity\n"
+                + "    /// and adding the component afterward.\n"
+                + "    /// </summary>\n"
+                + $"    Entity CreateEntity<{tp}>({parameters}) {where};"
+            : $"    /// <inheritdoc cref=\"CreateEntity{{T0}}(T0)\"/>\n    Entity CreateEntity<{tp}>({parameters}) {where};";
+    }
+
+    /// <summary>Emits the <c>World</c> implementation of <see cref="IWorldCreateEntityMember"/>.</summary>
+    internal static string WorldCreateEntityMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
+        var sb = new StringBuilder();
+
+        sb.AppendLine("    /// <inheritdoc/>");
+        sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        var signature = QuerySignature<{tp}>.Value;");
+        sb.AppendLine("        if (!_archetypes.TryGetValue(signature, out var target))");
+        sb.AppendLine("            target = CreateArchetype(signature);");
+        sb.AppendLine();
+        sb.AppendLine("        var entity = AllocateEntity();");
+        sb.AppendLine("        var row = target.AddRow(entity);");
+        sb.AppendLine();
+        foreach (var i in Indices(n))
+        {
+            sb.AppendLine($"        var storage{i} = target.GetOrCreateStorage<T{i}>();");
+            sb.AppendLine($"        storage{i}[row] = component{i};");
+            sb.AppendLine($"        if (IsTracked(TypeIndex<T{i}>.Value)) storage{i}.MarkDirty(row, entity, _currentTick);");
+            sb.AppendLine();
+        }
+        sb.AppendLine("        _locations[entity.Id] = (target, row);");
+        sb.AppendLine("        return entity;");
+        sb.AppendLine("    }");
+        return sb.ToString();
+    }
+
     /// <summary>Emits <c>QuerySystem&lt;T0..TN-1&gt;</c>, the single-query System base for arity <paramref name="n"/>.</summary>
     internal static string QuerySystem(int n)
     {

@@ -33,21 +33,9 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public Entity CreateEntity()
     {
-        int id;
-        if (_freeIds.Count > 0)
-        {
-            id = _freeIds.Pop();
-        }
-        else
-        {
-            id = _nextId++;
-            EnsureIdCapacity(id);
-        }
-
-        _permanentIds[id] = EntityId.NewId();
-        var entity = new Entity(id, _generations[id]);
+        var entity = AllocateEntity();
         var row = _emptyArchetype.AddRow(entity);
-        _locations[id] = (_emptyArchetype, row);
+        _locations[entity.Id] = (_emptyArchetype, row);
 
         return entity;
     }
@@ -317,6 +305,24 @@ public sealed partial class World : IWorld
             throw new InvalidOperationException($"Entity {entity} is not alive.");
     }
 
+    /// <summary>Allocates a fresh id and permanent id, without placing it in any archetype.</summary>
+    private Entity AllocateEntity()
+    {
+        int id;
+        if (_freeIds.Count > 0)
+        {
+            id = _freeIds.Pop();
+        }
+        else
+        {
+            id = _nextId++;
+            EnsureIdCapacity(id);
+        }
+
+        _permanentIds[id] = EntityId.NewId();
+        return new Entity(id, _generations[id]);
+    }
+
     private void EnsureIdCapacity(int id)
     {
         if (id < _generations.Length) return;
@@ -336,13 +342,26 @@ public sealed partial class World : IWorld
     {
         if (_archetypes.TryGetValue(signature, out var existing)) return existing;
 
-        var created = new Archetype(signature);
+        var created = CreateArchetype(signature);
         foreach (var (typeIndex, sourceStorage) in templateSource.Storages)
         {
             if (typeIndex == excludeTypeIndex) continue;
             created.Storages[typeIndex] = sourceStorage.CreateEmpty();
         }
 
+        return created;
+    }
+
+    /// <summary>
+    /// Registers a brand-new, storage-less archetype under <paramref name="signature"/>
+    /// and invalidates every archetype-set cache. Callers populate the returned
+    /// archetype's storages themselves, either by copying a template archetype's
+    /// (<see cref="GetOrCreateArchetype"/>) or by creating them directly for a known
+    /// set of component types (the generated <c>CreateEntity{T...}</c> overloads).
+    /// </summary>
+    private Archetype CreateArchetype(ArchetypeSignature signature)
+    {
+        var created = new Archetype(signature);
         _archetypes[signature] = created;
         _queryCache.Clear();
         foreach (var state in _trackedTypes.Values)

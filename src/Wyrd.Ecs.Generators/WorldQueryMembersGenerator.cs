@@ -30,6 +30,11 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
                 iworld.AppendLine(ArityTemplates.IWorldMember(n));
                 iworld.AppendLine();
             }
+            for (var n = 1; n <= QueryArity.Max; n++)
+            {
+                iworld.AppendLine(ArityTemplates.IWorldCreateEntityMember(n));
+                iworld.AppendLine();
+            }
             iworld.AppendLine("}");
             ctx.AddSource("IWorld.QueryMembers.g.cs", iworld.ToString());
 
@@ -43,6 +48,11 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             for (var n = 1; n <= QueryArity.Max; n++)
             {
                 world.AppendLine(ArityTemplates.WorldMember(n));
+                world.AppendLine();
+            }
+            for (var n = 1; n <= QueryArity.Max; n++)
+            {
+                world.AppendLine(ArityTemplates.WorldCreateEntityMember(n));
                 world.AppendLine();
             }
             world.AppendLine("}");

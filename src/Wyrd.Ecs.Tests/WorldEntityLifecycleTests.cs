@@ -2,6 +2,92 @@ namespace Wyrd.Ecs.Tests;
 
 public class WorldEntityLifecycleTests
 {
+    private struct Position : IComponent
+    {
+        public float X;
+    }
+
+    private struct Velocity : IComponent
+    {
+        public float X;
+    }
+
+    [Fact]
+    public void CreateEntity_WithOneComponent_SetsItDirectly()
+    {
+        var world = new World();
+
+        var entity = world.CreateEntity(new Position { X = 5f });
+
+        world.HasComponent<Position>(entity).Should().BeTrue();
+        world.GetComponent<Position>(entity).X.Should().Be(5f);
+    }
+
+    [Fact]
+    public void CreateEntity_WithTwoComponents_SetsBothDirectly()
+    {
+        var world = new World();
+
+        var entity = world.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+
+        world.GetComponent<Position>(entity).X.Should().Be(1f);
+        world.GetComponent<Velocity>(entity).X.Should().Be(2f);
+    }
+
+    [Fact]
+    public void CreateEntity_WithComponents_IsAlive()
+    {
+        var world = new World();
+
+        var entity = world.CreateEntity(new Position());
+
+        world.IsAlive(entity).Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateEntity_WithComponents_TwoEntitiesOfTheSameShape_ShareOneArchetype()
+    {
+        var world = new World();
+
+        var a = world.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        var b = world.CreateEntity(new Position { X = 3f }, new Velocity { X = 4f });
+
+        var visited = new List<Entity>();
+        foreach (var row in world.Query<Position, Velocity>())
+            visited.Add(row.Entity);
+
+        visited.Should().BeEquivalentTo(new[] { a, b });
+    }
+
+    [Fact]
+    public void CreateEntity_WithComponents_WithNoRegisteredConsumer_NeverMarksDirty()
+    {
+        var world = new World();
+
+        var entity = world.CreateEntity(new Position());
+
+        var field = typeof(World).GetField("_locations", global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance)!;
+        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])field.GetValue(world)!;
+        var (archetype, row) = locations[entity.Id];
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.RawLastMarkedTick[row].Should().Be(0);
+    }
+
+    [Fact]
+    public void CreateEntity_WithComponents_WithRegisteredConsumer_MarksDirtyAtTheCurrentTick()
+    {
+        var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
+
+        var entity = world.CreateEntity(new Position());
+
+        var field = typeof(World).GetField("_locations", global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance)!;
+        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])field.GetValue(world)!;
+        var (archetype, row) = locations[entity.Id];
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.RawLastMarkedTick[row].Should().Be(world.CurrentTick);
+    }
+
     [Fact]
     public void CreateEntity_ReturnsANonNullEntity()
     {

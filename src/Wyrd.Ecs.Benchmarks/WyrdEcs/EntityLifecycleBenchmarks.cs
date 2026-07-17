@@ -21,15 +21,26 @@ public class EntityLifecycleBenchmarks
     public Entity CreateBareEntity() => _world.CreateEntity();
 
     [Benchmark]
-    public Entity CreateOneComponentEntity()
-    {
-        var entity = _world.CreateEntity();
-        _world.AddComponent<Position>(entity);
-        return entity;
-    }
+    public Entity CreateOneComponentEntity() => _world.CreateEntity(new Position());
 
     [Benchmark]
-    public Entity CreateFourComponentEntity()
+    public Entity CreateFourComponentEntity() =>
+        _world.CreateEntity(new Position(), new Velocity(), new Health(), new Payload8());
+
+    [Benchmark]
+    public Entity CreateEightComponentEntity() =>
+        _world.CreateEntity(
+            new Position(), new Velocity(), new Health(), new Payload8(),
+            new Filler1(), new Filler2(), new Filler3(), new Filler4());
+
+    /// <summary>
+    /// Creates an entity empty, then adds each component one at a time, moving
+    /// through an intermediate archetype per add. Kept alongside
+    /// <see cref="CreateFourComponentEntity"/> to show the cost of that pattern
+    /// against the batched <c>CreateEntity{T...}</c> overloads directly.
+    /// </summary>
+    [Benchmark]
+    public Entity CreateFourComponentEntity_OneAtATime()
     {
         var entity = _world.CreateEntity();
         _world.AddComponent<Position>(entity);
@@ -39,8 +50,9 @@ public class EntityLifecycleBenchmarks
         return entity;
     }
 
+    /// <inheritdoc cref="CreateFourComponentEntity_OneAtATime"/>
     [Benchmark]
-    public Entity CreateEightComponentEntity()
+    public Entity CreateEightComponentEntity_OneAtATime()
     {
         var entity = _world.CreateEntity();
         _world.AddComponent<Position>(entity);
