@@ -10,13 +10,47 @@ namespace Wyrd.Ecs.Internal;
 internal sealed class Archetype
 {
     private Entity[] _entities = new Entity[4];
+    private Dictionary<int, Archetype>? _addEdges;
+    private Dictionary<int, Archetype>? _removeEdges;
 
     internal ArchetypeSignature Signature { get; }
-    internal Dictionary<int, IComponentStorage> Storages { get; } = new();
+    internal ArchetypeStorages Storages { get; } = new();
     internal Entity[] Entities => _entities;
     internal int Count { get; private set; }
 
     internal Archetype(ArchetypeSignature signature) => Signature = signature;
+
+    /// <summary>The archetype already known to result from adding <paramref name="typeIndex"/> to this one, if any component or tag has taken that transition before.</summary>
+    internal bool TryGetAddEdge(int typeIndex, out Archetype target)
+    {
+        if (_addEdges is not null && _addEdges.TryGetValue(typeIndex, out var existing))
+        {
+            target = existing;
+            return true;
+        }
+
+        target = null!;
+        return false;
+    }
+
+    internal void SetAddEdge(int typeIndex, Archetype target) =>
+        (_addEdges ??= new Dictionary<int, Archetype>())[typeIndex] = target;
+
+    /// <summary>The archetype already known to result from removing <paramref name="typeIndex"/> from this one, if any component or tag has taken that transition before.</summary>
+    internal bool TryGetRemoveEdge(int typeIndex, out Archetype target)
+    {
+        if (_removeEdges is not null && _removeEdges.TryGetValue(typeIndex, out var existing))
+        {
+            target = existing;
+            return true;
+        }
+
+        target = null!;
+        return false;
+    }
+
+    internal void SetRemoveEdge(int typeIndex, Archetype target) =>
+        (_removeEdges ??= new Dictionary<int, Archetype>())[typeIndex] = target;
 
     internal int AddRow(Entity entity)
     {

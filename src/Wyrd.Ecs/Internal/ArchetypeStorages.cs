@@ -1,0 +1,99 @@
+namespace Wyrd.Ecs.Internal;
+
+/// <summary>
+/// Component storage for a single archetype, indexed directly by
+/// <see cref="TypeIndex{T}"/> value. Type indices are small integers assigned once
+/// per type, so every lookup here, on every query enumerator's archetype transition
+/// and every structural move, is a direct array index rather than a hash lookup.
+/// </summary>
+internal sealed class ArchetypeStorages
+{
+    private IComponentStorage?[] _storages = [];
+
+    internal IComponentStorage this[int typeIndex]
+    {
+        get => _storages[typeIndex]!;
+        set
+        {
+            EnsureCapacity(typeIndex + 1);
+            _storages[typeIndex] = value;
+        }
+    }
+
+    internal bool TryGetValue(int typeIndex, out IComponentStorage storage)
+    {
+        if (typeIndex < _storages.Length && _storages[typeIndex] is { } existing)
+        {
+            storage = existing;
+            return true;
+        }
+
+        storage = null!;
+        return false;
+    }
+
+    internal ValuesEnumerable Values => new(this);
+
+    public Enumerator GetEnumerator() => new(_storages);
+
+    private void EnsureCapacity(int capacity)
+    {
+        if (_storages.Length >= capacity) return;
+        Array.Resize(ref _storages, Math.Max(capacity, Math.Max(_storages.Length * 2, 4)));
+    }
+
+    /// <summary>Enumerates every occupied slot as <c>(TypeIndex, Storage)</c>, skipping empty ones.</summary>
+    internal struct Enumerator
+    {
+        private readonly IComponentStorage?[] _storages;
+        private int _index;
+
+        internal Enumerator(IComponentStorage?[] storages)
+        {
+            _storages = storages;
+            _index = -1;
+        }
+
+        public KeyValuePair<int, IComponentStorage> Current => new(_index, _storages[_index]!);
+
+        public bool MoveNext()
+        {
+            while (++_index < _storages.Length)
+            {
+                if (_storages[_index] is not null) return true;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>Enumerates every occupied slot's storage, skipping empty ones.</summary>
+    internal readonly struct ValuesEnumerable
+    {
+        private readonly ArchetypeStorages _map;
+        internal ValuesEnumerable(ArchetypeStorages map) => _map = map;
+        public ValuesEnumerator GetEnumerator() => new(_map._storages);
+    }
+
+    internal struct ValuesEnumerator
+    {
+        private readonly IComponentStorage?[] _storages;
+        private int _index;
+
+        internal ValuesEnumerator(IComponentStorage?[] storages)
+        {
+            _storages = storages;
+            _index = -1;
+        }
+
+        public IComponentStorage Current => _storages[_index]!;
+
+        public bool MoveNext()
+        {
+            while (++_index < _storages.Length)
+            {
+                if (_storages[_index] is not null) return true;
+            }
+            return false;
+        }
+    }
+}
