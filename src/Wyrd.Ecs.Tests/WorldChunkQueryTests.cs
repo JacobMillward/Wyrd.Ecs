@@ -62,6 +62,7 @@ public class WorldChunkQueryTests
     public void RefQuery_NeverMarksAnythingDirty()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
         world.AdvanceTick();
@@ -81,6 +82,7 @@ public class WorldChunkQueryTests
     public void MutQuery_TouchingOnlySomeEntities_MarksOnlyThoseDirty()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entities = new Entity[3];
         for (var i = 0; i < 3; i++)
         {
@@ -102,6 +104,7 @@ public class WorldChunkQueryTests
     public void MutQuery_TouchingAnEntity_LogsExactlyOneEntryThisTick()
     {
         var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
         var entities = new Entity[3];
         for (var i = 0; i < 3; i++)
         {
@@ -117,6 +120,22 @@ public class WorldChunkQueryTests
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
         storage.ReadDirtyLogSince(cursorAfterAdds).ToArray().Should()
             .Equal(new DirtyEntry(entities[0], world.CurrentTick));
+    }
+
+    [Fact]
+    public void MutQuery_WithNoRegisteredConsumer_NeverMarksAnythingDirty()
+    {
+        var world = new World();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity).X = 1f;
+        world.AdvanceTick();
+
+        world.Query<Mut<Position>>(chunk => { chunk[0].X += 1f; });
+
+        var archetype = GetArchetype(world, entity);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
+        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+        world.GetComponent<Position>(entity).X.Should().Be(2f); // the write itself still went through
     }
 
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)

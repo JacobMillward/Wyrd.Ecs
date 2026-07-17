@@ -21,9 +21,11 @@ public interface IComponentAccessor<TSelf> where TSelf : struct, IComponentAcces
     /// Constructs a chunk-level accessor over <paramref name="items"/>[<paramref name="start"/>,
     /// <paramref name="start"/>+<paramref name="length"/>). <paramref name="lastMarkedTick"/>
     /// is the parallel per-row last-marked-tick array and <paramref name="dirtyLog"/> is
-    /// the growable change log for this archetype/component type — <see cref="Ref{T}"/>
-    /// implementations ignore both, along with <paramref name="tick"/>, since they never
+    /// the growable change log for this archetype/component type. <paramref name="tracked"/>
+    /// is true only when at least one consumer is currently registered for this component
+    /// type; <see cref="Ref{T}"/> implementations ignore <paramref name="tracked"/>,
+    /// <paramref name="tick"/>, and <paramref name="dirtyLog"/> alike, since they never
     /// mark anything dirty. See the design's Dirty-tracking section.
     /// </summary>
-    static abstract TSelf CreateChunk(Array items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length);
+    static abstract TSelf CreateChunk(Array items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length, bool tracked);
 }

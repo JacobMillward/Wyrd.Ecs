@@ -210,13 +210,14 @@ public sealed partial class World : IWorld
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {
         var typeIndex = TAccess0.TypeIndex;
+        var tracked = IsTracked(typeIndex);
         foreach (var archetype in GetMatchingArchetypes(Internal.QuerySignature<TAccess0>.Value))
         {
             if (archetype.Count == 0) continue;
 
             var storage = archetype.Storages[typeIndex];
-            var dirtyLog = storage.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
-            action(TAccess0.CreateChunk(storage.RawItems, storage.RawLastMarkedTick, _currentTick, dirtyLog, 0, archetype.Count));
+            var dirtyLog = tracked ? storage.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;
+            action(TAccess0.CreateChunk(storage.RawItems, storage.RawLastMarkedTick, _currentTick, dirtyLog, 0, archetype.Count, tracked));
         }
     }
 
@@ -227,17 +228,19 @@ public sealed partial class World : IWorld
     {
         var index0 = TAccess0.TypeIndex;
         var index1 = TAccess1.TypeIndex;
+        var tracked0 = IsTracked(index0);
+        var tracked1 = IsTracked(index1);
         foreach (var archetype in GetMatchingArchetypes(Internal.QuerySignature<TAccess0, TAccess1>.Value))
         {
             if (archetype.Count == 0) continue;
 
             var storage0 = archetype.Storages[index0];
             var storage1 = archetype.Storages[index1];
-            var dirtyLog0 = storage0.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
-            var dirtyLog1 = storage1.GetDirtyLogForChunk(archetype.Entities, archetype.Count);
+            var dirtyLog0 = tracked0 ? storage0.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;
+            var dirtyLog1 = tracked1 ? storage1.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;
             action(
-                TAccess0.CreateChunk(storage0.RawItems, storage0.RawLastMarkedTick, _currentTick, dirtyLog0, 0, archetype.Count),
-                TAccess1.CreateChunk(storage1.RawItems, storage1.RawLastMarkedTick, _currentTick, dirtyLog1, 0, archetype.Count));
+                TAccess0.CreateChunk(storage0.RawItems, storage0.RawLastMarkedTick, _currentTick, dirtyLog0, 0, archetype.Count, tracked0),
+                TAccess1.CreateChunk(storage1.RawItems, storage1.RawLastMarkedTick, _currentTick, dirtyLog1, 0, archetype.Count, tracked1));
         }
     }
 

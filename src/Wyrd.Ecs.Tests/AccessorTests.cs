@@ -7,11 +7,11 @@ public class AccessorTests
         public int Number;
     }
 
-    private static Mut<Value> CreateMutChunk(Value[] items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length) =>
-        Mut<Value>.CreateChunk(items, lastMarkedTick, tick, dirtyLog, start, length);
+    private static Mut<Value> CreateMutChunk(Value[] items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length, bool tracked = true) =>
+        Mut<Value>.CreateChunk(items, lastMarkedTick, tick, dirtyLog, start, length, tracked);
 
-    private static Ref<Value> CreateRefChunk(Value[] items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length) =>
-        Ref<Value>.CreateChunk(items, lastMarkedTick, tick, dirtyLog, start, length);
+    private static Ref<Value> CreateRefChunk(Value[] items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length, bool tracked = true) =>
+        Ref<Value>.CreateChunk(items, lastMarkedTick, tick, dirtyLog, start, length, tracked);
 
     private static DirtyLog CreateEmptyDirtyLog(Entity[] archetypeEntities) =>
         new(archetypeEntities, new DirtyEntry[archetypeEntities.Length + 1], 0);
@@ -120,6 +120,20 @@ public class AccessorTests
         _ = chunk[1];
 
         dirtyLog.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void Mut_Indexer_WhenNotTracked_NeverMarksDirty()
+    {
+        var items = new Value[3];
+        var lastMarkedTick = new int[3];
+        var dirtyLog = CreateEmptyDirtyLog(new Entity[3]);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 0, length: 3, tracked: false);
+
+        _ = chunk[1];
+
+        lastMarkedTick.Should().Equal(0, 0, 0);
+        dirtyLog.Count.Should().Be(0);
     }
 
     [Fact]
