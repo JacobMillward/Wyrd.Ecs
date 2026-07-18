@@ -70,29 +70,58 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
     /// <summary>Every log entry recorded after <paramref name="sinceTick"/>, in tick-ascending order.</summary>
     public ReadOnlySpan<DirtyEntry> ReadDirtyLogSince(int sinceTick)
     {
-        var entries = _dirtyLog.Entries.AsSpan(0, _dirtyLog.Count);
-        var start = DirtyLogSearch.FindFirstAfter(entries, sinceTick);
-        return entries[start..];
+        var live = LiveEntries();
+        var start = DirtyLogSearch.FindFirstAfter(live, sinceTick);
+        return live[start..];
     }
 
     /// <summary>
-    /// Drops every log entry with <c>Tick &lt;= tick</c> from the front of the log,
-    /// shifting the remaining entries down. Called once per tick, only for component
-    /// types with at least one live <see cref="ChangeConsumer{T}"/>, down to the
-    /// minimum tick that consumer has advanced past.
+    /// Marks every log entry with <c>Tick &lt;= tick</c> retired by advancing
+    /// <see cref="DirtyLog.Head"/> past them — an O(log liveCount) binary search, no
+    /// copy. Called once per tick, only for component types with at least one live
+    /// <see cref="ChangeConsumer{T}"/>, down to the minimum tick that consumer has
+    /// advanced past. The retired space isn't reclaimed here; see
+    /// <see cref="EnsureDirtyLogCapacity"/>.
     /// </summary>
     public void TrimBefore(int tick)
     {
-        var entries = _dirtyLog.Entries.AsSpan(0, _dirtyLog.Count);
-        var keepFrom = DirtyLogSearch.FindFirstAfter(entries, tick);
-        if (keepFrom == 0) return;
+        var live = LiveEntries();
+        if (live.Length == 0 || live[0].Tick > tick) return; // nothing new to retire
 
-        var remaining = _dirtyLog.Count - keepFrom;
-        if (remaining > 0)
-            Array.Copy(_dirtyLog.Entries, keepFrom, _dirtyLog.Entries, 0, remaining);
-        _dirtyLog.Count = remaining;
+        _dirtyLog.Head += DirtyLogSearch.FindFirstAfter(live, tick);
     }
 
-    private void EnsureDirtyLogCapacity(int additionalCapacity) =>
-        GrowableArray.EnsureCapacity(ref _dirtyLog.Entries, _dirtyLog.Count + additionalCapacity);
+    private ReadOnlySpan<DirtyEntry> LiveEntries() =>
+        _dirtyLog.Entries.AsSpan(_dirtyLog.Head, _dirtyLog.Count - _dirtyLog.Head);
+
+    /// <summary>
+    /// Ensures room for <paramref name="additionalCapacity"/> more appends at the tail.
+    /// Unlike <see cref="GrowableArray.EnsureCapacity{T}"/>, this reclaims the space
+    /// retired by <see cref="TrimBefore"/> first — shifting only the live entries down
+    /// to index 0 — before growing the array, and folds that same shift into the copy
+    /// a grow already has to do rather than paying for it separately. Compaction is
+    /// therefore amortized into the append path, not something <see cref="TrimBefore"/>
+    /// pays for every tick.
+    /// </summary>
+    private void EnsureDirtyLogCapacity(int additionalCapacity)
+    {
+        var required = _dirtyLog.Count + additionalCapacity;
+        if (required <= _dirtyLog.Entries.Length) return;
+
+        var live = _dirtyLog.Count - _dirtyLog.Head;
+        if (live + additionalCapacity <= _dirtyLog.Entries.Length)
+        {
+            Array.Copy(_dirtyLog.Entries, _dirtyLog.Head, _dirtyLog.Entries, 0, live);
+        }
+        else
+        {
+            var newLength = Math.Max(live + additionalCapacity, Math.Max(_dirtyLog.Entries.Length * 2, 4));
+            var newEntries = new DirtyEntry[newLength];
+            Array.Copy(_dirtyLog.Entries, _dirtyLog.Head, newEntries, 0, live);
+            _dirtyLog.Entries = newEntries;
+        }
+
+        _dirtyLog.Count = live;
+        _dirtyLog.Head = 0;
+    }
 }

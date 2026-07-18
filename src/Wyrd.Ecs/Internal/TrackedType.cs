@@ -10,4 +10,13 @@ internal sealed class TrackedType
 {
     internal readonly List<IChangeConsumerHandle> Consumers = new();
     internal Archetype[]? CachedArchetypes;
+
+    /// <summary>
+    /// The minimum consumer tick retention last trimmed down to. Consumer ticks only
+    /// move forward (<see cref="ChangeConsumer{T}.Advance"/> rejects going backward,
+    /// and a newly registered consumer starts at the world's current tick, which is
+    /// always at or ahead of any prior minimum), so this is a safe watermark: retention
+    /// can skip this type entirely on ticks where the minimum hasn't moved past it.
+    /// </summary>
+    internal int LastTrimmedTick;
 }

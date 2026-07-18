@@ -75,6 +75,39 @@ public class WorldRetentionTests
     }
 
     [Fact]
+    public void LargeBacklog_TrimThenContinuedGrowth_StaysConsistent()
+    {
+        var world = new World();
+        using var consumer = world.RegisterChangeConsumer<Position>();
+
+        for (var i = 0; i < 50; i++)
+        {
+            var entity = world.CreateEntity();
+            world.AddComponent<Position>(entity); // logs ticks 1..50
+            world.AdvanceTick();
+        }
+
+        consumer.Advance(25);
+        world.AdvanceTick(); // trims everything <= 25, leaving ticks 26..50 live
+
+        for (var i = 0; i < 50; i++)
+        {
+            var entity = world.CreateEntity();
+            world.AddComponent<Position>(entity); // logs ticks 52..101, past the log's original capacity
+            world.AdvanceTick(); // consumer never advances again, so retention should skip every one of these
+        }
+
+        var seenTicks = new List<int>();
+        foreach (var entry in consumer.ReadChanges())
+            seenTicks.Add(entry.Tick);
+
+        seenTicks.Should().HaveCount(75); // (50 - 25) untrimmed from the first batch + all 50 from the second
+        seenTicks.Should().BeInAscendingOrder();
+        seenTicks.Should().OnlyHaveUniqueItems();
+        seenTicks.Should().OnlyContain(tick => tick > 25);
+    }
+
+    [Fact]
     public void DisposingTheOnlyConsumer_TurnsTrackingBackOff()
     {
         var world = new World();

@@ -16,6 +16,14 @@ public sealed class DirtyLog
     internal DirtyEntry[] Entries;
     internal int Count;
 
+    /// <summary>
+    /// Index of the first live (untrimmed) entry. Entries before this are retired but
+    /// not yet physically removed — <see cref="Internal.ComponentStorage{T}.TrimBefore"/>
+    /// only ever advances this pointer, never shifts the array; the space it marks as
+    /// garbage is reclaimed lazily, the next time the log needs to grow.
+    /// </summary>
+    internal int Head;
+
     internal DirtyLog(Entity[] archetypeEntities, DirtyEntry[] entries, int count)
     {
         ArchetypeEntities = archetypeEntities;

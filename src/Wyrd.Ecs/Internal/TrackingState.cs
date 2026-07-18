@@ -35,7 +35,15 @@ internal struct TrackingState
     internal void UnregisterConsumer(int typeIndex, IChangeConsumerHandle consumer)
     {
         _consumerCounts[typeIndex]--;
-        _tracked[typeIndex].Consumers.Remove(consumer);
+        var state = _tracked[typeIndex];
+        state.Consumers.Remove(consumer);
+
+        // Drop the entry entirely rather than leaving a dead 0-consumer state behind —
+        // otherwise a world with high consumer churn across many types accumulates an
+        // ever-growing set of no-op entries that TrimRetiredEntries still has to walk
+        // past every tick.
+        if (state.Consumers.Count == 0)
+            _tracked.Remove(typeIndex);
     }
 
     /// <summary>Drops every tracked type's <see cref="TrackedType.CachedArchetypes"/>, e.g. when a new archetype is created.</summary>
@@ -55,11 +63,16 @@ internal struct TrackingState
     {
         foreach (var (typeIndex, state) in _tracked)
         {
-            if (state.Consumers.Count == 0) continue;
-
             var minTick = int.MaxValue;
             foreach (var consumer in state.Consumers)
                 minTick = Math.Min(minTick, consumer.Tick);
+
+            // No consumer has advanced past the last trim point, so nothing new is
+            // eligible — skip the archetype walk instead of re-deriving the same
+            // (no-op) answer every tick. Safe because minTick only moves forward, see
+            // TrackedType.LastTrimmedTick.
+            if (minTick <= state.LastTrimmedTick) continue;
+            state.LastTrimmedTick = minTick;
 
             var matchingArchetypes = state.CachedArchetypes ??= ComputeArchetypesWithComponent(typeIndex, archetypes);
             foreach (var archetype in matchingArchetypes)
