@@ -26,8 +26,8 @@ public class StructuralChangeBenchmarks
     [Benchmark]
     public void AddRemoveComponent_ArchetypeMove()
     {
-        _entity.AddComponent(new Payload8());
-        _entity.RemoveComponent<Payload8>();
+        _entity.AddComponent(new BulkPayload());
+        _entity.RemoveComponent<BulkPayload>();
     }
 
     [Benchmark]

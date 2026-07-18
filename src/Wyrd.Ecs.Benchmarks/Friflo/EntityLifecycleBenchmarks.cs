@@ -24,13 +24,13 @@ public class EntityLifecycleBenchmarks
 
     [Benchmark]
     public Entity CreateFourComponentEntity() =>
-        _store.CreateEntity(new Position(), new Velocity(), new Health(), new Payload8());
+        _store.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
 
     [Benchmark]
     public Entity CreateEightComponentEntity() =>
         _store.CreateEntity(
-            new Position(), new Velocity(), new Health(), new Payload8(),
-            new Filler1(), new Filler2(), new Filler3(), new Filler4());
+            new Position(), new Velocity(), new Health(), new BulkPayload(),
+            new Padding1(), new Padding2(), new Padding3(), new Padding4());
 
     [Benchmark]
     public void DisposeEntity() => _toDispose.DeleteEntity();

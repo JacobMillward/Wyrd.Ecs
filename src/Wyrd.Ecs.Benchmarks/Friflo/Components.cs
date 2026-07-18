@@ -2,18 +2,24 @@ using Friflo.Engine.ECS;
 
 namespace FrifloBenchmarks;
 
-// "Real" data components, reused across every benchmark category.
+// Simulation-shaped data components, reused across every benchmark category.
 public struct Position : IComponent { public float X, Y, Z; }
 public struct Velocity : IComponent { public float X, Y, Z; }
 public struct Health : IComponent { public float Current, Max; }
-public struct Payload8 : IComponent { public long A, B, C, D; }
 
-// Padding components, used only to reach an 8-component entity in Task 2's
-// creation benchmark (Position/Velocity/Health/Payload8 covers only 4).
-public struct Filler1 : IComponent { public int Value; }
-public struct Filler2 : IComponent { public int Value; }
-public struct Filler3 : IComponent { public int Value; }
-public struct Filler4 : IComponent { public int Value; }
+// A single larger (32-byte) component with no simulation meaning of its own — used
+// wherever a benchmark needs a bulkier payload than Position/Velocity/Health: the
+// 4th/5th component in Task 3's query-iteration arities, and the add/remove target
+// in Task 4's archetype-move benchmark.
+public struct BulkPayload : IComponent { public long A, B, C, D; }
+
+// Small (4-byte), content-free components used only to reach an 8-component entity
+// in Task 2's creation benchmark (Position/Velocity/Health/BulkPayload covers only
+// 4) and a 5-component query in Task 3 — their values are never read.
+public struct Padding1 : IComponent { public int Value; }
+public struct Padding2 : IComponent { public int Value; }
+public struct Padding3 : IComponent { public int Value; }
+public struct Padding4 : IComponent { public int Value; }
 
 // Zero-size tag, benchmarked directly in Task 4.
 public struct Marker : ITag;

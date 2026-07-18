@@ -23,8 +23,8 @@ public class QueryIterationBenchmarks
     private ArchetypeQuery<Position> _query1 = null!;
     private ArchetypeQuery<Position, Velocity> _query2 = null!;
     private ArchetypeQuery<Position, Velocity, Health> _query3 = null!;
-    private ArchetypeQuery<Position, Velocity, Health, Payload8> _query4 = null!;
-    private ArchetypeQuery<Position, Velocity, Health, Payload8, Filler1> _query5 = null!;
+    private ArchetypeQuery<Position, Velocity, Health, BulkPayload> _query4 = null!;
+    private ArchetypeQuery<Position, Velocity, Health, BulkPayload, Padding1> _query5 = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -40,8 +40,8 @@ public class QueryIterationBenchmarks
             var e1 = _store1.CreateEntity(new Position());
             var e2 = _store2.CreateEntity(new Position(), new Velocity());
             var e3 = _store3.CreateEntity(new Position(), new Velocity(), new Health());
-            var e4 = _store4.CreateEntity(new Position(), new Velocity(), new Health(), new Payload8());
-            var e5 = _store5.CreateEntity(new Position(), new Velocity(), new Health(), new Payload8(), new Filler1());
+            var e4 = _store4.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
+            var e5 = _store5.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload(), new Padding1());
 
             if (Fragmented)
             {
@@ -56,8 +56,8 @@ public class QueryIterationBenchmarks
         _query1 = _store1.Query<Position>();
         _query2 = _store2.Query<Position, Velocity>();
         _query3 = _store3.Query<Position, Velocity, Health>();
-        _query4 = _store4.Query<Position, Velocity, Health, Payload8>();
-        _query5 = _store5.Query<Position, Velocity, Health, Payload8, Filler1>();
+        _query4 = _store4.Query<Position, Velocity, Health, BulkPayload>();
+        _query5 = _store5.Query<Position, Velocity, Health, BulkPayload, Padding1>();
     }
 
     [Benchmark(Baseline = true)]
@@ -113,8 +113,8 @@ public class QueryIterationBenchmarks
     [Benchmark]
     public void FiveComponent_Chunks()
     {
-        foreach (var (position, velocity, health, payload, filler, entities) in _query5.Chunks)
+        foreach (var (position, velocity, health, payload, padding, entities) in _query5.Chunks)
             for (var n = 0; n < entities.Length; n++)
-                health[n].Current += (position[n].X + velocity[n].X + payload[n].A + filler[n].Value) * 0f;
+                health[n].Current += (position[n].X + velocity[n].X + payload[n].A + padding[n].Value) * 0f;
     }
 }
