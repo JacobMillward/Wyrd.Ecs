@@ -23,7 +23,7 @@ internal struct TrackingState
     /// <summary>Registers <paramref name="consumer"/> as a reader of <paramref name="typeIndex"/>'s change log, turning tracking on for it.</summary>
     internal void RegisterConsumer(int typeIndex, IChangeConsumerHandle consumer)
     {
-        GrowableArray.EnsureCapacity(ref _consumerCounts, typeIndex + 1);
+        ArrayGrowth.EnsureCapacity(ref _consumerCounts, typeIndex + 1);
         _consumerCounts[typeIndex]++;
 
         if (!_tracked.TryGetValue(typeIndex, out var state))

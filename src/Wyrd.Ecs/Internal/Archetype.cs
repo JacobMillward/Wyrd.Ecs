@@ -93,7 +93,7 @@ internal sealed class Archetype
 
     private void EnsureCapacity(int capacity)
     {
-        GrowableArray.EnsureCapacity(ref _entities, capacity);
+        ArrayGrowth.EnsureCapacity(ref _entities, capacity);
 
         foreach (var storage in Storages.Values)
             storage.EnsureCapacity(capacity);

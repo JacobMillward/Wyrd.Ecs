@@ -21,8 +21,8 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
 
     public void EnsureCapacity(int capacity)
     {
-        GrowableArray.EnsureCapacity(ref _items, capacity);
-        GrowableArray.EnsureCapacity(ref _lastMarkedTick, capacity);
+        ArrayGrowth.EnsureCapacity(ref _items, capacity);
+        ArrayGrowth.EnsureCapacity(ref _lastMarkedTick, capacity);
     }
 
     public void SwapRemove(int row, int lastRow)
@@ -96,7 +96,7 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
 
     /// <summary>
     /// Ensures room for <paramref name="additionalCapacity"/> more appends at the tail.
-    /// Unlike <see cref="GrowableArray.EnsureCapacity{T}"/>, this reclaims the space
+    /// Unlike <see cref="ArrayGrowth.EnsureCapacity{T}"/>, this reclaims the space
     /// retired by <see cref="TrimBefore"/> first — shifting only the live entries down
     /// to index 0 — before growing the array, and folds that same shift into the copy
     /// a grow already has to do rather than paying for it separately. Compaction is

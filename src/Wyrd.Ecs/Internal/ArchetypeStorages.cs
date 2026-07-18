@@ -36,7 +36,7 @@ internal sealed class ArchetypeStorages
 
     public Enumerator GetEnumerator() => new(_storages);
 
-    private void EnsureCapacity(int capacity) => GrowableArray.EnsureCapacity(ref _storages, capacity);
+    private void EnsureCapacity(int capacity) => ArrayGrowth.EnsureCapacity(ref _storages, capacity);
 
     /// <summary>Enumerates every occupied slot as <c>(TypeIndex, Storage)</c>, skipping empty ones.</summary>
     internal struct Enumerator

@@ -77,8 +77,8 @@ internal struct EntityTable
 
     private void EnsureCapacity(int id)
     {
-        GrowableArray.EnsureCapacity(ref _generations, id + 1);
-        GrowableArray.EnsureCapacity(ref _permanentIds, id + 1);
-        GrowableArray.EnsureCapacity(ref _locations, id + 1);
+        ArrayGrowth.EnsureCapacity(ref _generations, id + 1);
+        ArrayGrowth.EnsureCapacity(ref _permanentIds, id + 1);
+        ArrayGrowth.EnsureCapacity(ref _locations, id + 1);
     }
 }
