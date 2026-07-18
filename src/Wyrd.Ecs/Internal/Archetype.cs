@@ -10,8 +10,8 @@ namespace Wyrd.Ecs.Internal;
 internal sealed class Archetype
 {
     private Entity[] _entities = new Entity[4];
-    private Dictionary<int, Archetype>? _addEdges;
-    private Dictionary<int, Archetype>? _removeEdges;
+    private Archetype?[] _addEdges = [];
+    private Archetype?[] _removeEdges = [];
 
     internal ArchetypeSignature Signature { get; }
     internal ArchetypeStorages Storages { get; } = new();
@@ -20,10 +20,16 @@ internal sealed class Archetype
 
     internal Archetype(ArchetypeSignature signature) => Signature = signature;
 
-    /// <summary>The archetype already known to result from adding <paramref name="typeIndex"/> to this one, if any component or tag has taken that transition before.</summary>
+    /// <summary>
+    /// The archetype already known to result from adding <paramref name="typeIndex"/> to
+    /// this one, if any component or tag has taken that transition before. Indexed
+    /// directly by <paramref name="typeIndex"/> (the same dense-small-int space
+    /// <see cref="ArchetypeStorages"/> already indexes by) rather than hashed through a
+    /// <c>Dictionary</c> — every lookup here is on the structural-change hot path.
+    /// </summary>
     internal bool TryGetAddEdge(int typeIndex, out Archetype target)
     {
-        if (_addEdges is not null && _addEdges.TryGetValue(typeIndex, out var existing))
+        if (typeIndex < _addEdges.Length && _addEdges[typeIndex] is { } existing)
         {
             target = existing;
             return true;
@@ -33,13 +39,16 @@ internal sealed class Archetype
         return false;
     }
 
-    internal void SetAddEdge(int typeIndex, Archetype target) =>
-        (_addEdges ??= new Dictionary<int, Archetype>())[typeIndex] = target;
+    internal void SetAddEdge(int typeIndex, Archetype target)
+    {
+        ArrayGrowth.EnsureCapacity(ref _addEdges, typeIndex + 1);
+        _addEdges[typeIndex] = target;
+    }
 
-    /// <summary>The archetype already known to result from removing <paramref name="typeIndex"/> from this one, if any component or tag has taken that transition before.</summary>
+    /// <inheritdoc cref="TryGetAddEdge"/>
     internal bool TryGetRemoveEdge(int typeIndex, out Archetype target)
     {
-        if (_removeEdges is not null && _removeEdges.TryGetValue(typeIndex, out var existing))
+        if (typeIndex < _removeEdges.Length && _removeEdges[typeIndex] is { } existing)
         {
             target = existing;
             return true;
@@ -49,8 +58,11 @@ internal sealed class Archetype
         return false;
     }
 
-    internal void SetRemoveEdge(int typeIndex, Archetype target) =>
-        (_removeEdges ??= new Dictionary<int, Archetype>())[typeIndex] = target;
+    internal void SetRemoveEdge(int typeIndex, Archetype target)
+    {
+        ArrayGrowth.EnsureCapacity(ref _removeEdges, typeIndex + 1);
+        _removeEdges[typeIndex] = target;
+    }
 
     internal int AddRow(Entity entity)
     {
