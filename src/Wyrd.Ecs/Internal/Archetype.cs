@@ -91,8 +91,18 @@ internal sealed class Archetype
         return created;
     }
 
+    /// <summary>
+    /// Grows <see cref="Entities"/> and every storage together, keeping storages sized
+    /// to at least <see cref="Entities"/>'s length (the invariant <see cref="GetOrCreateStorage{T}"/>
+    /// relies on). Skips the storages loop entirely when <see cref="Entities"/> is
+    /// already large enough — otherwise every <see cref="AddRow"/> call would pay one
+    /// virtual <see cref="IComponentStorage.EnsureCapacity"/> dispatch per component
+    /// type even in the steady state where nothing actually grows.
+    /// </summary>
     private void EnsureCapacity(int capacity)
     {
+        if (_entities.Length >= capacity) return;
+
         ArrayGrowth.EnsureCapacity(ref _entities, capacity);
 
         foreach (var storage in Storages.Values)
