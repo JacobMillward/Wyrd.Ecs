@@ -375,8 +375,7 @@ internal static class ArityTemplates
         sb.AppendLine("        if (!_archetypes.TryGetValue(signature, out var target))");
         sb.AppendLine("            target = CreateArchetype(signature);");
         sb.AppendLine();
-        sb.AppendLine("        var entity = AllocateEntity();");
-        sb.AppendLine("        var row = target.AddRow(entity);");
+        sb.AppendLine("        var (entity, row) = _entityTable.AllocateInto(target);");
         sb.AppendLine();
         foreach (var i in Indices(n))
         {
@@ -385,7 +384,6 @@ internal static class ArityTemplates
             sb.AppendLine($"        if (IsTracked(TypeIndex<T{i}>.Value)) storage{i}.MarkDirty(row, entity, _currentTick);");
             sb.AppendLine();
         }
-        sb.AppendLine("        _locations[entity.Id] = (target, row);");
         sb.AppendLine("        return entity;");
         sb.AppendLine("    }");
         return sb.ToString();

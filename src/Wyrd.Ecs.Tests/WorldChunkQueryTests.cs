@@ -138,12 +138,8 @@ public class WorldChunkQueryTests
         world.GetComponent<Position>(entity).X.Should().Be(2f); // the write itself still went through
     }
 
-    private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity)
-    {
-        var field = typeof(World).GetField("_locations", global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance)!;
-        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])field.GetValue(world)!;
-        return locations[entity.Id].Archetype;
-    }
+    private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity) =>
+        TestReflection.GetLocation(world, entity).Archetype;
 
     [Fact]
     public void TwoComponentQuery_RequiresBothComponents()

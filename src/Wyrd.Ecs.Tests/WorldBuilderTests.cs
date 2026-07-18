@@ -27,9 +27,7 @@ public class WorldBuilderTests
 
         world.GetComponent<Position>(entity).X += 1f;
 
-        var field = typeof(World).GetField("_locations", global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance)!;
-        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])field.GetValue(world)!;
-        var (archetype, row) = locations[entity.Id];
+        var (archetype, row) = TestReflection.GetLocation(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
         storage.RawLastMarkedTick[row].Should().NotBe(world.CurrentTick);
     }

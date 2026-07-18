@@ -21,10 +21,8 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
 
     public void EnsureCapacity(int capacity)
     {
-        if (_items.Length >= capacity) return;
-        var newLength = Math.Max(capacity, _items.Length * 2);
-        Array.Resize(ref _items, newLength);
-        Array.Resize(ref _lastMarkedTick, newLength);
+        GrowableArray.EnsureCapacity(ref _items, capacity);
+        GrowableArray.EnsureCapacity(ref _lastMarkedTick, capacity);
     }
 
     public void SwapRemove(int row, int lastRow)
@@ -95,11 +93,6 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
         _dirtyLog.Count = remaining;
     }
 
-    private void EnsureDirtyLogCapacity(int additionalCapacity)
-    {
-        var required = _dirtyLog.Count + additionalCapacity;
-        if (_dirtyLog.Entries.Length >= required) return;
-        var newLength = Math.Max(required, Math.Max(_dirtyLog.Entries.Length * 2, 4));
-        Array.Resize(ref _dirtyLog.Entries, newLength);
-    }
+    private void EnsureDirtyLogCapacity(int additionalCapacity) =>
+        GrowableArray.EnsureCapacity(ref _dirtyLog.Entries, _dirtyLog.Count + additionalCapacity);
 }

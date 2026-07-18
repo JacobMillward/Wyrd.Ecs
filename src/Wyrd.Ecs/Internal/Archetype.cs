@@ -93,11 +93,7 @@ internal sealed class Archetype
 
     private void EnsureCapacity(int capacity)
     {
-        if (_entities.Length < capacity)
-        {
-            var newLength = Math.Max(capacity, _entities.Length * 2);
-            Array.Resize(ref _entities, newLength);
-        }
+        GrowableArray.EnsureCapacity(ref _entities, capacity);
 
         foreach (var storage in Storages.Values)
             storage.EnsureCapacity(capacity);

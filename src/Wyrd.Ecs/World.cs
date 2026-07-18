@@ -12,15 +12,10 @@ public sealed partial class World : IWorld
 {
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
-    private readonly Dictionary<int, Internal.TrackedType> _trackedTypes = new();
-    private int[] _consumerCounts = [];
+    private TrackingState _tracking = new();
     private readonly Archetype _emptyArchetype;
 
-    private EntityId[] _permanentIds = new EntityId[4];
-    private int[] _generations = new int[4];
-    private (Archetype Archetype, int Row)[] _locations = new (Archetype, int)[4];
-    private readonly Stack<int> _freeIds = new();
-    private int _nextId = 1; // Id 0 is reserved for Entity.Null.
+    private EntityTable _entityTable = new();
     private int _currentTick = 1;
 
     /// <summary>Creates a new, empty world.</summary>
@@ -33,10 +28,7 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public Entity CreateEntity()
     {
-        var entity = AllocateEntity();
-        var row = _emptyArchetype.AddRow(entity);
-        _locations[entity.Id] = (_emptyArchetype, row);
-
+        var (entity, _) = _entityTable.AllocateInto(_emptyArchetype);
         return entity;
     }
 
@@ -44,25 +36,17 @@ public sealed partial class World : IWorld
     public void DestroyEntity(Entity entity)
     {
         RequireAlive(entity);
-
-        var (archetype, row) = _locations[entity.Id];
-        var moved = archetype.RemoveRow(row);
-        if (!moved.IsNull)
-            _locations[moved.Id] = (archetype, row);
-
-        _generations[entity.Id]++;
-        _freeIds.Push(entity.Id);
+        _entityTable.Destroy(entity.Id);
     }
 
     /// <inheritdoc/>
-    public bool IsAlive(Entity entity) =>
-        entity.Id > 0 && entity.Id < _nextId && _generations[entity.Id] == entity.Generation;
+    public bool IsAlive(Entity entity) => _entityTable.IsAlive(entity.Id, entity.Generation);
 
     /// <inheritdoc/>
     public EntityId GetPermanentId(Entity entity)
     {
         RequireAlive(entity);
-        return _permanentIds[entity.Id];
+        return _entityTable.PermanentId(entity.Id);
     }
 
     /// <inheritdoc/>
@@ -75,42 +59,7 @@ public sealed partial class World : IWorld
     public void AdvanceTick()
     {
         _currentTick++;
-        TrimRetiredEntries();
-    }
-
-    private void TrimRetiredEntries()
-    {
-        foreach (var (typeIndex, state) in _trackedTypes)
-        {
-            if (state.Consumers.Count == 0) continue;
-
-            var minTick = int.MaxValue;
-            foreach (var consumer in state.Consumers)
-                minTick = Math.Min(minTick, consumer.Tick);
-
-            var archetypes = state.CachedArchetypes ??= ComputeArchetypesWithComponent(typeIndex);
-            foreach (var archetype in archetypes)
-                archetype.Storages[typeIndex].TrimBefore(minTick);
-        }
-    }
-
-    /// <summary>
-    /// Every archetype whose signature contains <paramref name="typeIndex"/>. Every
-    /// archetype returned here is guaranteed to have a <see cref="Internal.ArchetypeStorages"/>
-    /// entry for <paramref name="typeIndex"/>, since only real component type indices
-    /// (never tags) are ever passed in here. The caller caches the result on the
-    /// matching <see cref="Internal.TrackedType"/>.
-    /// </summary>
-    private Archetype[] ComputeArchetypesWithComponent(int typeIndex)
-    {
-        var matches = new List<Archetype>();
-        foreach (var archetype in _archetypes.Values)
-        {
-            if (archetype.Signature.Contains(typeIndex))
-                matches.Add(archetype);
-        }
-
-        return matches.ToArray();
+        _tracking.TrimRetiredEntries(_archetypes);
     }
 
     /// <inheritdoc/>
@@ -118,17 +67,11 @@ public sealed partial class World : IWorld
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
-        var (source, sourceRow) = _locations[entity.Id];
+        var (source, sourceRow) = _entityTable[entity.Id];
         if (source.Signature.Contains(typeIndex))
             throw new InvalidOperationException($"Entity {entity} already has component {typeof(T)}.");
 
-        if (!source.TryGetAddEdge(typeIndex, out var target))
-        {
-            target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
-            source.SetAddEdge(typeIndex, target);
-        }
-
-        var targetRow = MoveEntity(entity, source, sourceRow, target);
+        var (target, targetRow) = MoveViaAddEdge(entity, source, sourceRow, typeIndex);
 
         var storage = target.GetOrCreateStorage<T>();
         if (IsTracked(typeIndex))
@@ -140,7 +83,7 @@ public sealed partial class World : IWorld
     public ref T GetComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
-        var (archetype, row) = _locations[entity.Id];
+        var (archetype, row) = _entityTable[entity.Id];
         if (!archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
             throw new InvalidOperationException($"Entity {entity} does not have component {typeof(T)}.");
 
@@ -157,7 +100,7 @@ public sealed partial class World : IWorld
     public bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent
     {
         RequireAlive(entity);
-        var (archetype, row) = _locations[entity.Id];
+        var (archetype, row) = _entityTable[entity.Id];
         if (archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
         {
             value = ((ComponentStorage<T>)storage)[row];
@@ -172,7 +115,7 @@ public sealed partial class World : IWorld
     public bool HasComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
-        return _locations[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
+        return _entityTable[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
     /// <inheritdoc/>
@@ -180,16 +123,10 @@ public sealed partial class World : IWorld
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
-        var (source, sourceRow) = _locations[entity.Id];
+        var (source, sourceRow) = _entityTable[entity.Id];
         if (!source.Signature.Contains(typeIndex)) return;
 
-        if (!source.TryGetRemoveEdge(typeIndex, out var target))
-        {
-            target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source, excludeTypeIndex: typeIndex);
-            source.SetRemoveEdge(typeIndex, target);
-        }
-
-        MoveEntity(entity, source, sourceRow, target);
+        MoveViaRemoveEdge(entity, source, sourceRow, typeIndex);
     }
 
     /// <inheritdoc/>
@@ -197,16 +134,10 @@ public sealed partial class World : IWorld
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
-        var (source, sourceRow) = _locations[entity.Id];
+        var (source, sourceRow) = _entityTable[entity.Id];
         if (source.Signature.Contains(typeIndex)) return;
 
-        if (!source.TryGetAddEdge(typeIndex, out var target))
-        {
-            target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
-            source.SetAddEdge(typeIndex, target);
-        }
-
-        MoveEntity(entity, source, sourceRow, target);
+        MoveViaAddEdge(entity, source, sourceRow, typeIndex);
     }
 
     /// <inheritdoc/>
@@ -214,23 +145,51 @@ public sealed partial class World : IWorld
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
-        var (source, sourceRow) = _locations[entity.Id];
+        var (source, sourceRow) = _entityTable[entity.Id];
         if (!source.Signature.Contains(typeIndex)) return;
 
+        MoveViaRemoveEdge(entity, source, sourceRow, typeIndex);
+    }
+
+    /// <summary>
+    /// Shared by every add path (<see cref="AddComponent{T}"/>, <see cref="AddTag{T}"/>):
+    /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
+    /// and moves the entity onto it.
+    /// </summary>
+    private (Archetype Target, int Row) MoveViaAddEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
+    {
+        if (!source.TryGetAddEdge(typeIndex, out var target))
+        {
+            target = GetOrCreateArchetype(source.Signature.With(typeIndex), source);
+            source.SetAddEdge(typeIndex, target);
+        }
+
+        var targetRow = MoveEntity(entity, source, sourceRow, target);
+        return (target, targetRow);
+    }
+
+    /// <summary>
+    /// Shared by every remove path (<see cref="RemoveComponent{T}"/>, <see cref="RemoveTag{T}"/>):
+    /// looks up (or creates and caches) the archetype-remove edge for <paramref name="typeIndex"/>
+    /// and moves the entity onto it.
+    /// </summary>
+    private (Archetype Target, int Row) MoveViaRemoveEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
+    {
         if (!source.TryGetRemoveEdge(typeIndex, out var target))
         {
             target = GetOrCreateArchetype(source.Signature.Without(typeIndex), source);
             source.SetRemoveEdge(typeIndex, target);
         }
 
-        MoveEntity(entity, source, sourceRow, target);
+        var targetRow = MoveEntity(entity, source, sourceRow, target);
+        return (target, targetRow);
     }
 
     /// <inheritdoc/>
     public bool HasTag<T>(Entity entity) where T : struct, ITag
     {
         RequireAlive(entity);
-        return _locations[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
+        return _entityTable[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
     /// <inheritdoc/>
@@ -278,26 +237,17 @@ public sealed partial class World : IWorld
     public ChangeConsumer<T> RegisterChangeConsumer<T>() where T : struct, IComponent
     {
         var typeIndex = TypeIndex<T>.Value;
-        EnsureConsumerCountCapacity(typeIndex + 1);
-        _consumerCounts[typeIndex]++;
-
         var consumer = new ChangeConsumer<T>(this, typeIndex, _currentTick);
-        if (!_trackedTypes.TryGetValue(typeIndex, out var state))
-            _trackedTypes[typeIndex] = state = new Internal.TrackedType();
-        state.Consumers.Add(consumer);
-
+        _tracking.RegisterConsumer(typeIndex, consumer);
         return consumer;
     }
 
     /// <summary>Unregisters a <see cref="ChangeConsumer{T}"/>. Called only by <see cref="ChangeConsumer{T}.Dispose"/>.</summary>
-    internal void UnregisterChangeConsumer<T>(int typeIndex, ChangeConsumer<T> consumer) where T : struct, IComponent
-    {
-        _consumerCounts[typeIndex]--;
-        _trackedTypes[typeIndex].Consumers.Remove(consumer);
-    }
+    internal void UnregisterChangeConsumer<T>(int typeIndex, ChangeConsumer<T> consumer) where T : struct, IComponent =>
+        _tracking.UnregisterConsumer(typeIndex, consumer);
 
     /// <summary>True when at least one consumer is currently registered for <paramref name="typeIndex"/>.</summary>
-    internal bool IsTracked(int typeIndex) => typeIndex < _consumerCounts.Length && _consumerCounts[typeIndex] > 0;
+    internal bool IsTracked(int typeIndex) => _tracking.IsTracked(typeIndex);
 
     private void RequireAlive(Entity entity)
     {
@@ -305,48 +255,20 @@ public sealed partial class World : IWorld
             throw new InvalidOperationException($"Entity {entity} is not alive.");
     }
 
-    /// <summary>Allocates a fresh id and permanent id, without placing it in any archetype.</summary>
-    private Entity AllocateEntity()
-    {
-        int id;
-        if (_freeIds.Count > 0)
-        {
-            id = _freeIds.Pop();
-        }
-        else
-        {
-            id = _nextId++;
-            EnsureIdCapacity(id);
-        }
-
-        _permanentIds[id] = EntityId.NewId();
-        return new Entity(id, _generations[id]);
-    }
-
-    private void EnsureIdCapacity(int id)
-    {
-        if (id < _generations.Length) return;
-        var newLength = Math.Max(id + 1, _generations.Length * 2);
-        Array.Resize(ref _generations, newLength);
-        Array.Resize(ref _permanentIds, newLength);
-        Array.Resize(ref _locations, newLength);
-    }
-
-    private void EnsureConsumerCountCapacity(int capacity)
-    {
-        if (_consumerCounts.Length >= capacity) return;
-        Array.Resize(ref _consumerCounts, Math.Max(capacity, Math.Max(_consumerCounts.Length * 2, 4)));
-    }
-
-    private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource, int? excludeTypeIndex = null)
+    /// <summary>
+    /// Only copies a storage when <paramref name="signature"/> still contains its type —
+    /// naturally excludes a just-removed component's storage without a caller needing to
+    /// name it, since <paramref name="signature"/> already reflects the removal.
+    /// </summary>
+    private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource)
     {
         if (_archetypes.TryGetValue(signature, out var existing)) return existing;
 
         var created = CreateArchetype(signature);
         foreach (var (typeIndex, sourceStorage) in templateSource.Storages)
         {
-            if (typeIndex == excludeTypeIndex) continue;
-            created.Storages[typeIndex] = sourceStorage.CreateEmpty();
+            if (signature.Contains(typeIndex))
+                created.Storages[typeIndex] = sourceStorage.CreateEmpty();
         }
 
         return created;
@@ -364,8 +286,7 @@ public sealed partial class World : IWorld
         var created = new Archetype(signature);
         _archetypes[signature] = created;
         _queryCache.Clear();
-        foreach (var state in _trackedTypes.Values)
-            state.CachedArchetypes = null;
+        _tracking.InvalidateCachedArchetypes();
         return created;
     }
 
@@ -390,6 +311,12 @@ public sealed partial class World : IWorld
         return result;
     }
 
+    /// <summary>
+    /// Moves an entity from <paramref name="source"/> to <paramref name="target"/>,
+    /// copying every one of <paramref name="source"/>'s components that
+    /// <paramref name="target"/> also has (a removed component has no storage to
+    /// copy into).
+    /// </summary>
     private int MoveEntity(Entity entity, Archetype source, int sourceRow, Archetype target)
     {
         var targetRow = target.AddRow(entity);
@@ -402,9 +329,9 @@ public sealed partial class World : IWorld
 
         var moved = source.RemoveRow(sourceRow);
         if (!moved.IsNull)
-            _locations[moved.Id] = (source, sourceRow);
+            _entityTable[moved.Id] = (source, sourceRow);
 
-        _locations[entity.Id] = (target, targetRow);
+        _entityTable[entity.Id] = (target, targetRow);
         return targetRow;
     }
 }
