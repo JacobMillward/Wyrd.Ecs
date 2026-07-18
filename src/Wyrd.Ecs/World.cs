@@ -324,7 +324,7 @@ public sealed partial class World : IWorld
         foreach (var (typeIndex, sourceStorage) in source.Storages)
         {
             if (target.Storages.TryGetValue(typeIndex, out var targetStorage))
-                sourceStorage.CopyRowTo(sourceRow, targetStorage, targetRow);
+                Array.Copy(sourceStorage.RawItems, sourceRow, targetStorage.RawItems, targetRow, 1);
         }
 
         var moved = source.RemoveRow(sourceRow);

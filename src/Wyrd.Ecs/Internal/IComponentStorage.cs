@@ -14,7 +14,6 @@ internal interface IComponentStorage
 
     void EnsureCapacity(int capacity);
     void SwapRemove(int row, int lastRow);
-    void CopyRowTo(int sourceRow, IComponentStorage destination, int destinationRow);
     IComponentStorage CreateEmpty();
     DirtyLog GetDirtyLogForChunk(Entity[] archetypeEntities, int additionalCapacity);
     ReadOnlySpan<DirtyEntry> ReadDirtyLogSince(int sinceTick);

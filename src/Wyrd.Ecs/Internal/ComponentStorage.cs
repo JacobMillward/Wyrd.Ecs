@@ -36,9 +36,6 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
         _lastMarkedTick[lastRow] = 0;
     }
 
-    public void CopyRowTo(int sourceRow, IComponentStorage destination, int destinationRow) =>
-        ((ComponentStorage<T>)destination)._items[destinationRow] = _items[sourceRow];
-
     public IComponentStorage CreateEmpty() => new ComponentStorage<T>();
 
     /// <summary>
