@@ -102,6 +102,21 @@ public class ComponentStorageTests
     }
 
     [Fact]
+    public void CopyRowTo_CopiesTheValueOnly()
+    {
+        var source = new ComponentStorage<Value>();
+        var destination = new ComponentStorage<Value>();
+        source.EnsureCapacity(1);
+        destination.EnsureCapacity(1);
+        source[0].Number = 55;
+
+        IComponentStorage sourceStorage = source;
+        sourceStorage.CopyRowTo(0, destination, 0);
+
+        destination[0].Number.Should().Be(55);
+    }
+
+    [Fact]
     public void CreateEmpty_ReturnsFreshStorageOfSameType()
     {
         IComponentStorage source = new ComponentStorage<Value>();

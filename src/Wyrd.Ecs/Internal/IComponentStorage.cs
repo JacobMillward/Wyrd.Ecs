@@ -15,6 +15,17 @@ internal interface IComponentStorage
     void EnsureCapacity(int capacity);
     void SwapRemove(int row, int lastRow);
 
+    /// <summary>
+    /// Copies the value at <paramref name="sourceRow"/> into <paramref name="destination"/>
+    /// at <paramref name="destinationRow"/>. A direct typed-array write once dispatched
+    /// to the concrete <see cref="ComponentStorage{T}"/> — measured faster than routing
+    /// the same copy through <see cref="Array.Copy(Array,int,Array,int,int)"/>'s
+    /// <see cref="Array"/>-typed overload, which pays a runtime element-type
+    /// compatibility check this call site doesn't need (both sides are already known by
+    /// construction to hold the same component type).
+    /// </summary>
+    void CopyRowTo(int sourceRow, IComponentStorage destination, int destinationRow);
+
     /// <summary>Creates a fresh, empty storage of this same component type, already sized to <paramref name="capacity"/>.</summary>
     IComponentStorage CreateEmpty(int capacity);
     DirtyLog GetDirtyLogForChunk(Entity[] archetypeEntities, int additionalCapacity);
