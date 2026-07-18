@@ -258,7 +258,13 @@ public sealed partial class World : IWorld
     /// <summary>
     /// Only copies a storage when <paramref name="signature"/> still contains its type —
     /// naturally excludes a just-removed component's storage without a caller needing to
-    /// name it, since <paramref name="signature"/> already reflects the removal.
+    /// name it, since <paramref name="signature"/> already reflects the removal. Each
+    /// clone is grown to the new archetype's own entity capacity immediately —
+    /// <see cref="Internal.ComponentStorage{T}.CreateEmpty"/> always starts at its own
+    /// small default, so without this a storage could end up smaller than the
+    /// archetype's <see cref="Archetype.Entities"/> array, breaking the invariant
+    /// <see cref="Archetype.EnsureCapacity"/> relies on the moment more than a handful
+    /// of entities land in this archetype.
     /// </summary>
     private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource)
     {
@@ -268,7 +274,11 @@ public sealed partial class World : IWorld
         foreach (var (typeIndex, sourceStorage) in templateSource.Storages)
         {
             if (signature.Contains(typeIndex))
-                created.Storages[typeIndex] = sourceStorage.CreateEmpty();
+            {
+                var clone = sourceStorage.CreateEmpty();
+                clone.EnsureCapacity(created.Entities.Length);
+                created.Storages[typeIndex] = clone;
+            }
         }
 
         return created;
