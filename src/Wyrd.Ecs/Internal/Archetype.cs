@@ -95,8 +95,7 @@ internal sealed class Archetype
         if (Storages.TryGetValue(typeIndex, out var existing))
             return (ComponentStorage<T>)existing;
 
-        var created = new ComponentStorage<T>();
-        created.EnsureCapacity(Entities.Length);
+        var created = new ComponentStorage<T>(Entities.Length);
         Storages[typeIndex] = created;
         return created;
     }

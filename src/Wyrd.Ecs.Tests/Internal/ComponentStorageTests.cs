@@ -106,9 +106,20 @@ public class ComponentStorageTests
     {
         IComponentStorage source = new ComponentStorage<Value>();
 
-        var created = source.CreateEmpty();
+        var created = source.CreateEmpty(4);
 
         created.Should().BeOfType<ComponentStorage<Value>>();
+    }
+
+    [Fact]
+    public void CreateEmpty_SizesTheStorageToTheRequestedCapacity()
+    {
+        IComponentStorage source = new ComponentStorage<Value>();
+
+        var created = source.CreateEmpty(16);
+
+        created.RawItems.Length.Should().Be(16);
+        created.RawLastMarkedTick.Length.Should().Be(16);
     }
 
     [Fact]
@@ -118,7 +129,7 @@ public class ComponentStorageTests
         source.EnsureCapacity(1);
         source.MarkDirty(row: 0, new Entity(1, 0), tick: 5);
 
-        var created = (ComponentStorage<Value>)((IComponentStorage)source).CreateEmpty();
+        var created = (ComponentStorage<Value>)((IComponentStorage)source).CreateEmpty(4);
 
         created.ReadDirtyLogSince(sinceTick: 0).Length.Should().Be(0);
     }

@@ -10,9 +10,15 @@ namespace Wyrd.Ecs.Internal;
 /// </summary>
 internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, IComponent
 {
-    private T[] _items = new T[4];
-    private int[] _lastMarkedTick = new int[4];
+    private T[] _items;
+    private int[] _lastMarkedTick;
     private readonly DirtyLog _dirtyLog = new(Array.Empty<Entity>(), new DirtyEntry[4], 0);
+
+    internal ComponentStorage(int capacity = 4)
+    {
+        _items = new T[capacity];
+        _lastMarkedTick = new int[capacity];
+    }
 
     public Array RawItems => _items;
     public int[] RawLastMarkedTick => _lastMarkedTick;
@@ -36,7 +42,7 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
         _lastMarkedTick[lastRow] = 0;
     }
 
-    public IComponentStorage CreateEmpty() => new ComponentStorage<T>();
+    public IComponentStorage CreateEmpty(int capacity) => new ComponentStorage<T>(capacity);
 
     /// <summary>
     /// Ensures the change log has room for at least <paramref name="additionalCapacity"/>

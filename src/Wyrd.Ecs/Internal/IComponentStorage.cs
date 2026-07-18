@@ -14,7 +14,9 @@ internal interface IComponentStorage
 
     void EnsureCapacity(int capacity);
     void SwapRemove(int row, int lastRow);
-    IComponentStorage CreateEmpty();
+
+    /// <summary>Creates a fresh, empty storage of this same component type, already sized to <paramref name="capacity"/>.</summary>
+    IComponentStorage CreateEmpty(int capacity);
     DirtyLog GetDirtyLogForChunk(Entity[] archetypeEntities, int additionalCapacity);
     ReadOnlySpan<DirtyEntry> ReadDirtyLogSince(int sinceTick);
 
