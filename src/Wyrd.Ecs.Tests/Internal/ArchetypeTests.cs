@@ -12,7 +12,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRow_ReturnsSequentialRowIndices()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty);
+        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
 
         archetype.AddRow(new Entity(1, 0)).Should().Be(0);
         archetype.AddRow(new Entity(2, 0)).Should().Be(1);
@@ -22,7 +22,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRow_RecordsTheEntityAtThatRow()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty);
+        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
 
         var row = archetype.AddRow(new Entity(7, 0));
 
@@ -32,7 +32,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRow_GrowsPastInitialCapacity()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty);
+        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
 
         for (var i = 0; i < 200; i++)
             archetype.AddRow(new Entity(i + 1, 0));
@@ -44,7 +44,7 @@ public class ArchetypeTests
     [Fact]
     public void RemoveRow_LastRow_ReturnsNull_AndDecrementsCount()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty);
+        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
         archetype.AddRow(new Entity(1, 0));
 
         var moved = archetype.RemoveRow(0);
@@ -56,7 +56,7 @@ public class ArchetypeTests
     [Fact]
     public void RemoveRow_MiddleRow_ReturnsTheMovedEntity_AndSwapsItIn()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty);
+        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
         archetype.AddRow(new Entity(1, 0));
         archetype.AddRow(new Entity(2, 0));
         archetype.AddRow(new Entity(3, 0));
@@ -71,7 +71,7 @@ public class ArchetypeTests
     [Fact]
     public void RemoveRow_AlsoSwapRemovesEveryComponentStorage()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty.With(TypeIndex<Value>.Value));
+        var archetype = new Archetype(ArchetypeSignature.Empty.With(TypeIndex<Value>.Value), 4);
         var storage = archetype.GetOrCreateStorage<Value>();
         var rowA = archetype.AddRow(new Entity(1, 0));
         storage[rowA].Number = 11;
@@ -86,7 +86,7 @@ public class ArchetypeTests
     [Fact]
     public void GetOrCreateStorage_ReturnsTheSameInstanceOnRepeatedCalls()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty);
+        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
 
         var first = archetype.GetOrCreateStorage<Value>();
         var second = archetype.GetOrCreateStorage<Value>();

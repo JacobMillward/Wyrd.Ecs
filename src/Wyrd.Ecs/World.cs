@@ -10,18 +10,33 @@ namespace Wyrd.Ecs;
 /// </summary>
 public sealed partial class World : IWorld
 {
+    /// <summary>
+    /// Default floor every archetype's dense arrays start at and never shrink below,
+    /// when a <see cref="World"/> is constructed without going through
+    /// <see cref="WorldBuilder.WithArchetypeCapacity"/>. The right number depends on a
+    /// game's actual entity/archetype-count distribution, so this is a moderate,
+    /// workload-agnostic default: big enough to skip several of the earliest doubling
+    /// steps for a typical archetype, without assuming the large-few-archetypes shape a
+    /// much bigger floor would.
+    /// </summary>
+    internal const int DefaultArchetypeCapacity = 64;
+
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
     private TrackingState _tracking = new();
     private readonly Archetype _emptyArchetype;
+    private readonly int _archetypeCapacity;
 
     private EntityTable _entityTable = new();
     private int _currentTick = 1;
 
-    /// <summary>Creates a new, empty world.</summary>
-    public World()
+    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>. Use <see cref="WorldBuilder"/> to configure it.</summary>
+    public World() : this(DefaultArchetypeCapacity) { }
+
+    internal World(int archetypeCapacity)
     {
-        _emptyArchetype = new Archetype(ArchetypeSignature.Empty);
+        _archetypeCapacity = archetypeCapacity;
+        _emptyArchetype = new Archetype(ArchetypeSignature.Empty, archetypeCapacity);
         _archetypes[ArchetypeSignature.Empty] = _emptyArchetype;
     }
 
@@ -293,7 +308,7 @@ public sealed partial class World : IWorld
     /// </summary>
     private Archetype CreateArchetype(ArchetypeSignature signature)
     {
-        var created = new Archetype(signature);
+        var created = new Archetype(signature, _archetypeCapacity);
         _archetypes[signature] = created;
         _queryCache.Clear();
         _tracking.InvalidateCachedArchetypes();

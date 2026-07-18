@@ -36,6 +36,32 @@ public class WorldComponentTests
         world.GetComponent<Position>(entity).X.Should().Be(3f);
     }
 
+    /// <summary>
+    /// The {Position} archetype is created via GetOrCreateStorage (sized to match its
+    /// own Entities array). Adding Velocity to the first such entity clones Position's
+    /// storage into a brand-new {Position, Velocity} archetype instead — a different
+    /// construction path that must size the clone the same way, or entities past a
+    /// small hardcoded default would index out of range once this archetype grows.
+    /// </summary>
+    [Fact]
+    public void AddComponent_ClonedArchetypeStorage_GrowsWithTheArchetype()
+    {
+        var world = new WorldBuilder().WithArchetypeCapacity(16).Build();
+        var seed = world.CreateEntity();
+        world.AddComponent<Position>(seed);
+
+        var entities = new Entity[10];
+        for (var i = 0; i < entities.Length; i++)
+        {
+            entities[i] = world.CreateEntity();
+            world.AddComponent<Position>(entities[i]).X = i;
+            world.AddComponent<Velocity>(entities[i]);
+        }
+
+        for (var i = 0; i < entities.Length; i++)
+            world.GetComponent<Position>(entities[i]).X.Should().Be(i);
+    }
+
     [Fact]
     public void AddComponent_Twice_Throws()
     {

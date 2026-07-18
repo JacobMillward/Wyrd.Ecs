@@ -9,7 +9,7 @@ namespace Wyrd.Ecs.Internal;
 /// </summary>
 internal sealed class Archetype
 {
-    private Entity[] _entities = new Entity[4];
+    private Entity[] _entities;
     private Archetype?[] _addEdges = [];
     private Archetype?[] _removeEdges = [];
 
@@ -18,7 +18,11 @@ internal sealed class Archetype
     internal Entity[] Entities => _entities;
     internal int Count { get; private set; }
 
-    internal Archetype(ArchetypeSignature signature) => Signature = signature;
+    internal Archetype(ArchetypeSignature signature, int initialCapacity)
+    {
+        Signature = signature;
+        _entities = new Entity[initialCapacity];
+    }
 
     /// <summary>
     /// The archetype already known to result from adding <paramref name="typeIndex"/> to

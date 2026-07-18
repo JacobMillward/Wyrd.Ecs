@@ -31,4 +31,26 @@ public class WorldBuilderTests
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
         storage.RawLastMarkedTick[row].Should().NotBe(world.CurrentTick);
     }
+
+    [Fact]
+    public void WithArchetypeCapacity_SizesEveryArchetypesEntityArray()
+    {
+        var world = new WorldBuilder().WithArchetypeCapacity(16).Build();
+        var entity = world.CreateEntity();
+        world.AddComponent<Position>(entity);
+
+        var (archetype, _) = TestReflection.GetLocation(world, entity);
+
+        archetype.Entities.Length.Should().Be(16);
+    }
+
+    [Fact]
+    public void WithArchetypeCapacity_NonPositive_Throws()
+    {
+        var builder = new WorldBuilder();
+
+        var act = () => builder.WithArchetypeCapacity(0);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
 }
