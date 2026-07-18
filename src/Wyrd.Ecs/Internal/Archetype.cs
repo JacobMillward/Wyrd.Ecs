@@ -10,8 +10,18 @@ namespace Wyrd.Ecs.Internal;
 internal sealed class Archetype
 {
     private Entity[] _entities;
-    private Archetype?[] _addEdges = [];
-    private Archetype?[] _removeEdges = [];
+
+    /// <summary>
+    /// Cached archetype-transition targets, indexed directly by type index (the same
+    /// dense-small-int space <see cref="ArchetypeStorages"/> already indexes by) rather
+    /// than hashed through a <c>Dictionary</c> — every lookup here is on the
+    /// structural-change hot path. One shared array for both add- and remove-edges: for
+    /// a given type index, this archetype's <see cref="Signature"/> either contains it
+    /// or doesn't, permanently, so <see cref="TryGetAddEdge"/> (only ever queried when
+    /// it doesn't) and <see cref="TryGetRemoveEdge"/> (only ever queried when it does)
+    /// can never both hold a value at the same slot.
+    /// </summary>
+    private Archetype?[] _edges = [];
 
     internal ArchetypeSignature Signature { get; }
     internal ArchetypeStorages Storages { get; } = new();
@@ -24,16 +34,19 @@ internal sealed class Archetype
         _entities = new Entity[initialCapacity];
     }
 
-    /// <summary>
-    /// The archetype already known to result from adding <paramref name="typeIndex"/> to
-    /// this one, if any component or tag has taken that transition before. Indexed
-    /// directly by <paramref name="typeIndex"/> (the same dense-small-int space
-    /// <see cref="ArchetypeStorages"/> already indexes by) rather than hashed through a
-    /// <c>Dictionary</c> — every lookup here is on the structural-change hot path.
-    /// </summary>
-    internal bool TryGetAddEdge(int typeIndex, out Archetype target)
+    /// <summary>The archetype already known to result from adding <paramref name="typeIndex"/> to this one, if any component or tag has taken that transition before.</summary>
+    internal bool TryGetAddEdge(int typeIndex, out Archetype target) => TryGetEdge(typeIndex, out target);
+
+    internal void SetAddEdge(int typeIndex, Archetype target) => SetEdge(typeIndex, target);
+
+    /// <summary>The archetype already known to result from removing <paramref name="typeIndex"/> from this one, if any component or tag has taken that transition before.</summary>
+    internal bool TryGetRemoveEdge(int typeIndex, out Archetype target) => TryGetEdge(typeIndex, out target);
+
+    internal void SetRemoveEdge(int typeIndex, Archetype target) => SetEdge(typeIndex, target);
+
+    private bool TryGetEdge(int typeIndex, out Archetype target)
     {
-        if (typeIndex < _addEdges.Length && _addEdges[typeIndex] is { } existing)
+        if (typeIndex < _edges.Length && _edges[typeIndex] is { } existing)
         {
             target = existing;
             return true;
@@ -43,29 +56,10 @@ internal sealed class Archetype
         return false;
     }
 
-    internal void SetAddEdge(int typeIndex, Archetype target)
+    private void SetEdge(int typeIndex, Archetype target)
     {
-        ArrayGrowth.EnsureCapacity(ref _addEdges, typeIndex + 1);
-        _addEdges[typeIndex] = target;
-    }
-
-    /// <inheritdoc cref="TryGetAddEdge"/>
-    internal bool TryGetRemoveEdge(int typeIndex, out Archetype target)
-    {
-        if (typeIndex < _removeEdges.Length && _removeEdges[typeIndex] is { } existing)
-        {
-            target = existing;
-            return true;
-        }
-
-        target = null!;
-        return false;
-    }
-
-    internal void SetRemoveEdge(int typeIndex, Archetype target)
-    {
-        ArrayGrowth.EnsureCapacity(ref _removeEdges, typeIndex + 1);
-        _removeEdges[typeIndex] = target;
+        ArrayGrowth.EnsureCapacity(ref _edges, typeIndex + 1);
+        _edges[typeIndex] = target;
     }
 
     internal int AddRow(Entity entity)
