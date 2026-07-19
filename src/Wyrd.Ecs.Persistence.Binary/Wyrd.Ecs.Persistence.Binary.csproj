@@ -4,21 +4,22 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Wyrd.Ecs.Persistence</RootNamespace>
+    <RootNamespace>Wyrd.Ecs.Persistence.Binary</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Wyrd.Ecs.Persistence.Tests" />
+    <InternalsVisibleTo Include="Wyrd.Ecs.Persistence.Binary.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.IO.Hashing" Version="9.0.0" />
+    <PackageReference Include="MemoryPack" Version="1.21.4" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

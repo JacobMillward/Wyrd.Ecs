@@ -47,12 +47,5 @@ public static class WorldPersistenceExtensions
             builder.OnBuilt += world => world.DefaultPersistenceStore = store;
             return builder;
         }
-
-        /// <summary>
-        /// Convenience wrapper around <c>SetDefaultPersistenceStore</c> for the
-        /// binary (MemoryPack) codec.
-        /// </summary>
-        public WorldBuilder AddBinaryPersistence(IPersistenceStore store) =>
-            builder.SetDefaultPersistenceStore(store);
     }
 }
