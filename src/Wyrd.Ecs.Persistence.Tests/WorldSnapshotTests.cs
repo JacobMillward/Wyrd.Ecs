@@ -40,7 +40,7 @@ public class WorldSnapshotTests : IDisposable
         source.ApplyCommands();
         source.Commands.AddComponent(entity, new Velocity { X = 2f });
         source.ApplyCommands();
-        var store = new LocalFilePersistenceStore(_path);
+        var store = new FileStore(_path);
 
         WorldSnapshot.Save(source, registry, store);
 
@@ -65,7 +65,7 @@ public class WorldSnapshotTests : IDisposable
         source.Commands.CreateEntity(new Position { X = 10f });
         source.Commands.CreateEntity(new Position { X = 20f });
         source.ApplyCommands();
-        var store = new LocalFilePersistenceStore(_path);
+        var store = new FileStore(_path);
 
         WorldSnapshot.Save(source, registry, store);
 
@@ -90,7 +90,7 @@ public class WorldSnapshotTests : IDisposable
         source.ApplyCommands();
         source.Commands.AddComponent(entity, new Velocity { X = 2f });
         source.ApplyCommands();
-        var store = new LocalFilePersistenceStore(_path);
+        var store = new FileStore(_path);
         WorldSnapshot.Save(source, saveRegistry, store);
 
         var loadRegistry = new SerializerRegistry();
@@ -118,7 +118,7 @@ public class WorldSnapshotTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        var store = new LocalFilePersistenceStore(_path);
+        var store = new FileStore(_path);
         WorldSnapshot.Save(source, registry, store);
 
         var target = new World();
