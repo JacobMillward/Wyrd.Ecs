@@ -15,9 +15,12 @@ public static class WorldSnapshot
     /// <paramref name="registry"/> to <paramref name="store"/>. A component type on a
     /// live entity but absent from <paramref name="registry"/> is silently skipped —
     /// the same behavior <see cref="IWorld.EnumerateAll"/> already has, not an error.
+    /// <paramref name="store"/> defaults to <paramref name="world"/>'s
+    /// <c>World.DefaultPersistenceStore</c> when omitted.
     /// </summary>
-    public static void Save(World world, SerializerRegistry registry, IPersistenceStore store)
+    public static void Save(World world, SerializerRegistry registry, IPersistenceStore? store = null)
     {
+        store ??= ResolveDefaultStore(world);
         using var stream = store.OpenCheckpointWrite();
 
         foreach (var component in world.EnumerateAll(registry))
@@ -34,10 +37,13 @@ public static class WorldSnapshot
     /// added to it. A record for a discriminator absent from <paramref name="registry"/>
     /// is silently skipped, same as an unknown type is on save. A file truncated or
     /// corrupted partway through stops replay cleanly at the last complete, valid
-    /// record rather than throwing or misreading garbage.
+    /// record rather than throwing or misreading garbage. <paramref name="store"/>
+    /// defaults to <paramref name="world"/>'s
+    /// <c>World.DefaultPersistenceStore</c> when omitted.
     /// </summary>
-    public static void Load(World world, SerializerRegistry registry, IPersistenceStore store)
+    public static void Load(World world, SerializerRegistry registry, IPersistenceStore? store = null)
     {
+        store ??= ResolveDefaultStore(world);
         using var stream = store.OpenCheckpointRead();
         var entities = new Dictionary<EntityId, Entity>();
 
@@ -55,4 +61,10 @@ public static class WorldSnapshot
 
         world.ApplyCommands();
     }
+
+    private static IPersistenceStore ResolveDefaultStore(World world) =>
+        world.DefaultPersistenceStore
+        ?? throw new InvalidOperationException(
+            "No persistence store was provided and none is configured via World.DefaultPersistenceStore " +
+            "(set directly, or via WorldBuilder.SetDefaultPersistenceStore/AddBinaryPersistence at construction time).");
 }

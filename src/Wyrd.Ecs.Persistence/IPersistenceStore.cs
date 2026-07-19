@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
 /// Where persisted bytes physically live — the storage-backend seam. A
-/// local-filesystem implementation (<see cref="LocalFilePersistenceStore"/>) is the
+/// local-filesystem implementation (<see cref="FileStore"/>) is the
 /// only one built so far; a future backend (e.g. SQLite) implements this interface
 /// without the rest of the pipeline changing.
 /// </summary>

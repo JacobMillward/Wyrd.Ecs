@@ -128,4 +128,50 @@ public class WorldSnapshotTests : IDisposable
         foreach (var _ in target.Query<Position>()) count++;
         count.Should().Be(0);
     }
+
+    [Fact]
+    public void Save_WithNoStoreArgument_UsesTheWorldsDefaultPersistenceStore()
+    {
+        var registry = BuildRegistry();
+        var source = new World();
+        source.Commands.CreateEntity(new Position { X = 7f });
+        source.ApplyCommands();
+        source.DefaultPersistenceStore = new FileStore(_path);
+
+        WorldSnapshot.Save(source, registry);
+
+        var target = new World();
+        target.DefaultPersistenceStore = new FileStore(_path);
+        WorldSnapshot.Load(target, registry);
+
+        var found = false;
+        foreach (var row in target.Query<Position>())
+        {
+            row.Get<Position>().X.Should().Be(7f);
+            found = true;
+        }
+        found.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Save_WithNoStoreArgumentAndNoDefaultConfigured_ThrowsAClearError()
+    {
+        var registry = BuildRegistry();
+        var world = new World();
+
+        var act = () => WorldSnapshot.Save(world, registry);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Load_WithNoStoreArgumentAndNoDefaultConfigured_ThrowsAClearError()
+    {
+        var registry = BuildRegistry();
+        var world = new World();
+
+        var act = () => WorldSnapshot.Load(world, registry);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }
