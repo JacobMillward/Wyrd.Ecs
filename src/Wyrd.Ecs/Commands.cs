@@ -126,17 +126,17 @@ public sealed partial class Commands
 
     private static class RemoveComponentOp<T> where T : struct, IComponent
     {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.RemoveComponent<T>(e); };
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.RemoveComponent(e, Internal.TypeIndex<T>.Value); };
     }
 
     private static class AddTagOp<T> where T : struct, ITag
     {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.AddTag<T>(e); };
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.AddTag(e, Internal.TypeIndex<T>.Value); };
     }
 
     private static class RemoveTagOp<T> where T : struct, ITag
     {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.RemoveTag<T>(e); };
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.RemoveTag(e, Internal.TypeIndex<T>.Value); };
     }
 
     /// <summary>

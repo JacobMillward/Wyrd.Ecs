@@ -210,11 +210,17 @@ public sealed partial class World : IWorld
         return _entityTable[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
-    /// <summary>Removes <typeparamref name="T"/> from <paramref name="entity"/>, if present. Called only via <see cref="Commands"/>.</summary>
-    internal void RemoveComponent<T>(Entity entity) where T : struct, IComponent
+    /// <summary>
+    /// Removes the component at <paramref name="typeIndex"/> from <paramref name="entity"/>,
+    /// if present. Called only via <see cref="Commands"/>, which already has the caller's
+    /// compile-time component type at its own call site and resolves it to a
+    /// <see cref="Internal.TypeIndex{T}"/> there — the move itself (like every archetype
+    /// transition) only ever needs the type index, never the type, so there is nothing
+    /// for this method itself to be generic over.
+    /// </summary>
+    internal void RemoveComponent(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
-        var typeIndex = TypeIndex<T>.Value;
         var (source, sourceRow) = _entityTable[entity.Id];
         if (!source.Signature.Contains(typeIndex)) return;
 
@@ -222,11 +228,10 @@ public sealed partial class World : IWorld
         NotifyComponentRemoved(entity, typeIndex);
     }
 
-    /// <summary>Adds tag <typeparamref name="T"/> to <paramref name="entity"/>. Called only via <see cref="Commands"/>.</summary>
-    internal void AddTag<T>(Entity entity) where T : struct, ITag
+    /// <summary>Adds the tag at <paramref name="typeIndex"/> to <paramref name="entity"/>. Called only via <see cref="Commands"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
+    internal void AddTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
-        var typeIndex = TypeIndex<T>.Value;
         var (source, sourceRow) = _entityTable[entity.Id];
         if (source.Signature.Contains(typeIndex)) return;
 
@@ -234,11 +239,10 @@ public sealed partial class World : IWorld
         NotifyTagAdded(entity, typeIndex);
     }
 
-    /// <summary>Removes tag <typeparamref name="T"/> from <paramref name="entity"/>, if present. Called only via <see cref="Commands"/>.</summary>
-    internal void RemoveTag<T>(Entity entity) where T : struct, ITag
+    /// <summary>Removes the tag at <paramref name="typeIndex"/> from <paramref name="entity"/>, if present. Called only via <see cref="Commands"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
+    internal void RemoveTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
-        var typeIndex = TypeIndex<T>.Value;
         var (source, sourceRow) = _entityTable[entity.Id];
         if (!source.Signature.Contains(typeIndex)) return;
 
