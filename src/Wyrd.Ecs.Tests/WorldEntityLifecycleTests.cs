@@ -60,7 +60,7 @@ public class WorldEntityLifecycleTests
     }
 
     [Fact]
-    public void CreateEntity_WithComponents_WithNoRegisteredConsumer_NeverMarksDirty()
+    public void CreateEntity_WithComponents_WithTrackingOff_NeverMarksDirty()
     {
         var world = new World();
 
@@ -72,7 +72,7 @@ public class WorldEntityLifecycleTests
     }
 
     [Fact]
-    public void CreateEntity_WithComponents_WithRegisteredConsumer_MarksDirtyAtTheCurrentTick()
+    public void CreateEntity_WithComponents_WithTrackingOn_MarksDirtyAtTheCurrentTick()
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();

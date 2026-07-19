@@ -145,7 +145,7 @@ public class InterceptorTests
     }
 
     [Fact]
-    public void WithNoRegisteredConsumer_NothingIsEverMarked()
+    public void WithTrackingOff_NothingIsEverMarked()
     {
         var world = new World();
         var entity = world.CreateEntity();

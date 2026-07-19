@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// Shared amortized-growth logic for the engine's hand-rolled dense arrays (entity
-/// tables, component columns, dirty logs, archetype storage slots). Doubles on growth
+/// tables, component columns and tick-stamps, archetype storage slots). Doubles on growth
 /// rather than growing to the exact requested size, so repeated single-slot growth
 /// stays amortized O(1) — the same rule every call site here already followed
 /// independently before this existed.

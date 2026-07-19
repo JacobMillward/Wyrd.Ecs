@@ -101,7 +101,7 @@ public class WorldChunkQueryTests
     }
 
     [Fact]
-    public void MutQuery_WithNoRegisteredConsumer_NeverMarksAnythingDirty()
+    public void MutQuery_WithTrackingOff_NeverMarksAnythingDirty()
     {
         var world = new World();
         var entity = world.CreateEntity();

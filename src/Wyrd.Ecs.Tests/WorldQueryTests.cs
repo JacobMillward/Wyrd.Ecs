@@ -83,7 +83,7 @@ public class WorldQueryTests
     }
 
     [Fact]
-    public void OneComponent_WithNoRegisteredConsumer_NeverMarksDirty()
+    public void OneComponent_WithTrackingOff_NeverMarksDirty()
     {
         var world = new World();
         var entity = world.CreateEntity();

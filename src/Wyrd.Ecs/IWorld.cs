@@ -21,10 +21,9 @@ public partial interface IWorld
     EntityId GetPermanentId(Entity entity);
 
     /// <summary>
-    /// The current tick, starting at 1 and advanced by <see cref="AdvanceTick"/>. Used
-    /// by the tracked mutation path's per-tick dedup — see the design's Dirty-tracking
-    /// section: an entity touched many times in one tick produces one change-log entry,
-    /// not many.
+    /// The current tick, starting at 1 and advanced by <see cref="AdvanceTick"/>. Every
+    /// tracked write stamps the row it touches with this value — see
+    /// <see cref="TrackChanges{T}"/>/<see cref="ReadChanges{T}"/>.
     /// </summary>
     int CurrentTick { get; }
 

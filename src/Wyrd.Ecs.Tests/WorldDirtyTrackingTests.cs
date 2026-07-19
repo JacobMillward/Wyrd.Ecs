@@ -68,7 +68,7 @@ public class WorldDirtyTrackingTests
     }
 
     [Fact]
-    public void GetComponent_WithNoRegisteredConsumer_NeverMarksDirty()
+    public void GetComponent_WithTrackingOff_NeverMarksDirty()
     {
         var world = new World();
         var entity = world.CreateEntity();
