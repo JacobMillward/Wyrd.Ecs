@@ -53,4 +53,37 @@ public class WorldBuilderTests
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Fact]
+    public void OnBuilt_IsInvokedOnceWithTheConstructedWorld_AfterBuildReturns()
+    {
+        var builder = new WorldBuilder();
+        World? received = null;
+        builder.OnBuilt += w => received = w;
+
+        var world = builder.Build();
+
+        received.Should().BeSameAs(world);
+    }
+
+    [Fact]
+    public void OnBuilt_WithMultipleSubscribers_InvokesAllOfThemInSubscriptionOrder()
+    {
+        var builder = new WorldBuilder();
+        var order = new List<int>();
+        builder.OnBuilt += _ => order.Add(1);
+        builder.OnBuilt += _ => order.Add(2);
+
+        builder.Build();
+
+        order.Should().Equal(1, 2);
+    }
+
+    [Fact]
+    public void OnBuilt_WithNoSubscribers_DoesNotThrow()
+    {
+        var act = () => new WorldBuilder().Build();
+
+        act.Should().NotThrow();
+    }
 }

@@ -27,6 +27,20 @@ public sealed class WorldBuilder
         return this;
     }
 
+    /// <summary>
+    /// Raised once, immediately after <see cref="Build"/> constructs the
+    /// <see cref="World"/> — the extensibility hook a package (such as
+    /// Wyrd.Ecs.Persistence) uses to associate configuration made on this builder
+    /// with the resulting World, since neither WorldBuilder nor World can gain new
+    /// fields from another assembly.
+    /// </summary>
+    public event Action<World>? OnBuilt;
+
     /// <summary>Builds a new <see cref="World"/> with the configured options.</summary>
-    public World Build() => new(_archetypeCapacity);
+    public World Build()
+    {
+        var world = new World(_archetypeCapacity);
+        OnBuilt?.Invoke(world);
+        return world;
+    }
 }
