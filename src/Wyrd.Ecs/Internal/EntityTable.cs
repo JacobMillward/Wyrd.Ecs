@@ -26,7 +26,7 @@ internal struct EntityTable
 
     /// <summary>
     /// A direct array index, not a <c>HashSet&lt;int&gt;</c> — this is called on every
-    /// single structural mutation (<see cref="Commands"/> checks it before almost every
+    /// single structural mutation (<see cref="CommandBuffer"/> checks it before almost every
     /// queued operation) plus every direct component read/write, so it's the hottest
     /// correctness check in the engine. A hash lookup here was real, avoidable overhead
     /// on that path; a bounds-checked array read costs a fraction of it.
@@ -37,7 +37,7 @@ internal struct EntityTable
     /// <summary>
     /// Allocates a fresh entity id without placing it into any archetype — not
     /// <see cref="IsAlive"/> until <see cref="Place"/> runs. Lets a caller (currently
-    /// only <see cref="Commands"/>) hand back a real, usable <see cref="Entity"/>
+    /// only <see cref="CommandBuffer"/>) hand back a real, usable <see cref="Entity"/>
     /// immediately for chaining further deferred commands against it, while the actual
     /// archetype placement happens later, at apply time.
     /// </summary>

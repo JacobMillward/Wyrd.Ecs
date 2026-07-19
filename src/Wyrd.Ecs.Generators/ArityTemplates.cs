@@ -340,8 +340,8 @@ internal static class ArityTemplates
     /// Emits the internal <c>World</c> method <c>PlaceReservedEntity&lt;T0..TN-1&gt;(Entity, T0, ...)</c>:
     /// places a previously-reserved entity into the archetype matching
     /// <c>T0..TN-1</c> (creating it if needed) and writes the given component values.
-    /// Used only by the matching generated <c>Commands.CreateEntity&lt;T0..TN-1&gt;</c>
-    /// overload's queued placement — see <see cref="CommandsCreateEntityMember"/>.
+    /// Used only by the matching generated <c>CommandBuffer.CreateEntity&lt;T0..TN-1&gt;</c>
+    /// overload's queued placement — see <see cref="CommandBufferCreateEntityMember"/>.
     /// </summary>
     internal static string PlaceReservedEntityMember(int n)
     {
@@ -375,7 +375,7 @@ internal static class ArityTemplates
 
     /// <summary>
     /// Emits <c>file static class CreateEntityOp&lt;T0..TN-1&gt;</c>: a cached,
-    /// non-capturing dispatcher delegate for <see cref="CommandsCreateEntityMember"/>'s
+    /// non-capturing dispatcher delegate for <see cref="CommandBufferCreateEntityMember"/>'s
     /// queued placement — one static instance per closed generic combination, created
     /// once and reused across every queued call, instead of a fresh closure allocated
     /// per call. For arity 1 the payload is boxed directly as <c>T0</c>; arity 2+ boxes
@@ -389,7 +389,7 @@ internal static class ArityTemplates
         var sb = new StringBuilder();
 
         sb.AppendLine(n == 1
-            ? "/// <summary>Cached, non-capturing dispatcher for <see cref=\"Commands.CreateEntity{T0}(T0)\"/>'s queued placement.</summary>"
+            ? "/// <summary>Cached, non-capturing dispatcher for <see cref=\"CommandBuffer.CreateEntity{T0}(T0)\"/>'s queued placement.</summary>"
             : $"/// <inheritdoc cref=\"CreateEntityOp{{T0}}\"/>");
         sb.AppendLine($"file static class CreateEntityOp<{tp}> {where}");
         sb.AppendLine("{");
@@ -411,15 +411,15 @@ internal static class ArityTemplates
     }
 
     /// <summary>
-    /// Emits the <c>Commands</c> method <c>CreateEntity&lt;T0..TN-1&gt;(T0, ...)</c>:
-    /// reserves a real entity id immediately (same as bare <c>Commands.CreateEntity()</c>)
+    /// Emits the <c>CommandBuffer</c> method <c>CreateEntity&lt;T0..TN-1&gt;(T0, ...)</c>:
+    /// reserves a real entity id immediately (same as bare <c>CommandBuffer.CreateEntity()</c>)
     /// and queues its placement with the given component values already set, going
     /// directly to the matching archetype in one step instead of creating an empty
     /// entity and queuing each component add afterward. Queues via the shared
-    /// <c>QueuedCommand</c> representation (see <c>Commands.cs</c>), dispatching through
+    /// <c>QueuedCommand</c> representation (see <c>CommandBuffer.cs</c>), dispatching through
     /// the matching <see cref="CreateEntityOpClass"/> instead of a per-call closure.
     /// </summary>
-    internal static string CommandsCreateEntityMember(int n)
+    internal static string CommandBufferCreateEntityMember(int n)
     {
         var tp = TypeParams(n);
         var where = WhereClausesInline(n);
@@ -432,7 +432,7 @@ internal static class ArityTemplates
                 + "    /// Reserves a real <see cref=\"Entity\"/> immediately, same as\n"
                 + "    /// <see cref=\"CreateEntity()\"/>, and queues its placement with the given\n"
                 + "    /// component already set. The returned entity is not\n"
-                + "    /// <see cref=\"World.IsAlive\"/> until <see cref=\"World.ApplyCommands\"/> runs.\n"
+                + "    /// <see cref=\"World.IsAlive\"/> until <see cref=\"World.ApplyCommands()\"/> runs.\n"
                 + "    /// </summary>"
             : "    /// <inheritdoc cref=\"CreateEntity{T0}(T0)\"/>");
         sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");

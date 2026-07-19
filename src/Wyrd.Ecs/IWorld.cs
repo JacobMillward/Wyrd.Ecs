@@ -6,7 +6,7 @@ namespace Wyrd.Ecs;
 /// or chunk is. Structural mutation — creating or destroying an entity, adding or
 /// removing a component or tag — is not here: it always goes through
 /// <see cref="Commands"/>, the only way to perform any of it. That's deliberate, not
-/// a missing convenience — see <see cref="Wyrd.Ecs.Commands"/>'s own docs for why.
+/// a missing convenience — see <see cref="Wyrd.Ecs.CommandBuffer"/>'s own docs for why.
 /// Every mutable component accessor here is the tracked path — see the design's
 /// Dirty-tracking section; there is no separate untracked accessor to bypass it.
 /// </summary>
@@ -28,19 +28,19 @@ public partial interface IWorld
     /// <summary>Advances to the next tick.</summary>
     void AdvanceTick();
 
-    /// <summary>The built-in deferred-mutation buffer for structural changes — see <see cref="Wyrd.Ecs.Commands"/>.</summary>
-    Commands Commands { get; }
+    /// <summary>The built-in deferred-mutation buffer for structural changes — see <see cref="Wyrd.Ecs.CommandBuffer"/>.</summary>
+    CommandBuffer Commands { get; }
 
     /// <summary>
-    /// Creates an additional <see cref="Wyrd.Ecs.Commands"/> buffer bound to this world,
+    /// Creates an additional <see cref="Wyrd.Ecs.CommandBuffer"/> bound to this world,
     /// independent of <see cref="Commands"/> and of every other buffer created this way.
     /// Each buffer is single-writer by construction — nothing is ever shared between
     /// them — so this is the mechanism for queuing structural changes safely from
     /// multiple concurrent sources (e.g. a future scheduler handing one buffer per
     /// system) without any locking: give each writer its own buffer, then apply them
-    /// all, in whatever order the caller chooses, via <see cref="ApplyCommands(Commands)"/>.
+    /// all, in whatever order the caller chooses, via <see cref="ApplyCommands(CommandBuffer)"/>.
     /// </summary>
-    Commands CreateCommands();
+    CommandBuffer CreateCommands();
 
     /// <summary>Applies every command queued on <see cref="Commands"/> since the last call, in queued order, then clears the queue.</summary>
     void ApplyCommands();
@@ -54,7 +54,7 @@ public partial interface IWorld
     /// written to concurrently beforehand. Throws if <paramref name="commands"/> was
     /// created for a different <see cref="IWorld"/>.
     /// </summary>
-    void ApplyCommands(Commands commands);
+    void ApplyCommands(CommandBuffer commands);
 
     /// <summary>
     /// Returns a tracked mutable reference to <paramref name="entity"/>'s

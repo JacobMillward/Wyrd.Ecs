@@ -3,7 +3,7 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// The only way to perform structural mutation — creating or destroying an entity,
 /// adding or removing a component or tag. Queued operations are not visible until
-/// <see cref="World.ApplyCommands"/> runs: <c>HasComponent</c>/<c>GetComponent</c>
+/// <see cref="World.ApplyCommands()"/> runs: <c>HasComponent</c>/<c>GetComponent</c>
 /// called against a queued-but-not-yet-applied change still reflect pre-apply state,
 /// and an entity created here is not <see cref="World.IsAlive"/> until then either. This
 /// exists for two reasons: performing a structural change on an entity while a
@@ -20,16 +20,27 @@ namespace Wyrd.Ecs;
 /// (<see cref="World.GetComponent{T}"/> and friends) never touches archetype row
 /// layout, carries no such hazard, and stays direct on <see cref="IWorld"/> — this class
 /// is only ever about changing an entity's shape, never about its values.
+///
+/// <para>
+/// Nothing on this class is synchronized — every field below is private, per-instance
+/// state. That's deliberate: a <see cref="CommandBuffer"/> instance is meant to have
+/// exactly one writer. Concurrent structural mutation from several sources doesn't need
+/// this class to gain locks; it needs each source to hold its own buffer, obtained via
+/// <see cref="IWorld.CreateCommands"/>, and to have all of them applied — in whatever
+/// order the caller chooses — via <see cref="IWorld.ApplyCommands(CommandBuffer)"/>. See
+/// that method's docs for why a caller-chosen apply order, not an internally-synchronized
+/// shared queue, is the mechanism this engine uses for safe concurrent command queuing.
+/// </para>
 /// </summary>
-public sealed partial class Commands
+public sealed partial class CommandBuffer
 {
     private readonly World _world;
     private QueuedCommand[] _queue = new QueuedCommand[4];
     private int _count;
 
-    internal Commands(World world) => _world = world;
+    internal CommandBuffer(World world) => _world = world;
 
-    /// <summary>The <see cref="World"/> this buffer was created for — checked by <see cref="Wyrd.Ecs.World.ApplyCommands(Commands)"/> before replaying it.</summary>
+    /// <summary>The <see cref="World"/> this buffer was created for — checked by <see cref="Wyrd.Ecs.World.ApplyCommands(CommandBuffer)"/> before replaying it.</summary>
     internal World World => _world;
 
     /// <summary>
@@ -55,7 +66,7 @@ public sealed partial class Commands
     /// plus the slot within it. Every other operation leaves <see cref="Buffer"/> null
     /// and <see cref="Slot"/> 0; their dispatcher delegates ignore both. Passing a
     /// buffer reference costs nothing (it's already a heap object), unlike the value
-    /// this used to carry directly, which required boxing <typeparamref name="T"/>
+    /// this used to carry directly, which required boxing <c>T</c>
     /// fresh on every single call — see <see cref="AddComponentBuffer{T}"/>'s docs for
     /// why storing the value there instead removes that allocation entirely.
     /// </summary>
@@ -82,7 +93,7 @@ public sealed partial class Commands
     /// <c>object</c>), but the *payload* is never boxed, because it lives in a genuinely
     /// generic array. A pooling scheme was measured and rejected here (see the pooling
     /// benchmarks) — every thread-safe pool tried cost more, in the access pattern
-    /// <see cref="Commands"/> actually has, than the box it was meant to avoid. This
+    /// <see cref="CommandBuffer"/> actually has, than the box it was meant to avoid. This
     /// sidesteps that whole tradeoff: nothing is pooled or shared, so nothing needs
     /// synchronization — it's exactly as single-writer as <see cref="_queue"/> already is.
     /// Reset to empty at the end of every <see cref="Apply"/> (its backing array is kept,
@@ -146,7 +157,7 @@ public sealed partial class Commands
     /// Reserves a real <see cref="Entity"/> immediately (so it can be used to chain
     /// further commands in the same batch) and queues its placement into the world.
     /// The returned entity is not <see cref="World.IsAlive"/> until
-    /// <see cref="World.ApplyCommands"/> runs.
+    /// <see cref="World.ApplyCommands()"/> runs.
     /// </summary>
     public Entity CreateEntity()
     {

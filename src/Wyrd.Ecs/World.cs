@@ -26,7 +26,7 @@ public sealed partial class World : IWorld
     private TrackingState _tracking = new();
     private readonly Archetype _emptyArchetype;
     private readonly int _archetypeCapacity;
-    private readonly Commands _commands;
+    private readonly CommandBuffer _commands;
 
     private EntityTable _entityTable = new();
     private int _currentTick = 1;
@@ -39,14 +39,14 @@ public sealed partial class World : IWorld
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(ArchetypeSignature.Empty, archetypeCapacity);
         _archetypes[ArchetypeSignature.Empty] = _emptyArchetype;
-        _commands = new Commands(this);
+        _commands = new CommandBuffer(this);
     }
 
     /// <inheritdoc/>
-    public Commands Commands => _commands;
+    public CommandBuffer Commands => _commands;
 
     /// <inheritdoc/>
-    public Commands CreateCommands() => new(this);
+    public CommandBuffer CreateCommands() => new(this);
 
     private readonly List<IStructuralChangeObserver> _structuralObservers = new();
 
@@ -115,7 +115,7 @@ public sealed partial class World : IWorld
         }
     }
 
-    /// <summary>Destroys an entity and all of its components. Called only via <see cref="Commands"/>.</summary>
+    /// <summary>Destroys an entity and all of its components. Called only via <see cref="CommandBuffer"/>.</summary>
     internal void DestroyEntity(Entity entity)
     {
         RequireAlive(entity);
@@ -143,18 +143,18 @@ public sealed partial class World : IWorld
     public void ApplyCommands() => ApplyCommands(_commands);
 
     /// <inheritdoc/>
-    public void ApplyCommands(Commands commands)
+    public void ApplyCommands(CommandBuffer commands)
     {
         if (commands.World != this)
-            throw new InvalidOperationException("This Commands buffer was created for a different World.");
+            throw new InvalidOperationException("This CommandBuffer was created for a different World.");
 
         commands.Apply();
     }
 
-    /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="Commands.CreateEntity"/>.</summary>
+    /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="CommandBuffer.CreateEntity"/>.</summary>
     internal Entity ReserveEntity() => _entityTable.Reserve();
 
-    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive, and notifies observers. Used only by <see cref="Commands.CreateEntity"/>'s queued placement.</summary>
+    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive, and notifies observers. Used only by <see cref="CommandBuffer.CreateEntity"/>'s queued placement.</summary>
     internal void PlaceReservedEntity(Entity entity)
     {
         _entityTable.Place(entity, _emptyArchetype);
@@ -164,7 +164,7 @@ public sealed partial class World : IWorld
     /// <summary>
     /// Adds <typeparamref name="T"/> to <paramref name="entity"/> and returns a
     /// tracked mutable reference to it. Throws if the entity already has the
-    /// component. Called only via <see cref="Commands"/>.
+    /// component. Called only via <see cref="CommandBuffer"/>.
     /// </summary>
     internal ref T AddComponent<T>(Entity entity) where T : struct, IComponent
     {
@@ -224,7 +224,7 @@ public sealed partial class World : IWorld
 
     /// <summary>
     /// Removes the component at <paramref name="typeIndex"/> from <paramref name="entity"/>,
-    /// if present. Called only via <see cref="Commands"/>, which already has the caller's
+    /// if present. Called only via <see cref="CommandBuffer"/>, which already has the caller's
     /// compile-time component type at its own call site and resolves it to a
     /// <see cref="Internal.TypeIndex{T}"/> there — the move itself (like every archetype
     /// transition) only ever needs the type index, never the type, so there is nothing
@@ -240,7 +240,7 @@ public sealed partial class World : IWorld
         NotifyComponentRemoved(entity, typeIndex);
     }
 
-    /// <summary>Adds the tag at <paramref name="typeIndex"/> to <paramref name="entity"/>. Called only via <see cref="Commands"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
+    /// <summary>Adds the tag at <paramref name="typeIndex"/> to <paramref name="entity"/>. Called only via <see cref="CommandBuffer"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
     internal void AddTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
@@ -251,7 +251,7 @@ public sealed partial class World : IWorld
         NotifyTagAdded(entity, typeIndex);
     }
 
-    /// <summary>Removes the tag at <paramref name="typeIndex"/> from <paramref name="entity"/>, if present. Called only via <see cref="Commands"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
+    /// <summary>Removes the tag at <paramref name="typeIndex"/> from <paramref name="entity"/>, if present. Called only via <see cref="CommandBuffer"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
     internal void RemoveTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
@@ -263,7 +263,7 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// Shared by every add path (<see cref="AddComponent{T}"/>, <see cref="AddTag{T}"/>):
+    /// Shared by every add path (<see cref="AddComponent{T}"/>, <see cref="AddTag(Entity, int)"/>):
     /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
     /// and moves the entity onto it.
     /// </summary>
@@ -280,7 +280,7 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// Shared by every remove path (<see cref="RemoveComponent{T}"/>, <see cref="RemoveTag{T}"/>):
+    /// Shared by every remove path (<see cref="RemoveComponent(Entity, int)"/>, <see cref="RemoveTag(Entity, int)"/>):
     /// looks up (or creates and caches) the archetype-remove edge for <paramref name="typeIndex"/>
     /// and moves the entity onto it.
     /// </summary>
