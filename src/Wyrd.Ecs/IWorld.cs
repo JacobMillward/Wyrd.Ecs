@@ -94,4 +94,22 @@ public partial interface IWorld
     /// touched while <see cref="TrackChanges{T}"/> was registered for this type.
     /// </summary>
     ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent;
+
+    /// <summary>
+    /// Walks every live entity and every one of its components that has a registration
+    /// in <paramref name="registry"/>, yielding one <see cref="SerializedComponent"/>
+    /// per (entity, registered component type) pair. Unregistered component types and
+    /// all tags are skipped — tags carry no data, so there's nothing to serialize. A
+    /// pure read over existing archetype storage: it never moves a row, so unlike
+    /// structural mutation it carries none of the hazards <see cref="Commands"/> exists
+    /// for, and needs none of its deferral. Returns a plain, allocating
+    /// <see cref="IEnumerable{T}"/> rather than the ref-struct enumerators
+    /// <c>Query</c> uses — this is a full-world snapshot walk, called
+    /// rarely (a save, a checkpoint, a replica sync), not a per-tick hot path, and its
+    /// consumer (a serialization pipeline that wants to filter, transform, or stream the
+    /// result) needs the composability a ref struct can't offer; the one iterator
+    /// allocation for the whole walk is negligible next to the per-component byte[]
+    /// allocations <see cref="IRegisteredComponentType.SerializeRow"/> already does.
+    /// </summary>
+    IEnumerable<SerializedComponent> EnumerateAll(SerializerRegistry registry);
 }

@@ -288,6 +288,23 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
+    public IEnumerable<SerializedComponent> EnumerateAll(SerializerRegistry registry)
+    {
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0) continue;
+
+            foreach (var (typeIndex, storage) in archetype.Storages)
+            {
+                if (!registry.TryGetByTypeIndex(typeIndex, out var registered)) continue;
+
+                for (var row = 0; row < archetype.Count; row++)
+                    yield return new SerializedComponent(archetype.Entities[row], registered.Discriminator, registered.SerializeRow(storage.RawItems, row));
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {
         var typeIndex = TAccess0.TypeIndex;
