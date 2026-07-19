@@ -11,7 +11,7 @@ public class InterceptorTests
     public void PureRead_IsIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 3f;
         world.AdvanceTick();
@@ -28,7 +28,7 @@ public class InterceptorTests
     public void DirectCompoundAssignment_IsNotIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
         world.AdvanceTick();
@@ -43,7 +43,7 @@ public class InterceptorTests
     public void RefLocal_PureReadAfterBinding_IsIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 5f;
         world.AdvanceTick();
@@ -64,7 +64,7 @@ public class InterceptorTests
     public void RefLocal_MutatedAfterBinding_IsNotIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
         world.AdvanceTick();
@@ -83,7 +83,7 @@ public class InterceptorTests
     public void PassedByIn_IsIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 2f;
         world.AdvanceTick();
@@ -100,7 +100,7 @@ public class InterceptorTests
     public void PassedByRefToAHelperThatOnlyReads_IsIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 4f;
         world.AdvanceTick();
@@ -117,7 +117,7 @@ public class InterceptorTests
     public void PassedByRefToAHelperThatWrites_IsNotIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
         world.AdvanceTick();
@@ -132,7 +132,7 @@ public class InterceptorTests
     public void PassedToAnInterfaceMethod_IsNotIntercepted()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity).X = 1f;
         world.AdvanceTick();

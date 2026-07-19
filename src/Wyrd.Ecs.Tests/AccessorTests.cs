@@ -7,14 +7,11 @@ public class AccessorTests
         public int Number;
     }
 
-    private static Mut<Value> CreateMutChunk(Value[] items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length, bool tracked = true) =>
-        Mut<Value>.CreateChunk(items, lastMarkedTick, tick, dirtyLog, start, length, tracked);
+    private static Mut<Value> CreateMutChunk(Value[] items, int[] lastMarkedTick, int tick, int start, int length, bool tracked = true) =>
+        Mut<Value>.CreateChunk(items, lastMarkedTick, tick, start, length, tracked);
 
-    private static Ref<Value> CreateRefChunk(Value[] items, int[] lastMarkedTick, int tick, DirtyLog dirtyLog, int start, int length, bool tracked = true) =>
-        Ref<Value>.CreateChunk(items, lastMarkedTick, tick, dirtyLog, start, length, tracked);
-
-    private static DirtyLog CreateEmptyDirtyLog(Entity[] archetypeEntities) =>
-        new(archetypeEntities, new DirtyEntry[archetypeEntities.Length + 1], 0);
+    private static Ref<Value> CreateRefChunk(Value[] items, int[] lastMarkedTick, int tick, int start, int length, bool tracked = true) =>
+        Ref<Value>.CreateChunk(items, lastMarkedTick, tick, start, length, tracked);
 
     [Fact]
     public void Mut_TypeIndex_MatchesTypeIndexOfT()
@@ -33,9 +30,8 @@ public class AccessorTests
     {
         var items = new Value[10];
         var lastMarkedTick = new int[10];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[10]);
 
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 2, length: 3);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, start: 2, length: 3);
 
         chunk.Length.Should().Be(3);
     }
@@ -45,8 +41,7 @@ public class AccessorTests
     {
         var items = new Value[4];
         var lastMarkedTick = new int[4];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[4]);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 0, length: 4);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, start: 0, length: 4);
 
         chunk[1].Number = 77;
 
@@ -58,8 +53,7 @@ public class AccessorTests
     {
         var items = new Value[4];
         var lastMarkedTick = new int[4];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[4]);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 2, length: 2);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, start: 2, length: 2);
 
         chunk[0].Number = 5;
 
@@ -71,8 +65,7 @@ public class AccessorTests
     {
         var items = new Value[3];
         var lastMarkedTick = new int[3];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[3]);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 0, length: 3);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, start: 0, length: 3);
 
         _ = chunk[1];
 
@@ -80,46 +73,15 @@ public class AccessorTests
     }
 
     [Fact]
-    public void Mut_Indexer_AppendsTheTouchedEntityToTheDirtyLog()
-    {
-        var items = new Value[3];
-        var lastMarkedTick = new int[3];
-        var entities = new[] { new Entity(1, 0), new Entity(2, 0), new Entity(3, 0) };
-        var dirtyLog = CreateEmptyDirtyLog(entities);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 7, dirtyLog, start: 0, length: 3);
-
-        _ = chunk[1];
-
-        dirtyLog.Count.Should().Be(1);
-        dirtyLog.Entries[0].Should().Be(new DirtyEntry(entities[1], 7));
-    }
-
-    [Fact]
-    public void Mut_Indexer_RespectsStartOffsetWhenResolvingTheTouchedEntity()
+    public void Mut_Indexer_RespectsStartOffsetWhenMarkingDirty()
     {
         var items = new Value[4];
         var lastMarkedTick = new int[4];
-        var entities = new[] { new Entity(1, 0), new Entity(2, 0), new Entity(3, 0), new Entity(4, 0) };
-        var dirtyLog = CreateEmptyDirtyLog(entities);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 3, dirtyLog, start: 2, length: 2);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 3, start: 2, length: 2);
 
         _ = chunk[0];
 
-        dirtyLog.Entries[0].Entity.Should().Be(entities[2]);
-    }
-
-    [Fact]
-    public void Mut_Indexer_TouchedTwiceSameTick_AppendsOnce()
-    {
-        var items = new Value[3];
-        var lastMarkedTick = new int[3];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[3]);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 7, dirtyLog, start: 0, length: 3);
-
-        _ = chunk[1];
-        _ = chunk[1];
-
-        dirtyLog.Count.Should().Be(1);
+        lastMarkedTick.Should().Equal(0, 0, 3, 0);
     }
 
     [Fact]
@@ -127,13 +89,11 @@ public class AccessorTests
     {
         var items = new Value[3];
         var lastMarkedTick = new int[3];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[3]);
-        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 0, length: 3, tracked: false);
+        var chunk = CreateMutChunk(items, lastMarkedTick, tick: 1, start: 0, length: 3, tracked: false);
 
         _ = chunk[1];
 
         lastMarkedTick.Should().Equal(0, 0, 0);
-        dirtyLog.Count.Should().Be(0);
     }
 
     [Fact]
@@ -141,14 +101,12 @@ public class AccessorTests
     {
         var items = new Value[3] { new() { Number = 1 }, new() { Number = 2 }, new() { Number = 3 } };
         var lastMarkedTick = new int[3];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[3]);
-        var chunk = CreateRefChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 0, length: 3);
+        var chunk = CreateRefChunk(items, lastMarkedTick, tick: 1, start: 0, length: 3);
 
         for (var i = 0; i < chunk.Length; i++)
             _ = chunk[i].Number;
 
         lastMarkedTick.Should().Equal(0, 0, 0);
-        dirtyLog.Count.Should().Be(0);
     }
 
     [Fact]
@@ -156,8 +114,7 @@ public class AccessorTests
     {
         var items = new Value[1] { new() { Number = 9 } };
         var lastMarkedTick = new int[1];
-        var dirtyLog = CreateEmptyDirtyLog(new Entity[1]);
-        var chunk = CreateRefChunk(items, lastMarkedTick, tick: 1, dirtyLog, start: 0, length: 1);
+        var chunk = CreateRefChunk(items, lastMarkedTick, tick: 1, start: 0, length: 1);
 
         chunk[0].Number.Should().Be(9);
     }

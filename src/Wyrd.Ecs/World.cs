@@ -67,15 +67,8 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public int CurrentTick => _currentTick;
 
-    /// <summary>The live archetype collection, for <see cref="ChangeConsumer{T}"/> to build a <see cref="ChangeReadQuery{T}"/> from.</summary>
-    internal Dictionary<ArchetypeSignature, Archetype>.ValueCollection Archetypes => _archetypes.Values;
-
     /// <inheritdoc/>
-    public void AdvanceTick()
-    {
-        _currentTick++;
-        _tracking.TrimRetiredEntries(_archetypes);
-    }
+    public void AdvanceTick() => _currentTick++;
 
     /// <inheritdoc/>
     public ref T AddComponent<T>(Entity entity) where T : struct, IComponent
@@ -90,7 +83,7 @@ public sealed partial class World : IWorld
 
         var storage = target.GetOrCreateStorage<T>();
         if (IsTracked(typeIndex))
-            storage.MarkDirty(targetRow, entity, _currentTick);
+            storage.MarkDirty(targetRow, _currentTick);
         return ref storage[targetRow];
     }
 
@@ -104,7 +97,7 @@ public sealed partial class World : IWorld
 
         var typed = (ComponentStorage<T>)storage;
         if (IsTracked(TypeIndex<T>.Value))
-            typed.MarkDirty(row, entity, _currentTick);
+            typed.MarkDirty(row, _currentTick);
         return ref typed[row];
     }
 
@@ -217,8 +210,7 @@ public sealed partial class World : IWorld
             if (archetype.Count == 0) continue;
 
             var storage = archetype.Storages[typeIndex];
-            var dirtyLog = tracked ? storage.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;
-            action(TAccess0.CreateChunk(storage.RawItems, storage.RawLastMarkedTick, _currentTick, dirtyLog, 0, archetype.Count, tracked));
+            action(TAccess0.CreateChunk(storage.RawItems, storage.RawLastMarkedTick, _currentTick, 0, archetype.Count, tracked));
         }
     }
 
@@ -237,11 +229,9 @@ public sealed partial class World : IWorld
 
             var storage0 = archetype.Storages[index0];
             var storage1 = archetype.Storages[index1];
-            var dirtyLog0 = tracked0 ? storage0.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;
-            var dirtyLog1 = tracked1 ? storage1.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;
             action(
-                TAccess0.CreateChunk(storage0.RawItems, storage0.RawLastMarkedTick, _currentTick, dirtyLog0, 0, archetype.Count, tracked0),
-                TAccess1.CreateChunk(storage1.RawItems, storage1.RawLastMarkedTick, _currentTick, dirtyLog1, 0, archetype.Count, tracked1));
+                TAccess0.CreateChunk(storage0.RawItems, storage0.RawLastMarkedTick, _currentTick, 0, archetype.Count, tracked0),
+                TAccess1.CreateChunk(storage1.RawItems, storage1.RawLastMarkedTick, _currentTick, 0, archetype.Count, tracked1));
         }
     }
 
@@ -249,19 +239,40 @@ public sealed partial class World : IWorld
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <inheritdoc/>
-    public ChangeConsumer<T> RegisterChangeConsumer<T>() where T : struct, IComponent
+    public IDisposable TrackChanges<T>() where T : struct, IComponent
     {
         var typeIndex = TypeIndex<T>.Value;
-        var consumer = new ChangeConsumer<T>(this, typeIndex, _currentTick);
-        _tracking.RegisterConsumer(typeIndex, consumer);
-        return consumer;
+        _tracking.Register(typeIndex);
+        return new TrackingHandle(this, typeIndex);
     }
 
-    /// <summary>Unregisters a <see cref="ChangeConsumer{T}"/>. Called only by <see cref="ChangeConsumer{T}.Dispose"/>.</summary>
-    internal void UnregisterChangeConsumer<T>(int typeIndex, ChangeConsumer<T> consumer) where T : struct, IComponent =>
-        _tracking.UnregisterConsumer(typeIndex, consumer);
+    /// <inheritdoc/>
+    public ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent =>
+        new(GetMatchingArchetypes(Internal.QuerySignature<Ref<T>>.Value), sinceTick);
 
-    /// <summary>True when at least one consumer is currently registered for <paramref name="typeIndex"/>.</summary>
+    private void UntrackChanges(int typeIndex) => _tracking.Unregister(typeIndex);
+
+    private sealed class TrackingHandle : IDisposable
+    {
+        private readonly World _world;
+        private readonly int _typeIndex;
+        private bool _disposed;
+
+        internal TrackingHandle(World world, int typeIndex)
+        {
+            _world = world;
+            _typeIndex = typeIndex;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _world.UntrackChanges(_typeIndex);
+        }
+    }
+
+    /// <summary>True when change tracking is currently on for <paramref name="typeIndex"/>.</summary>
     internal bool IsTracked(int typeIndex) => _tracking.IsTracked(typeIndex);
 
     private void RequireAlive(Entity entity)
@@ -305,7 +316,6 @@ public sealed partial class World : IWorld
         var created = new Archetype(signature, _archetypeCapacity);
         _archetypes[signature] = created;
         _queryCache.Clear();
-        _tracking.InvalidateCachedArchetypes();
         return created;
     }
 

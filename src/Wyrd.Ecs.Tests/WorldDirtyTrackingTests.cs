@@ -3,12 +3,13 @@ namespace Wyrd.Ecs.Tests;
 public class WorldDirtyTrackingTests
 {
     private struct Position : IComponent;
+    private struct Marker : ITag;
 
     [Fact]
     public void GetComponent_MarksTheComponentDirtyAtTheCurrentTick()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var tracking = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AdvanceTick();
@@ -24,7 +25,7 @@ public class WorldDirtyTrackingTests
     public void AddComponent_MarksTheNewComponentDirtyAtTheCurrentTick()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var tracking = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
 
         world.AddComponent<Position>(entity);
@@ -35,29 +36,26 @@ public class WorldDirtyTrackingTests
     }
 
     [Fact]
-    public void GetComponent_TouchedTwiceSameTick_LogsOnlyOneEntry()
+    public void StructuralMove_PreservesTheLastMarkedTick()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var tracking = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
-        var cursorAfterAdd = world.CurrentTick;
-        world.AdvanceTick();
+        world.AddComponent<Position>(entity); // tick 1
 
-        _ = world.GetComponent<Position>(entity);
-        _ = world.GetComponent<Position>(entity);
+        world.AddTag<Marker>(entity); // forces a structural move; Position's value must carry its tick across
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.ReadDirtyLogSince(cursorAfterAdd).ToArray().Should()
-            .Equal(new DirtyEntry(entity, world.CurrentTick));
+        var (_, row) = TestReflection.GetLocation(world, entity);
+        storage.RawLastMarkedTick[row].Should().Be(1);
     }
 
     [Fact]
     public void TryGetComponent_NeverMarksDirty()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var tracking = world.TrackChanges<Position>();
         var entity = world.CreateEntity();
         world.AddComponent<Position>(entity);
         world.AdvanceTick();

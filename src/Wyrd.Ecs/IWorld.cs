@@ -28,12 +28,7 @@ public partial interface IWorld
     /// </summary>
     int CurrentTick { get; }
 
-    /// <summary>
-    /// Advances to the next tick. Marking an entity dirty on a later tick produces a
-    /// new change-log entry even if it was already marked on an earlier one — see
-    /// <see cref="RegisterChangeConsumer{T}"/> and the design's Streaming the change log
-    /// to multiple independent consumers section.
-    /// </summary>
+    /// <summary>Advances to the next tick.</summary>
     void AdvanceTick();
 
     /// <summary>
@@ -90,12 +85,19 @@ public partial interface IWorld
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <summary>
-    /// Registers a reader of <typeparamref name="T"/>'s change log and returns a
-    /// handle to it. This is the only way to observe <typeparamref name="T"/>'s
-    /// changes: registering turns tracking on for <typeparamref name="T"/>, and the
-    /// returned consumer's own advanced position is what makes log retention safe.
-    /// See <see cref="ChangeConsumer{T}"/> and the design's Streaming the change log
-    /// to multiple independent consumers section.
+    /// Turns change tracking on for <typeparamref name="T"/>. Returns a handle; dispose
+    /// it to turn tracking back off if this was the last registration for the type.
+    /// This is the only way to make <see cref="ReadChanges{T}"/> observe anything —
+    /// while untracked, writes to <typeparamref name="T"/> never stamp a tick.
     /// </summary>
-    ChangeConsumer<T> RegisterChangeConsumer<T>() where T : struct, IComponent;
+    IDisposable TrackChanges<T>() where T : struct, IComponent;
+
+    /// <summary>
+    /// Scans every archetype containing <typeparamref name="T"/> for rows whose
+    /// tick-stamp is past <paramref name="sinceTick"/>, returning each one's current
+    /// value. Stateless and non-destructive — call this as many times, from as many
+    /// independent readers with their own watermark, as needed. Only observes rows
+    /// touched while <see cref="TrackChanges{T}"/> was registered for this type.
+    /// </summary>
+    ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent;
 }

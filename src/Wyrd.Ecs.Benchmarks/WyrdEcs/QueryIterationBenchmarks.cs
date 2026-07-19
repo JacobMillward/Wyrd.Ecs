@@ -16,9 +16,6 @@ public class QueryIterationBenchmarks
 
     private World _world1 = null!;
     private World _world2 = null!;
-    private ChangeConsumer<Position>? _world1PositionConsumer;
-    private ChangeConsumer<Position>? _world2PositionConsumer;
-    private ChangeConsumer<Velocity>? _world2VelocityConsumer;
 
     [GlobalSetup]
     public void GlobalSetup()
@@ -28,9 +25,9 @@ public class QueryIterationBenchmarks
 
         if (Tracked)
         {
-            _world1PositionConsumer = _world1.RegisterChangeConsumer<Position>();
-            _world2PositionConsumer = _world2.RegisterChangeConsumer<Position>();
-            _world2VelocityConsumer = _world2.RegisterChangeConsumer<Velocity>();
+            _world1.TrackChanges<Position>();
+            _world2.TrackChanges<Position>();
+            _world2.TrackChanges<Velocity>();
         }
 
         for (var i = 0; i < EntityCount; i++)
@@ -49,12 +46,6 @@ public class QueryIterationBenchmarks
         }
     }
 
-    /// <summary>
-    /// Every benchmark here advances its registered consumer(s) every call, the same
-    /// rule <c>StructuralChangeBenchmarks</c> follows — a no-op when <see cref="Tracked"/>
-    /// is false. Without this, the change log grows unboundedly across the whole job and
-    /// the number measures log growth, not the tracked path's steady-state cost.
-    /// </summary>
     [Benchmark(Baseline = true)]
     public void OneComponent_ChunkCallback()
     {
@@ -64,7 +55,6 @@ public class QueryIterationBenchmarks
             for (var i = 0; i < chunk.Length; i++)
                 chunk[i].X += chunk[i].Y * 0f;
         });
-        _world1PositionConsumer?.Advance(_world1.CurrentTick);
     }
 
     [Benchmark]
@@ -73,7 +63,6 @@ public class QueryIterationBenchmarks
         _world1.AdvanceTick();
         foreach (var row in _world1.Query<Position>())
             row.Get<Position>().X += row.Get<Position>().Y * 0f;
-        _world1PositionConsumer?.Advance(_world1.CurrentTick);
     }
 
     [Benchmark]
@@ -85,7 +74,5 @@ public class QueryIterationBenchmarks
             for (var i = 0; i < position.Length; i++)
                 position[i].X += velocity[i].X * 0f;
         });
-        _world2PositionConsumer?.Advance(_world2.CurrentTick);
-        _world2VelocityConsumer?.Advance(_world2.CurrentTick);
     }
 }

@@ -92,8 +92,7 @@ public class ComponentStorageTests
     {
         var storage = new ComponentStorage<Value>();
         storage.EnsureCapacity(3);
-        var entity = new Entity(1, 0);
-        storage.MarkDirty(row: 2, entity, tick: 9);
+        storage.MarkDirty(row: 2, tick: 9);
 
         storage.SwapRemove(row: 0, lastRow: 2);
 
@@ -102,18 +101,20 @@ public class ComponentStorageTests
     }
 
     [Fact]
-    public void CopyRowTo_CopiesTheValueOnly()
+    public void CopyRowTo_CopiesBothTheValueAndTheLastMarkedTick()
     {
         var source = new ComponentStorage<Value>();
         var destination = new ComponentStorage<Value>();
         source.EnsureCapacity(1);
         destination.EnsureCapacity(1);
         source[0].Number = 55;
+        source.MarkDirty(row: 0, tick: 9);
 
         IComponentStorage sourceStorage = source;
         sourceStorage.CopyRowTo(0, destination, 0);
 
         destination[0].Number.Should().Be(55);
+        destination.RawLastMarkedTick[0].Should().Be(9);
     }
 
     [Fact]
@@ -138,106 +139,25 @@ public class ComponentStorageTests
     }
 
     [Fact]
-    public void CreateEmpty_HasItsOwnIndependentDirtyLog()
-    {
-        var source = new ComponentStorage<Value>();
-        source.EnsureCapacity(1);
-        source.MarkDirty(row: 0, new Entity(1, 0), tick: 5);
-
-        var created = (ComponentStorage<Value>)((IComponentStorage)source).CreateEmpty(4);
-
-        created.ReadDirtyLogSince(sinceTick: 0).Length.Should().Be(0);
-    }
-
-    [Fact]
-    public void MarkDirty_FirstTouchThisTick_AppendsOneEntry()
+    public void MarkDirty_SetsTheLastMarkedTickForThatRow()
     {
         var storage = new ComponentStorage<Value>();
         storage.EnsureCapacity(1);
-        var entity = new Entity(1, 0);
 
-        storage.MarkDirty(row: 0, entity, tick: 5);
+        storage.MarkDirty(row: 0, tick: 5);
 
         storage.RawLastMarkedTick[0].Should().Be(5);
-        storage.ReadDirtyLogSince(sinceTick: 0).ToArray().Should().Equal(new DirtyEntry(entity, 5));
     }
 
     [Fact]
-    public void MarkDirty_SecondTouchSameTick_DoesNotAppendAgain()
+    public void MarkDirty_ANewerTick_OverwritesTheOlderOne()
     {
         var storage = new ComponentStorage<Value>();
         storage.EnsureCapacity(1);
-        var entity = new Entity(1, 0);
 
-        storage.MarkDirty(row: 0, entity, tick: 5);
-        storage.MarkDirty(row: 0, entity, tick: 5);
+        storage.MarkDirty(row: 0, tick: 5);
+        storage.MarkDirty(row: 0, tick: 6);
 
-        storage.ReadDirtyLogSince(sinceTick: 0).Length.Should().Be(1);
-    }
-
-    [Fact]
-    public void MarkDirty_TouchOnADifferentTick_AppendsAgain()
-    {
-        var storage = new ComponentStorage<Value>();
-        storage.EnsureCapacity(1);
-        var entity = new Entity(1, 0);
-
-        storage.MarkDirty(row: 0, entity, tick: 5);
-        storage.MarkDirty(row: 0, entity, tick: 6);
-
-        storage.ReadDirtyLogSince(sinceTick: 0).ToArray().Should()
-            .Equal(new DirtyEntry(entity, 5), new DirtyEntry(entity, 6));
-    }
-
-    [Fact]
-    public void MarkDirty_GrowsTheLogPastItsInitialCapacity()
-    {
-        var storage = new ComponentStorage<Value>();
-        storage.EnsureCapacity(1);
-        var entity = new Entity(1, 0);
-
-        for (var tick = 1; tick <= 20; tick++)
-            storage.MarkDirty(row: 0, entity, tick);
-
-        storage.ReadDirtyLogSince(sinceTick: 0).Length.Should().Be(20);
-    }
-
-    [Fact]
-    public void ReadDirtyLogSince_ExcludesEntriesAtOrBeforeTheCursor()
-    {
-        var storage = new ComponentStorage<Value>();
-        storage.EnsureCapacity(1);
-        var entity = new Entity(1, 0);
-        storage.MarkDirty(row: 0, entity, tick: 5);
-        storage.MarkDirty(row: 0, entity, tick: 6);
-        storage.MarkDirty(row: 0, entity, tick: 7);
-
-        var entries = storage.ReadDirtyLogSince(sinceTick: 6);
-
-        entries.ToArray().Should().Equal(new DirtyEntry(entity, 7));
-    }
-
-    [Fact]
-    public void GetDirtyLogForChunk_ExposesTheCurrentArchetypeEntities()
-    {
-        var storage = new ComponentStorage<Value>();
-        storage.EnsureCapacity(2);
-        var entities = new[] { new Entity(1, 0), new Entity(2, 0) };
-
-        var dirtyLog = storage.GetDirtyLogForChunk(entities, additionalCapacity: 2);
-
-        dirtyLog.ArchetypeEntities.Should().BeSameAs(entities);
-    }
-
-    [Fact]
-    public void GetDirtyLogForChunk_GrowsBackingArrayWhenNeeded()
-    {
-        var storage = new ComponentStorage<Value>();
-        storage.EnsureCapacity(10);
-        var entities = new Entity[10];
-
-        var dirtyLog = storage.GetDirtyLogForChunk(entities, additionalCapacity: 10);
-
-        dirtyLog.Entries.Length.Should().BeGreaterThanOrEqualTo(10);
+        storage.RawLastMarkedTick[0].Should().Be(6);
     }
 }

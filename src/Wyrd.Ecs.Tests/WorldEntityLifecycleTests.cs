@@ -75,7 +75,7 @@ public class WorldEntityLifecycleTests
     public void CreateEntity_WithComponents_WithRegisteredConsumer_MarksDirtyAtTheCurrentTick()
     {
         var world = new World();
-        using var consumer = world.RegisterChangeConsumer<Position>();
+        using var consumer = world.TrackChanges<Position>();
 
         var entity = world.CreateEntity(new Position());
 

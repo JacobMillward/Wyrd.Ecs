@@ -53,7 +53,6 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"    private readonly Span<T{i}> _items{i};");
             sb.AppendLine($"    private readonly Span<int> _lastMarkedTick{i};");
-            sb.AppendLine($"    private readonly DirtyLog _dirtyLog{i};");
             sb.AppendLine($"    private readonly bool _tracked{i};");
         }
         sb.AppendLine("    private readonly int _tick;");
@@ -63,11 +62,11 @@ internal static class ArityTemplates
 
         sb.AppendLine("    internal QueryRow(");
         sb.AppendLine(string.Join(",\n", Indices(n).Select(i =>
-            $"        Span<T{i}> items{i}, Span<int> lastMarkedTick{i}, DirtyLog dirtyLog{i}, bool tracked{i}")));
+            $"        Span<T{i}> items{i}, Span<int> lastMarkedTick{i}, bool tracked{i}")));
         sb.AppendLine("        , int tick, int row, Entity entity)");
         sb.AppendLine("    {");
         foreach (var i in Indices(n))
-            sb.AppendLine($"        _items{i} = items{i}; _lastMarkedTick{i} = lastMarkedTick{i}; _dirtyLog{i} = dirtyLog{i}; _tracked{i} = tracked{i};");
+            sb.AppendLine($"        _items{i} = items{i}; _lastMarkedTick{i} = lastMarkedTick{i}; _tracked{i} = tracked{i};");
         sb.AppendLine("        _tick = tick;");
         sb.AppendLine("        _row = row;");
         sb.AppendLine("        _entity = entity;");
@@ -100,12 +99,7 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"        if (typeof(T) == typeof(T{i}))");
             sb.AppendLine("        {");
-            sb.AppendLine($"            if (_tracked{i} && _lastMarkedTick{i}[_row] != _tick)");
-            sb.AppendLine("            {");
-            sb.AppendLine($"                _lastMarkedTick{i}[_row] = _tick;");
-            sb.AppendLine($"                _dirtyLog{i}.Entries[_dirtyLog{i}.Count] = new DirtyEntry(_entity, _tick);");
-            sb.AppendLine($"                _dirtyLog{i}.Count++;");
-            sb.AppendLine("            }");
+            sb.AppendLine($"            if (_tracked{i}) _lastMarkedTick{i}[_row] = _tick;");
             sb.AppendLine($"            return ref Unsafe.As<T{i}, T>(ref _items{i}[_row]);");
             sb.AppendLine("        }");
         }
@@ -224,7 +218,6 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"        private Span<T{i}> _items{i};");
             sb.AppendLine($"        private Span<int> _lastMarkedTick{i};");
-            sb.AppendLine($"        private DirtyLog _dirtyLog{i};");
         }
         sb.AppendLine("        private Entity[] _entities;");
         sb.AppendLine("        private int _row;");
@@ -240,7 +233,7 @@ internal static class ArityTemplates
             sb.AppendLine($"            _typeIndex{i} = typeIndex{i}; _tracked{i} = tracked{i};");
         sb.AppendLine("            _tick = tick;");
         foreach (var i in Indices(n))
-            sb.AppendLine($"            _items{i} = default; _lastMarkedTick{i} = default; _dirtyLog{i} = null!;");
+            sb.AppendLine($"            _items{i} = default; _lastMarkedTick{i} = default;");
         sb.AppendLine("            _entities = Array.Empty<Entity>();");
         sb.AppendLine("            _row = -1;");
         sb.AppendLine("            _count = 0;");
@@ -250,7 +243,7 @@ internal static class ArityTemplates
         sb.AppendLine(n == 1
             ? "        /// <summary>The current row.</summary>"
             : "        /// <inheritdoc cref=\"Query{T0}.Enumerator.Current\"/>");
-        var currentArgs = string.Join(", ", Indices(n).Select(i => $"_items{i}, _lastMarkedTick{i}, _dirtyLog{i}, _tracked{i}"));
+        var currentArgs = string.Join(", ", Indices(n).Select(i => $"_items{i}, _lastMarkedTick{i}, _tracked{i}"));
         sb.AppendLine($"        public QueryRow<{tp}> Current => new({currentArgs}, _tick, _row, _entities[_row]);");
         sb.AppendLine();
 
@@ -279,7 +272,6 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"                _items{i} = ((T{i}[])storage{i}.RawItems).AsSpan(0, archetype.Count);");
             sb.AppendLine($"                _lastMarkedTick{i} = storage{i}.RawLastMarkedTick.AsSpan(0, archetype.Count);");
-            sb.AppendLine($"                _dirtyLog{i} = _tracked{i} ? storage{i}.GetDirtyLogForChunk(archetype.Entities, archetype.Count) : null!;");
         }
         sb.AppendLine("                _entities = archetype.Entities;");
         sb.AppendLine("                _count = archetype.Count;");
@@ -381,7 +373,7 @@ internal static class ArityTemplates
         {
             sb.AppendLine($"        var storage{i} = target.GetOrCreateStorage<T{i}>();");
             sb.AppendLine($"        storage{i}[row] = component{i};");
-            sb.AppendLine($"        if (IsTracked(TypeIndex<T{i}>.Value)) storage{i}.MarkDirty(row, entity, _currentTick);");
+            sb.AppendLine($"        if (IsTracked(TypeIndex<T{i}>.Value)) storage{i}.MarkDirty(row, _currentTick);");
             sb.AppendLine();
         }
         sb.AppendLine("        return entity;");

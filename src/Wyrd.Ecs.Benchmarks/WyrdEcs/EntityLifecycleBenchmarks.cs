@@ -26,14 +26,14 @@ public class EntityLifecycleBenchmarks
 
         if (Tracked)
         {
-            _world.RegisterChangeConsumer<Position>();
-            _world.RegisterChangeConsumer<Velocity>();
-            _world.RegisterChangeConsumer<Health>();
-            _world.RegisterChangeConsumer<BulkPayload>();
-            _world.RegisterChangeConsumer<Padding1>();
-            _world.RegisterChangeConsumer<Padding2>();
-            _world.RegisterChangeConsumer<Padding3>();
-            _world.RegisterChangeConsumer<Padding4>();
+            _world.TrackChanges<Position>();
+            _world.TrackChanges<Velocity>();
+            _world.TrackChanges<Health>();
+            _world.TrackChanges<BulkPayload>();
+            _world.TrackChanges<Padding1>();
+            _world.TrackChanges<Padding2>();
+            _world.TrackChanges<Padding3>();
+            _world.TrackChanges<Padding4>();
         }
 
         _toDispose = _world.CreateEntity();
