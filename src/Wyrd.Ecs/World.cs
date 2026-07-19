@@ -26,6 +26,7 @@ public sealed partial class World : IWorld
     private TrackingState _tracking = new();
     private readonly Archetype _emptyArchetype;
     private readonly int _archetypeCapacity;
+    private readonly Commands _commands;
 
     private EntityTable _entityTable = new();
     private int _currentTick = 1;
@@ -38,7 +39,11 @@ public sealed partial class World : IWorld
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(ArchetypeSignature.Empty, archetypeCapacity);
         _archetypes[ArchetypeSignature.Empty] = _emptyArchetype;
+        _commands = new Commands(this);
     }
+
+    /// <inheritdoc/>
+    public Commands Commands => _commands;
 
     /// <inheritdoc/>
     public Entity CreateEntity()
@@ -69,6 +74,18 @@ public sealed partial class World : IWorld
 
     /// <inheritdoc/>
     public void AdvanceTick() => _currentTick++;
+
+    /// <inheritdoc/>
+    public void ApplyCommands() => _commands.Apply();
+
+    /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="Commands.CreateEntity"/>.</summary>
+    internal Entity ReserveEntity() => _entityTable.Reserve();
+
+    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive. Used only by <see cref="Commands.CreateEntity"/>'s queued placement.</summary>
+    internal void PlaceReservedEntity(Entity entity)
+    {
+        _entityTable.Place(entity, _emptyArchetype);
+    }
 
     /// <inheritdoc/>
     public ref T AddComponent<T>(Entity entity) where T : struct, IComponent

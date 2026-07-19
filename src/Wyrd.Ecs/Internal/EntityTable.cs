@@ -14,6 +14,7 @@ internal struct EntityTable
     private int[] _generations = new int[4];
     private (Archetype Archetype, int Row)[] _locations = new (Archetype, int)[4];
     private readonly Stack<int> _freeIds = new();
+    private readonly HashSet<int> _reserved = new();
     private int _nextId = 1; // Id 0 is reserved for Entity.Null.
 
     public EntityTable() { }
@@ -24,7 +25,7 @@ internal struct EntityTable
     internal EntityId PermanentId(int id) => _permanentIds[id];
 
     internal bool IsAlive(int id, int generation) =>
-        id > 0 && id < _nextId && _generations[id] == generation;
+        id > 0 && id < _nextId && _generations[id] == generation && !_reserved.Contains(id);
 
     /// <summary>Allocates a fresh entity and places it in <paramref name="archetype"/>, returning its row there too.</summary>
     internal (Entity Entity, int Row) AllocateInto(Archetype archetype)
@@ -33,6 +34,32 @@ internal struct EntityTable
         var row = archetype.AddRow(entity);
         this[entity.Id] = (archetype, row);
         return (entity, row);
+    }
+
+    /// <summary>
+    /// Allocates a fresh entity id without placing it into any archetype — not
+    /// <see cref="IsAlive"/> until <see cref="Place"/> runs. Lets a caller (currently
+    /// only <see cref="Commands"/>) hand back a real, usable <see cref="Entity"/>
+    /// immediately for chaining further deferred commands against it, while the actual
+    /// archetype placement happens later, at apply time.
+    /// </summary>
+    internal Entity Reserve()
+    {
+        var entity = Allocate();
+        _reserved.Add(entity.Id);
+        return entity;
+    }
+
+    /// <summary>
+    /// Places a previously-<see cref="Reserve"/>d entity into <paramref name="archetype"/>,
+    /// making it <see cref="IsAlive"/> from this point on.
+    /// </summary>
+    internal int Place(Entity entity, Archetype archetype)
+    {
+        _reserved.Remove(entity.Id);
+        var row = archetype.AddRow(entity);
+        this[entity.Id] = (archetype, row);
+        return row;
     }
 
     /// <summary>

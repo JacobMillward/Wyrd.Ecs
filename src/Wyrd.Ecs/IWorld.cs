@@ -31,6 +31,12 @@ public partial interface IWorld
     /// <summary>Advances to the next tick.</summary>
     void AdvanceTick();
 
+    /// <summary>The deferred-mutation buffer for structural changes — see <see cref="Wyrd.Ecs.Commands"/>.</summary>
+    Commands Commands { get; }
+
+    /// <summary>Applies every command queued on <see cref="Commands"/> since the last call, in queued order, then clears the queue.</summary>
+    void ApplyCommands();
+
     /// <summary>
     /// Adds <typeparamref name="T"/> to <paramref name="entity"/> and returns a
     /// tracked mutable reference to it. Throws if the entity already has the component.
