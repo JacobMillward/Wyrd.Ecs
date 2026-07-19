@@ -4,8 +4,8 @@ namespace Wyrd.Ecs;
 /// A type-erased view over one component type's registration — its stable wire
 /// discriminator, its current-process <see cref="Internal.TypeIndex{T}"/>, and the
 /// ability to serialize a row out of a type-erased storage array or deserialize bytes
-/// directly into a <see cref="World"/>, without the caller needing to know the concrete
-/// component type. Obtained from <see cref="SerializerRegistry"/>.
+/// into a <see cref="World"/> via <see cref="Commands"/>, without the caller needing to
+/// know the concrete component type. Obtained from <see cref="SerializerRegistry"/>.
 /// </summary>
 public interface IRegisteredComponentType
 {
@@ -19,16 +19,21 @@ public interface IRegisteredComponentType
     byte[] SerializeRow(Array rawItems, int row);
 
     /// <summary>
-    /// Deserializes <paramref name="data"/> and adds it to <paramref name="entity"/> in
-    /// <paramref name="world"/> as this registration's concrete component type,
-    /// immediately — not deferred through <see cref="Commands"/>. This is a controlled
-    /// loading primitive (reconstructing a world from a save, or a future shard
-    /// migration), not general gameplay mutation: there is nothing else running
-    /// concurrently to corrupt in that context, and a not-alive <paramref name="entity"/>
-    /// means the source data is corrupt, which should throw rather than silently no-op
-    /// the way a queued <see cref="Commands"/> operation deliberately does. Like other
-    /// low-level primitives in this engine, the caller is responsible for not calling
-    /// this while a <see cref="IWorld"/> query is iterating the same archetype.
+    /// Deserializes <paramref name="data"/> and queues adding it to <paramref name="entity"/>
+    /// in <paramref name="world"/> as this registration's concrete component type, via
+    /// <see cref="Commands.AddComponent{T}"/> — the exact same mechanism and the same
+    /// silent-no-op-if-not-alive contract as every other structural mutation. This is
+    /// deliberate, not just consistency for its own sake: deserializing writes a
+    /// component and can move an entity between archetypes, the same operation
+    /// <see cref="Commands.AddComponent{T}"/> already performs, and that operation is
+    /// unsafe at the wrong time regardless of where the value came from — a network
+    /// client applying received entity state, or a redundancy replica applying a stream
+    /// to its own standby <see cref="World"/>, can do this while other things are
+    /// running, not only during an isolated startup load. Call
+    /// <see cref="World.ApplyCommands"/> to make it take effect. A caller that needs to
+    /// detect corrupt source data (a reference to an entity that never landed) should
+    /// check for that at the loading layer, which has the context to know what "missing"
+    /// means — not by expecting this primitive to throw.
     /// </summary>
     void DeserializeInto(World world, Entity entity, byte[] data);
 }

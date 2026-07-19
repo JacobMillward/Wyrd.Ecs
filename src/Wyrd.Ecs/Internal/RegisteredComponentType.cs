@@ -25,5 +25,5 @@ internal sealed class RegisteredComponentType<T> : IRegisteredComponentType wher
     public byte[] SerializeRow(Array rawItems, int row) => _serialize(((T[])rawItems)[row]);
 
     public void DeserializeInto(World world, Entity entity, byte[] data) =>
-        world.AddComponent<T>(entity) = _deserialize(data);
+        world.Commands.AddComponent(entity, _deserialize(data));
 }

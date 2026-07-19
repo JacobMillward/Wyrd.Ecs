@@ -81,6 +81,7 @@ public class SerializerRegistryTests
         var entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         forDeserialize.DeserializeInto(world, entity, data);
+        world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(42f);
     }
