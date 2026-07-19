@@ -27,15 +27,6 @@ internal struct EntityTable
     internal bool IsAlive(int id, int generation) =>
         id > 0 && id < _nextId && _generations[id] == generation && !_reserved.Contains(id);
 
-    /// <summary>Allocates a fresh entity and places it in <paramref name="archetype"/>, returning its row there too.</summary>
-    internal (Entity Entity, int Row) AllocateInto(Archetype archetype)
-    {
-        var entity = Allocate();
-        var row = archetype.AddRow(entity);
-        this[entity.Id] = (archetype, row);
-        return (entity, row);
-    }
-
     /// <summary>
     /// Allocates a fresh entity id without placing it into any archetype — not
     /// <see cref="IsAlive"/> until <see cref="Place"/> runs. Lets a caller (currently

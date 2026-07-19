@@ -59,7 +59,8 @@ public class CommandsTests
     public void AddComponent_IsNotVisibleUntilApplied()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.Commands.AddComponent(entity, new Position { X = 5f });
 
@@ -70,7 +71,8 @@ public class CommandsTests
     public void AddComponent_IsVisibleAfterApply()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.Commands.AddComponent(entity, new Position { X = 5f });
         world.ApplyCommands();
@@ -83,8 +85,8 @@ public class CommandsTests
     public void RemoveComponent_IsAppliedInQueuedOrder()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
         world.Commands.RemoveComponent<Position>(entity);
         world.ApplyCommands();
@@ -96,7 +98,8 @@ public class CommandsTests
     public void AddTag_IsAppliedOnApply()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.Commands.AddTag<Marker>(entity);
         world.ApplyCommands();
@@ -108,8 +111,9 @@ public class CommandsTests
     public void RemoveTag_IsAppliedOnApply()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddTag<Marker>(entity);
+        var entity = world.Commands.CreateEntity();
+        world.Commands.AddTag<Marker>(entity);
+        world.ApplyCommands();
 
         world.Commands.RemoveTag<Marker>(entity);
         world.ApplyCommands();
@@ -121,7 +125,8 @@ public class CommandsTests
     public void DestroyEntity_IsAppliedOnApply()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.Commands.DestroyEntity(entity);
         world.ApplyCommands();
@@ -133,7 +138,7 @@ public class CommandsTests
     public void ApplyCommands_ClearsTheQueue_SoASecondApplyDoesNothingExtra()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new Position { X = 1f });
         world.ApplyCommands();
 
@@ -150,7 +155,8 @@ public class CommandsTests
     public void EarlierQueuedDestroy_MakesALaterQueuedAddComponent_SilentlyNotLand()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.Commands.DestroyEntity(entity);
         world.Commands.AddComponent(entity, new Position { X = 1f }); // queued after the destroy targeting the same entity
@@ -165,8 +171,8 @@ public class CommandsTests
     public void EarlierQueuedDestroy_MakesALaterQueuedRemoveComponent_SilentlyNotLand()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
         world.Commands.DestroyEntity(entity);
         world.Commands.RemoveComponent<Position>(entity);
@@ -180,10 +186,9 @@ public class CommandsTests
     public void QueuedStructuralChange_DuringQueryIteration_DoesNotCorruptTheIteration()
     {
         var world = new World();
-        var toRemoveFrom = world.CreateEntity();
-        world.AddComponent<Position>(toRemoveFrom).X = 1f;
-        var untouched = world.CreateEntity();
-        world.AddComponent<Position>(untouched).X = 2f;
+        var toRemoveFrom = world.Commands.CreateEntity(new Position { X = 1f });
+        var untouched = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
 
         var visited = new List<Entity>();
         foreach (var row in world.Query<Position>())

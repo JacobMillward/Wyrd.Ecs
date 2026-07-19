@@ -112,16 +112,8 @@ public sealed partial class World : IWorld
         }
     }
 
-    /// <inheritdoc/>
-    public Entity CreateEntity()
-    {
-        var (entity, _) = _entityTable.AllocateInto(_emptyArchetype);
-        NotifyEntityCreated(entity);
-        return entity;
-    }
-
-    /// <inheritdoc/>
-    public void DestroyEntity(Entity entity)
+    /// <summary>Destroys an entity and all of its components. Called only via <see cref="Commands"/>.</summary>
+    internal void DestroyEntity(Entity entity)
     {
         RequireAlive(entity);
         _entityTable.Destroy(entity.Id);
@@ -157,8 +149,12 @@ public sealed partial class World : IWorld
         NotifyEntityCreated(entity);
     }
 
-    /// <inheritdoc/>
-    public ref T AddComponent<T>(Entity entity) where T : struct, IComponent
+    /// <summary>
+    /// Adds <typeparamref name="T"/> to <paramref name="entity"/> and returns a
+    /// tracked mutable reference to it. Throws if the entity already has the
+    /// component. Called only via <see cref="Commands"/>.
+    /// </summary>
+    internal ref T AddComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
@@ -214,8 +210,8 @@ public sealed partial class World : IWorld
         return _entityTable[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
-    /// <inheritdoc/>
-    public void RemoveComponent<T>(Entity entity) where T : struct, IComponent
+    /// <summary>Removes <typeparamref name="T"/> from <paramref name="entity"/>, if present. Called only via <see cref="Commands"/>.</summary>
+    internal void RemoveComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
@@ -226,8 +222,8 @@ public sealed partial class World : IWorld
         NotifyComponentRemoved(entity, typeIndex);
     }
 
-    /// <inheritdoc/>
-    public void AddTag<T>(Entity entity) where T : struct, ITag
+    /// <summary>Adds tag <typeparamref name="T"/> to <paramref name="entity"/>. Called only via <see cref="Commands"/>.</summary>
+    internal void AddTag<T>(Entity entity) where T : struct, ITag
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
@@ -238,8 +234,8 @@ public sealed partial class World : IWorld
         NotifyTagAdded(entity, typeIndex);
     }
 
-    /// <inheritdoc/>
-    public void RemoveTag<T>(Entity entity) where T : struct, ITag
+    /// <summary>Removes tag <typeparamref name="T"/> from <paramref name="entity"/>, if present. Called only via <see cref="Commands"/>.</summary>
+    internal void RemoveTag<T>(Entity entity) where T : struct, ITag
     {
         RequireAlive(entity);
         var typeIndex = TypeIndex<T>.Value;
@@ -400,7 +396,7 @@ public sealed partial class World : IWorld
     /// and invalidates every archetype-set cache. Callers populate the returned
     /// archetype's storages themselves, either by copying a template archetype's
     /// (<see cref="GetOrCreateArchetype"/>) or by creating them directly for a known
-    /// set of component types (the generated <c>CreateEntity{T...}</c> overloads).
+    /// set of component types (the generated <c>PlaceReservedEntity{T...}</c> overloads).
     /// </summary>
     private Archetype CreateArchetype(ArchetypeSignature signature)
     {

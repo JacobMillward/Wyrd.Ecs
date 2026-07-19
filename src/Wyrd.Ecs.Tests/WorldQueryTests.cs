@@ -29,7 +29,8 @@ public class WorldQueryTests
     {
         var world = new World();
         for (var i = 0; i < 5; i++)
-            world.AddComponent<Position>(world.CreateEntity()).X = i;
+            world.Commands.CreateEntity(new Position { X = i });
+        world.ApplyCommands();
 
         var seen = new List<float>();
         foreach (var row in world.Query<Position>())
@@ -42,8 +43,9 @@ public class WorldQueryTests
     public void OneComponent_SkipsEntitiesWithoutTheComponent()
     {
         var world = new World();
-        world.AddComponent<Position>(world.CreateEntity());
-        world.CreateEntity(); // no Position
+        world.Commands.CreateEntity(new Position());
+        world.Commands.CreateEntity(); // no Position
+        world.ApplyCommands();
 
         var count = 0;
         foreach (var _ in world.Query<Position>())
@@ -56,8 +58,8 @@ public class WorldQueryTests
     public void OneComponent_WritesThroughToRealStorage()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
 
         foreach (var row in world.Query<Position>())
             row.Get<Position>().X += 10f;
@@ -70,8 +72,8 @@ public class WorldQueryTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
@@ -86,8 +88,8 @@ public class WorldQueryTests
     public void OneComponent_WithTrackingOff_NeverMarksDirty()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
@@ -102,8 +104,8 @@ public class WorldQueryTests
     public void OneComponent_RowExposesTheOwningEntity()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
         var seen = new List<Entity>();
         foreach (var row in world.Query<Position>())
@@ -116,7 +118,8 @@ public class WorldQueryTests
     public void Get_WithATypeNotInTheQuery_Throws()
     {
         var world = new World();
-        world.AddComponent<Position>(world.CreateEntity());
+        world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
         var threw = false;
         foreach (var row in world.Query<Position>())
@@ -138,12 +141,10 @@ public class WorldQueryTests
     public void OneComponent_SpansMultipleArchetypes()
     {
         var world = new World();
-        var onlyPosition = world.CreateEntity();
-        world.AddComponent<Position>(onlyPosition).X = 1f;
-
-        var withTag = world.CreateEntity();
-        world.AddComponent<Position>(withTag).X = 2f;
-        world.AddTag<Marker>(withTag);
+        var onlyPosition = world.Commands.CreateEntity(new Position { X = 1f });
+        var withTag = world.Commands.CreateEntity(new Position { X = 2f });
+        world.Commands.AddTag<Marker>(withTag);
+        world.ApplyCommands();
 
         var seen = new List<float>();
         foreach (var row in world.Query<Position>())
@@ -158,10 +159,10 @@ public class WorldQueryTests
         var world = new World();
         for (var i = 0; i < 20; i++)
         {
-            var entity = world.CreateEntity();
-            world.AddComponent<Position>(entity).X = i;
-            if (i % 3 == 0) world.AddTag<Marker>(entity);
+            var entity = world.Commands.CreateEntity(new Position { X = i });
+            if (i % 3 == 0) world.Commands.AddTag<Marker>(entity);
         }
+        world.ApplyCommands();
 
         var viaChunk = new List<float>();
         world.Query<Ref<Position>>(chunk =>
@@ -181,9 +182,9 @@ public class WorldQueryTests
     public void Query_EmptyArchetype_NeverYieldsARow()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
-        world.DestroyEntity(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.Commands.DestroyEntity(entity);
+        world.ApplyCommands();
 
         var count = 0;
         foreach (var _ in world.Query<Position>())
@@ -196,11 +197,9 @@ public class WorldQueryTests
     public void TwoComponent_RequiresBothComponents()
     {
         var world = new World();
-        var both = world.CreateEntity();
-        world.AddComponent<Position>(both).X = 1f;
-        world.AddComponent<Velocity>(both).X = 2f;
-        var positionOnly = world.CreateEntity();
-        world.AddComponent<Position>(positionOnly);
+        var both = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        var positionOnly = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
         var visited = new List<Entity>();
         foreach (var row in world.Query<Position, Velocity>())
@@ -213,9 +212,8 @@ public class WorldQueryTests
     public void TwoComponent_GetReadsBothComponentsCorrectly()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 3f;
-        world.AddComponent<Velocity>(entity).X = 4f;
+        var entity = world.Commands.CreateEntity(new Position { X = 3f }, new Velocity { X = 4f });
+        world.ApplyCommands();
 
         var sums = new List<float>();
         foreach (var row in world.Query<Position, Velocity>())
@@ -230,9 +228,8 @@ public class WorldQueryTests
         var world = new World();
         using var positionConsumer = world.TrackChanges<Position>();
         using var velocityConsumer = world.TrackChanges<Velocity>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
-        world.AddComponent<Velocity>(entity);
+        var entity = world.Commands.CreateEntity(new Position(), new Velocity());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position, Velocity>())
@@ -247,9 +244,8 @@ public class WorldQueryTests
     public void TwoComponent_Deconstructs()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 5f;
-        world.AddComponent<Velocity>(entity).X = 6f;
+        world.Commands.CreateEntity(new Position { X = 5f }, new Velocity { X = 6f });
+        world.ApplyCommands();
 
         var sums = new List<float>();
         foreach (var (position, velocity) in world.Query<Position, Velocity>())
@@ -264,9 +260,8 @@ public class WorldQueryTests
         var world = new World();
         using var positionConsumer = world.TrackChanges<Position>();
         using var velocityConsumer = world.TrackChanges<Velocity>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
-        world.AddComponent<Velocity>(entity);
+        var entity = world.Commands.CreateEntity(new Position(), new Velocity());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var (position, velocity) in world.Query<Position, Velocity>())
@@ -283,8 +278,8 @@ public class WorldQueryTests
     public void WorldIndexer_GetsTheCurrentComponentByEntity()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 9f;
+        var entity = world.Commands.CreateEntity(new Position { X = 9f });
+        world.ApplyCommands();
 
         world[entity].GetComponent<Position>().X.Should().Be(9f);
     }
@@ -293,8 +288,8 @@ public class WorldQueryTests
     public void WorldIndexer_WritesThroughToRealStorage()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
 
         world[entity].GetComponent<Position>().X += 10f;
 
@@ -305,9 +300,9 @@ public class WorldQueryTests
     public void WorldIndexer_ResolvesCorrectlyAfterAStructuralMove()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
-        world.AddTag<Marker>(entity); // forces a structural move to a different archetype
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.Commands.AddTag<Marker>(entity); // forces a structural move to a different archetype
+        world.ApplyCommands();
 
         world[entity].GetComponent<Position>().X.Should().Be(1f);
     }
@@ -316,13 +311,9 @@ public class WorldQueryTests
     public void ThreeComponent_RequiresAllThreeComponents()
     {
         var world = new World();
-        var all = world.CreateEntity();
-        world.AddComponent<Position>(all);
-        world.AddComponent<Velocity>(all);
-        world.AddComponent<Acceleration>(all);
-        var missingOne = world.CreateEntity();
-        world.AddComponent<Position>(missingOne);
-        world.AddComponent<Velocity>(missingOne);
+        var all = world.Commands.CreateEntity(new Position(), new Velocity(), new Acceleration());
+        var missingOne = world.Commands.CreateEntity(new Position(), new Velocity());
+        world.ApplyCommands();
 
         var visited = new List<Entity>();
         foreach (var row in world.Query<Position, Velocity, Acceleration>())
@@ -335,10 +326,8 @@ public class WorldQueryTests
     public void ThreeComponent_GetReadsAllThreeCorrectly()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
-        world.AddComponent<Velocity>(entity).X = 2f;
-        world.AddComponent<Acceleration>(entity).X = 3f;
+        world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }, new Acceleration { X = 3f });
+        world.ApplyCommands();
 
         var sums = new List<float>();
         foreach (var row in world.Query<Position, Velocity, Acceleration>())
@@ -354,10 +343,8 @@ public class WorldQueryTests
         using var positionConsumer = world.TrackChanges<Position>();
         using var velocityConsumer = world.TrackChanges<Velocity>();
         using var accelerationConsumer = world.TrackChanges<Acceleration>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
-        world.AddComponent<Velocity>(entity);
-        world.AddComponent<Acceleration>(entity);
+        var entity = world.Commands.CreateEntity(new Position(), new Velocity(), new Acceleration());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position, Velocity, Acceleration>())
@@ -373,10 +360,8 @@ public class WorldQueryTests
     public void ThreeComponent_Deconstructs()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
-        world.AddComponent<Velocity>(entity).X = 2f;
-        world.AddComponent<Acceleration>(entity).X = 3f;
+        world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }, new Acceleration { X = 3f });
+        world.ApplyCommands();
 
         var sums = new List<float>();
         foreach (var (position, velocity, acceleration) in world.Query<Position, Velocity, Acceleration>())
@@ -389,24 +374,15 @@ public class WorldQueryTests
     public void EightComponent_RequiresAllEightComponents()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
-        world.AddComponent<Velocity>(entity).X = 1f;
-        world.AddComponent<Acceleration>(entity).X = 1f;
-        world.AddComponent<C4>(entity).X = 1f;
-        world.AddComponent<C5>(entity).X = 1f;
-        world.AddComponent<C6>(entity).X = 1f;
-        world.AddComponent<C7>(entity).X = 1f;
-        world.AddTag<Marker>(entity);
+        var entity = world.Commands.CreateEntity(
+            new Position { X = 1f }, new Velocity { X = 1f }, new Acceleration { X = 1f },
+            new C4 { X = 1f }, new C5 { X = 1f }, new C6 { X = 1f }, new C7 { X = 1f });
+        world.Commands.AddTag<Marker>(entity);
 
-        var missingOne = world.CreateEntity();
-        world.AddComponent<Position>(missingOne).X = 1f;
-        world.AddComponent<Velocity>(missingOne).X = 1f;
-        world.AddComponent<Acceleration>(missingOne).X = 1f;
-        world.AddComponent<C4>(missingOne).X = 1f;
-        world.AddComponent<C5>(missingOne).X = 1f;
-        world.AddComponent<C6>(missingOne).X = 1f;
-        // no C7
+        world.Commands.CreateEntity(
+            new Position { X = 1f }, new Velocity { X = 1f }, new Acceleration { X = 1f },
+            new C4 { X = 1f }, new C5 { X = 1f }, new C6 { X = 1f }); // no C7
+        world.ApplyCommands();
 
         var sums = new List<float>();
         foreach (var row in world.Query<Position, Velocity, Acceleration, C4, C5, C6, C7>())
@@ -421,8 +397,8 @@ public class WorldQueryTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 7f;
+        var entity = world.Commands.CreateEntity(new Position { X = 7f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         var seen = 0f;
@@ -439,8 +415,8 @@ public class WorldQueryTests
     public void GetUnmarked_WritesThroughToRealStorageAnyway()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
 
         foreach (var row in world.Query<Position>())
             row.GetUnmarked<Position>().X += 10f;

@@ -16,9 +16,8 @@ public class StructuralChangeBenchmarks
     public void GlobalSetup()
     {
         _world = new World();
-        _entity = _world.CreateEntity();
-        _world.AddComponent<Position>(_entity);
-        _world.AddComponent<Velocity>(_entity);
+        _entity = _world.Commands.CreateEntity(new Position(), new Velocity());
+        _world.ApplyCommands();
 
         if (Tracked)
         {
@@ -39,8 +38,9 @@ public class StructuralChangeBenchmarks
     public void AddRemoveComponent_ArchetypeMove()
     {
         _world.AdvanceTick();
-        _world.AddComponent<BulkPayload>(_entity);
-        _world.RemoveComponent<BulkPayload>(_entity);
+        _world.Commands.AddComponent(_entity, new BulkPayload());
+        _world.Commands.RemoveComponent<BulkPayload>(_entity);
+        _world.ApplyCommands();
     }
 
     /// <summary>
@@ -53,7 +53,8 @@ public class StructuralChangeBenchmarks
     public void AddRemoveTag_ArchetypeMove()
     {
         _world.AdvanceTick();
-        _world.AddTag<Marker>(_entity);
-        _world.RemoveTag<Marker>(_entity);
+        _world.Commands.AddTag<Marker>(_entity);
+        _world.Commands.RemoveTag<Marker>(_entity);
+        _world.ApplyCommands();
     }
 }

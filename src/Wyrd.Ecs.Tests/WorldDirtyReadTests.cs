@@ -13,8 +13,8 @@ public class WorldDirtyReadTests
     public void ReadChanges_SinceTheCurrentTick_DoesNotSeeAnEarlierWrite()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         using var tracking = world.TrackChanges<Position>();
@@ -32,8 +32,8 @@ public class WorldDirtyReadTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity); // tick 1
+        var entity = world.Commands.CreateEntity(new Position()); // tick 1
+        world.ApplyCommands();
         var afterFirstWrite = world.CurrentTick;
 
         world.AdvanceTick();
@@ -54,12 +54,9 @@ public class WorldDirtyReadTests
         var sinceTick = world.CurrentTick;
         world.AdvanceTick(); // entries recorded at or before sinceTick are never visible
 
-        var onlyPosition = world.CreateEntity();
-        world.AddComponent<Position>(onlyPosition);
-
-        var withVelocity = world.CreateEntity();
-        world.AddComponent<Position>(withVelocity);
-        world.AddComponent<Velocity>(withVelocity);
+        var onlyPosition = world.Commands.CreateEntity(new Position());
+        var withVelocity = world.Commands.CreateEntity(new Position(), new Velocity());
+        world.ApplyCommands();
 
         var seen = new List<Entity>();
         foreach (var change in world.ReadChanges<Position>(sinceTick))
@@ -73,8 +70,8 @@ public class WorldDirtyReadTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
 
@@ -92,8 +89,8 @@ public class WorldDirtyReadTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
 
@@ -111,12 +108,14 @@ public class WorldDirtyReadTests
     public void TwoIndependentWatermarks_BothSeeTheSameChangeWithoutInterference()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         using var tracking = world.TrackChanges<Position>();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
-        world.AddComponent<Position>(entity);
+        world.Commands.AddComponent(entity, new Position());
+        world.ApplyCommands();
 
         var firstSeen = new List<Entity>();
         foreach (var change in world.ReadChanges<Position>(sinceTick))
@@ -134,12 +133,14 @@ public class WorldDirtyReadTests
     public void ReadChanges_AtDifferentWatermarks_BothSeeTheRowsCurrentTickAndValue()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         using var tracking = world.TrackChanges<Position>();
         var slowWatermark = world.CurrentTick;
         world.AdvanceTick();
-        world.AddComponent<Position>(entity); // tick 2
+        world.Commands.AddComponent(entity, new Position());
+        world.ApplyCommands(); // tick 2
 
         world.AdvanceTick();
         world.GetComponent<Position>(entity).X = 2f; // tick 3
@@ -169,8 +170,8 @@ public class WorldDirtyReadTests
         using var tracking = world.TrackChanges<Position>();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
         var first = new List<Entity>();
         foreach (var change in world.ReadChanges<Position>(sinceTick))

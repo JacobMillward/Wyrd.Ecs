@@ -29,10 +29,8 @@ public class ChangedComponentsScanBenchmarks
         _world.TrackChanges<Position>();
 
         for (var i = 0; i < EntityCount; i++)
-        {
-            var entity = _world.CreateEntity();
-            _world.AddComponent<Position>(entity);
-        }
+            _world.Commands.CreateEntity(new Position());
+        _world.ApplyCommands();
     }
 
     /// <summary>

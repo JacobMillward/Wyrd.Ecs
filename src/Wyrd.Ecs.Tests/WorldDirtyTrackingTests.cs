@@ -10,8 +10,9 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(entity, new Position());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         _ = world.GetComponent<Position>(entity);
@@ -26,9 +27,11 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
-        world.AddComponent<Position>(entity);
+        world.Commands.AddComponent(entity, new Position());
+        world.ApplyCommands();
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
@@ -40,10 +43,12 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity); // tick 1
+        var entity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(entity, new Position()); // tick 1
+        world.ApplyCommands();
 
-        world.AddTag<Marker>(entity); // forces a structural move; Position's value must carry its tick across
+        world.Commands.AddTag<Marker>(entity); // forces a structural move; Position's value must carry its tick across
+        world.ApplyCommands();
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
@@ -56,8 +61,8 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         world.TryGetComponent<Position>(entity, out _);
@@ -71,11 +76,11 @@ public class WorldDirtyTrackingTests
     public void GetComponent_WithTrackingOff_NeverMarksDirty()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        var tickAfterAdd = storage.RawLastMarkedTick[0]; // AddComponent above also went unmarked
+        var tickAfterAdd = storage.RawLastMarkedTick[0]; // creation above also went unmarked
         world.AdvanceTick();
 
         _ = world.GetComponent<Position>(entity);

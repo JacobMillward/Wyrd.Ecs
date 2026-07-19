@@ -12,8 +12,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 3f;
+        var entity = world.Commands.CreateEntity(new Position { X = 3f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         var total = 0f;
@@ -29,8 +29,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
@@ -44,8 +44,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 5f;
+        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         var total = 0f;
@@ -65,8 +65,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
@@ -84,8 +84,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 2f;
+        var entity = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         var total = 0f;
@@ -101,8 +101,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 4f;
+        var entity = world.Commands.CreateEntity(new Position { X = 4f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         var total = 0f;
@@ -118,8 +118,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())
@@ -133,8 +133,8 @@ public class InterceptorTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         IPositionReader reader = new PositionReader();
@@ -148,8 +148,8 @@ public class InterceptorTests
     public void WithTrackingOff_NothingIsEverMarked()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         foreach (var row in world.Query<Position>())

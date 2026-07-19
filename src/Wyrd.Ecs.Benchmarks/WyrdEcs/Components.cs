@@ -49,22 +49,22 @@ public static class Fragmentation
     {
         switch (slot % SlotCount)
         {
-            case 0: world.AddTag<Frag0>(entity); break;
-            case 1: world.AddTag<Frag1>(entity); break;
-            case 2: world.AddTag<Frag2>(entity); break;
-            case 3: world.AddTag<Frag3>(entity); break;
-            case 4: world.AddTag<Frag4>(entity); break;
-            case 5: world.AddTag<Frag5>(entity); break;
-            case 6: world.AddTag<Frag6>(entity); break;
-            case 7: world.AddTag<Frag7>(entity); break;
-            case 8: world.AddTag<Frag8>(entity); break;
-            case 9: world.AddTag<Frag9>(entity); break;
-            case 10: world.AddTag<Frag10>(entity); break;
-            case 11: world.AddTag<Frag11>(entity); break;
-            case 12: world.AddTag<Frag12>(entity); break;
-            case 13: world.AddTag<Frag13>(entity); break;
-            case 14: world.AddTag<Frag14>(entity); break;
-            case 15: world.AddTag<Frag15>(entity); break;
+            case 0: world.Commands.AddTag<Frag0>(entity); break;
+            case 1: world.Commands.AddTag<Frag1>(entity); break;
+            case 2: world.Commands.AddTag<Frag2>(entity); break;
+            case 3: world.Commands.AddTag<Frag3>(entity); break;
+            case 4: world.Commands.AddTag<Frag4>(entity); break;
+            case 5: world.Commands.AddTag<Frag5>(entity); break;
+            case 6: world.Commands.AddTag<Frag6>(entity); break;
+            case 7: world.Commands.AddTag<Frag7>(entity); break;
+            case 8: world.Commands.AddTag<Frag8>(entity); break;
+            case 9: world.Commands.AddTag<Frag9>(entity); break;
+            case 10: world.Commands.AddTag<Frag10>(entity); break;
+            case 11: world.Commands.AddTag<Frag11>(entity); break;
+            case 12: world.Commands.AddTag<Frag12>(entity); break;
+            case 13: world.Commands.AddTag<Frag13>(entity); break;
+            case 14: world.Commands.AddTag<Frag14>(entity); break;
+            case 15: world.Commands.AddTag<Frag15>(entity); break;
         }
     }
 }

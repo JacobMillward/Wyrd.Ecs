@@ -17,21 +17,24 @@ public class WorldComponentTests
     public void AddComponent_EntityThenHasIt()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
-        world.AddComponent<Position>(entity);
+        world.Commands.AddComponent(entity, new Position());
+        world.ApplyCommands();
 
         world.HasComponent<Position>(entity).Should().BeTrue();
     }
 
     [Fact]
-    public void AddComponent_ReturnsAWritableReference()
+    public void AddComponent_StoresTheGivenValue()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
-        ref var position = ref world.AddComponent<Position>(entity);
-        position.X = 3f;
+        world.Commands.AddComponent(entity, new Position { X = 3f });
+        world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(3f);
     }
@@ -47,16 +50,15 @@ public class WorldComponentTests
     public void AddComponent_ClonedArchetypeStorage_GrowsWithTheArchetype()
     {
         var world = new WorldBuilder().WithArchetypeCapacity(16).Build();
-        var seed = world.CreateEntity();
-        world.AddComponent<Position>(seed);
+        world.Commands.CreateEntity(new Position());
 
         var entities = new Entity[10];
         for (var i = 0; i < entities.Length; i++)
         {
-            entities[i] = world.CreateEntity();
-            world.AddComponent<Position>(entities[i]).X = i;
-            world.AddComponent<Velocity>(entities[i]);
+            entities[i] = world.Commands.CreateEntity(new Position { X = i });
+            world.Commands.AddComponent(entities[i], new Velocity());
         }
+        world.ApplyCommands();
 
         for (var i = 0; i < entities.Length; i++)
             world.GetComponent<Position>(entities[i]).X.Should().Be(i);
@@ -66,10 +68,10 @@ public class WorldComponentTests
     public void AddComponent_Twice_Throws()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.Commands.AddComponent(entity, new Position());
 
-        var act = () => world.AddComponent<Position>(entity);
+        var act = () => world.ApplyCommands();
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -78,7 +80,8 @@ public class WorldComponentTests
     public void GetComponent_Missing_Throws()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         var act = () => world.GetComponent<Position>(entity);
 
@@ -89,7 +92,8 @@ public class WorldComponentTests
     public void TryGetComponent_Missing_ReturnsFalse()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.TryGetComponent<Position>(entity, out _).Should().BeFalse();
     }
@@ -98,8 +102,8 @@ public class WorldComponentTests
     public void TryGetComponent_Present_ReturnsTrueAndValue()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 5f;
+        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
 
         world.TryGetComponent<Position>(entity, out var value).Should().BeTrue();
         value.X.Should().Be(5f);
@@ -109,7 +113,8 @@ public class WorldComponentTests
     public void HasComponent_Missing_ReturnsFalse()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
         world.HasComponent<Position>(entity).Should().BeFalse();
     }
@@ -118,10 +123,11 @@ public class WorldComponentTests
     public void RemoveComponent_Present_RemovesIt()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
 
-        world.RemoveComponent<Position>(entity);
+        world.Commands.RemoveComponent<Position>(entity);
+        world.ApplyCommands();
 
         world.HasComponent<Position>(entity).Should().BeFalse();
     }
@@ -130,9 +136,11 @@ public class WorldComponentTests
     public void RemoveComponent_Missing_IsANoOp()
     {
         var world = new World();
-        var entity = world.CreateEntity();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
 
-        var act = () => world.RemoveComponent<Position>(entity);
+        world.Commands.RemoveComponent<Position>(entity);
+        var act = () => world.ApplyCommands();
 
         act.Should().NotThrow();
     }
@@ -141,10 +149,11 @@ public class WorldComponentTests
     public void ArchetypeMove_AddingASecondComponent_PreservesTheFirstOnesValue()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 11f;
+        var entity = world.Commands.CreateEntity(new Position { X = 11f });
+        world.ApplyCommands();
 
-        world.AddComponent<Velocity>(entity).X = 22f;
+        world.Commands.AddComponent(entity, new Velocity { X = 22f });
+        world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(11f);
         world.GetComponent<Velocity>(entity).X.Should().Be(22f);
@@ -154,11 +163,11 @@ public class WorldComponentTests
     public void ArchetypeMove_RemovingOneComponent_PreservesTheOthersValue()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 11f;
-        world.AddComponent<Velocity>(entity).X = 22f;
+        var entity = world.Commands.CreateEntity(new Position { X = 11f }, new Velocity { X = 22f });
+        world.ApplyCommands();
 
-        world.RemoveComponent<Position>(entity);
+        world.Commands.RemoveComponent<Position>(entity);
+        world.ApplyCommands();
 
         world.HasComponent<Position>(entity).Should().BeFalse();
         world.GetComponent<Velocity>(entity).X.Should().Be(22f);
@@ -168,12 +177,12 @@ public class WorldComponentTests
     public void ArchetypeMove_DoesNotDisturbOtherEntitiesInTheSourceArchetype()
     {
         var world = new World();
-        var a = world.CreateEntity();
-        var b = world.CreateEntity();
-        world.AddComponent<Position>(a).X = 1f;
-        world.AddComponent<Position>(b).X = 2f;
+        var a = world.Commands.CreateEntity(new Position { X = 1f });
+        var b = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
 
-        world.AddComponent<Velocity>(a);
+        world.Commands.AddComponent(a, new Velocity());
+        world.ApplyCommands();
 
         world.GetComponent<Position>(b).X.Should().Be(2f);
     }
@@ -182,13 +191,13 @@ public class WorldComponentTests
     public void ArchetypeMove_SharedTargetArchetype_BothEntitiesKeepTheirOwnValues()
     {
         var world = new World();
-        var a = world.CreateEntity();
-        var b = world.CreateEntity();
-        world.AddComponent<Position>(a).X = 1f;
-        world.AddComponent<Position>(b).X = 2f;
+        var a = world.Commands.CreateEntity(new Position { X = 1f });
+        var b = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
 
-        world.AddComponent<Velocity>(a).X = 10f;
-        world.AddComponent<Velocity>(b).X = 20f;
+        world.Commands.AddComponent(a, new Velocity { X = 10f });
+        world.Commands.AddComponent(b, new Velocity { X = 20f });
+        world.ApplyCommands();
 
         world.GetComponent<Position>(a).X.Should().Be(1f);
         world.GetComponent<Velocity>(a).X.Should().Be(10f);
@@ -200,12 +209,12 @@ public class WorldComponentTests
     public void DestroyEntity_WithComponents_DoesNotCorruptSurvivingEntity()
     {
         var world = new World();
-        var a = world.CreateEntity();
-        var b = world.CreateEntity();
-        world.AddComponent<Position>(a).X = 1f;
-        world.AddComponent<Position>(b).X = 2f;
+        var a = world.Commands.CreateEntity(new Position { X = 1f });
+        var b = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
 
-        world.DestroyEntity(a);
+        world.Commands.DestroyEntity(a);
+        world.ApplyCommands();
 
         world.GetComponent<Position>(b).X.Should().Be(2f);
     }

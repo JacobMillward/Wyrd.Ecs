@@ -17,10 +17,8 @@ public class EndToEndTests
 
         var entities = new Entity[10];
         for (var i = 0; i < entities.Length; i++)
-        {
-            entities[i] = world.CreateEntity();
-            world.AddComponent<Energy>(entities[i]) = new Energy { Current = 100f, DrainPerSecond = 10f };
-        }
+            entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
+        world.ApplyCommands();
 
         // Simulate one tick over the hidden-chunk tier — the intended "no chunk/
         // archetype vocabulary" onramp.
@@ -34,10 +32,11 @@ public class EndToEndTests
         // path), then remove one entity's Energy component and destroy another.
         foreach (var entity in entities)
             if (world.GetComponent<Energy>(entity).Current <= 0f)
-                world.AddTag<Depleted>(entity);
+                world.Commands.AddTag<Depleted>(entity);
 
-        world.RemoveComponent<Energy>(entities[0]);
-        world.DestroyEntity(entities[1]);
+        world.Commands.RemoveComponent<Energy>(entities[0]);
+        world.Commands.DestroyEntity(entities[1]);
+        world.ApplyCommands();
 
         world.HasComponent<Energy>(entities[0]).Should().BeFalse();
         world.IsAlive(entities[1]).Should().BeFalse();

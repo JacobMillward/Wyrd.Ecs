@@ -8,7 +8,10 @@ namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
 /// this class can't build <see cref="Tracked"/>'s world once in <c>[GlobalSetup]</c>:
 /// every benchmark here mutates the world's entity/archetype table itself (that's the
 /// thing being measured), so it needs a fresh <see cref="World"/> per invocation,
-/// rebuilt in <c>[IterationSetup]</c>.
+/// rebuilt in <c>[IterationSetup]</c>. Every benchmark here queues through
+/// <see cref="Commands"/> and calls <see cref="World.ApplyCommands"/> in the same
+/// method — that round trip is now the real, only cost of creating or destroying an
+/// entity, not something to hide from the measurement.
 /// </summary>
 [MemoryDiagnoser]
 public class EntityLifecycleBenchmarks
@@ -36,40 +39,60 @@ public class EntityLifecycleBenchmarks
             _world.TrackChanges<Padding4>();
         }
 
-        _toDispose = _world.CreateEntity();
-        _world.AddComponent<Position>(_toDispose);
+        _toDispose = _world.Commands.CreateEntity(new Position());
+        _world.ApplyCommands();
     }
 
     [Benchmark(Baseline = true)]
-    public Entity CreateBareEntity() => _world.CreateEntity();
+    public Entity CreateBareEntity()
+    {
+        var entity = _world.Commands.CreateEntity();
+        _world.ApplyCommands();
+        return entity;
+    }
 
     [Benchmark]
-    public Entity CreateOneComponentEntity() => _world.CreateEntity(new Position());
+    public Entity CreateOneComponentEntity()
+    {
+        var entity = _world.Commands.CreateEntity(new Position());
+        _world.ApplyCommands();
+        return entity;
+    }
 
     [Benchmark]
-    public Entity CreateFourComponentEntity() =>
-        _world.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
+    public Entity CreateFourComponentEntity()
+    {
+        var entity = _world.Commands.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
+        _world.ApplyCommands();
+        return entity;
+    }
 
     [Benchmark]
-    public Entity CreateEightComponentEntity() =>
-        _world.CreateEntity(
+    public Entity CreateEightComponentEntity()
+    {
+        var entity = _world.Commands.CreateEntity(
             new Position(), new Velocity(), new Health(), new BulkPayload(),
             new Padding1(), new Padding2(), new Padding3(), new Padding4());
+        _world.ApplyCommands();
+        return entity;
+    }
 
     /// <summary>
-    /// Creates an entity empty, then adds each component one at a time, moving through an
-    /// intermediate archetype per add. Kept alongside <see cref="CreateFourComponentEntity"/>
-    /// to show the cost of that pattern against the batched <c>CreateEntity{T...}</c>
-    /// overload directly, in both tracked and untracked form.
+    /// Creates an entity empty, then queues each component add one at a time, moving
+    /// through an intermediate archetype per add once applied. Kept alongside
+    /// <see cref="CreateFourComponentEntity"/> to show the cost of that pattern against
+    /// the batched <c>Commands.CreateEntity{T...}</c> overload directly, in both tracked
+    /// and untracked form.
     /// </summary>
     [Benchmark]
     public Entity CreateFourComponentEntity_OneAtATime()
     {
-        var entity = _world.CreateEntity();
-        _world.AddComponent<Position>(entity);
-        _world.AddComponent<Velocity>(entity);
-        _world.AddComponent<Health>(entity);
-        _world.AddComponent<BulkPayload>(entity);
+        var entity = _world.Commands.CreateEntity();
+        _world.Commands.AddComponent(entity, new Position());
+        _world.Commands.AddComponent(entity, new Velocity());
+        _world.Commands.AddComponent(entity, new Health());
+        _world.Commands.AddComponent(entity, new BulkPayload());
+        _world.ApplyCommands();
         return entity;
     }
 
@@ -77,18 +100,23 @@ public class EntityLifecycleBenchmarks
     [Benchmark]
     public Entity CreateEightComponentEntity_OneAtATime()
     {
-        var entity = _world.CreateEntity();
-        _world.AddComponent<Position>(entity);
-        _world.AddComponent<Velocity>(entity);
-        _world.AddComponent<Health>(entity);
-        _world.AddComponent<BulkPayload>(entity);
-        _world.AddComponent<Padding1>(entity);
-        _world.AddComponent<Padding2>(entity);
-        _world.AddComponent<Padding3>(entity);
-        _world.AddComponent<Padding4>(entity);
+        var entity = _world.Commands.CreateEntity();
+        _world.Commands.AddComponent(entity, new Position());
+        _world.Commands.AddComponent(entity, new Velocity());
+        _world.Commands.AddComponent(entity, new Health());
+        _world.Commands.AddComponent(entity, new BulkPayload());
+        _world.Commands.AddComponent(entity, new Padding1());
+        _world.Commands.AddComponent(entity, new Padding2());
+        _world.Commands.AddComponent(entity, new Padding3());
+        _world.Commands.AddComponent(entity, new Padding4());
+        _world.ApplyCommands();
         return entity;
     }
 
     [Benchmark]
-    public void DisposeEntity() => _world.DestroyEntity(_toDispose);
+    public void DisposeEntity()
+    {
+        _world.Commands.DestroyEntity(_toDispose);
+        _world.ApplyCommands();
+    }
 }

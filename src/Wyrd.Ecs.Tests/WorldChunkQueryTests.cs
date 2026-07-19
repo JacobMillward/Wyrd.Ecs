@@ -17,7 +17,8 @@ public class WorldChunkQueryTests
     {
         var world = new World();
         for (var i = 0; i < 5; i++)
-            world.AddComponent<Position>(world.CreateEntity()).X = i;
+            world.Commands.CreateEntity(new Position { X = i });
+        world.ApplyCommands();
 
         var seen = new List<float>();
         world.Query<Mut<Position>>(chunk =>
@@ -33,8 +34,9 @@ public class WorldChunkQueryTests
     public void OneComponentQuery_SkipsEntitiesWithoutTheComponent()
     {
         var world = new World();
-        world.AddComponent<Position>(world.CreateEntity());
-        world.CreateEntity(); // no Position
+        world.Commands.CreateEntity(new Position());
+        world.Commands.CreateEntity(); // no Position
+        world.ApplyCommands();
 
         var visitCount = 0;
         world.Query<Ref<Position>>(_ => visitCount++);
@@ -46,8 +48,8 @@ public class WorldChunkQueryTests
     public void OneComponentQuery_MutatesTheRealStorage()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
 
         world.Query<Mut<Position>>(chunk =>
         {
@@ -63,8 +65,8 @@ public class WorldChunkQueryTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         world.Query<Ref<Position>>(chunk =>
@@ -85,10 +87,8 @@ public class WorldChunkQueryTests
         using var consumer = world.TrackChanges<Position>();
         var entities = new Entity[3];
         for (var i = 0; i < 3; i++)
-        {
-            entities[i] = world.CreateEntity();
-            world.AddComponent<Position>(entities[i]);
-        }
+            entities[i] = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
         world.AdvanceTick();
 
         world.Query<Mut<Position>>(chunk => { chunk[0].X += 0f; });
@@ -104,8 +104,8 @@ public class WorldChunkQueryTests
     public void MutQuery_WithTrackingOff_NeverMarksAnythingDirty()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 1f;
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
         world.AdvanceTick();
 
         world.Query<Mut<Position>>(chunk => { chunk[0].X += 1f; });
@@ -123,11 +123,9 @@ public class WorldChunkQueryTests
     public void TwoComponentQuery_RequiresBothComponents()
     {
         var world = new World();
-        var both = world.CreateEntity();
-        world.AddComponent<Position>(both).X = 1f;
-        world.AddComponent<Velocity>(both).X = 2f;
-        var positionOnly = world.CreateEntity();
-        world.AddComponent<Position>(positionOnly);
+        var both = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        world.Commands.CreateEntity(new Position()); // position only
+        world.ApplyCommands();
 
         var visited = new List<Entity>();
         world.Query<Ref<Position>, Ref<Velocity>>((position, velocity) =>
@@ -143,9 +141,8 @@ public class WorldChunkQueryTests
     public void TwoComponentQuery_ReadsBothComponentsCorrectly()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity).X = 3f;
-        world.AddComponent<Velocity>(entity).X = 4f;
+        world.Commands.CreateEntity(new Position { X = 3f }, new Velocity { X = 4f });
+        world.ApplyCommands();
 
         var sums = new List<float>();
         world.Query<Ref<Position>, Ref<Velocity>>((position, velocity) =>
@@ -161,9 +158,9 @@ public class WorldChunkQueryTests
     public void Query_EmptyArchetype_NeverInvokesTheCallback()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Position>(entity);
-        world.DestroyEntity(entity);
+        var entity = world.Commands.CreateEntity(new Position());
+        world.Commands.DestroyEntity(entity);
+        world.ApplyCommands();
 
         var invoked = false;
         world.Query<Mut<Position>>(_ => invoked = true);

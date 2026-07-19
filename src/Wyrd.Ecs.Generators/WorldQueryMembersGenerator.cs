@@ -30,11 +30,6 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
                 iworld.AppendLine(ArityTemplates.IWorldMember(n));
                 iworld.AppendLine();
             }
-            for (var n = 1; n <= QueryArity.Max; n++)
-            {
-                iworld.AppendLine(ArityTemplates.IWorldCreateEntityMember(n));
-                iworld.AppendLine();
-            }
             iworld.AppendLine("}");
             ctx.AddSource("IWorld.QueryMembers.g.cs", iworld.ToString());
 
@@ -52,11 +47,24 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             }
             for (var n = 1; n <= QueryArity.Max; n++)
             {
-                world.AppendLine(ArityTemplates.WorldCreateEntityMember(n));
+                world.AppendLine(ArityTemplates.PlaceReservedEntityMember(n));
                 world.AppendLine();
             }
             world.AppendLine("}");
             ctx.AddSource("World.QueryMembers.g.cs", world.ToString());
+
+            var commands = new StringBuilder();
+            commands.AppendLine("namespace Wyrd.Ecs;");
+            commands.AppendLine();
+            commands.AppendLine("public sealed partial class Commands");
+            commands.AppendLine("{");
+            for (var n = 1; n <= QueryArity.Max; n++)
+            {
+                commands.AppendLine(ArityTemplates.CommandsCreateEntityMember(n));
+                commands.AppendLine();
+            }
+            commands.AppendLine("}");
+            ctx.AddSource("Commands.CreateEntityMembers.g.cs", commands.ToString());
         });
     }
 }

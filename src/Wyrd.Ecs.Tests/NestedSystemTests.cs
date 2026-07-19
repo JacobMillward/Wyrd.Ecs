@@ -20,8 +20,8 @@ public partial class NestedSystemTests
     public void QuerySystem_NestedInsideAnotherClass_StillWorks()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Energy>(entity) = new Energy { Current = 100f, DrainPerSecond = 10f };
+        var entity = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
+        world.ApplyCommands();
 
         var system = new NestedEnergyDrainSystem();
         system.RunOnce(world, tick: 1);

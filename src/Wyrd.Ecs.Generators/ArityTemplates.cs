@@ -336,38 +336,30 @@ internal static class ArityTemplates
                $"        new(GetMatchingArchetypes(QuerySignature<{tp}>.Value), {ctorArgs}, _currentTick);";
     }
 
-    /// <summary>Emits the <c>IWorld</c> declaration <c>Entity CreateEntity&lt;T0..TN-1&gt;(...)</c>.</summary>
-    internal static string IWorldCreateEntityMember(int n)
-    {
-        var tp = TypeParams(n);
-        var where = WhereClausesInline(n);
-        var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
-        return n == 1
-            ? "    /// <summary>\n"
-                + "    /// Creates a new entity with its component already set, going directly to\n"
-                + "    /// the matching archetype in one step instead of creating an empty entity\n"
-                + "    /// and adding the component afterward.\n"
-                + "    /// </summary>\n"
-                + $"    Entity CreateEntity<{tp}>({parameters}) {where};"
-            : $"    /// <inheritdoc cref=\"CreateEntity{{T0}}(T0)\"/>\n    Entity CreateEntity<{tp}>({parameters}) {where};";
-    }
-
-    /// <summary>Emits the <c>World</c> implementation of <see cref="IWorldCreateEntityMember"/>.</summary>
-    internal static string WorldCreateEntityMember(int n)
+    /// <summary>
+    /// Emits the internal <c>World</c> method <c>PlaceReservedEntity&lt;T0..TN-1&gt;(Entity, T0, ...)</c>:
+    /// places a previously-reserved entity into the archetype matching
+    /// <c>T0..TN-1</c> (creating it if needed) and writes the given component values.
+    /// Used only by the matching generated <c>Commands.CreateEntity&lt;T0..TN-1&gt;</c>
+    /// overload's queued placement — see <see cref="CommandsCreateEntityMember"/>.
+    /// </summary>
+    internal static string PlaceReservedEntityMember(int n)
     {
         var tp = TypeParams(n);
         var where = WhereClausesInline(n);
         var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
         var sb = new StringBuilder();
 
-        sb.AppendLine("    /// <inheritdoc/>");
-        sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Places a previously-reserved entity into the matching archetype, creating it if needed, and writes the given component value.</summary>"
+            : "    /// <inheritdoc cref=\"PlaceReservedEntity{T0}(Entity, T0)\"/>");
+        sb.AppendLine($"    internal void PlaceReservedEntity<{tp}>(Entity entity, {parameters}) {where}");
         sb.AppendLine("    {");
         sb.AppendLine($"        var signature = QuerySignature<{tp}>.Value;");
         sb.AppendLine("        if (!_archetypes.TryGetValue(signature, out var target))");
         sb.AppendLine("            target = CreateArchetype(signature);");
         sb.AppendLine();
-        sb.AppendLine("        var (entity, row) = _entityTable.AllocateInto(target);");
+        sb.AppendLine("        var row = _entityTable.Place(entity, target);");
         sb.AppendLine("        NotifyEntityCreated(entity);");
         sb.AppendLine();
         foreach (var i in Indices(n))
@@ -377,6 +369,37 @@ internal static class ArityTemplates
             sb.AppendLine($"        if (IsTracked(TypeIndex<T{i}>.Value)) storage{i}.MarkDirty(row, _currentTick);");
             sb.AppendLine();
         }
+        sb.AppendLine("    }");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits the <c>Commands</c> method <c>CreateEntity&lt;T0..TN-1&gt;(T0, ...)</c>:
+    /// reserves a real entity id immediately (same as bare <c>Commands.CreateEntity()</c>)
+    /// and queues its placement with the given component values already set, going
+    /// directly to the matching archetype in one step instead of creating an empty
+    /// entity and queuing each component add afterward.
+    /// </summary>
+    internal static string CommandsCreateEntityMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
+        var args = string.Join(", ", Indices(n).Select(i => $"component{i}"));
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>\n"
+                + "    /// Reserves a real <see cref=\"Entity\"/> immediately, same as\n"
+                + "    /// <see cref=\"CreateEntity()\"/>, and queues its placement with the given\n"
+                + "    /// component already set. The returned entity is not\n"
+                + "    /// <see cref=\"World.IsAlive\"/> until <see cref=\"World.ApplyCommands\"/> runs.\n"
+                + "    /// </summary>"
+            : "    /// <inheritdoc cref=\"CreateEntity{T0}(T0)\"/>");
+        sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var entity = _world.ReserveEntity();");
+        sb.AppendLine($"        _queue.Add(w => w.PlaceReservedEntity(entity, {args}));");
         sb.AppendLine("        return entity;");
         sb.AppendLine("    }");
         return sb.ToString();

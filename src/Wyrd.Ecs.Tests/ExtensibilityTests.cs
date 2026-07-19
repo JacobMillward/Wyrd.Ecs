@@ -8,9 +8,8 @@ public class ExtensibilityTests
     public void NewComponentType_AddedAsOnlyAFile_IsStoredQueriedAndDirtyTracked()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-
-        world.AddComponent<Wobble>(entity).Intensity = 5;
+        var entity = world.Commands.CreateEntity(new Wobble { Intensity = 5 });
+        world.ApplyCommands();
 
         world.HasComponent<Wobble>(entity).Should().BeTrue();
         world.GetComponent<Wobble>(entity).Intensity.Should().Be(5);

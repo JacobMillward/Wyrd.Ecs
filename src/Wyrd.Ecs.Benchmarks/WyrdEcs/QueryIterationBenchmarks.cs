@@ -32,11 +32,8 @@ public class QueryIterationBenchmarks
 
         for (var i = 0; i < EntityCount; i++)
         {
-            var e1 = _world1.CreateEntity();
-            _world1.AddComponent<Position>(e1);
-            var e2 = _world2.CreateEntity();
-            _world2.AddComponent<Position>(e2);
-            _world2.AddComponent<Velocity>(e2);
+            var e1 = _world1.Commands.CreateEntity(new Position());
+            var e2 = _world2.Commands.CreateEntity(new Position(), new Velocity());
 
             if (Fragmented)
             {
@@ -44,6 +41,8 @@ public class QueryIterationBenchmarks
                 Fragmentation.AddFragTag(_world2, e2, i);
             }
         }
+        _world1.ApplyCommands();
+        _world2.ApplyCommands();
     }
 
     [Benchmark(Baseline = true)]

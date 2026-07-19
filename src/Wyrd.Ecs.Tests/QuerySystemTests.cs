@@ -46,8 +46,8 @@ public class QuerySystemTests
     public void QuerySystem_ExecuteRunsPerMatchingEntity()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Energy>(entity) = new Energy { Current = 100f, DrainPerSecond = 10f };
+        var entity = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
+        world.ApplyCommands();
 
         var system = new EnergyDrainSystem();
         system.RunOnce(world, tick: 1);
@@ -59,11 +59,10 @@ public class QuerySystemTests
     public void QuerySystem_VisitsEveryMatchingEntityAcrossArchetypes()
     {
         var world = new World();
-        var plain = world.CreateEntity();
-        world.AddComponent<Energy>(plain) = new Energy { Current = 50f, DrainPerSecond = 5f };
-        var tagged = world.CreateEntity();
-        world.AddComponent<Energy>(tagged) = new Energy { Current = 20f, DrainPerSecond = 2f };
-        world.AddTag<Marker>(tagged);
+        var plain = world.Commands.CreateEntity(new Energy { Current = 50f, DrainPerSecond = 5f });
+        var tagged = world.Commands.CreateEntity(new Energy { Current = 20f, DrainPerSecond = 2f });
+        world.Commands.AddTag<Marker>(tagged);
+        world.ApplyCommands();
 
         var system = new EnergyDrainSystem();
         system.RunOnce(world, tick: 1);
@@ -76,13 +75,10 @@ public class QuerySystemTests
     public void QuerySystem_ThreeComponentArity_RunsAndWritesThroughAllThree()
     {
         var world = new World();
-        var entity = world.CreateEntity();
-        world.AddComponent<Transceiver>(entity) = new Transceiver { Bandwidth = 3f };
-        world.AddComponent<Outbox>(entity) = new Outbox { SendProgress = 0f };
-        world.AddComponent<Inbox>(entity) = new Inbox { ReceiveProgress = 0f };
-        var missingOne = world.CreateEntity();
-        world.AddComponent<Transceiver>(missingOne);
-        world.AddComponent<Outbox>(missingOne);
+        var entity = world.Commands.CreateEntity(
+            new Transceiver { Bandwidth = 3f }, new Outbox { SendProgress = 0f }, new Inbox { ReceiveProgress = 0f });
+        world.Commands.CreateEntity(new Transceiver(), new Outbox()); // missing Inbox
+        world.ApplyCommands();
 
         var system = new ThreeComponentSystem();
         system.RunOnce(world, tick: 1);

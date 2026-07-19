@@ -1,9 +1,9 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// A deferred-mutation buffer for structural changes — creating or destroying an
-/// entity, adding or removing a component or tag. Queued operations are not visible
-/// until <see cref="World.ApplyCommands"/> runs: <c>HasComponent</c>/<c>GetComponent</c>
+/// The only way to perform structural mutation — creating or destroying an entity,
+/// adding or removing a component or tag. Queued operations are not visible until
+/// <see cref="World.ApplyCommands"/> runs: <c>HasComponent</c>/<c>GetComponent</c>
 /// called against a queued-but-not-yet-applied change still reflect pre-apply state,
 /// and an entity created here is not <see cref="World.IsAlive"/> until then either. This
 /// exists for two reasons: performing a structural change on an entity while a
@@ -13,10 +13,15 @@ namespace Wyrd.Ecs;
 /// state (the archetype graph, the entity table) that no future per-component
 /// parallel-scheduling access-conflict graph can reason about, so deferring to one
 /// single-threaded apply point is a hard prerequisite for running systems concurrently.
-/// Direct, immediate mutation via <see cref="IWorld"/>'s own members remains available
-/// and unchanged — this is an additional, opt-in mechanism, not a replacement.
+/// There is deliberately no direct, immediate alternative on <see cref="IWorld"/> — with
+/// one only reachable through discipline, not the type system, a caller could still
+/// trigger the exact hazard this exists to prevent by picking the wrong one. Reading and
+/// mutating an already-placed entity's existing component values
+/// (<see cref="World.GetComponent{T}"/> and friends) never touches archetype row
+/// layout, carries no such hazard, and stays direct on <see cref="IWorld"/> — this class
+/// is only ever about changing an entity's shape, never about its values.
 /// </summary>
-public sealed class Commands
+public sealed partial class Commands
 {
     private readonly World _world;
     private readonly List<Action<World>> _queue = new();
