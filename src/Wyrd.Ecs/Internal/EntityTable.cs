@@ -14,7 +14,7 @@ internal struct EntityTable
     private int[] _generations = new int[4];
     private (Archetype Archetype, int Row)[] _locations = new (Archetype, int)[4];
     private readonly Stack<int> _freeIds = new();
-    private readonly HashSet<int> _reserved = new();
+    private bool[] _reserved = new bool[4];
     private int _nextId = 1; // Id 0 is reserved for Entity.Null.
 
     public EntityTable() { }
@@ -24,8 +24,15 @@ internal struct EntityTable
 
     internal EntityId PermanentId(int id) => _permanentIds[id];
 
+    /// <summary>
+    /// A direct array index, not a <c>HashSet&lt;int&gt;</c> — this is called on every
+    /// single structural mutation (<see cref="Commands"/> checks it before almost every
+    /// queued operation) plus every direct component read/write, so it's the hottest
+    /// correctness check in the engine. A hash lookup here was real, avoidable overhead
+    /// on that path; a bounds-checked array read costs a fraction of it.
+    /// </summary>
     internal bool IsAlive(int id, int generation) =>
-        id > 0 && id < _nextId && _generations[id] == generation && !_reserved.Contains(id);
+        id > 0 && id < _nextId && _generations[id] == generation && !_reserved[id];
 
     /// <summary>
     /// Allocates a fresh entity id without placing it into any archetype — not
@@ -37,7 +44,7 @@ internal struct EntityTable
     internal Entity Reserve()
     {
         var entity = Allocate();
-        _reserved.Add(entity.Id);
+        _reserved[entity.Id] = true;
         return entity;
     }
 
@@ -47,7 +54,7 @@ internal struct EntityTable
     /// </summary>
     internal int Place(Entity entity, Archetype archetype)
     {
-        _reserved.Remove(entity.Id);
+        _reserved[entity.Id] = false;
         var row = archetype.AddRow(entity);
         this[entity.Id] = (archetype, row);
         return row;
@@ -98,5 +105,6 @@ internal struct EntityTable
         ArrayGrowth.EnsureCapacity(ref _generations, id + 1);
         ArrayGrowth.EnsureCapacity(ref _permanentIds, id + 1);
         ArrayGrowth.EnsureCapacity(ref _locations, id + 1);
+        ArrayGrowth.EnsureCapacity(ref _reserved, id + 1);
     }
 }
