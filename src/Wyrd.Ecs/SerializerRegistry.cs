@@ -15,16 +15,25 @@ public sealed class SerializerRegistry
     /// <summary>
     /// Registers <typeparamref name="T"/> under <paramref name="discriminator"/> — a
     /// caller-chosen, stable identifier, never <see cref="Internal.TypeIndex{T}"/>.
-    /// Throws if <paramref name="discriminator"/> is already registered.
+    /// Throws if <paramref name="discriminator"/> is already registered, or if
+    /// <typeparamref name="T"/> is already registered under a different discriminator
+    /// (silently letting this through would leave <see cref="TryGetByTypeIndex"/> and
+    /// <see cref="TryGetByDiscriminator"/> resolving to different entries for the same
+    /// type — the first serializes on save, the second deserializes anything saved
+    /// under the earlier discriminator, with no guarantee they agree).
     /// </summary>
     public void Register<T>(string discriminator, ComponentSerializer<T> serialize, ComponentDeserializer<T> deserialize) where T : struct, IComponent
     {
         if (_byDiscriminator.ContainsKey(discriminator))
             throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
 
+        var typeIndex = Internal.TypeIndex<T>.Value;
+        if (_byTypeIndex.TryGetValue(typeIndex, out var existing))
+            throw new ArgumentException($"Type '{typeof(T)}' is already registered under discriminator '{existing.Discriminator}'.");
+
         var entry = new Internal.RegisteredComponentType<T>(discriminator, serialize, deserialize);
         _byDiscriminator[discriminator] = entry;
-        _byTypeIndex[entry.TypeIndex] = entry;
+        _byTypeIndex[typeIndex] = entry;
     }
 
     /// <summary>Looks up a registration by its current-process <see cref="Internal.TypeIndex{T}"/> — used by <see cref="World.EnumerateAll"/> while walking type-erased storage.</summary>

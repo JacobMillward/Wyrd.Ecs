@@ -67,6 +67,17 @@ public class SerializerRegistryTests
     }
 
     [Fact]
+    public void Register_TheSameTypeTwiceUnderDifferentDiscriminators_Throws()
+    {
+        var registry = new SerializerRegistry();
+        registry.Register("Position", SerializePosition, DeserializePosition);
+
+        var act = () => registry.Register("Position_V2", SerializePosition, DeserializePosition);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void SerializeRow_RoundTripsThroughTheRegisteredDelegatesByDiscriminator()
     {
         var registry = new SerializerRegistry();
