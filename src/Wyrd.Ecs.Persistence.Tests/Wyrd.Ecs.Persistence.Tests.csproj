@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
+    <ProjectReference Include="..\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

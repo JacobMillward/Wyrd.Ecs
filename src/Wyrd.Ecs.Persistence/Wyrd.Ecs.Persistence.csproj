@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.IO.Hashing" Version="9.0.0" />
+    <PackageReference Include="MemoryPack" Version="1.21.4" />
   </ItemGroup>
 
   <ItemGroup>
