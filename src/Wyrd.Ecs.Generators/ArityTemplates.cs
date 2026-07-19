@@ -374,18 +374,57 @@ internal static class ArityTemplates
     }
 
     /// <summary>
+    /// Emits <c>file static class CreateEntityOp&lt;T0..TN-1&gt;</c>: a cached,
+    /// non-capturing dispatcher delegate for <see cref="CommandsCreateEntityMember"/>'s
+    /// queued placement — one static instance per closed generic combination, created
+    /// once and reused across every queued call, instead of a fresh closure allocated
+    /// per call. For arity 1 the payload is boxed directly as <c>T0</c>; arity 2+ boxes
+    /// one value tuple holding every component, still a single allocation per queued
+    /// call regardless of arity.
+    /// </summary>
+    internal static string CreateEntityOpClass(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "/// <summary>Cached, non-capturing dispatcher for <see cref=\"Commands.CreateEntity{T0}(T0)\"/>'s queued placement.</summary>"
+            : $"/// <inheritdoc cref=\"CreateEntityOp{{T0}}\"/>");
+        sb.AppendLine($"file static class CreateEntityOp<{tp}> {where}");
+        sb.AppendLine("{");
+        if (n == 1)
+        {
+            sb.AppendLine("    internal static readonly Action<World, Entity, object?, int> Apply = (w, e, v, _) => w.PlaceReservedEntity(e, (T0)v!);");
+        }
+        else
+        {
+            var items = string.Join(", ", Indices(n).Select(i => $"t.Item{i + 1}"));
+            sb.AppendLine("    internal static readonly Action<World, Entity, object?, int> Apply = (w, e, v, _) =>");
+            sb.AppendLine("    {");
+            sb.AppendLine($"        var t = (({tp}))v!;");
+            sb.AppendLine($"        w.PlaceReservedEntity(e, {items});");
+            sb.AppendLine("    };");
+        }
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Emits the <c>Commands</c> method <c>CreateEntity&lt;T0..TN-1&gt;(T0, ...)</c>:
     /// reserves a real entity id immediately (same as bare <c>Commands.CreateEntity()</c>)
     /// and queues its placement with the given component values already set, going
     /// directly to the matching archetype in one step instead of creating an empty
-    /// entity and queuing each component add afterward.
+    /// entity and queuing each component add afterward. Queues via the shared
+    /// <c>QueuedCommand</c> representation (see <c>Commands.cs</c>), dispatching through
+    /// the matching <see cref="CreateEntityOpClass"/> instead of a per-call closure.
     /// </summary>
     internal static string CommandsCreateEntityMember(int n)
     {
         var tp = TypeParams(n);
         var where = WhereClausesInline(n);
         var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
-        var args = string.Join(", ", Indices(n).Select(i => $"component{i}"));
+        var value = n == 1 ? "component0" : $"({string.Join(", ", Indices(n).Select(i => $"component{i}"))})";
         var sb = new StringBuilder();
 
         sb.AppendLine(n == 1
@@ -399,7 +438,7 @@ internal static class ArityTemplates
         sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");
         sb.AppendLine("    {");
         sb.AppendLine("        var entity = _world.ReserveEntity();");
-        sb.AppendLine($"        _queue.Add(w => w.PlaceReservedEntity(entity, {args}));");
+        sb.AppendLine($"        Enqueue(new QueuedCommand(entity, CreateEntityOp<{tp}>.Apply, {value}, 0));");
         sb.AppendLine("        return entity;");
         sb.AppendLine("    }");
         return sb.ToString();

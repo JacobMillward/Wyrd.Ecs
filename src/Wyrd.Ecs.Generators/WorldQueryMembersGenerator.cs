@@ -54,8 +54,15 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             ctx.AddSource("World.QueryMembers.g.cs", world.ToString());
 
             var commands = new StringBuilder();
+            commands.AppendLine("#nullable enable");
+            commands.AppendLine("using System;");
             commands.AppendLine("namespace Wyrd.Ecs;");
             commands.AppendLine();
+            for (var n = 1; n <= QueryArity.Max; n++)
+            {
+                commands.AppendLine(ArityTemplates.CreateEntityOpClass(n));
+                commands.AppendLine();
+            }
             commands.AppendLine("public sealed partial class Commands");
             commands.AppendLine("{");
             for (var n = 1; n <= QueryArity.Max; n++)
