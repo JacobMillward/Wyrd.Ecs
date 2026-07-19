@@ -29,6 +29,9 @@ public sealed partial class Commands
 
     internal Commands(World world) => _world = world;
 
+    /// <summary>The <see cref="World"/> this buffer was created for — checked by <see cref="Wyrd.Ecs.World.ApplyCommands(Commands)"/> before replaying it.</summary>
+    internal World World => _world;
+
     /// <summary>
     /// A raw growable array with a manual count, not <c>List&lt;QueuedCommand&gt;</c> —
     /// matches every other hot-path collection in this engine (<c>Archetype</c>'s rows,

@@ -45,6 +45,9 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public Commands Commands => _commands;
 
+    /// <inheritdoc/>
+    public Commands CreateCommands() => new(this);
+
     private readonly List<IStructuralChangeObserver> _structuralObservers = new();
 
     /// <inheritdoc/>
@@ -137,7 +140,16 @@ public sealed partial class World : IWorld
     public void AdvanceTick() => _currentTick++;
 
     /// <inheritdoc/>
-    public void ApplyCommands() => _commands.Apply();
+    public void ApplyCommands() => ApplyCommands(_commands);
+
+    /// <inheritdoc/>
+    public void ApplyCommands(Commands commands)
+    {
+        if (commands.World != this)
+            throw new InvalidOperationException("This Commands buffer was created for a different World.");
+
+        commands.Apply();
+    }
 
     /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="Commands.CreateEntity"/>.</summary>
     internal Entity ReserveEntity() => _entityTable.Reserve();
