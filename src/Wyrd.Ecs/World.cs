@@ -45,10 +45,78 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public Commands Commands => _commands;
 
+    private readonly List<IStructuralChangeObserver> _structuralObservers = new();
+
+    /// <inheritdoc/>
+    public IDisposable ObserveStructuralChanges(IStructuralChangeObserver observer)
+    {
+        _structuralObservers.Add(observer);
+        return new StructuralObserverHandle(this, observer);
+    }
+
+    private void UnobserveStructuralChanges(IStructuralChangeObserver observer) => _structuralObservers.Remove(observer);
+
+    private void NotifyEntityCreated(Entity entity)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnEntityCreated(entity);
+    }
+
+    private void NotifyEntityDestroyed(Entity entity)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnEntityDestroyed(entity);
+    }
+
+    private void NotifyComponentAdded(Entity entity, int typeIndex)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnComponentAdded(entity, typeIndex);
+    }
+
+    private void NotifyComponentRemoved(Entity entity, int typeIndex)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnComponentRemoved(entity, typeIndex);
+    }
+
+    private void NotifyTagAdded(Entity entity, int typeIndex)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnTagAdded(entity, typeIndex);
+    }
+
+    private void NotifyTagRemoved(Entity entity, int typeIndex)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnTagRemoved(entity, typeIndex);
+    }
+
+    private sealed class StructuralObserverHandle : IDisposable
+    {
+        private readonly World _world;
+        private readonly IStructuralChangeObserver _observer;
+        private bool _disposed;
+
+        internal StructuralObserverHandle(World world, IStructuralChangeObserver observer)
+        {
+            _world = world;
+            _observer = observer;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _world.UnobserveStructuralChanges(_observer);
+        }
+    }
+
     /// <inheritdoc/>
     public Entity CreateEntity()
     {
         var (entity, _) = _entityTable.AllocateInto(_emptyArchetype);
+        NotifyEntityCreated(entity);
         return entity;
     }
 
@@ -57,6 +125,7 @@ public sealed partial class World : IWorld
     {
         RequireAlive(entity);
         _entityTable.Destroy(entity.Id);
+        NotifyEntityDestroyed(entity);
     }
 
     /// <inheritdoc/>
@@ -81,10 +150,11 @@ public sealed partial class World : IWorld
     /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="Commands.CreateEntity"/>.</summary>
     internal Entity ReserveEntity() => _entityTable.Reserve();
 
-    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive. Used only by <see cref="Commands.CreateEntity"/>'s queued placement.</summary>
+    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive, and notifies observers. Used only by <see cref="Commands.CreateEntity"/>'s queued placement.</summary>
     internal void PlaceReservedEntity(Entity entity)
     {
         _entityTable.Place(entity, _emptyArchetype);
+        NotifyEntityCreated(entity);
     }
 
     /// <inheritdoc/>
@@ -101,6 +171,7 @@ public sealed partial class World : IWorld
         var storage = target.GetOrCreateStorage<T>();
         if (IsTracked(typeIndex))
             storage.MarkDirty(targetRow, _currentTick);
+        NotifyComponentAdded(entity, typeIndex);
         return ref storage[targetRow];
     }
 
@@ -152,6 +223,7 @@ public sealed partial class World : IWorld
         if (!source.Signature.Contains(typeIndex)) return;
 
         MoveViaRemoveEdge(entity, source, sourceRow, typeIndex);
+        NotifyComponentRemoved(entity, typeIndex);
     }
 
     /// <inheritdoc/>
@@ -163,6 +235,7 @@ public sealed partial class World : IWorld
         if (source.Signature.Contains(typeIndex)) return;
 
         MoveViaAddEdge(entity, source, sourceRow, typeIndex);
+        NotifyTagAdded(entity, typeIndex);
     }
 
     /// <inheritdoc/>
@@ -174,6 +247,7 @@ public sealed partial class World : IWorld
         if (!source.Signature.Contains(typeIndex)) return;
 
         MoveViaRemoveEdge(entity, source, sourceRow, typeIndex);
+        NotifyTagRemoved(entity, typeIndex);
     }
 
     /// <summary>

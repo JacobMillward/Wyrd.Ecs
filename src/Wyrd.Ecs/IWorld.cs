@@ -99,6 +99,12 @@ public partial interface IWorld
     IDisposable TrackChanges<T>() where T : struct, IComponent;
 
     /// <summary>
+    /// Registers <paramref name="observer"/> to be notified of every structural change
+    /// from this point on. Dispose the returned handle to unregister.
+    /// </summary>
+    IDisposable ObserveStructuralChanges(IStructuralChangeObserver observer);
+
+    /// <summary>
     /// Scans every archetype containing <typeparamref name="T"/> for rows whose
     /// tick-stamp is past <paramref name="sinceTick"/>, returning each one's current
     /// value. Stateless and non-destructive — call this as many times, from as many

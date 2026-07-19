@@ -368,6 +368,7 @@ internal static class ArityTemplates
         sb.AppendLine("            target = CreateArchetype(signature);");
         sb.AppendLine();
         sb.AppendLine("        var (entity, row) = _entityTable.AllocateInto(target);");
+        sb.AppendLine("        NotifyEntityCreated(entity);");
         sb.AppendLine();
         foreach (var i in Indices(n))
         {
