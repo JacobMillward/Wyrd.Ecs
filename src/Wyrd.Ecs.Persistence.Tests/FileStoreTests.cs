@@ -1,6 +1,6 @@
 namespace Wyrd.Ecs.Persistence.Tests;
 
-public class LocalFilePersistenceStoreTests : IDisposable
+public class FileStoreTests : IDisposable
 {
     private readonly string _path = Path.Combine(Path.GetTempPath(), $"wyrd-persistence-test-{Guid.NewGuid():N}.bin");
 
@@ -12,7 +12,7 @@ public class LocalFilePersistenceStoreTests : IDisposable
     [Fact]
     public void OpenCheckpointWrite_ThenOpenCheckpointRead_RoundTripsBytes()
     {
-        var store = new LocalFilePersistenceStore(_path);
+        var store = new FileStore(_path);
         var written = new byte[] { 1, 2, 3, 4, 5 };
 
         using (var writeStream = store.OpenCheckpointWrite())
@@ -28,7 +28,7 @@ public class LocalFilePersistenceStoreTests : IDisposable
     [Fact]
     public void OpenCheckpointWrite_CalledTwice_OverwritesThePreviousCheckpoint()
     {
-        var store = new LocalFilePersistenceStore(_path);
+        var store = new FileStore(_path);
 
         using (var first = store.OpenCheckpointWrite())
             first.Write(new byte[] { 1, 2, 3 });

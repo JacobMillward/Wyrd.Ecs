@@ -4,7 +4,7 @@ namespace Wyrd.Ecs.Persistence;
 /// Stores the checkpoint as a single file on the local filesystem at
 /// <paramref name="path"/>.
 /// </summary>
-public sealed class LocalFilePersistenceStore(string path) : IPersistenceStore
+public sealed class FileStore(string path) : IPersistenceStore
 {
     /// <inheritdoc/>
     public Stream OpenCheckpointWrite() => File.Create(path);
