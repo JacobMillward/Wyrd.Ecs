@@ -14,6 +14,7 @@ namespace Wyrd.Ecs.Persistence;
 public static class WorldPersistenceExtensions
 {
     private static readonly ConditionalWeakTable<World, IPersistenceStore> DefaultStores = new();
+    private static readonly ConditionalWeakTable<World, ComponentCodecRegistry> DefaultRegistries = new();
 
     extension(World world)
     {
@@ -33,6 +34,21 @@ public static class WorldPersistenceExtensions
                 if (value is not null) DefaultStores.AddOrUpdate(world, value);
             }
         }
+
+        /// <summary>
+        /// The <see cref="ComponentCodecRegistry"/> a background persistence behavior
+        /// (continuous persistence's capture step, for one) falls back to when it has no
+        /// registry of its own to use. Null until set — either directly, or via
+        /// <c>WorldBuilder.SetDefaultComponentCodecRegistry</c> at construction time.
+        /// </summary>
+        public ComponentCodecRegistry? DefaultComponentCodecRegistry
+        {
+            get => DefaultRegistries.TryGetValue(world, out var registry) ? registry : null;
+            set
+            {
+                if (value is not null) DefaultRegistries.AddOrUpdate(world, value);
+            }
+        }
     }
 
     extension(WorldBuilder builder)
@@ -45,6 +61,17 @@ public static class WorldPersistenceExtensions
         public WorldBuilder SetDefaultPersistenceStore(IPersistenceStore store)
         {
             builder.OnBuilt += world => world.DefaultPersistenceStore = store;
+            return builder;
+        }
+
+        /// <summary>
+        /// Configures the <see cref="ComponentCodecRegistry"/> the constructed
+        /// <see cref="World"/>'s <c>DefaultComponentCodecRegistry</c> is set to, applied
+        /// via <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
+        /// </summary>
+        public WorldBuilder SetDefaultComponentCodecRegistry(ComponentCodecRegistry registry)
+        {
+            builder.OnBuilt += world => world.DefaultComponentCodecRegistry = registry;
             return builder;
         }
     }
