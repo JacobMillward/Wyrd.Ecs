@@ -143,8 +143,21 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public int CurrentTick => _currentTick;
 
+    /// <summary>
+    /// Raised at the end of <see cref="AdvanceTick"/> with the new tick value — the
+    /// extensibility hook a per-tick background behavior (continuous persistence's
+    /// capture step, for one) subscribes to, so its one-time setup is the only code a
+    /// consumer needs beyond their existing tick loop. A caller with no subscribers
+    /// pays nothing extra.
+    /// </summary>
+    public event Action<int>? OnTickAdvanced;
+
     /// <inheritdoc/>
-    public void AdvanceTick() => _currentTick++;
+    public void AdvanceTick()
+    {
+        _currentTick++;
+        OnTickAdvanced?.Invoke(_currentTick);
+    }
 
     /// <inheritdoc/>
     public void ApplyCommands() => ApplyCommands(_commands);
