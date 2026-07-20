@@ -17,6 +17,39 @@ public class StructuralChangeObserverTests
         public void OnTagRemoved(Entity entity, int typeIndex) => Events.Add($"TagRemoved:{entity.Id}:{typeIndex}");
     }
 
+    private sealed class DestroyProbeObserver(Action<Entity> onDestroyed) : IStructuralChangeObserver
+    {
+        public void OnEntityCreated(Entity entity) { }
+        public void OnEntityDestroyed(Entity entity) => onDestroyed(entity);
+        public void OnComponentAdded(Entity entity, int typeIndex) { }
+        public void OnComponentRemoved(Entity entity, int typeIndex) { }
+        public void OnTagAdded(Entity entity, int typeIndex) { }
+        public void OnTagRemoved(Entity entity, int typeIndex) { }
+    }
+
+    [Fact]
+    public void DestroyEntity_NotifiesWhileTheEntityIsStillAliveAndQueryable()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
+        var permanentId = world.GetPermanentId(entity);
+        var observedAlive = false;
+        var observedId = default(EntityId);
+        var observer = new DestroyProbeObserver(e =>
+        {
+            observedAlive = world.IsAlive(e);
+            observedId = world.GetPermanentId(e);
+        });
+        using var subscription = world.ObserveStructuralChanges(observer);
+
+        world.Commands.DestroyEntity(entity);
+        world.ApplyCommands();
+
+        observedAlive.Should().BeTrue();
+        observedId.Should().Be(permanentId);
+    }
+
     [Fact]
     public void CreateEntity_NotifiesEntityCreated()
     {

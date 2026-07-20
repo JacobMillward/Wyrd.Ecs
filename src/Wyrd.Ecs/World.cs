@@ -115,12 +115,19 @@ public sealed partial class World : IWorld
         }
     }
 
-    /// <summary>Destroys an entity and all of its components. Called only via <see cref="CommandBuffer"/>.</summary>
+    /// <summary>
+    /// Destroys an entity and all of its components. Called only via <see cref="CommandBuffer"/>.
+    /// Notifies observers before the entity table retires the id, not after — unlike
+    /// every other structural notification, which fires once the change has already
+    /// landed, destruction leaves nothing queryable afterward, so this is the one
+    /// callback where "before" is the only point an observer can still read anything
+    /// about the entity (its permanent id, whether it's alive, its components) at all.
+    /// </summary>
     internal void DestroyEntity(Entity entity)
     {
         RequireAlive(entity);
-        _entityTable.Destroy(entity.Id);
         NotifyEntityDestroyed(entity);
+        _entityTable.Destroy(entity.Id);
     }
 
     /// <inheritdoc/>
