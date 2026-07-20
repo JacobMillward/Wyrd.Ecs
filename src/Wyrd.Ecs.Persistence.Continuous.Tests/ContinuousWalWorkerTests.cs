@@ -195,4 +195,98 @@ public class ContinuousWalWorkerTests : IDisposable
         public Stream OpenCheckpointWrite() => throw new IOException("simulated failure");
         public Stream OpenCheckpointRead() => throw new IOException("simulated failure");
     }
+
+    [Fact]
+    public void Start_WithAShortFsyncInterval_DrainsCapturedChangesOnItsOwn()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var options = new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(20), CheckpointInterval = TimeSpan.FromMinutes(10) };
+        using var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), walStore, options);
+        worker.Start();
+
+        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        var found = false;
+        while (!found && DateTime.UtcNow < deadline)
+        {
+            using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
+            WalSegmentIO.ReadHeader(readStream);
+            while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _))
+                found = found || readEntity == world.GetPermanentId(entity);
+            if (!found) Thread.Sleep(10);
+        }
+
+        found.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Start_WithAShortCheckpointInterval_ProducesAWorkingCheckpointOnItsOwn()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var checkpointStore = new FileStore(CheckpointPath);
+        var options = new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(20), CheckpointInterval = TimeSpan.FromMilliseconds(50) };
+        using var worker = new ContinuousWalWorker(world, capture, checkpointStore, walStore, options);
+        worker.Start();
+
+        world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        var found = false;
+        while (!found && DateTime.UtcNow < deadline)
+        {
+            var (_, entries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+            found = entries.Keys.Any(k => k.Discriminator == "Position");
+            if (!found) Thread.Sleep(10);
+        }
+
+        found.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Dispose_WithoutStart_DoesNotThrow()
+    {
+        var world = new World();
+        using var capture = new ChangeCapture(world, BuildRegistry());
+        var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), new FileWalStore(WalBasePath), WalOptions.Default);
+
+        var act = () => worker.Dispose();
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Dispose_AfterStart_DrainsAnyFinalCapturedChangesBeforeStopping()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var options = new WalOptions { FsyncInterval = TimeSpan.FromSeconds(10), CheckpointInterval = TimeSpan.FromMinutes(10) };
+        var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), walStore, options);
+        worker.Start();
+
+        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        worker.Dispose();
+
+        using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
+        WalSegmentIO.ReadHeader(readStream);
+        var found = false;
+        while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _))
+            found = found || readEntity == world.GetPermanentId(entity);
+        found.Should().BeTrue();
+    }
 }

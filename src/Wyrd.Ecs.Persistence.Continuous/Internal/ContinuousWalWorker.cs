@@ -1,12 +1,13 @@
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
-/// Drives continuous persistence's two background threads (the WAL-writer thread is
-/// added to this class in this task; the checkpoint-merge thread, rotation
-/// coordination, and <see cref="Start"/>/<see cref="Dispose"/> follow in later tasks).
-/// Constructing this opens the first WAL segment immediately, keyed by
-/// <paramref name="world"/>'s current tick, so a segment always exists from
-/// construction onward regardless of how soon the first real cycle runs.
+/// Drives continuous persistence's two background threads: a WAL-writer thread that
+/// drains <see cref="ChangeCapture"/> into WAL segments and fsyncs on a cadence, and a
+/// checkpoint-merge thread that periodically rotates the current segment, folds every
+/// now-closed segment into a new checkpoint via <see cref="CheckpointBuilder"/>, and
+/// retires them. Constructing this opens the first WAL segment immediately, keyed by
+/// the world's current tick, so a segment always exists from construction onward
+/// regardless of how soon the first real cycle runs.
 /// </summary>
 internal sealed class ContinuousWalWorker : IDisposable
 {
@@ -20,6 +21,10 @@ internal sealed class ContinuousWalWorker : IDisposable
 
     private volatile bool _rotationRequested;
     private readonly ManualResetEventSlim _rotationDone = new(false);
+
+    private readonly CancellationTokenSource _cts = new();
+    private Thread? _walWriterThread;
+    private Thread? _checkpointMergeThread;
 
     internal ContinuousWalWorker(World world, ChangeCapture capture, IPersistenceStore checkpointStore, IWalStore walStore, WalOptions options, Action<Exception>? onError = null)
     {
@@ -111,7 +116,57 @@ internal sealed class ContinuousWalWorker : IDisposable
         }
     }
 
+    /// <summary>Starts the WAL-writer and checkpoint-merge background threads.</summary>
+    internal void Start()
+    {
+        _walWriterThread = new Thread(WalWriterLoop) { IsBackground = true, Name = "Wyrd.Ecs Continuous WAL Writer" };
+        _checkpointMergeThread = new Thread(CheckpointMergeLoop) { IsBackground = true, Name = "Wyrd.Ecs Continuous Checkpoint Merge" };
+        _walWriterThread.Start();
+        _checkpointMergeThread.Start();
+    }
+
+    private void WalWriterLoop()
+    {
+        // Always runs one more cycle after cancellation is requested, so nothing
+        // captured before shutdown is left undrained — unlike the checkpoint-merge
+        // loop below, which deliberately does not force a final merge.
+        while (true)
+        {
+            WalWriteCycle();
+            if (_cts.IsCancellationRequested) return;
+            _cts.Token.WaitHandle.WaitOne(_options.FsyncInterval);
+        }
+    }
+
+    private void CheckpointMergeLoop()
+    {
+        // Waits a full CheckpointInterval before its first cycle too, unlike the
+        // WAL-writer loop above — running a merge immediately on Start would defeat
+        // "checkpoint every N", and (caught by a test during implementation) could
+        // race ahead of a short-lived session, retiring a segment before anything else
+        // had a chance to observe it. If cancellation is what wakes the wait, this
+        // exits without ever merging — no forced final checkpoint on stop.
+        while (true)
+        {
+            _cts.Token.WaitHandle.WaitOne(_options.CheckpointInterval);
+            if (_cts.IsCancellationRequested) return;
+            CheckpointMergeCycle();
+        }
+    }
+
+    /// <summary>
+    /// Signals both threads to stop, joins the WAL-writer first (letting it finish
+    /// draining and fsync one last time), then the checkpoint-merge thread (letting any
+    /// in-flight merge finish rather than aborting it — a merge is idempotent and safe
+    /// to let complete). Safe to call whether or not <see cref="Start"/> was ever
+    /// called.
+    /// </summary>
     public void Dispose()
     {
+        _cts.Cancel();
+        _walWriterThread?.Join();
+        _checkpointMergeThread?.Join();
+        _rotationDone.Dispose();
+        _cts.Dispose();
     }
 }
