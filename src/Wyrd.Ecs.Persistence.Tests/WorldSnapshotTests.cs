@@ -9,6 +9,22 @@ public class WorldSnapshotTests : IDisposable
         if (File.Exists(_path)) File.Delete(_path);
     }
 
+    [Fact]
+    public void Save_StampsTheCheckpointHeaderWithTheWorldsCurrentTick()
+    {
+        var registry = BuildRegistry();
+        var source = new World();
+        source.AdvanceTick();
+        source.AdvanceTick();
+        var store = new FileStore(_path);
+
+        WorldSnapshot.Save(source, registry, store);
+
+        using var stream = store.OpenCheckpointRead();
+        var tick = Wyrd.Ecs.Persistence.Internal.CheckpointRecordIO.ReadHeader(stream);
+        tick.Should().Be(source.CurrentTick);
+    }
+
     private struct Position : IComponent
     {
         public float X;

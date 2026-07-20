@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Wyrd.Ecs.Persistence.Tests" />
+    <InternalsVisibleTo Include="Wyrd.Ecs.Persistence.Continuous" />
   </ItemGroup>
 
   <ItemGroup>

@@ -28,7 +28,7 @@ public static class WorldSnapshot
         var stream = store.OpenCheckpointWrite();
         try
         {
-            Internal.CheckpointRecordIO.WriteHeader(stream);
+            Internal.CheckpointRecordIO.WriteHeader(stream, world.CurrentTick);
 
             foreach (var component in world.EnumerateAll(registry))
             {

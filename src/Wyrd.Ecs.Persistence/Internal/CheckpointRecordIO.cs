@@ -5,13 +5,17 @@ namespace Wyrd.Ecs.Persistence.Internal;
 
 /// <summary>
 /// Reads and writes the checkpoint file header and individual checkpoint records. The
-/// header is magic bytes plus a format version, checked once per file: a corrupt or
-/// foreign file fails loudly via <see cref="ReadHeader"/>, not by misreading garbage as
-/// records. Each record is a permanent <see cref="EntityId"/>, a component's stable
-/// wire discriminator, its registered schema hash (an explicit has-a-hash flag plus
-/// the value, not a 0-means-unset sentinel — a real hash of exactly 0 must stay
-/// distinguishable from "no hash was registered"), and its serialized payload bytes,
-/// framed as a length-prefixed block plus a CRC32 checksum.
+/// header is magic bytes, a format version, and the tick the checkpoint reflects
+/// (<see cref="World.CurrentTick"/> at the moment it was written) — checked once per
+/// file: a corrupt or foreign file fails loudly via <see cref="ReadHeader"/>, not by
+/// misreading garbage as records. The tick lets any consumer built on top of a raw
+/// checkpoint (continuous persistence's checkpoint-merge, for one) know exactly what
+/// state it captures without extra out-of-band bookkeeping — a plain manual
+/// <see cref="WorldSnapshot.Save"/> stamps it the same way, whether or not anything
+/// downstream ever reads it. Each record is a permanent <see cref="EntityId"/>, a
+/// component's stable wire discriminator, its registered schema hash (an explicit
+/// has-a-hash flag plus the value, not a 0-means-unset sentinel), and its serialized
+/// payload bytes, framed as a length-prefixed block plus a CRC32 checksum.
 /// <see cref="TryReadRecord"/> returns false (never throws) on any short read or
 /// checksum mismatch, so a file truncated or corrupted mid-record by a crash mid-write
 /// is detected and replay cleanly stops at the last complete, valid record instead of
@@ -20,16 +24,17 @@ namespace Wyrd.Ecs.Persistence.Internal;
 internal static class CheckpointRecordIO
 {
     private const uint MagicBytes = 0x57594543;
-    private const ushort FormatVersion = 1;
+    private const ushort FormatVersion = 2;
 
-    public static void WriteHeader(Stream stream)
+    public static void WriteHeader(Stream stream, int tick)
     {
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         writer.Write(MagicBytes);
         writer.Write(FormatVersion);
+        writer.Write(tick);
     }
 
-    public static void ReadHeader(Stream stream)
+    public static int ReadHeader(Stream stream)
     {
         using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
 
@@ -58,6 +63,15 @@ internal static class CheckpointRecordIO
 
         if (version != FormatVersion)
             throw new InvalidDataException($"Unsupported checkpoint format version {version} (expected {FormatVersion}).");
+
+        try
+        {
+            return reader.ReadInt32();
+        }
+        catch (EndOfStreamException)
+        {
+            throw new InvalidDataException("Not a valid Wyrd.Ecs checkpoint file: the stream is too short to contain a header.");
+        }
     }
 
     public static void WriteRecord(Stream stream, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)

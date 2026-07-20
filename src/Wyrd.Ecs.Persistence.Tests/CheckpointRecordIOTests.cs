@@ -35,9 +35,6 @@ public class CheckpointRecordIOTests
     [Fact]
     public void WriteRecord_WithSchemaHashOfExactlyZero_RoundTripsAsZeroNotNull()
     {
-        // A real schema hash happening to equal 0 must stay distinguishable from
-        // "no hash was registered" — the wire format carries an explicit
-        // has-a-hash flag, not a 0-means-unset sentinel.
         using var stream = new MemoryStream();
         CheckpointRecordIO.WriteRecord(stream, EntityId.NewId(), "Position", 0u, [1]);
         stream.Position = 0;
@@ -106,15 +103,15 @@ public class CheckpointRecordIOTests
     }
 
     [Fact]
-    public void WriteHeader_ThenReadHeader_Succeeds()
+    public void WriteHeader_ThenReadHeader_RoundTripsTheTick()
     {
         using var stream = new MemoryStream();
-        CheckpointRecordIO.WriteHeader(stream);
+        CheckpointRecordIO.WriteHeader(stream, tick: 42);
         stream.Position = 0;
 
-        var act = () => CheckpointRecordIO.ReadHeader(stream);
+        var tick = CheckpointRecordIO.ReadHeader(stream);
 
-        act.Should().NotThrow();
+        tick.Should().Be(42);
     }
 
     [Fact]
@@ -140,9 +137,19 @@ public class CheckpointRecordIOTests
     [Fact]
     public void ReadHeader_OnAStreamWithValidMagicButNoVersion_ThrowsInvalidDataException()
     {
-        // Exactly the 4 magic bytes and nothing else - enough for the first
-        // read to succeed, not enough for the version read that follows it.
         using var stream = new MemoryStream([0x43, 0x45, 0x59, 0x57]);
+
+        var act = () => CheckpointRecordIO.ReadHeader(stream);
+
+        act.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void ReadHeader_OnAStreamWithValidMagicAndVersionButNoTick_ThrowsInvalidDataException()
+    {
+        // Magic bytes plus a 2-byte version and nothing else - enough for the first
+        // two reads to succeed, not enough for the tick read that follows them.
+        using var stream = new MemoryStream([0x43, 0x45, 0x59, 0x57, 0x02, 0x00]);
 
         var act = () => CheckpointRecordIO.ReadHeader(stream);
 
@@ -153,14 +160,15 @@ public class CheckpointRecordIOTests
     public void WriteHeader_ThenWriteRecord_ThenReadHeaderAndTryReadRecord_RoundTripsBoth()
     {
         using var stream = new MemoryStream();
-        CheckpointRecordIO.WriteHeader(stream);
+        CheckpointRecordIO.WriteHeader(stream, tick: 7);
         var entityId = EntityId.NewId();
         CheckpointRecordIO.WriteRecord(stream, entityId, "Position", 7u, [9, 9]);
         stream.Position = 0;
 
-        CheckpointRecordIO.ReadHeader(stream);
+        var tick = CheckpointRecordIO.ReadHeader(stream);
         CheckpointRecordIO.TryReadRecord(stream, out var readEntityId, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
 
+        tick.Should().Be(7);
         readEntityId.Should().Be(entityId);
         discriminator.Should().Be("Position");
         schemaHash.Should().Be(7u);
