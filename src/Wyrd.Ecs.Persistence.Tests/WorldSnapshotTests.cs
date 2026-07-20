@@ -381,6 +381,38 @@ public class WorldSnapshotTests : IDisposable
     }
 
     [Fact]
+    public void Save_WhenAnEncoderThrowsPartway_LeavesThePreviousCheckpointIntact()
+    {
+        var registry = BuildRegistry();
+        var source = new World();
+        source.Commands.CreateEntity(new Position { X = 1f });
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+        WorldSnapshot.Save(source, registry, store);
+
+        var throwingRegistry = new ComponentCodecRegistry();
+        throwingRegistry.Register<Position>("Position",
+            _ => throw new InvalidOperationException("encoder boom"),
+            bytes => new Position { X = BitConverter.ToSingle(bytes) });
+        var faultySource = new World();
+        faultySource.Commands.CreateEntity(new Position { X = 99f });
+        faultySource.ApplyCommands();
+
+        var act = () => WorldSnapshot.Save(faultySource, throwingRegistry, store);
+        act.Should().Throw<InvalidOperationException>().WithMessage("encoder boom");
+
+        var target = new World();
+        WorldSnapshot.Load(target, registry, store);
+        var found = false;
+        foreach (var row in target.Query<Position>())
+        {
+            row.Get<Position>().X.Should().Be(1f);
+            found = true;
+        }
+        found.Should().BeTrue();
+    }
+
+    [Fact]
     public void Load_OnAFileWithBadMagicBytes_ThrowsInvalidDataException()
     {
         File.WriteAllBytes(_path, [0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);

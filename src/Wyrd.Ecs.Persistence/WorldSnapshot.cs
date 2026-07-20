@@ -16,18 +16,34 @@ public static class WorldSnapshot
     /// live entity but absent from <paramref name="registry"/> is silently skipped —
     /// the same behavior <see cref="IWorld.EnumerateAll"/> already has, not an error.
     /// <paramref name="store"/> defaults to <paramref name="world"/>'s
-    /// <c>World.DefaultPersistenceStore</c> when omitted.
+    /// <c>World.DefaultPersistenceStore</c> when omitted. If <paramref name="store"/>
+    /// returns an <see cref="ITransactionalWriteStream"/> (<see cref="FileStore"/>
+    /// does) and anything throws partway through the write, the stream is aborted
+    /// before the exception propagates, so the previous checkpoint is never replaced
+    /// by a truncated one.
     /// </summary>
     public static void Save(World world, ComponentCodecRegistry registry, IPersistenceStore? store = null)
     {
         store ??= ResolveDefaultStore(world);
-        using var stream = store.OpenCheckpointWrite();
-        Internal.CheckpointRecordIO.WriteHeader(stream);
-
-        foreach (var component in world.EnumerateAll(registry))
+        var stream = store.OpenCheckpointWrite();
+        try
         {
-            var entityId = world.GetPermanentId(component.Entity);
-            Internal.CheckpointRecordIO.WriteRecord(stream, entityId, component.Discriminator, component.SchemaHash, component.Data);
+            Internal.CheckpointRecordIO.WriteHeader(stream);
+
+            foreach (var component in world.EnumerateAll(registry))
+            {
+                var entityId = world.GetPermanentId(component.Entity);
+                Internal.CheckpointRecordIO.WriteRecord(stream, entityId, component.Discriminator, component.SchemaHash, component.Data);
+            }
+        }
+        catch
+        {
+            if (stream is ITransactionalWriteStream transactional) transactional.Abort();
+            throw;
+        }
+        finally
+        {
+            stream.Dispose();
         }
     }
 
