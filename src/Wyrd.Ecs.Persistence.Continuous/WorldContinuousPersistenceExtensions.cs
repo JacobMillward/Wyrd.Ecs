@@ -38,6 +38,18 @@ public static class WorldContinuousPersistenceExtensions
                         "EnableContinuousPersistence in the builder chain).");
 
                 WorldSnapshot.Save(world, registry, options.CheckpointStore);
+                // Seals the bootstrap checkpoint's tick boundary. WorldSnapshot.Save
+                // stamps the checkpoint with world.CurrentTick as it is at this exact
+                // instant — but if the consumer's very next action is creating initial
+                // entities (the ordinary "populate the world, then start ticking"
+                // pattern, before ever calling AdvanceTick themselves), those creations
+                // would be stamped with that same tick number. A later merge's
+                // tick > priorTick filter would then exclude them forever, since they'd
+                // share a tick with a checkpoint that (by construction) already claims
+                // to cover it. Advancing once here, before ChangeCapture or the WAL
+                // worker exist, guarantees nothing captured afterward can ever collide
+                // with the bootstrap snapshot's own tick.
+                world.AdvanceTick();
 
                 var capture = new ChangeCapture(world, registry);
                 var walWorker = new Internal.ContinuousWalWorker(world, capture, options.CheckpointStore, options.WalStore, options.Options, options.OnError);
