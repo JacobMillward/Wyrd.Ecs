@@ -28,4 +28,12 @@ public interface IWalStore
 
     /// <summary>Deletes the segment starting at <paramref name="startTick"/>.</summary>
     void DeleteSegment(int startTick);
+
+    /// <summary>
+    /// Durably flushes <paramref name="segment"/> to disk, not just to managed buffers —
+    /// the mechanism <c>WalOptions.FsyncInterval</c> relies on to bound crash-loss to a
+    /// known window. <paramref name="segment"/> must be a stream this store itself
+    /// returned from <see cref="OpenSegmentAppend"/>.
+    /// </summary>
+    void Flush(Stream segment);
 }

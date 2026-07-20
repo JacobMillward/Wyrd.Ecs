@@ -40,5 +40,8 @@ public sealed class FileWalStore(string basePath) : IWalStore
     /// <inheritdoc/>
     public void DeleteSegment(int startTick) => File.Delete(SegmentPath(startTick));
 
+    /// <inheritdoc/>
+    public void Flush(Stream segment) => ((FileStream)segment).Flush(flushToDisk: true);
+
     private string SegmentPath(int startTick) => $"{basePath}.wal.{startTick}";
 }

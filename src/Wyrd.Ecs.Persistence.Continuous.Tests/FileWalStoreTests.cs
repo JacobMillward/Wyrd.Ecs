@@ -85,4 +85,16 @@ public class FileWalStoreTests : IDisposable
 
         act.Should().Throw<FileNotFoundException>();
     }
+
+    [Fact]
+    public void Flush_OnAStreamFromOpenSegmentAppend_DoesNotThrow()
+    {
+        var store = new FileWalStore(BasePath);
+        using var stream = store.OpenSegmentAppend(startTick: 1);
+        stream.Write([1, 2, 3]);
+
+        var act = () => store.Flush(stream);
+
+        act.Should().NotThrow();
+    }
 }
