@@ -7,10 +7,10 @@ namespace Wyrd.Ecs;
 /// only the types it cares about. The same mechanism serves both, and Wyrd itself has
 /// no opinion on which a given consumer chooses.
 /// </summary>
-public sealed class SerializerRegistry
+public sealed class ComponentCodecRegistry
 {
-    private readonly Dictionary<string, IRegisteredComponentType> _byDiscriminator = new();
-    private readonly Dictionary<int, IRegisteredComponentType> _byTypeIndex = new();
+    private readonly Dictionary<string, IComponentCodec> _byDiscriminator = new();
+    private readonly Dictionary<int, IComponentCodec> _byTypeIndex = new();
 
     /// <summary>
     /// Registers <typeparamref name="T"/> under <paramref name="discriminator"/> — a
@@ -22,7 +22,7 @@ public sealed class SerializerRegistry
     /// type — the first serializes on save, the second deserializes anything saved
     /// under the earlier discriminator, with no guarantee they agree).
     /// </summary>
-    public void Register<T>(string discriminator, ComponentSerializer<T> serialize, ComponentDeserializer<T> deserialize) where T : struct, IComponent
+    public void Register<T>(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize) where T : struct, IComponent
     {
         if (_byDiscriminator.ContainsKey(discriminator))
             throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
@@ -31,13 +31,13 @@ public sealed class SerializerRegistry
         if (_byTypeIndex.TryGetValue(typeIndex, out var existing))
             throw new ArgumentException($"Type '{typeof(T)}' is already registered under discriminator '{existing.Discriminator}'.");
 
-        var entry = new Internal.RegisteredComponentType<T>(discriminator, serialize, deserialize);
+        var entry = new Internal.ComponentCodec<T>(discriminator, serialize, deserialize);
         _byDiscriminator[discriminator] = entry;
         _byTypeIndex[typeIndex] = entry;
     }
 
     /// <summary>Looks up a registration by its current-process <see cref="Internal.TypeIndex{T}"/> — used by <see cref="World.EnumerateAll"/> while walking type-erased storage.</summary>
-    public bool TryGetByTypeIndex(int typeIndex, out IRegisteredComponentType registered)
+    public bool TryGetByTypeIndex(int typeIndex, out IComponentCodec registered)
     {
         if (_byTypeIndex.TryGetValue(typeIndex, out var found))
         {
@@ -50,7 +50,7 @@ public sealed class SerializerRegistry
     }
 
     /// <summary>Looks up a registration by its stable wire discriminator — used when deserializing saved or received data back into a <see cref="World"/>.</summary>
-    public bool TryGetByDiscriminator(string discriminator, out IRegisteredComponentType registered)
+    public bool TryGetByDiscriminator(string discriminator, out IComponentCodec registered)
     {
         if (_byDiscriminator.TryGetValue(discriminator, out var found))
         {

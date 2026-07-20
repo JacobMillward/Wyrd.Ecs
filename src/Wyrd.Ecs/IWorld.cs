@@ -119,7 +119,7 @@ public partial interface IWorld
 
     /// <summary>
     /// Walks every live entity and every one of its components that has a registration
-    /// in <paramref name="registry"/>, yielding one <see cref="SerializedComponent"/>
+    /// in <paramref name="registry"/>, yielding one <see cref="EncodedComponent"/>
     /// per (entity, registered component type) pair. Unregistered component types and
     /// all tags are skipped — tags carry no data, so there's nothing to serialize. A
     /// pure read over existing archetype storage: it never moves a row, so unlike
@@ -131,7 +131,7 @@ public partial interface IWorld
     /// consumer (a serialization pipeline that wants to filter, transform, or stream the
     /// result) needs the composability a ref struct can't offer; the one iterator
     /// allocation for the whole walk is negligible next to the per-component byte[]
-    /// allocations <see cref="IRegisteredComponentType.SerializeRow"/> already does.
+    /// allocations <see cref="IComponentCodec.EncodeRow"/> already does.
     /// </summary>
-    IEnumerable<SerializedComponent> EnumerateAll(SerializerRegistry registry);
+    IEnumerable<EncodedComponent> EnumerateAll(ComponentCodecRegistry registry);
 }

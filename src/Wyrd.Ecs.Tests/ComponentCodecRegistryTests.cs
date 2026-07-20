@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Wyrd.Ecs.Tests;
 
-public class SerializerRegistryTests
+public class ComponentCodecRegistryTests
 {
     private struct Position : IComponent
     {
@@ -14,13 +14,13 @@ public class SerializerRegistryTests
         public float X;
     }
 
-    private static ComponentSerializer<Position> SerializePosition => p => Encoding.UTF8.GetBytes(p.X.ToString());
-    private static ComponentDeserializer<Position> DeserializePosition => bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) };
+    private static ComponentEncoder<Position> SerializePosition => p => Encoding.UTF8.GetBytes(p.X.ToString());
+    private static ComponentDecoder<Position> DeserializePosition => bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) };
 
     [Fact]
     public void Register_ThenTryGetByDiscriminator_FindsItByTheDiscriminatorString()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
 
         registry.Register("Position", SerializePosition, DeserializePosition);
 
@@ -31,7 +31,7 @@ public class SerializerRegistryTests
     [Fact]
     public void Register_ThenTryGetByTypeIndex_FindsTheSameEntry()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
 
         registry.Register("Position", SerializePosition, DeserializePosition);
 
@@ -42,7 +42,7 @@ public class SerializerRegistryTests
     [Fact]
     public void TryGetByDiscriminator_ForAnUnregisteredDiscriminator_ReturnsFalse()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
 
         registry.TryGetByDiscriminator("Nonexistent", out _).Should().BeFalse();
     }
@@ -50,7 +50,7 @@ public class SerializerRegistryTests
     [Fact]
     public void TryGetByTypeIndex_ForAnUnregisteredType_ReturnsFalse()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
 
         registry.TryGetByTypeIndex(Wyrd.Ecs.Internal.TypeIndex<Velocity>.Value, out _).Should().BeFalse();
     }
@@ -58,10 +58,10 @@ public class SerializerRegistryTests
     [Fact]
     public void Register_WithADuplicateDiscriminator_Throws()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
 
-        var act = () => registry.Register("Position", (ComponentSerializer<Velocity>)(v => Encoding.UTF8.GetBytes(v.X.ToString())), bytes => new Velocity { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
+        var act = () => registry.Register("Position", (ComponentEncoder<Velocity>)(v => Encoding.UTF8.GetBytes(v.X.ToString())), bytes => new Velocity { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
 
         act.Should().Throw<ArgumentException>();
     }
@@ -69,7 +69,7 @@ public class SerializerRegistryTests
     [Fact]
     public void Register_TheSameTypeTwiceUnderDifferentDiscriminators_Throws()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
 
         var act = () => registry.Register("Position_V2", SerializePosition, DeserializePosition);
@@ -78,20 +78,20 @@ public class SerializerRegistryTests
     }
 
     [Fact]
-    public void SerializeRow_RoundTripsThroughTheRegisteredDelegatesByDiscriminator()
+    public void EncodeRow_RoundTripsThroughTheRegisteredDelegatesByDiscriminator()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
         registry.TryGetByDiscriminator("Position", out var registered);
 
         var items = new Position[] { new() { X = 1f }, new() { X = 42f }, new() { X = 3f } };
-        var data = registered.SerializeRow(items, 1);
+        var data = registered.EncodeRow(items, 1);
 
         registry.TryGetByDiscriminator("Position", out var forDeserialize);
         var world = new World();
         var entity = world.Commands.CreateEntity();
         world.ApplyCommands();
-        forDeserialize.DeserializeInto(world, entity, data);
+        forDeserialize.DecodeInto(world, entity, data);
         world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(42f);

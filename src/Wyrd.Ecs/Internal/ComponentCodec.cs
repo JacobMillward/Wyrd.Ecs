@@ -2,19 +2,19 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// The concrete, generic-over-<typeparamref name="T"/> implementation behind
-/// <see cref="IRegisteredComponentType"/> — the only place the downcast from a
+/// <see cref="IComponentCodec"/> — the only place the downcast from a
 /// type-erased <see cref="Array"/> back to <typeparamref name="T"/>[] happens, the same
 /// pattern <see cref="ComponentStorage{T}.CopyRowTo"/> already uses for the same reason.
 /// </summary>
-internal sealed class RegisteredComponentType<T> : IRegisteredComponentType where T : struct, IComponent
+internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, IComponent
 {
-    private readonly ComponentSerializer<T> _serialize;
-    private readonly ComponentDeserializer<T> _deserialize;
+    private readonly ComponentEncoder<T> _serialize;
+    private readonly ComponentDecoder<T> _deserialize;
 
     public string Discriminator { get; }
     public int TypeIndex { get; }
 
-    internal RegisteredComponentType(string discriminator, ComponentSerializer<T> serialize, ComponentDeserializer<T> deserialize)
+    internal ComponentCodec(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize)
     {
         Discriminator = discriminator;
         TypeIndex = Internal.TypeIndex<T>.Value;
@@ -22,8 +22,8 @@ internal sealed class RegisteredComponentType<T> : IRegisteredComponentType wher
         _deserialize = deserialize;
     }
 
-    public byte[] SerializeRow(Array rawItems, int row) => _serialize(((T[])rawItems)[row]);
+    public byte[] EncodeRow(Array rawItems, int row) => _serialize(((T[])rawItems)[row]);
 
-    public void DeserializeInto(World world, Entity entity, byte[] data) =>
+    public void DecodeInto(World world, Entity entity, byte[] data) =>
         world.Commands.AddComponent(entity, _deserialize(data));
 }

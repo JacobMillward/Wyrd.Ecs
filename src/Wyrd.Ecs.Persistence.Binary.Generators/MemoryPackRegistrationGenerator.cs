@@ -8,10 +8,10 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c> and marked
 /// <c>[MemoryPackable]</c>, and emits <c>MemoryPackAutoRegistration.RegisterAll</c>:
-/// one <c>SerializerRegistry.Register&lt;T&gt;</c> call per match, using
+/// one <c>ComponentCodecRegistry.Register&lt;T&gt;</c> call per match, using
 /// <c>MemoryPackSerializer.Serialize</c>/<c>Deserialize&lt;T&gt;</c> wrapped in a
 /// lambda — confirmed directly that they don't method-group-convert to
-/// <c>ComponentSerializer&lt;T&gt;</c>/<c>ComponentDeserializer&lt;T&gt;</c>, a plain
+/// <c>ComponentEncoder&lt;T&gt;</c>/<c>ComponentDecoder&lt;T&gt;</c>, a plain
 /// assignment fails to compile. Only ever calls MemoryPack's public runtime API,
 /// never anything MemoryPack's own generator emits by name, so there is no
 /// cross-generator ordering risk here the way the JSON codec's auto-registration has.
@@ -35,7 +35,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
             sb.AppendLine();
             sb.AppendLine("public static class MemoryPackAutoRegistration");
             sb.AppendLine("{");
-            sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.SerializerRegistry registry)");
+            sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.ComponentCodecRegistry registry)");
             sb.AppendLine("    {");
 
             foreach (var symbol in symbols)

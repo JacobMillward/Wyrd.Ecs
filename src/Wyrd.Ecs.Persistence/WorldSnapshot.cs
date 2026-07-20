@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
 /// The manual, on-demand save/load primitive: a full snapshot of every entity and
-/// every component registered in a <see cref="SerializerRegistry"/>, written through
+/// every component registered in a <see cref="ComponentCodecRegistry"/>, written through
 /// an <see cref="IPersistenceStore"/>. No background thread, no WAL — just a
 /// synchronous walk of the world out, and a synchronous walk of the file back in. A
 /// continuous WAL layer (a separate, later piece of this pipeline) calls
@@ -18,7 +18,7 @@ public static class WorldSnapshot
     /// <paramref name="store"/> defaults to <paramref name="world"/>'s
     /// <c>World.DefaultPersistenceStore</c> when omitted.
     /// </summary>
-    public static void Save(World world, SerializerRegistry registry, IPersistenceStore? store = null)
+    public static void Save(World world, ComponentCodecRegistry registry, IPersistenceStore? store = null)
     {
         store ??= ResolveDefaultStore(world);
         using var stream = store.OpenCheckpointWrite();
@@ -41,7 +41,7 @@ public static class WorldSnapshot
     /// defaults to <paramref name="world"/>'s
     /// <c>World.DefaultPersistenceStore</c> when omitted.
     /// </summary>
-    public static void Load(World world, SerializerRegistry registry, IPersistenceStore? store = null)
+    public static void Load(World world, ComponentCodecRegistry registry, IPersistenceStore? store = null)
     {
         store ??= ResolveDefaultStore(world);
         using var stream = store.OpenCheckpointRead();
@@ -56,7 +56,7 @@ public static class WorldSnapshot
             }
 
             if (registry.TryGetByDiscriminator(discriminator, out var registered))
-                registered.DeserializeInto(world, entity, payload);
+                registered.DecodeInto(world, entity, payload);
         }
 
         world.ApplyCommands();

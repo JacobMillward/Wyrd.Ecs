@@ -16,9 +16,9 @@ public class WorldSnapshotTests
 
     private struct Marker : ITag;
 
-    private static SerializerRegistry BuildRegistry()
+    private static ComponentCodecRegistry BuildRegistry()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
@@ -49,7 +49,7 @@ public class WorldSnapshotTests
     public void EnumerateAll_SkipsComponentTypesNotRegistered()
     {
         var world = new World();
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
@@ -93,7 +93,7 @@ public class WorldSnapshotTests
         foreach (var component in snapshot)
         {
             registry.TryGetByDiscriminator(component.Discriminator, out var registered).Should().BeTrue();
-            registered.DeserializeInto(target, rebuilt, component.Data);
+            registered.DecodeInto(target, rebuilt, component.Data);
         }
         target.ApplyCommands();
 

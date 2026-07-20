@@ -19,9 +19,9 @@ public class WorldSnapshotTests : IDisposable
         public float X;
     }
 
-    private static SerializerRegistry BuildRegistry()
+    private static ComponentCodecRegistry BuildRegistry()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         registry.Register<Position>("Position",
             p => BitConverter.GetBytes(p.X),
             bytes => new Position { X = BitConverter.ToSingle(bytes) });
@@ -93,7 +93,7 @@ public class WorldSnapshotTests : IDisposable
         var store = new FileStore(_path);
         WorldSnapshot.Save(source, saveRegistry, store);
 
-        var loadRegistry = new SerializerRegistry();
+        var loadRegistry = new ComponentCodecRegistry();
         loadRegistry.Register<Position>("Position",
             p => BitConverter.GetBytes(p.X),
             bytes => new Position { X = BitConverter.ToSingle(bytes) });

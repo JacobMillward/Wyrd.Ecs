@@ -33,7 +33,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_RegistersEveryMemoryPackableComponent()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
 
         MemoryPackAutoRegistration.RegisterAll(registry);
 
@@ -44,7 +44,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_DoesNotRegisterAComponentWithoutTheMemoryPackableAttribute()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
 
         MemoryPackAutoRegistration.RegisterAll(registry);
 
@@ -54,7 +54,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     [Fact]
     public void Save_ThenLoad_UsingOnlyAutoRegisteredMemoryPackTypes_RoundTripsCorrectly()
     {
-        var registry = new SerializerRegistry();
+        var registry = new ComponentCodecRegistry();
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();

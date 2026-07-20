@@ -5,9 +5,9 @@ namespace Wyrd.Ecs;
 /// discriminator, its current-process <see cref="Internal.TypeIndex{T}"/>, and the
 /// ability to serialize a row out of a type-erased storage array or deserialize bytes
 /// into a <see cref="World"/> via <see cref="CommandBuffer"/>, without the caller needing to
-/// know the concrete component type. Obtained from <see cref="SerializerRegistry"/>.
+/// know the concrete component type. Obtained from <see cref="ComponentCodecRegistry"/>.
 /// </summary>
-public interface IRegisteredComponentType
+public interface IComponentCodec
 {
     /// <summary>The stable wire discriminator this type was registered under.</summary>
     string Discriminator { get; }
@@ -16,7 +16,7 @@ public interface IRegisteredComponentType
     int TypeIndex { get; }
 
     /// <summary>Serializes the component at <paramref name="row"/> in <paramref name="rawItems"/> (a component storage's <c>RawItems</c> array, of this registration's concrete component type).</summary>
-    byte[] SerializeRow(Array rawItems, int row);
+    byte[] EncodeRow(Array rawItems, int row);
 
     /// <summary>
     /// Deserializes <paramref name="data"/> and queues adding it to <paramref name="entity"/>
@@ -35,5 +35,5 @@ public interface IRegisteredComponentType
     /// check for that at the loading layer, which has the context to know what "missing"
     /// means — not by expecting this primitive to throw.
     /// </summary>
-    void DeserializeInto(World world, Entity entity, byte[] data);
+    void DecodeInto(World world, Entity entity, byte[] data);
 }
