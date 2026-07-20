@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Wyrd.Ecs.Tests;
 
-public class WorldSnapshotTests
+public class EnumerateAllTests
 {
     private struct Position : IComponent
     {

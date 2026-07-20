@@ -8,24 +8,24 @@ namespace Wyrd.Ecs.Internal;
 /// </summary>
 internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, IComponent
 {
-    private readonly ComponentEncoder<T> _serialize;
-    private readonly ComponentDecoder<T> _deserialize;
+    private readonly ComponentEncoder<T> _encode;
+    private readonly ComponentDecoder<T> _decode;
 
     public string Discriminator { get; }
     public int TypeIndex { get; }
     public uint? SchemaHash { get; }
 
-    internal ComponentCodec(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize, uint? schemaHash)
+    internal ComponentCodec(string discriminator, ComponentEncoder<T> encode, ComponentDecoder<T> decode, uint? schemaHash)
     {
         Discriminator = discriminator;
         TypeIndex = Internal.TypeIndex<T>.Value;
         SchemaHash = schemaHash;
-        _serialize = serialize;
-        _deserialize = deserialize;
+        _encode = encode;
+        _decode = decode;
     }
 
-    public byte[] EncodeRow(Array rawItems, int row) => _serialize(((T[])rawItems)[row]);
+    public byte[] EncodeRow(Array rawItems, int row) => _encode(((T[])rawItems)[row]);
 
     public void DecodeInto(World world, Entity entity, byte[] data) =>
-        world.Commands.AddComponent(entity, _deserialize(data));
+        world.Commands.AddComponent(entity, _decode(data));
 }
