@@ -177,4 +177,19 @@ public class ComponentCodecRegistryTests
 
         act.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public async Task Migrate_WithAChainThatCyclesWithoutEverReachingTheCurrentSchema_ThrowsInsteadOfLoopingForever()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 99u);
+        registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => oldBytes);
+        registry.RegisterMigration("Position", fromSchemaHash: 2u, toSchemaHash: 1u, oldBytes => oldBytes);
+
+        var task = Task.Run(() => registry.Migrate("Position", fromSchemaHash: 1u, [1, 2, 3]));
+        var act = async () => await task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Position*");
+    }
 }

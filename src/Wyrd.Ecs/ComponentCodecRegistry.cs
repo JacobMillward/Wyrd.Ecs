@@ -83,8 +83,12 @@ public sealed class ComponentCodecRegistry
     /// starting at <paramref name="fromSchemaHash"/>, until reaching the discriminator's
     /// currently-registered <see cref="IComponentCodec.SchemaHash"/>. Throws if
     /// <paramref name="discriminator"/> isn't registered, if its current registration has
-    /// no schema hash to migrate toward, or if the walk reaches a hash with no
-    /// registered next step (naming that specific hash, not a generic mismatch error).
+    /// no schema hash to migrate toward, if the walk reaches a hash with no registered
+    /// next step (naming that specific hash, not a generic mismatch error), or if the
+    /// walk revisits a hash it's already passed through — a misconfigured chain (e.g. a
+    /// swapped <paramref name="fromSchemaHash"/>/<c>toSchemaHash</c> pair creating a
+    /// cycle that never reaches the current hash) fails loudly instead of looping
+    /// forever.
     /// </summary>
     public byte[] Migrate(string discriminator, uint fromSchemaHash, byte[] bytes)
     {
@@ -96,6 +100,7 @@ public sealed class ComponentCodecRegistry
 
         var currentHash = fromSchemaHash;
         var currentBytes = bytes;
+        var visited = new HashSet<uint> { currentHash };
         while (currentHash != targetHash)
         {
             if (!_migrations.TryGetValue((discriminator, currentHash), out var step))
@@ -103,6 +108,9 @@ public sealed class ComponentCodecRegistry
 
             currentBytes = step.Migrate(currentBytes);
             currentHash = step.ToSchemaHash;
+
+            if (!visited.Add(currentHash))
+                throw new InvalidOperationException($"Migration chain for '{discriminator}' starting at schema hash {fromSchemaHash:X8} cycles back to {currentHash:X8} without ever reaching the current schema hash {targetHash:X8}.");
         }
 
         return currentBytes;
