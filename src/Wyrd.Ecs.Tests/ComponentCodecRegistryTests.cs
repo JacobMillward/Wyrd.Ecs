@@ -98,6 +98,26 @@ public class ComponentCodecRegistryTests
     }
 
     [Fact]
+    public void All_OnAFreshRegistry_IsEmpty()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.All.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void All_AfterRegisteringTwoTypes_ContainsBoth()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.Register("Position", SerializePosition, DeserializePosition);
+        registry.Register<Velocity>("Velocity",
+            v => Encoding.UTF8.GetBytes(v.X.ToString()),
+            bytes => new Velocity { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
+
+        registry.All.Select(c => c.Discriminator).Should().BeEquivalentTo(["Position", "Velocity"]);
+    }
+
+    [Fact]
     public void Register_WithASchemaHash_MakesItAvailableOnTheRegisteredEntry()
     {
         var registry = new ComponentCodecRegistry();

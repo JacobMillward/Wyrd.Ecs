@@ -37,6 +37,13 @@ public sealed class ComponentCodecRegistry
         _byTypeIndex[typeIndex] = entry;
     }
 
+    /// <summary>
+    /// Every currently registered codec, in no particular order — used by a consumer
+    /// that needs to act on every registered type generically, without knowing any of
+    /// them by name or type (continuous persistence's change-tracking setup, for one).
+    /// </summary>
+    public IReadOnlyCollection<IComponentCodec> All => _byDiscriminator.Values;
+
     /// <summary>Looks up a registration by its current-process <see cref="Internal.TypeIndex{T}"/> — used by <see cref="World.EnumerateAll"/> while walking type-erased storage.</summary>
     public bool TryGetByTypeIndex(int typeIndex, out IComponentCodec registered)
     {
