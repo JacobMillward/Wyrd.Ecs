@@ -109,4 +109,90 @@ public class ContinuousWalWorkerTests : IDisposable
         public void DeleteSegment(int startTick) => _inner.DeleteSegment(startTick);
         public void Flush(Stream segment) => throw new IOException("simulated failure");
     }
+
+    [Fact]
+    public void CheckpointMergeCycle_MergesTheRotatedOutSegmentIntoANewCheckpointAndRetiresIt()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var checkpointStore = new FileStore(CheckpointPath);
+        var worker = new ContinuousWalWorker(world, capture, checkpointStore, walStore, WalOptions.Default);
+
+        world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+        worker.WalWriteCycle();
+        var initialSegmentTick = walStore.ListSegmentStartTicks().Single();
+
+        // A dedicated Thread, not Task.Run: under xUnit's parallel test execution,
+        // many test classes competing for the throttled ThreadPool can starve a
+        // Task.Run work item well past this test's own polling deadline, causing
+        // flaky failures unrelated to the actual logic being tested.
+        var mergeThread = new Thread(worker.CheckpointMergeCycle);
+        mergeThread.Start();
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (mergeThread.IsAlive && DateTime.UtcNow < deadline)
+        {
+            worker.WalWriteCycle();
+            Thread.Sleep(10);
+        }
+        mergeThread.Join(TimeSpan.FromSeconds(1)).Should().BeTrue();
+
+        walStore.ListSegmentStartTicks().Should().NotContain(initialSegmentTick);
+        var (_, entries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        entries.Keys.Should().Contain(k => k.Discriminator == "Position");
+    }
+
+    [Fact]
+    public void CheckpointMergeCycle_LeavesTheNewlyRotatedSegmentInPlace()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var checkpointStore = new FileStore(CheckpointPath);
+        var worker = new ContinuousWalWorker(world, capture, checkpointStore, walStore, WalOptions.Default);
+
+        var mergeThread = new Thread(worker.CheckpointMergeCycle);
+        mergeThread.Start();
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (mergeThread.IsAlive && DateTime.UtcNow < deadline)
+        {
+            worker.WalWriteCycle();
+            Thread.Sleep(10);
+        }
+        mergeThread.Join(TimeSpan.FromSeconds(1)).Should().BeTrue();
+
+        walStore.ListSegmentStartTicks().Should().ContainSingle();
+    }
+
+    [Fact]
+    public void CheckpointMergeCycle_WhenCheckpointBuilderThrows_ReportsViaTheErrorCallbackAndDoesNotThrow()
+    {
+        var world = new World();
+        using var capture = new ChangeCapture(world, BuildRegistry());
+        var walStore = new FileWalStore(WalBasePath);
+        Exception? reported = null;
+        var worker = new ContinuousWalWorker(world, capture, new ThrowingPersistenceStore(), walStore, WalOptions.Default, ex => reported = ex);
+
+        var mergeThread = new Thread(worker.CheckpointMergeCycle);
+        mergeThread.Start();
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (mergeThread.IsAlive && DateTime.UtcNow < deadline)
+        {
+            worker.WalWriteCycle();
+            Thread.Sleep(10);
+        }
+
+        mergeThread.Join(TimeSpan.FromSeconds(1)).Should().BeTrue();
+        reported.Should().NotBeNull();
+    }
+
+    private sealed class ThrowingPersistenceStore : IPersistenceStore
+    {
+        public Stream OpenCheckpointWrite() => throw new IOException("simulated failure");
+        public Stream OpenCheckpointRead() => throw new IOException("simulated failure");
+    }
 }
