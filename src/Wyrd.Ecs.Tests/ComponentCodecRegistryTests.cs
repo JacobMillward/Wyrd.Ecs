@@ -118,4 +118,63 @@ public class ComponentCodecRegistryTests
         registry.TryGetByDiscriminator("Position", out var registered).Should().BeTrue();
         registered.SchemaHash.Should().BeNull();
     }
+
+    [Fact]
+    public void Migrate_WithASingleRegisteredStep_TransformsTheBytesToTheCurrentSchema()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 2u);
+        registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => Encoding.UTF8.GetBytes("migrated"));
+
+        var result = registry.Migrate("Position", fromSchemaHash: 1u, [1, 2, 3]);
+
+        Encoding.UTF8.GetString(result).Should().Be("migrated");
+    }
+
+    [Fact]
+    public void Migrate_WalkingTwoChainedSteps_ReachesTheCurrentSchema()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 3u);
+        registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(oldBytes) + "-step1"));
+        registry.RegisterMigration("Position", fromSchemaHash: 2u, toSchemaHash: 3u, oldBytes => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(oldBytes) + "-step2"));
+
+        var result = registry.Migrate("Position", fromSchemaHash: 1u, Encoding.UTF8.GetBytes("start"));
+
+        Encoding.UTF8.GetString(result).Should().Be("start-step1-step2");
+    }
+
+    [Fact]
+    public void Migrate_WithNoRegisteredStepFromTheGivenHash_ThrowsNamingTheDiscriminatorAndHash()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 2u);
+
+        var act = () => registry.Migrate("Position", fromSchemaHash: 1u, [1, 2, 3]);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Position*")
+            .WithMessage("*1*");
+    }
+
+    [Fact]
+    public void RegisterMigration_WithADuplicateFromHashForTheSameDiscriminator_Throws()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => oldBytes);
+
+        var act = () => registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 3u, oldBytes => oldBytes);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Migrate_ForAnUnregisteredDiscriminator_Throws()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        var act = () => registry.Migrate("Nonexistent", fromSchemaHash: 1u, [1, 2, 3]);
+
+        act.Should().Throw<ArgumentException>();
+    }
 }

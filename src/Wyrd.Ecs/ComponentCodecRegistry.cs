@@ -11,6 +11,7 @@ public sealed class ComponentCodecRegistry
 {
     private readonly Dictionary<string, IComponentCodec> _byDiscriminator = new();
     private readonly Dictionary<int, IComponentCodec> _byTypeIndex = new();
+    private readonly Dictionary<(string Discriminator, uint FromSchemaHash), (uint ToSchemaHash, SchemaMigrationStep Migrate)> _migrations = new();
 
     /// <summary>
     /// Registers <typeparamref name="T"/> under <paramref name="discriminator"/> — a
@@ -60,5 +61,50 @@ public sealed class ComponentCodecRegistry
 
         registered = null!;
         return false;
+    }
+
+    /// <summary>
+    /// Registers a transform from <paramref name="fromSchemaHash"/> to
+    /// <paramref name="toSchemaHash"/> for <paramref name="discriminator"/> — one step
+    /// in a chain, not a direct oldest-to-current transform. Throws if a step from
+    /// <paramref name="fromSchemaHash"/> is already registered for this discriminator.
+    /// </summary>
+    public void RegisterMigration(string discriminator, uint fromSchemaHash, uint toSchemaHash, SchemaMigrationStep migrate)
+    {
+        var key = (discriminator, fromSchemaHash);
+        if (_migrations.ContainsKey(key))
+            throw new ArgumentException($"A migration from schema hash {fromSchemaHash:X8} is already registered for '{discriminator}'.");
+
+        _migrations[key] = (toSchemaHash, migrate);
+    }
+
+    /// <summary>
+    /// Walks the chain of registered migrations for <paramref name="discriminator"/>,
+    /// starting at <paramref name="fromSchemaHash"/>, until reaching the discriminator's
+    /// currently-registered <see cref="IComponentCodec.SchemaHash"/>. Throws if
+    /// <paramref name="discriminator"/> isn't registered, if its current registration has
+    /// no schema hash to migrate toward, or if the walk reaches a hash with no
+    /// registered next step (naming that specific hash, not a generic mismatch error).
+    /// </summary>
+    public byte[] Migrate(string discriminator, uint fromSchemaHash, byte[] bytes)
+    {
+        if (!TryGetByDiscriminator(discriminator, out var registered))
+            throw new ArgumentException($"No registration for discriminator '{discriminator}'.", nameof(discriminator));
+
+        if (registered.SchemaHash is not { } targetHash)
+            throw new InvalidOperationException($"'{discriminator}' has no current schema hash to migrate toward.");
+
+        var currentHash = fromSchemaHash;
+        var currentBytes = bytes;
+        while (currentHash != targetHash)
+        {
+            if (!_migrations.TryGetValue((discriminator, currentHash), out var step))
+                throw new InvalidOperationException($"No migration registered for '{discriminator}' from schema hash {currentHash:X8}.");
+
+            currentBytes = step.Migrate(currentBytes);
+            currentHash = step.ToSchemaHash;
+        }
+
+        return currentBytes;
     }
 }
