@@ -13,11 +13,13 @@ internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, ICom
 
     public string Discriminator { get; }
     public int TypeIndex { get; }
+    public uint? SchemaHash { get; }
 
-    internal ComponentCodec(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize)
+    internal ComponentCodec(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize, uint? schemaHash)
     {
         Discriminator = discriminator;
         TypeIndex = Internal.TypeIndex<T>.Value;
+        SchemaHash = schemaHash;
         _serialize = serialize;
         _deserialize = deserialize;
     }

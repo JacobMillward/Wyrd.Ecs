@@ -15,6 +15,13 @@ public interface IComponentCodec
     /// <summary>This type's current-process <see cref="Internal.TypeIndex{T}"/> — an in-memory optimization detail, never persisted.</summary>
     int TypeIndex { get; }
 
+    /// <summary>
+    /// A compile-time-derived hash of this type's field names and types, or <c>null</c>
+    /// if this registration didn't supply one. <c>null</c> means no schema-mismatch
+    /// check is ever performed for this type, on save or load.
+    /// </summary>
+    uint? SchemaHash { get; }
+
     /// <summary>Serializes the component at <paramref name="row"/> in <paramref name="rawItems"/> (a component storage's <c>RawItems</c> array, of this registration's concrete component type).</summary>
     byte[] EncodeRow(Array rawItems, int row);
 

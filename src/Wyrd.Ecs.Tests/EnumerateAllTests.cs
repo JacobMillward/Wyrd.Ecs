@@ -109,4 +109,21 @@ public class WorldSnapshotTests
 
         world.EnumerateAll(registry).Should().BeEmpty();
     }
+
+    [Fact]
+    public void EnumerateAll_CarriesEachComponentsRegisteredSchemaHashThrough()
+    {
+        var world = new World();
+        var registry = new ComponentCodecRegistry();
+        registry.Register<Position>("Position",
+            p => Encoding.UTF8.GetBytes(p.X.ToString()),
+            bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) },
+            schemaHash: 999u);
+        world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+
+        var result = world.EnumerateAll(registry).Single();
+
+        result.SchemaHash.Should().Be(999u);
+    }
 }

@@ -315,7 +315,7 @@ public sealed partial class World : IWorld
                 if (!registry.TryGetByTypeIndex(typeIndex, out var registered)) continue;
 
                 for (var row = 0; row < archetype.Count; row++)
-                    yield return new EncodedComponent(archetype.Entities[row], registered.Discriminator, registered.EncodeRow(storage.RawItems, row));
+                    yield return new EncodedComponent(archetype.Entities[row], registered.Discriminator, registered.SchemaHash, registered.EncodeRow(storage.RawItems, row));
             }
         }
     }

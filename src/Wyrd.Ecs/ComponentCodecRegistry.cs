@@ -22,7 +22,7 @@ public sealed class ComponentCodecRegistry
     /// type — the first serializes on save, the second deserializes anything saved
     /// under the earlier discriminator, with no guarantee they agree).
     /// </summary>
-    public void Register<T>(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize) where T : struct, IComponent
+    public void Register<T>(string discriminator, ComponentEncoder<T> serialize, ComponentDecoder<T> deserialize, uint? schemaHash = null) where T : struct, IComponent
     {
         if (_byDiscriminator.ContainsKey(discriminator))
             throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
@@ -31,7 +31,7 @@ public sealed class ComponentCodecRegistry
         if (_byTypeIndex.TryGetValue(typeIndex, out var existing))
             throw new ArgumentException($"Type '{typeof(T)}' is already registered under discriminator '{existing.Discriminator}'.");
 
-        var entry = new Internal.ComponentCodec<T>(discriminator, serialize, deserialize);
+        var entry = new Internal.ComponentCodec<T>(discriminator, serialize, deserialize, schemaHash);
         _byDiscriminator[discriminator] = entry;
         _byTypeIndex[typeIndex] = entry;
     }

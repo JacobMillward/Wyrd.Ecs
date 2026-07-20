@@ -96,4 +96,26 @@ public class ComponentCodecRegistryTests
 
         world.GetComponent<Position>(entity).X.Should().Be(42f);
     }
+
+    [Fact]
+    public void Register_WithASchemaHash_MakesItAvailableOnTheRegisteredEntry()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 12345u);
+
+        registry.TryGetByDiscriminator("Position", out var registered).Should().BeTrue();
+        registered.SchemaHash.Should().Be(12345u);
+    }
+
+    [Fact]
+    public void Register_WithNoSchemaHash_LeavesItNull()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.Register("Position", SerializePosition, DeserializePosition);
+
+        registry.TryGetByDiscriminator("Position", out var registered).Should().BeTrue();
+        registered.SchemaHash.Should().BeNull();
+    }
 }
