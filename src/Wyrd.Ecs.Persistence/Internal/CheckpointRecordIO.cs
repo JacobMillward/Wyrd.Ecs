@@ -8,8 +8,10 @@ namespace Wyrd.Ecs.Persistence.Internal;
 /// header is magic bytes plus a format version, checked once per file: a corrupt or
 /// foreign file fails loudly via <see cref="ReadHeader"/>, not by misreading garbage as
 /// records. Each record is a permanent <see cref="EntityId"/>, a component's stable
-/// wire discriminator, its registered schema hash (0 if none was registered), and its
-/// serialized payload bytes, framed as a length-prefixed block plus a CRC32 checksum.
+/// wire discriminator, its registered schema hash (an explicit has-a-hash flag plus
+/// the value, not a 0-means-unset sentinel — a real hash of exactly 0 must stay
+/// distinguishable from "no hash was registered"), and its serialized payload bytes,
+/// framed as a length-prefixed block plus a CRC32 checksum.
 /// <see cref="TryReadRecord"/> returns false (never throws) on any short read or
 /// checksum mismatch, so a file truncated or corrupted mid-record by a crash mid-write
 /// is detected and replay cleanly stops at the last complete, valid record instead of
@@ -58,7 +60,7 @@ internal static class CheckpointRecordIO
             throw new InvalidDataException($"Unsupported checkpoint format version {version} (expected {FormatVersion}).");
     }
 
-    public static void WriteRecord(Stream stream, EntityId entityId, string discriminator, uint schemaHash, byte[] payload)
+    public static void WriteRecord(Stream stream, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)
     {
         using var recordBuffer = new MemoryStream();
         using (var writer = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true))
@@ -66,7 +68,8 @@ internal static class CheckpointRecordIO
             writer.Write((ulong)(entityId.Value >> 64));
             writer.Write((ulong)entityId.Value);
             writer.Write(discriminator);
-            writer.Write(schemaHash);
+            writer.Write(schemaHash.HasValue);
+            writer.Write(schemaHash ?? 0);
             writer.Write(payload.Length);
             writer.Write(payload);
         }
@@ -80,11 +83,11 @@ internal static class CheckpointRecordIO
         outWriter.Write(checksum);
     }
 
-    public static bool TryReadRecord(Stream stream, out EntityId entityId, out string discriminator, out uint schemaHash, out byte[] payload)
+    public static bool TryReadRecord(Stream stream, out EntityId entityId, out string discriminator, out uint? schemaHash, out byte[] payload)
     {
         entityId = default;
         discriminator = string.Empty;
-        schemaHash = 0;
+        schemaHash = null;
         payload = [];
 
         Span<byte> lengthBuffer = stackalloc byte[4];
@@ -106,7 +109,9 @@ internal static class CheckpointRecordIO
         var lower = reader.ReadUInt64();
         entityId = new EntityId(new UInt128(upper, lower));
         discriminator = reader.ReadString();
-        schemaHash = reader.ReadUInt32();
+        var hasSchemaHash = reader.ReadBoolean();
+        var schemaHashValue = reader.ReadUInt32();
+        schemaHash = hasSchemaHash ? schemaHashValue : null;
         var payloadLength = reader.ReadInt32();
         payload = reader.ReadBytes(payloadLength);
         return true;

@@ -21,8 +21,23 @@ public class CheckpointRecordIOTests
     }
 
     [Fact]
-    public void WriteRecord_WithNoSchemaHash_RoundTripsAsZero()
+    public void WriteRecord_WithNoSchemaHash_RoundTripsAsNull()
     {
+        using var stream = new MemoryStream();
+        CheckpointRecordIO.WriteRecord(stream, EntityId.NewId(), "Position", null, [1]);
+        stream.Position = 0;
+
+        CheckpointRecordIO.TryReadRecord(stream, out _, out _, out var schemaHash, out _).Should().BeTrue();
+
+        schemaHash.Should().BeNull();
+    }
+
+    [Fact]
+    public void WriteRecord_WithSchemaHashOfExactlyZero_RoundTripsAsZeroNotNull()
+    {
+        // A real schema hash happening to equal 0 must stay distinguishable from
+        // "no hash was registered" — the wire format carries an explicit
+        // has-a-hash flag, not a 0-means-unset sentinel.
         using var stream = new MemoryStream();
         CheckpointRecordIO.WriteRecord(stream, EntityId.NewId(), "Position", 0u, [1]);
         stream.Position = 0;
@@ -65,7 +80,7 @@ public class CheckpointRecordIOTests
     public void TryReadRecord_OnAStreamTruncatedMidRecord_ReturnsFalseWithoutThrowing()
     {
         using var fullStream = new MemoryStream();
-        CheckpointRecordIO.WriteRecord(fullStream, EntityId.NewId(), "Position", 0u, [1, 2, 3, 4, 5]);
+        CheckpointRecordIO.WriteRecord(fullStream, EntityId.NewId(), "Position", null, [1, 2, 3, 4, 5]);
         var fullBytes = fullStream.ToArray();
         var truncatedBytes = fullBytes[..(fullBytes.Length - 3)];
 
@@ -81,7 +96,7 @@ public class CheckpointRecordIOTests
     public void TryReadRecord_OnARecordWithACorruptedByte_ReturnsFalse()
     {
         using var fullStream = new MemoryStream();
-        CheckpointRecordIO.WriteRecord(fullStream, EntityId.NewId(), "Position", 0u, [1, 2, 3]);
+        CheckpointRecordIO.WriteRecord(fullStream, EntityId.NewId(), "Position", null, [1, 2, 3]);
         var bytes = fullStream.ToArray();
         bytes[^6] ^= 0xFF; // flip a bit inside the record content, before the trailing checksum
 
@@ -116,6 +131,18 @@ public class CheckpointRecordIOTests
     public void ReadHeader_OnAnEmptyStream_ThrowsInvalidDataException()
     {
         using var stream = new MemoryStream();
+
+        var act = () => CheckpointRecordIO.ReadHeader(stream);
+
+        act.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void ReadHeader_OnAStreamWithValidMagicButNoVersion_ThrowsInvalidDataException()
+    {
+        // Exactly the 4 magic bytes and nothing else - enough for the first
+        // read to succeed, not enough for the version read that follows it.
+        using var stream = new MemoryStream([0x43, 0x45, 0x59, 0x57]);
 
         var act = () => CheckpointRecordIO.ReadHeader(stream);
 
