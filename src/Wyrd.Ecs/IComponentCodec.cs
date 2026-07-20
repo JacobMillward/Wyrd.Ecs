@@ -22,6 +22,27 @@ public interface IComponentCodec
     /// </summary>
     uint? SchemaHash { get; }
 
+    /// <summary>
+    /// Turns change tracking on for this registration's concrete component type via
+    /// <see cref="World.TrackChanges{T}"/>, without the caller needing to know that
+    /// type. Dispose the returned handle to turn tracking back off, same contract as
+    /// <see cref="World.TrackChanges{T}"/> itself.
+    /// </summary>
+    IDisposable EnableChangeTracking(World world);
+
+    /// <summary>
+    /// Scans for every change to this registration's concrete component type since
+    /// <paramref name="sinceTick"/> via <see cref="World.ReadChanges{T}"/>, encoding
+    /// each one — type-erased, the same way <see cref="EncodeRow"/> is. Only observes
+    /// anything once <see cref="EnableChangeTracking"/> has been called for this type.
+    /// Eagerly materialized into a <see cref="List{T}"/>, not lazily yielded: the
+    /// underlying scan is a <c>ref struct</c> enumerator that cannot survive across a
+    /// <c>yield return</c> boundary, and the intended caller (a background-persistence
+    /// capture step) needs a fully-drained, plain buffer to hand off from the
+    /// synchronous scanning thread anyway.
+    /// </summary>
+    List<EncodedChange> EncodeChanges(World world, int sinceTick);
+
     /// <summary>Serializes the component at <paramref name="row"/> in <paramref name="rawItems"/> (a component storage's <c>RawItems</c> array, of this registration's concrete component type).</summary>
     byte[] EncodeRow(Array rawItems, int row);
 

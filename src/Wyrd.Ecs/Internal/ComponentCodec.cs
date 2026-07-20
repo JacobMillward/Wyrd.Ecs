@@ -24,6 +24,16 @@ internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, ICom
         _decode = decode;
     }
 
+    public IDisposable EnableChangeTracking(World world) => world.TrackChanges<T>();
+
+    public List<EncodedChange> EncodeChanges(World world, int sinceTick)
+    {
+        var changes = new List<EncodedChange>();
+        foreach (var change in world.ReadChanges<T>(sinceTick))
+            changes.Add(new EncodedChange(change.Entity, change.Tick, Discriminator, SchemaHash, _encode(change.Value)));
+        return changes;
+    }
+
     public byte[] EncodeRow(Array rawItems, int row) => _encode(((T[])rawItems)[row]);
 
     public void DecodeInto(World world, Entity entity, byte[] data) =>
