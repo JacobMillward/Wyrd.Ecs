@@ -1,7 +1,8 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
-/// One captured change, ready to write through <see cref="Internal.WalSegmentIO.WriteRecord"/>
+/// One captured change, ready to write through
+/// <see cref="Internal.WalSegmentIO.WriteRecord(Stream, WalRecordKind, int, EntityId, string, uint?, byte[])"/>
 /// with no further translation — the field order and types deliberately match that
 /// method's parameters. Produced by the tick-driven capture step (component value
 /// changes) and the structural observer (entity/component lifecycle events).

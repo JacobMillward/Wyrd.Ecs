@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
@@ -11,6 +13,11 @@ namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 internal sealed class WalSegmentWriter(IWalStore walStore)
 {
     private readonly object _lock = new();
+    // A field initializer can't reference another instance field (CS0236), so the
+    // reusable buffer is recovered from the writer's own BaseStream instead of held as
+    // a second field.
+    private readonly BinaryWriter _recordWriter = new(new MemoryStream(), Encoding.UTF8, leaveOpen: true);
+    private MemoryStream RecordBuffer => (MemoryStream)_recordWriter.BaseStream;
     private Stream? _currentSegment;
     private int _currentSegmentStartTick = -1;
 
@@ -63,12 +70,12 @@ internal sealed class WalSegmentWriter(IWalStore walStore)
                 if (writeReady)
                 {
                     var entry = changes.Ready[readyIndex++];
-                    WalSegmentIO.WriteRecord(_currentSegment, entry.Kind, entry.Tick, entry.EntityId, entry.Discriminator, entry.SchemaHash, entry.Payload);
+                    WalSegmentIO.WriteRecord(_currentSegment, RecordBuffer, _recordWriter, entry.Kind, entry.Tick, entry.EntityId, entry.Discriminator, entry.SchemaHash, entry.Payload);
                 }
                 else
                 {
                     var pending = changes.Pending[pendingIndex++];
-                    WalSegmentIO.WriteRecord(_currentSegment, WalRecordKind.ComponentChanged, pending.Tick, pending.EntityId, pending.Codec.Discriminator, pending.Codec.SchemaHash, pending.Codec.EncodeValue(pending.Value));
+                    WalSegmentIO.WriteRecord(_currentSegment, RecordBuffer, _recordWriter, WalRecordKind.ComponentChanged, pending.Tick, pending.EntityId, pending.Codec.Discriminator, pending.Codec.SchemaHash, pending.Codec.EncodeValue(pending.Value));
                 }
             }
         }

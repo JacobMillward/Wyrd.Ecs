@@ -59,28 +59,41 @@ internal static class WalSegmentIO
             throw new InvalidDataException($"Unsupported WAL segment format version {version} (expected {FormatVersion}).");
     }
 
+    /// <summary>Writes one record using a freshly allocated buffer — a convenience for a caller with no reusable buffer of its own. <see cref="WalSegmentWriter"/>'s hot path uses the other overload instead.</summary>
     public static void WriteRecord(Stream stream, WalRecordKind kind, int tick, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)
     {
         using var recordBuffer = new MemoryStream();
-        using (var writer = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true))
-        {
-            writer.Write((byte)kind);
-            writer.Write(tick);
-            writer.Write((ulong)(entityId.Value >> 64));
-            writer.Write((ulong)entityId.Value);
-            writer.Write(discriminator);
-            writer.Write(schemaHash.HasValue);
-            writer.Write(schemaHash ?? 0);
-            writer.Write(payload.Length);
-            writer.Write(payload);
-        }
+        using var recordWriter = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true);
+        WriteRecord(stream, recordBuffer, recordWriter, kind, tick, entityId, discriminator, schemaHash, payload);
+    }
 
-        var recordBytes = recordBuffer.ToArray();
-        var checksum = Crc32.HashToUInt32(recordBytes);
+    /// <summary>
+    /// Writes one record using <paramref name="recordBuffer"/>/<paramref name="recordWriter"/>
+    /// as scratch space, reused across calls by the caller rather than allocated fresh
+    /// each time. <paramref name="recordBuffer"/>'s contents are overwritten — the
+    /// caller must not rely on anything left in it after this returns.
+    /// </summary>
+    public static void WriteRecord(Stream stream, MemoryStream recordBuffer, BinaryWriter recordWriter, WalRecordKind kind, int tick, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)
+    {
+        recordBuffer.SetLength(0);
+        recordWriter.Write((byte)kind);
+        recordWriter.Write(tick);
+        recordWriter.Write((ulong)(entityId.Value >> 64));
+        recordWriter.Write((ulong)entityId.Value);
+        recordWriter.Write(discriminator);
+        recordWriter.Write(schemaHash.HasValue);
+        recordWriter.Write(schemaHash ?? 0);
+        recordWriter.Write(payload.Length);
+        recordWriter.Write(payload);
+        recordWriter.Flush();
+
+        var recordBytes = recordBuffer.GetBuffer();
+        var recordLength = (int)recordBuffer.Length;
+        var checksum = Crc32.HashToUInt32(recordBytes.AsSpan(0, recordLength));
 
         using var outWriter = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        outWriter.Write(recordBytes.Length);
-        outWriter.Write(recordBytes);
+        outWriter.Write(recordLength);
+        outWriter.Write(recordBytes, 0, recordLength);
         outWriter.Write(checksum);
     }
 
