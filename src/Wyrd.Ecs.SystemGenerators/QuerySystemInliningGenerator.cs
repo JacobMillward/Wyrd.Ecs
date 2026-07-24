@@ -20,6 +20,16 @@ namespace Wyrd.Ecs.SystemGenerators;
 /// declared <c>partial</c>, the native compiler already reports a clear, correctly
 /// localized <c>CS0260</c>; this generator doesn't need its own diagnostic for that
 /// case.
+///
+/// <see cref="TryExtract"/> pulls every piece of semantic-model-derived data into a
+/// <see cref="GeneratedSystemInfo"/> immediately, as plain strings and an int, rather
+/// than carrying the <see cref="SemanticModel"/> or any symbol forward. Both
+/// <see cref="SemanticModel"/> and most <see cref="ISymbol"/> implementations lack
+/// structural equality across two different compilations, so passing either through
+/// an incremental pipeline stage defeats Roslyn's step-to-step memoization even
+/// without <c>Collect()</c> in the mix; a plain record struct of strings restores it.
+/// No <c>Collect()</c> is used at all here since each candidate maps to its own
+/// independent output file, so <c>RegisterSourceOutput</c> runs (and caches) per item.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class QuerySystemInliningGenerator : IIncrementalGenerator
@@ -27,65 +37,101 @@ public sealed class QuerySystemInliningGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var candidates = context.SyntaxProvider.CreateSyntaxProvider(
-            predicate: static (node, _) => node is ClassDeclarationSyntax { BaseList: not null },
-            transform: static (ctx, _) => (Declaration: (ClassDeclarationSyntax)ctx.Node, ctx.SemanticModel));
+                predicate: static (node, _) => node is ClassDeclarationSyntax { BaseList: not null },
+                transform: static (ctx, _) => TryExtract((ClassDeclarationSyntax)ctx.Node, ctx.SemanticModel))
+            .Where(static info => info is not null)
+            .Select(static (info, _) => info!.Value)
+            .WithTrackingName("GeneratedSystemInfo");
 
-        context.RegisterSourceOutput(candidates.Collect(), static (spc, items) =>
-        {
-            foreach (var (declaration, semanticModel) in items)
-            {
-                if (semanticModel.GetDeclaredSymbol(declaration) is not { } symbol) continue;
-                if (!IsQuerySystem(symbol.BaseType, out var componentTypes)) continue;
-                if (!TryGetContainingChain(symbol, out var containingChain)) continue;
-
-                var execute = symbol.GetMembers("Execute").OfType<IMethodSymbol>().FirstOrDefault(m => m.IsOverride);
-                if (execute is null) continue;
-                if (execute.DeclaringSyntaxReferences.Length == 0) continue;
-                if (execute.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax executeSyntax) continue;
-
-                var bodyText = executeSyntax.Body is { } block
-                    ? string.Join("\n", block.Statements.Select(s => s.ToFullString()))
-                    : executeSyntax.ExpressionBody is { } arrow
-                        ? arrow.Expression.ToFullString() + ";"
-                        : null;
-                if (bodyText is null) continue;
-
-                var worldParam = execute.Parameters[0].Name;
-                var tickParam = execute.Parameters[1].Name;
-                var componentParams = execute.Parameters.Skip(2).ToArray();
-
-                var typeArgs = string.Join(", ", componentTypes.Select(t => t.ToDisplayString()));
-                var sb = new StringBuilder();
-                if (!symbol.ContainingNamespace.IsGlobalNamespace)
-                {
-                    sb.AppendLine($"namespace {symbol.ContainingNamespace.ToDisplayString()};");
-                    sb.AppendLine();
-                }
-                foreach (var containing in containingChain)
-                {
-                    sb.AppendLine($"partial class {containing.Name}");
-                    sb.AppendLine("{");
-                }
-                sb.AppendLine($"partial class {symbol.Name}");
-                sb.AppendLine("{");
-                sb.AppendLine($"    protected override void OnUpdate(global::Wyrd.Ecs.World {worldParam}, ulong {tickParam})");
-                sb.AppendLine("    {");
-                sb.AppendLine($"        foreach (var __row in {worldParam}.Query<{typeArgs}>())");
-                sb.AppendLine("        {");
-                for (var i = 0; i < componentParams.Length; i++)
-                    sb.AppendLine($"            ref var {componentParams[i].Name} = ref __row.Get<{componentTypes[i].ToDisplayString()}>();");
-                sb.AppendLine(bodyText);
-                sb.AppendLine("        }");
-                sb.AppendLine("    }");
-                sb.AppendLine("}");
-                for (var i = 0; i < containingChain.Count; i++)
-                    sb.AppendLine("}");
-
-                var hintName = string.Join(".", containingChain.Select(c => c.Name).Append(symbol.Name));
-                spc.AddSource($"{hintName}.OnUpdate.g.cs", sb.ToString());
-            }
-        });
+        context.RegisterSourceOutput(candidates, static (spc, info) =>
+            spc.AddSource($"{info.HintName}.OnUpdate.g.cs", Render(info)));
     }
+
+    private static GeneratedSystemInfo? TryExtract(ClassDeclarationSyntax declaration, SemanticModel semanticModel)
+    {
+        if (semanticModel.GetDeclaredSymbol(declaration) is not { } symbol) return null;
+        if (!IsQuerySystem(symbol.BaseType, out var componentTypes)) return null;
+        if (!TryGetContainingChain(symbol, out var containingChain)) return null;
+
+        var execute = symbol.GetMembers("Execute").OfType<IMethodSymbol>().FirstOrDefault(m => m.IsOverride);
+        if (execute is null) return null;
+        if (execute.DeclaringSyntaxReferences.Length == 0) return null;
+        if (execute.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax executeSyntax) return null;
+
+        var bodyText = executeSyntax.Body is { } block
+            ? string.Join("\n", block.Statements.Select(s => s.ToFullString()))
+            : executeSyntax.ExpressionBody is { } arrow
+                ? arrow.Expression.ToFullString() + ";"
+                : null;
+        if (bodyText is null) return null;
+
+        var worldParam = execute.Parameters[0].Name;
+        var tickParam = execute.Parameters[1].Name;
+        var componentParams = execute.Parameters.Skip(2).ToArray();
+        var componentTypeNames = componentTypes.Select(t => t.ToDisplayString()).ToArray();
+
+        var openWrappers = new StringBuilder();
+        foreach (var containing in containingChain)
+        {
+            openWrappers.AppendLine($"partial class {containing.Name}");
+            openWrappers.AppendLine("{");
+        }
+
+        var bindings = new StringBuilder();
+        for (var i = 0; i < componentParams.Length; i++)
+            bindings.AppendLine($"            ref var {componentParams[i].Name} = ref __row.Get<{componentTypeNames[i]}>();");
+
+        var hintName = string.Join(".", containingChain.Select(c => c.Name).Append(symbol.Name));
+
+        return new GeneratedSystemInfo(
+            HintName: hintName,
+            Namespace: symbol.ContainingNamespace.IsGlobalNamespace ? null : symbol.ContainingNamespace.ToDisplayString(),
+            ContainingWrappersOpen: openWrappers.ToString(),
+            ContainingWrapperCount: containingChain.Count,
+            ClassName: symbol.Name,
+            WorldParam: worldParam,
+            TickParam: tickParam,
+            TypeArgsJoined: string.Join(", ", componentTypeNames),
+            ComponentBindings: bindings.ToString(),
+            BodyText: bodyText);
+    }
+
+    private static string Render(GeneratedSystemInfo info)
+    {
+        var sb = new StringBuilder();
+        if (info.Namespace is not null)
+        {
+            sb.AppendLine($"namespace {info.Namespace};");
+            sb.AppendLine();
+        }
+        sb.Append(info.ContainingWrappersOpen);
+        sb.AppendLine($"partial class {info.ClassName}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    protected override void OnUpdate(global::Wyrd.Ecs.World {info.WorldParam}, ulong {info.TickParam})");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        foreach (var __row in {info.WorldParam}.Query<{info.TypeArgsJoined}>())");
+        sb.AppendLine("        {");
+        sb.Append(info.ComponentBindings);
+        sb.AppendLine(info.BodyText);
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        for (var i = 0; i < info.ContainingWrapperCount; i++)
+            sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    private record struct GeneratedSystemInfo(
+        string HintName,
+        string? Namespace,
+        string ContainingWrappersOpen,
+        int ContainingWrapperCount,
+        string ClassName,
+        string WorldParam,
+        string TickParam,
+        string TypeArgsJoined,
+        string ComponentBindings,
+        string BodyText);
 
     /// <summary>
     /// Walks <paramref name="symbol"/>'s <see cref="INamedTypeSymbol.ContainingType"/>
