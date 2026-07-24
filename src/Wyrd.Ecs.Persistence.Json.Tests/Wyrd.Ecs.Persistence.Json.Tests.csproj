@@ -24,6 +24,9 @@
     <ProjectReference Include="..\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence.Json\Wyrd.Ecs.Persistence.Json.csproj" />
+    <ProjectReference Include="..\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
+
+  <Import Project="..\Wyrd.Ecs.Persistence.Json.Generators\build\Wyrd.Ecs.Persistence.Json.Generators.targets" />
 
 </Project>

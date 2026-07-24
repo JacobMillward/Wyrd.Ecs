@@ -1,0 +1,26 @@
+<Project>
+
+  <PropertyGroup>
+    <_WyrdJsonGeneratorsTaskAssembly Condition="'$(_WyrdJsonGeneratorsTaskAssembly)' == '' AND Exists('$(MSBuildThisFileDirectory)..\analyzers\dotnet\cs\Wyrd.Ecs.Persistence.Json.Generators.dll')">$(MSBuildThisFileDirectory)..\analyzers\dotnet\cs\Wyrd.Ecs.Persistence.Json.Generators.dll</_WyrdJsonGeneratorsTaskAssembly>
+    <_WyrdJsonGeneratorsTaskAssembly Condition="'$(_WyrdJsonGeneratorsTaskAssembly)' == ''">$(MSBuildThisFileDirectory)..\bin\$(Configuration)\netstandard2.0\Wyrd.Ecs.Persistence.Json.Generators.dll</_WyrdJsonGeneratorsTaskAssembly>
+  </PropertyGroup>
+
+  <UsingTask TaskName="Wyrd.Ecs.Persistence.Json.Generators.JsonContextEmitTask"
+             AssemblyFile="$(_WyrdJsonGeneratorsTaskAssembly)" />
+
+  <Target Name="WyrdEmitJsonPersistenceContext" BeforeTargets="CoreCompile" AfterTargets="ResolveAssemblyReferences">
+    <PropertyGroup>
+      <_WyrdJsonContextOutputPath>$(IntermediateOutputPath)WyrdJsonPersistenceContext.g.cs</_WyrdJsonContextOutputPath>
+    </PropertyGroup>
+    <JsonContextEmitTask
+      Compile="@(Compile)"
+      References="@(ReferencePath)"
+      AssemblyName="$(AssemblyName)"
+      OutputPath="$(_WyrdJsonContextOutputPath)" />
+    <ItemGroup>
+      <Compile Include="$(_WyrdJsonContextOutputPath)" />
+      <FileWrites Include="$(_WyrdJsonContextOutputPath)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
