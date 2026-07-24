@@ -22,9 +22,9 @@ public static class WorldPersistenceExtensions
         /// The <see cref="IPersistenceStore"/> <see cref="WorldSnapshot.Save"/>/<see cref="WorldSnapshot.Load"/>
         /// fall back to when called without an explicit store. Null until set — either
         /// directly, or via <c>WorldBuilder.SetDefaultPersistenceStore</c>/
-        /// <c>WorldBuilder.AddBinaryPersistence</c> at construction time. (Extension
-        /// members can't be referenced via <c>cref</c> yet — CS1574 — so these are
-        /// plain text, not links.)
+        /// <c>WorldBuilder.AddBinaryPersistence</c> at construction time. Assigning
+        /// <c>null</c> clears it back to unset. (Extension members can't be referenced
+        /// via <c>cref</c> yet — CS1574 — so these are plain text, not links.)
         /// </summary>
         public IPersistenceStore? DefaultPersistenceStore
         {
@@ -32,6 +32,7 @@ public static class WorldPersistenceExtensions
             set
             {
                 if (value is not null) DefaultStores.AddOrUpdate(world, value);
+                else DefaultStores.Remove(world);
             }
         }
 
@@ -40,6 +41,7 @@ public static class WorldPersistenceExtensions
         /// (continuous persistence's capture step, for one) falls back to when it has no
         /// registry of its own to use. Null until set — either directly, or via
         /// <c>WorldBuilder.SetDefaultComponentCodecRegistry</c> at construction time.
+        /// Assigning <c>null</c> clears it back to unset.
         /// </summary>
         public ComponentCodecRegistry? DefaultComponentCodecRegistry
         {
@@ -47,6 +49,7 @@ public static class WorldPersistenceExtensions
             set
             {
                 if (value is not null) DefaultRegistries.AddOrUpdate(world, value);
+                else DefaultRegistries.Remove(world);
             }
         }
     }

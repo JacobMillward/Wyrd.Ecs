@@ -34,6 +34,18 @@ public class WorldPersistenceExtensionsTests
     }
 
     [Fact]
+    public void DefaultPersistenceStore_SetThenAssignedNull_ClearsItBackToUnset()
+    {
+        var world = new World();
+        var store = new FileStore(Path.GetTempFileName());
+        world.DefaultPersistenceStore = store;
+
+        world.DefaultPersistenceStore = null;
+
+        world.DefaultPersistenceStore.Should().BeNull();
+    }
+
+    [Fact]
     public void DefaultComponentCodecRegistry_UnsetOnAFreshWorld_IsNull()
     {
         var world = new World();
@@ -62,6 +74,18 @@ public class WorldPersistenceExtensionsTests
         worldA.DefaultComponentCodecRegistry = registry;
 
         worldB.DefaultComponentCodecRegistry.Should().BeNull();
+    }
+
+    [Fact]
+    public void DefaultComponentCodecRegistry_SetThenAssignedNull_ClearsItBackToUnset()
+    {
+        var world = new World();
+        var registry = new ComponentCodecRegistry();
+        world.DefaultComponentCodecRegistry = registry;
+
+        world.DefaultComponentCodecRegistry = null;
+
+        world.DefaultComponentCodecRegistry.Should().BeNull();
     }
 
     [Fact]
