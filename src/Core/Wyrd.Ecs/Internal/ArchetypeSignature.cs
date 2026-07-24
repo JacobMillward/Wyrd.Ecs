@@ -41,6 +41,16 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
         return true;
     }
 
+    /// <summary>True when any bit set in this signature is also set in <paramref name="other"/>.</summary>
+    internal bool Intersects(ArchetypeSignature other)
+    {
+        var length = Math.Min(_words.Length, other._words.Length);
+        for (var i = 0; i < length; i++)
+            if ((_words[i] & other._words[i]) != 0)
+                return true;
+        return false;
+    }
+
     internal ArchetypeSignature Without(int typeIndex)
     {
         var word = typeIndex >> 6;

@@ -82,4 +82,39 @@ public class ArchetypeSignatureTests
 
         map[ArchetypeSignature.Empty.With(2).With(1)].Should().Be("found");
     }
+
+    [Fact]
+    public void Intersects_ReturnsTrueWhenAnyBitShared()
+    {
+        var a = ArchetypeSignature.Empty.With(1).With(3);
+        var b = ArchetypeSignature.Empty.With(3).With(5);
+
+        a.Intersects(b).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Intersects_ReturnsFalseWhenNoBitsShared()
+    {
+        var a = ArchetypeSignature.Empty.With(1).With(2);
+        var b = ArchetypeSignature.Empty.With(3).With(4);
+
+        a.Intersects(b).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Intersects_ReturnsFalseAgainstEmpty()
+    {
+        var a = ArchetypeSignature.Empty.With(1);
+
+        a.Intersects(ArchetypeSignature.Empty).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Intersects_HandlesDifferentWordLengths()
+    {
+        var a = ArchetypeSignature.Empty.With(1);
+        var b = ArchetypeSignature.Empty.With(1).With(200);
+
+        a.Intersects(b).Should().BeTrue();
+    }
 }
