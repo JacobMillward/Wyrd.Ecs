@@ -12,10 +12,10 @@ internal static class GeneratorTestHost
             .Append(MetadataReference.CreateFromFile(typeof(IComponent).Assembly.Location))
             .ToArray();
 
-    public static CSharpCompilation Compile(string source) =>
+    public static CSharpCompilation Compile(params string[] sources) =>
         CSharpCompilation.Create(
             assemblyName: "InterceptorsTestAssembly",
-            syntaxTrees: [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview))],
+            syntaxTrees: sources.Select(s => CSharpSyntaxTree.ParseText(s, new CSharpParseOptions(LanguageVersion.Preview))),
             references: References,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 
