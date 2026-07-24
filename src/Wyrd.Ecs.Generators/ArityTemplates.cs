@@ -455,21 +455,37 @@ internal static class ArityTemplates
             : $"/// <summary>{n}-component overload of <see cref=\"QuerySystem{{T0}}\"/>.</summary>");
         if (n == 1)
         {
-            sb.AppendLine("/// A System whose <see cref=\"System.OnUpdate\"/> is a single query over one or");
+            sb.AppendLine("/// An EcsSystem whose <see cref=\"EcsSystem.OnUpdate\"/> is a single query over one or");
             sb.AppendLine("/// more component types, generated to call <see cref=\"Execute\"/> once per");
             sb.AppendLine("/// matching entity. Deriving classes must be declared <c>partial</c> and");
             sb.AppendLine("/// implement only <see cref=\"Execute\"/>; the generator supplies <c>OnUpdate</c>.");
             sb.AppendLine("/// This class itself leaves <c>OnUpdate</c> unimplemented on purpose: inlining a");
             sb.AppendLine("/// specific override's body only makes sense once that override exists, which");
             sb.AppendLine("/// means once per concrete derived class, not once here.");
+            sb.AppendLine("///");
+            sb.AppendLine("/// <para>");
+            sb.AppendLine("/// Requires the consuming project to reference");
+            sb.AppendLine("/// <c>Wyrd.Ecs.SystemGenerators</c> as an analyzer (<c>OutputItemType=\"Analyzer\"</c>) —");
+            sb.AppendLine("/// that project is what supplies <c>OnUpdate</c>'s body; without it a");
+            sb.AppendLine("/// <c>QuerySystem</c> subclass fails to compile with \"does not implement");
+            sb.AppendLine("/// inherited abstract member\". Referencing <c>Wyrd.Ecs.Analyzers</c> the same way");
+            sb.AppendLine("/// additionally catches a forgotten <c>ref</c> on <c>QueryRow.Get&lt;T&gt;()</c> at");
+            sb.AppendLine("/// compile time (WYRD001) instead of silently dropping the write, and");
+            sb.AppendLine("/// <c>Wyrd.Ecs.Interceptors</c> (plus setting the MSBuild property");
+            sb.AppendLine("/// <c>InterceptorsNamespaces</c> to include <c>Wyrd.Ecs.Interceptors.Generated</c>)");
+            sb.AppendLine("/// elides dirty-marking for <c>Get&lt;T&gt;()</c> calls a compile-time check proves");
+            sb.AppendLine("/// are never written through. None of the three ship inside the <c>Wyrd.Ecs</c>");
+            sb.AppendLine("/// package itself yet — see this repo's own <c>Wyrd.Ecs.Tests.csproj</c> and");
+            sb.AppendLine("/// <c>Wyrd.Ecs.Benchmarks.csproj</c> for the exact references and property to copy.");
+            sb.AppendLine("/// </para>");
             sb.AppendLine("/// </summary>");
         }
 
-        sb.AppendLine($"public abstract class QuerySystem<{tp}> : System");
+        sb.AppendLine($"public abstract class QuerySystem<{tp}> : EcsSystem");
         sb.AppendLine(WhereClauses(n, "    "));
         sb.AppendLine("{");
         sb.AppendLine(n == 1
-            ? "    /// <summary>Runs once per matching entity. <paramref name=\"tick\"/> is whatever the caller's own tick counter is; see <see cref=\"System.OnUpdate\"/>.</summary>"
+            ? "    /// <summary>Runs once per matching entity. <paramref name=\"tick\"/> is whatever the caller's own tick counter is; see <see cref=\"EcsSystem.OnUpdate\"/>.</summary>"
             : "    /// <inheritdoc cref=\"QuerySystem{T0}.Execute\"/>");
         var executeParams = string.Join(", ", Indices(n).Select(i => $"ref T{i} component{i}"));
         sb.AppendLine($"    protected abstract void Execute(World world, ulong tick, {executeParams});");
