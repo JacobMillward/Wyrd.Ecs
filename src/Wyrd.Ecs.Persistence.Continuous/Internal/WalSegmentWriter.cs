@@ -32,16 +32,45 @@ internal sealed class WalSegmentWriter(IWalStore walStore)
         }
     }
 
-    /// <summary>Writes every entry to the currently open segment. Throws if none is open — call <see cref="EnsureSegmentOpen"/> first.</summary>
-    internal void WriteRecords(IReadOnlyList<CapturedWalEntry> entries)
+    /// <summary>
+    /// Writes every entry to the currently open segment, encoding any pending value
+    /// change as it goes. <see cref="DrainedChanges.Ready"/> and
+    /// <see cref="DrainedChanges.Pending"/> are merged by <c>Tick</c> (stable, ready
+    /// first on a tie) rather than written as two separate blocks — a single drain
+    /// cycle can span several ticks (nothing forces a drain between every tick), and
+    /// <see cref="CheckpointBuilder.Apply"/> replays records strictly in write order
+    /// with no tick-aware reordering of its own. Writing every ready record before
+    /// every pending one would let an earlier tick's stale <c>ComponentChanged</c> land
+    /// after a later tick's <c>EntityDestroyed</c> for the same entity in the file,
+    /// silently resurrecting it on replay. Throws if none is open — call
+    /// <see cref="EnsureSegmentOpen"/> first.
+    /// </summary>
+    internal void WriteRecords(DrainedChanges changes)
     {
         lock (_lock)
         {
             if (_currentSegment is null)
                 throw new InvalidOperationException("No WAL segment is open. Call EnsureSegmentOpen first.");
 
-            foreach (var entry in entries)
-                WalSegmentIO.WriteRecord(_currentSegment, entry.Kind, entry.Tick, entry.EntityId, entry.Discriminator, entry.SchemaHash, entry.Payload);
+            var readyIndex = 0;
+            var pendingIndex = 0;
+            while (readyIndex < changes.Ready.Count || pendingIndex < changes.Pending.Count)
+            {
+                var writeReady =
+                    pendingIndex >= changes.Pending.Count ||
+                    (readyIndex < changes.Ready.Count && changes.Ready[readyIndex].Tick <= changes.Pending[pendingIndex].Tick);
+
+                if (writeReady)
+                {
+                    var entry = changes.Ready[readyIndex++];
+                    WalSegmentIO.WriteRecord(_currentSegment, entry.Kind, entry.Tick, entry.EntityId, entry.Discriminator, entry.SchemaHash, entry.Payload);
+                }
+                else
+                {
+                    var pending = changes.Pending[pendingIndex++];
+                    WalSegmentIO.WriteRecord(_currentSegment, WalRecordKind.ComponentChanged, pending.Tick, pending.EntityId, pending.Codec.Discriminator, pending.Codec.SchemaHash, pending.Codec.EncodeValue(pending.Value));
+                }
+            }
         }
     }
 

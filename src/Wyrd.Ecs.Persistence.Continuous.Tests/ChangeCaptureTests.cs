@@ -20,7 +20,7 @@ public class ChangeCaptureTests
     }
 
     [Fact]
-    public void ComponentValueChange_AppearsInTheSwappedBufferAfterATick()
+    public void ComponentValueChange_AppearsInThePendingListAfterATick_UnencodedAndCorrect()
     {
         var world = new World();
         var registry = BuildRegistry(schemaHash: 7u);
@@ -32,15 +32,16 @@ public class ChangeCaptureTests
 
         var drained = capture.SwapBuffers();
 
-        var entry = drained.Should().ContainSingle(e => e.Kind == WalRecordKind.ComponentChanged).Which;
-        entry.EntityId.Should().Be(world.GetPermanentId(entity));
-        entry.Discriminator.Should().Be("Position");
-        entry.SchemaHash.Should().Be(7u);
-        Encoding.UTF8.GetString(entry.Payload).Should().Be("5");
+        var pending = drained.Pending.Should().ContainSingle().Which;
+        pending.EntityId.Should().Be(world.GetPermanentId(entity));
+        pending.Codec.Discriminator.Should().Be("Position");
+        pending.Codec.SchemaHash.Should().Be(7u);
+        pending.Value.Should().BeOfType<Position>().Which.X.Should().Be(5f);
+        drained.Ready.Should().NotContain(e => e.Kind == WalRecordKind.ComponentChanged);
     }
 
     [Fact]
-    public void EntityDestroyed_AppearsInTheBuffer()
+    public void EntityDestroyed_AppearsInTheReadyList()
     {
         var world = new World();
         var registry = BuildRegistry();
@@ -54,7 +55,7 @@ public class ChangeCaptureTests
 
         var drained = capture.SwapBuffers();
 
-        drained.Should().Contain(e => e.Kind == WalRecordKind.EntityDestroyed && e.EntityId == permanentId);
+        drained.Ready.Should().Contain(e => e.Kind == WalRecordKind.EntityDestroyed && e.EntityId == permanentId);
     }
 
     [Fact]
@@ -69,16 +70,16 @@ public class ChangeCaptureTests
         world.Commands.AddComponent(entity, new Position { X = 3f });
         world.ApplyCommands();
         var beforeTick = capture.SwapBuffers();
-        beforeTick.Should().NotContain(e => e.Kind == WalRecordKind.ComponentChanged);
+        beforeTick.Pending.Should().BeEmpty();
 
         world.AdvanceTick();
         var afterTick = capture.SwapBuffers();
 
-        afterTick.Should().ContainSingle(e => e.Kind == WalRecordKind.ComponentChanged);
+        afterTick.Pending.Should().ContainSingle();
     }
 
     [Fact]
-    public void SwapBuffers_CalledTwiceWithNoActivityBetween_ReturnsAnEmptyListTheSecondTime()
+    public void SwapBuffers_CalledTwiceWithNoActivityBetween_ReturnsEmptyListsTheSecondTime()
     {
         var world = new World();
         var registry = BuildRegistry();
@@ -91,7 +92,8 @@ public class ChangeCaptureTests
         world.AdvanceTick();
         var second = capture.SwapBuffers();
 
-        second.Should().BeEmpty();
+        second.Ready.Should().BeEmpty();
+        second.Pending.Should().BeEmpty();
     }
 
     [Fact]
@@ -107,6 +109,7 @@ public class ChangeCaptureTests
         world.AdvanceTick();
 
         var drained = capture.SwapBuffers();
-        drained.Should().BeEmpty();
+        drained.Ready.Should().BeEmpty();
+        drained.Pending.Should().BeEmpty();
     }
 }

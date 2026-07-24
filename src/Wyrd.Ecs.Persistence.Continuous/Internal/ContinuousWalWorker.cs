@@ -49,8 +49,8 @@ internal sealed class ContinuousWalWorker : IDisposable
     {
         try
         {
-            var entries = _capture.SwapBuffers();
-            _segmentWriter.WriteRecords(entries);
+            var changes = _capture.SwapBuffers();
+            _segmentWriter.WriteRecords(changes);
             _segmentWriter.Flush();
 
             if (_rotationRequested)
