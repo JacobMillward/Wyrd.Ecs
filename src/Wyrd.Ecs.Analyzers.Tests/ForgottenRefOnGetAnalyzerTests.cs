@@ -72,6 +72,28 @@ class C
     }
 
     [Fact]
+    public async Task MissingRef_InAForLoopInitializer_ReportsDiagnosticAtTheDeclaratorItself()
+    {
+        var test = FakeApi + @"
+class C
+{
+    void M(Wyrd.Ecs.QueryRow<Wyrd.Ecs.Position> row)
+    {
+        for ({|#0:var position = row.Get<Wyrd.Ecs.Position>()|}; ; )
+        {
+            break;
+        }
+    }
+}
+";
+        var expected = Verify.Diagnostic(ForgottenRefOnGetAnalyzer.DiagnosticId)
+            .WithLocation(0)
+            .WithArguments("position", "Position");
+
+        await Verify.VerifyAnalyzerAsync(test, expected);
+    }
+
+    [Fact]
     public async Task UnrelatedLocalDeclaration_NoDiagnostic()
     {
         var test = @"
