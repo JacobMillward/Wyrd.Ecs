@@ -208,7 +208,8 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
 
         var reloaded = new World();
         var reloadedRegistry = BuildRegistry();
-        WorldSnapshot.Load(reloaded, reloadedRegistry, checkpointStore);
+        reloaded.DefaultComponentCodecRegistry = reloadedRegistry;
+        reloaded.Load(checkpointStore);
 
         var positions = new List<float>();
         foreach (var row in reloaded.Query<Position>())

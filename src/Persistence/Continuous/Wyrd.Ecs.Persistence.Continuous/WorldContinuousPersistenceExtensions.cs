@@ -20,7 +20,7 @@ public static class WorldContinuousPersistenceExtensions
         /// and <c>World.DefaultPersistenceStore</c> (both must already be configured —
         /// set directly, or via <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>/
         /// <c>SetDefaultPersistenceStore</c>/<c>AddBinaryPersistence</c>, before this call
-        /// in the builder chain), writes an initial <see cref="WorldSnapshot.Save"/>
+        /// in the builder chain), writes an initial <c>World.Save</c>
         /// bootstrap checkpoint so a valid baseline always exists, then starts the
         /// WAL-writer and checkpoint-merge background threads. Applied via
         /// <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
@@ -72,8 +72,8 @@ public static class WorldContinuousPersistenceExtensions
                         "World.DefaultPersistenceStore isn't a FileStore. Pass walStore " +
                         "explicitly to EnableContinuousPersistence."));
 
-                WorldSnapshot.Save(world, registry, checkpointStore);
-                // Seals the bootstrap checkpoint's tick boundary. WorldSnapshot.Save
+                world.Save();
+                // Seals the bootstrap checkpoint's tick boundary. World.Save
                 // stamps the checkpoint with world.CurrentTick as it is at this exact
                 // instant — but if the consumer's very next action is creating initial
                 // entities (the ordinary "populate the world, then start ticking"
