@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence.Json\Wyrd.Ecs.Persistence.Json.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" />
   </ItemGroup>

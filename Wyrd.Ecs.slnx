@@ -21,13 +21,15 @@
     <Project Path="src/Persistence/Binary/Wyrd.Ecs.Persistence.Binary.Generators/Wyrd.Ecs.Persistence.Binary.Generators.csproj" />
     <Project Path="src/Persistence/Binary/Wyrd.Ecs.Persistence.Binary.Generators.Tests/Wyrd.Ecs.Persistence.Binary.Generators.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Persistence/Json/">
+    <Project Path="src/Persistence/Json/Wyrd.Ecs.Persistence.Json/Wyrd.Ecs.Persistence.Json.csproj" />
+    <Project Path="src/Persistence/Json/Wyrd.Ecs.Persistence.Json.Tests/Wyrd.Ecs.Persistence.Json.Tests.csproj" />
+    <Project Path="src/Persistence/Json/Wyrd.Ecs.Persistence.Json.Generators/Wyrd.Ecs.Persistence.Json.Generators.csproj" />
+    <Project Path="src/Persistence/Json/Wyrd.Ecs.Persistence.Json.Generators.Tests/Wyrd.Ecs.Persistence.Json.Generators.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
     <Project Path="src/Wyrd.Ecs.Persistence.Continuous.Tests/Wyrd.Ecs.Persistence.Continuous.Tests.csproj" />
     <Project Path="src/Wyrd.Ecs.Persistence.Continuous/Wyrd.Ecs.Persistence.Continuous.csproj" />
-    <Project Path="src/Wyrd.Ecs.Persistence.Json.Generators.Tests/Wyrd.Ecs.Persistence.Json.Generators.Tests.csproj" />
-    <Project Path="src/Wyrd.Ecs.Persistence.Json.Generators/Wyrd.Ecs.Persistence.Json.Generators.csproj" />
-    <Project Path="src/Wyrd.Ecs.Persistence.Json.Tests/Wyrd.Ecs.Persistence.Json.Tests.csproj" />
-    <Project Path="src/Wyrd.Ecs.Persistence.Json/Wyrd.Ecs.Persistence.Json.csproj" />
   </Folder>
 </Solution>
