@@ -37,13 +37,17 @@ public class CodecIndependenceTests : IDisposable
         source.Commands.CreateEntity(new BinaryOnlyComponent { Value = 42 });
         source.ApplyCommands();
 
-        WorldSnapshot.Save(source, jsonRegistry, new FileStore(_jsonPath));
-        WorldSnapshot.Save(source, binaryRegistry, new FileStore(_binaryPath));
+        source.DefaultComponentCodecRegistry = jsonRegistry;
+        source.Save(_jsonPath);
+        source.DefaultComponentCodecRegistry = binaryRegistry;
+        source.Save(_binaryPath);
 
         var jsonTarget = new World();
-        WorldSnapshot.Load(jsonTarget, jsonRegistry, new FileStore(_jsonPath));
+        jsonTarget.DefaultComponentCodecRegistry = jsonRegistry;
+        jsonTarget.Load(_jsonPath);
         var binaryTarget = new World();
-        WorldSnapshot.Load(binaryTarget, binaryRegistry, new FileStore(_binaryPath));
+        binaryTarget.DefaultComponentCodecRegistry = binaryRegistry;
+        binaryTarget.Load(_binaryPath);
 
         var foundInJsonTarget = false;
         foreach (var _ in jsonTarget.Query<BinaryOnlyComponent>()) foundInJsonTarget = true;
