@@ -5,13 +5,11 @@ using Wyrd.Ecs.Persistence.Continuous.Internal;
 namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
 
 /// <summary>
-/// Isolated measurement of the WAL record write path (WalSegmentWriter.WriteRecords),
-/// separate from ContinuousPersistenceTickBenchmarks (which measures the sim-thread
-/// capture cost) — a combined number could hide a regression in either. Backs the
-/// pooling decision in
-/// docs/superpowers/specs/2026-07-20-continuous-persistence-lifecycle-hardening-design.md's
-/// Performance section: the pooled implementation ships only if this shows a real win.
-/// Run once before implementing pooling (the baseline) and once after (the comparison).
+/// Isolated measurement of the WAL record write path
+/// (<c>WalSegmentWriter.WriteRecords</c>), kept separate from
+/// <see cref="ContinuousPersistenceTickBenchmarks"/> (which measures the sim-thread
+/// capture cost) so a combined number can't hide a regression in either. Standing
+/// regression guard for the pooled buffer's allocation cost.
 /// </summary>
 [MemoryDiagnoser]
 public class WalRecordWriteBenchmarks
