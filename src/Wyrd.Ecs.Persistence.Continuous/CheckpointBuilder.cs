@@ -91,6 +91,10 @@ public static class CheckpointBuilder
         }
         catch (FileNotFoundException)
         {
+            // Required by IPersistenceStore.OpenCheckpointRead's documented contract:
+            // every implementation throws exactly this (or a subclass) for "no
+            // checkpoint written yet", so this catch is guaranteed to mean "empty
+            // store," not a real read failure being swallowed.
             return (0, []);
         }
 
