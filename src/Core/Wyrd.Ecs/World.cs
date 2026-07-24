@@ -23,6 +23,7 @@ public sealed partial class World : IWorld
 
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
+    private readonly Dictionary<(ArchetypeSignature Required, QueryFilter Filter), Archetype[]> _filteredQueryCache = new();
     private TrackingState _tracking = new();
     private readonly Archetype _emptyArchetype;
     private readonly int _archetypeCapacity;
@@ -456,6 +457,7 @@ public sealed partial class World : IWorld
         var created = new Archetype(signature, _archetypeCapacity);
         _archetypes[signature] = created;
         _queryCache.Clear();
+        _filteredQueryCache.Clear();
         return created;
     }
 
@@ -477,6 +479,30 @@ public sealed partial class World : IWorld
 
         var result = matches.ToArray();
         _queryCache[required] = result;
+        return result;
+    }
+
+    /// <summary>
+    /// Same as <see cref="GetMatchingArchetypes(ArchetypeSignature)"/>, plus
+    /// <paramref name="filter"/>'s <c>Without</c>/<c>Any</c> checks — kept as a separate
+    /// overload/cache rather than folding <paramref name="filter"/> into the existing
+    /// one, so the chunk-callback queries and <see cref="ReadChanges{T}"/> (which never
+    /// filter) don't pay for a cache key that's always empty for them.
+    /// </summary>
+    internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required, QueryFilter filter)
+    {
+        var key = (required, filter);
+        if (_filteredQueryCache.TryGetValue(key, out var cached)) return cached;
+
+        var matches = new List<Archetype>();
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (required.IsSubsetOf(archetype.Signature) && filter.Matches(archetype.Signature))
+                matches.Add(archetype);
+        }
+
+        var result = matches.ToArray();
+        _filteredQueryCache[key] = result;
         return result;
     }
 
