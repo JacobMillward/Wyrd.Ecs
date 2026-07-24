@@ -11,9 +11,12 @@ namespace Wyrd.Ecs.Persistence;
 /// </summary>
 public sealed class FileStore(string path) : IPersistenceStore
 {
-    /// <inheritdoc/>
-    public Stream OpenCheckpointWrite() => new Internal.AtomicFileWriteStream(path);
+    /// <summary>The path this store reads/writes its checkpoint at.</summary>
+    public string Path { get; } = path;
 
     /// <inheritdoc/>
-    public Stream OpenCheckpointRead() => File.OpenRead(path);
+    public Stream OpenCheckpointWrite() => new Internal.AtomicFileWriteStream(Path);
+
+    /// <inheritdoc/>
+    public Stream OpenCheckpointRead() => File.OpenRead(Path);
 }

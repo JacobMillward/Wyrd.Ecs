@@ -95,4 +95,12 @@ public class FileStoreTests : IDisposable
         }
         Directory.GetFiles(directory, tempFilePattern).Should().BeEmpty();
     }
+
+    [Fact]
+    public void Path_ReturnsTheConstructorArgument()
+    {
+        var store = new FileStore(_path);
+
+        store.Path.Should().Be(_path);
+    }
 }
