@@ -38,11 +38,70 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         return registry;
     }
 
+    private sealed class InMemoryStore : IPersistenceStore
+    {
+        public Stream OpenCheckpointWrite() => new MemoryStream();
+        public Stream OpenCheckpointRead() => new MemoryStream();
+    }
+
     [Fact]
     public void EnableContinuousPersistence_WithoutADefaultRegistry_ThrowsWhenBuilt()
     {
-        var options = new ContinuousOptions { CheckpointStore = new FileStore(CheckpointPath), WalStore = new FileWalStore(WalBasePath) };
-        var builder = new WorldBuilder().EnableContinuousPersistence(options);
+        var builder = new WorldBuilder()
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath));
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void EnableContinuousPersistence_WithoutADefaultStore_ThrowsWhenBuilt()
+    {
+        var builder = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath));
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void EnableContinuousPersistence_WithNoWalStoreAndANonFileStore_ThrowsWhenBuilt()
+    {
+        var builder = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new InMemoryStore())
+            .EnableContinuousPersistence();
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void EnableContinuousPersistence_WithNoWalStoreAndAFileStore_InfersAColocatedWalStore()
+    {
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence()
+            .Build();
+
+        new FileWalStore(CheckpointPath).ListSegmentStartTicks().Should().ContainSingle();
+        world.StopContinuousPersistence();
+    }
+
+    [Fact]
+    public void EnableContinuousPersistence_CalledTwiceForTheSameWorld_ThrowsOnBuild()
+    {
+        var builder = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath))
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath));
 
         var act = () => builder.Build();
 
@@ -52,13 +111,12 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     [Fact]
     public void EnableContinuousPersistence_WritesABootstrapCheckpointImmediately()
     {
-        var registry = BuildRegistry();
         var checkpointStore = new FileStore(CheckpointPath);
-        var options = new ContinuousOptions { CheckpointStore = checkpointStore, WalStore = new FileWalStore(WalBasePath) };
 
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(registry)
-            .EnableContinuousPersistence(options)
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(checkpointStore)
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath))
             .Build();
 
         var (tick, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
@@ -72,13 +130,12 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     [Fact]
     public void EnableContinuousPersistence_OpensAWalSegmentImmediately()
     {
-        var registry = BuildRegistry();
         var walStore = new FileWalStore(WalBasePath);
-        var options = new ContinuousOptions { CheckpointStore = new FileStore(CheckpointPath), WalStore = walStore };
 
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(registry)
-            .EnableContinuousPersistence(options)
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence(walStore)
             .Build();
 
         walStore.ListSegmentStartTicks().Should().ContainSingle();
@@ -98,15 +155,12 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     [Fact]
     public void StopContinuousPersistence_StopsFurtherWalWrites()
     {
-        var registry = BuildRegistry();
         var walStore = new FileWalStore(WalBasePath);
-        var options = new ContinuousOptions
-        {
-            CheckpointStore = new FileStore(CheckpointPath),
-            WalStore = walStore,
-            Options = new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(20), CheckpointInterval = TimeSpan.FromMinutes(10) },
-        };
-        var world = new WorldBuilder().SetDefaultComponentCodecRegistry(registry).EnableContinuousPersistence(options).Build();
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence(walStore, options: new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(20), CheckpointInterval = TimeSpan.FromMinutes(10) })
+            .Build();
 
         world.StopContinuousPersistence();
         var segmentTickAtStop = walStore.ListSegmentStartTicks().Single();
@@ -130,13 +184,11 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         var registry = BuildRegistry();
         var checkpointStore = new FileStore(CheckpointPath);
         var walStore = new FileWalStore(WalBasePath);
-        var options = new ContinuousOptions
-        {
-            CheckpointStore = checkpointStore,
-            WalStore = walStore,
-            Options = new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(10), CheckpointInterval = TimeSpan.FromMinutes(10) },
-        };
-        var world = new WorldBuilder().SetDefaultComponentCodecRegistry(registry).EnableContinuousPersistence(options).Build();
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(registry)
+            .SetDefaultPersistenceStore(checkpointStore)
+            .EnableContinuousPersistence(walStore, options: new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(10), CheckpointInterval = TimeSpan.FromMinutes(10) })
+            .Build();
 
         var surviving = world.Commands.CreateEntity(new Position { X = 1f });
         var destroyed = world.Commands.CreateEntity(new Position { X = 2f });
@@ -153,10 +205,9 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         world.AdvanceTick();
 
         world.StopContinuousPersistence();
-        // Fold whatever's left in the WAL into the checkpoint, exactly as real
-        // recovery would after a crash — WorldSnapshot.Load only reads the checkpoint
-        // store, so reload requires this same composition (merge, then load), not a
-        // new primitive.
+        // Fold whatever's left in the WAL into the checkpoint, exactly as real recovery
+        // would after a crash. Task 6 makes Stop do this on its own; until then this
+        // manual step is still required for the reload below to see everything.
         CheckpointBuilder.Build(checkpointStore, walStore, world.CurrentTick);
 
         var reloaded = new World();

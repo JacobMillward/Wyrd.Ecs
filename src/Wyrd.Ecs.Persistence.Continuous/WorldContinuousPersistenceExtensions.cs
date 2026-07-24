@@ -17,19 +17,32 @@ public static class WorldContinuousPersistenceExtensions
     {
         /// <summary>
         /// Enables continuous persistence: pulls <c>World.DefaultComponentCodecRegistry</c>
-        /// (must already be configured — set directly, or via
-        /// <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>, before this call in the
-        /// builder chain), writes an initial <see cref="WorldSnapshot.Save"/>
-        /// bootstrap checkpoint so a valid baseline always exists (harmless and cheap for
-        /// a freshly-built World; correctly captures whatever already exists for a
-        /// mid-session enable), then starts the WAL-writer and checkpoint-merge
-        /// background threads. Applied via <see cref="WorldBuilder.OnBuilt"/> once
-        /// <see cref="WorldBuilder.Build"/> runs.
+        /// and <c>World.DefaultPersistenceStore</c> (both must already be configured —
+        /// set directly, or via <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>/
+        /// <c>SetDefaultPersistenceStore</c>/<c>AddBinaryPersistence</c>, before this call
+        /// in the builder chain), writes an initial <see cref="WorldSnapshot.Save"/>
+        /// bootstrap checkpoint so a valid baseline always exists, then starts the
+        /// WAL-writer and checkpoint-merge background threads. Applied via
+        /// <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
+        /// Throws if continuous persistence is already enabled for this World.
+        /// <paramref name="walStore"/> defaults to a <see cref="FileWalStore"/> colocated
+        /// with the World's default persistence store when that store is a
+        /// <see cref="FileStore"/> (no naming collision — <see cref="FileWalStore"/>
+        /// names segments <c>{path}.wal.{tick}</c>, distinct from the checkpoint file at
+        /// <c>path</c> itself); otherwise it must be supplied explicitly.
         /// </summary>
-        public WorldBuilder EnableContinuousPersistence(ContinuousOptions options)
+        public WorldBuilder EnableContinuousPersistence(
+            IWalStore? walStore = null,
+            WalOptions? options = null,
+            Action<Exception>? onError = null)
         {
             builder.OnBuilt += world =>
             {
+                if (Sessions.TryGetValue(world, out _))
+                    throw new InvalidOperationException(
+                        "Continuous persistence is already enabled for this World. " +
+                        "Call StopContinuousPersistence before enabling it again.");
+
                 var registry = world.DefaultComponentCodecRegistry
                     ?? throw new InvalidOperationException(
                         "No ComponentCodecRegistry was provided and none is configured via " +
@@ -37,7 +50,21 @@ public static class WorldContinuousPersistenceExtensions
                         "WorldBuilder.SetDefaultComponentCodecRegistry, before " +
                         "EnableContinuousPersistence in the builder chain).");
 
-                WorldSnapshot.Save(world, registry, options.CheckpointStore);
+                var checkpointStore = world.DefaultPersistenceStore
+                    ?? throw new InvalidOperationException(
+                        "No IPersistenceStore was provided and none is configured via " +
+                        "World.DefaultPersistenceStore (set directly, or via " +
+                        "WorldBuilder.SetDefaultPersistenceStore/AddBinaryPersistence, " +
+                        "before EnableContinuousPersistence in the builder chain).");
+
+                var resolvedWalStore = walStore ?? (checkpointStore is FileStore fileStore
+                    ? new FileWalStore(fileStore.Path)
+                    : throw new InvalidOperationException(
+                        "No IWalStore was provided and none could be inferred: " +
+                        "World.DefaultPersistenceStore isn't a FileStore. Pass walStore " +
+                        "explicitly to EnableContinuousPersistence."));
+
+                WorldSnapshot.Save(world, registry, checkpointStore);
                 // Seals the bootstrap checkpoint's tick boundary. WorldSnapshot.Save
                 // stamps the checkpoint with world.CurrentTick as it is at this exact
                 // instant — but if the consumer's very next action is creating initial
@@ -52,10 +79,10 @@ public static class WorldContinuousPersistenceExtensions
                 world.AdvanceTick();
 
                 var capture = new ChangeCapture(world, registry);
-                var walWorker = new Internal.ContinuousWalWorker(world, capture, options.CheckpointStore, options.WalStore, options.Options, options.OnError);
+                var walWorker = new Internal.ContinuousWalWorker(world, capture, checkpointStore, resolvedWalStore, options ?? WalOptions.Default, onError);
                 walWorker.Start();
 
-                Sessions.AddOrUpdate(world, new ContinuousSession(capture, walWorker));
+                Sessions.Add(world, new ContinuousSession(capture, walWorker));
             };
             return builder;
         }
