@@ -38,12 +38,13 @@ public class CheckpointBuildBenchmarks
         registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), bytes => new Position { X = BitConverter.ToSingle(bytes) });
 
         var world = new World();
+        world.DefaultComponentCodecRegistry = registry;
         for (var i = 0; i < EntityCount; i++)
             world.Commands.CreateEntity(new Position { X = i });
         world.ApplyCommands();
 
         _checkpointStore = new FileStore(Path.Combine(_directory, "world.checkpoint"));
-        WorldSnapshot.Save(world, registry, _checkpointStore);
+        world.Save(_checkpointStore);
         _walStore = new FileWalStore(Path.Combine(_directory, "world"));
     }
 

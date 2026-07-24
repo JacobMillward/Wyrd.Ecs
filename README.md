@@ -63,7 +63,6 @@ Each package under `src/` has a matching `.Tests` project alongside it.
 
 - No scheduler. `RunOnce` invokes one system directly; ordering and running many systems is on the caller for now.
 - No published package. Reference the projects directly until a release goes out.
-- [`WorldSnapshot.Save`/`Load`](docs/persistence.md#binary-memorypack) take an explicit registry instead of falling back to `World.DefaultComponentCodecRegistry` the way the store already does. Should become `world.Save()` / `world.Load()`.
 
 ## License
 

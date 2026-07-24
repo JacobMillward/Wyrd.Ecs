@@ -107,7 +107,7 @@ public static class WorldContinuousPersistenceExtensions
         /// it, but performs no forced final merge), then stops change tracking. When
         /// <paramref name="mergeFinalCheckpoint"/> is true (the default), also folds
         /// everything left in the WAL into the checkpoint before returning, so
-        /// <c>WorldSnapshot.Load</c> alone reflects everything written before this call —
+        /// <c>World.Load</c> alone reflects everything written before this call —
         /// pass false for the fastest possible shutdown, leaving the WAL unmerged for a
         /// caller who will merge it later or elsewhere. Throws if
         /// <c>EnableContinuousPersistence</c> was never called for this World.

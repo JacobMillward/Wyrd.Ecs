@@ -9,7 +9,7 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 /// <c>(priorTick, targetTick]</c> in order (keyed by entity and discriminator,
 /// removal-kind records deleting entries instead of being skipped), and write the
 /// merged result back through the same atomic-swap <see cref="IPersistenceStore"/>
-/// path <c>WorldSnapshot.Save</c> already uses. Runs entirely out of band — no
+/// path <c>World.Save</c> already uses. Runs entirely out of band — no
 /// synchronization with a sim thread is needed because nothing here ever touches live
 /// state, only bytes already durable on disk.
 /// </summary>

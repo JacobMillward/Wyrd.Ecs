@@ -28,11 +28,16 @@ var world = new WorldBuilder()
 Save and load whenever you want a checkpoint:
 
 ```csharp
-WorldSnapshot.Save(world, world.DefaultComponentCodecRegistry!);
-WorldSnapshot.Load(world, world.DefaultComponentCodecRegistry!);
+world.Save();
+world.Load();
 ```
 
-> `world.DefaultComponentCodecRegistry!` here is a known rough edge, not the intended shape: `store` already defaults from the World when omitted, `registry` should too. See the `TODO` on `WorldSnapshot`. Expect this to shrink to `world.Save()` / `world.Load()`.
+Both default to `World.DefaultPersistenceStore`; pass a path or an `IPersistenceStore` to target a specific save slot instead, e.g. for a title screen with multiple save files:
+
+```csharp
+world.Save($"saves/{slot}.bin");
+world.Load($"saves/{slot}.bin");
+```
 
 ### JSON
 
@@ -72,6 +77,6 @@ world.StopContinuousPersistence();
 
 ## How it fits together
 
-- `WorldSnapshot.Save` / `Load` are the manual, on-demand primitive: a synchronous walk of every entity and every registered component, through an `IPersistenceStore`. Continuous persistence's periodic checkpoint calls the same `Save`, it doesn't duplicate the walk.
+- `world.Save()` / `Load()` are the manual, on-demand primitive: a synchronous walk of every entity and every registered component, through an `IPersistenceStore`. Continuous persistence's periodic checkpoint calls the same `Save`, it doesn't duplicate the walk.
 - `IPersistenceStore` is where the bytes go. `FileStore` (a single local file, written atomically) is the only implementation today.
 - `ComponentCodecRegistry` is what makes a component type persistable at all. The binary and JSON packages populate one for you from your own component types; you only touch it directly if you're writing a custom codec.
