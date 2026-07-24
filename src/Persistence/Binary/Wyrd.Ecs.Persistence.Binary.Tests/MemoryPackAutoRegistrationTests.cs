@@ -58,14 +58,16 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();
+        source.DefaultComponentCodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "hi" });
         source.ApplyCommands();
         var store = new FileStore(_path);
 
-        WorldSnapshot.Save(source, registry, store);
+        source.Save(store);
 
         var target = new World();
-        WorldSnapshot.Load(target, registry, store);
+        target.DefaultComponentCodecRegistry = registry;
+        target.Load(store);
 
         var found = false;
         foreach (var row in target.Query<AutoPosition>())
