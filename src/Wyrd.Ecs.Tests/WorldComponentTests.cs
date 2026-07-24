@@ -65,15 +65,16 @@ public class WorldComponentTests
     }
 
     [Fact]
-    public void AddComponent_Twice_Throws()
+    public void AddComponent_Twice_Overwrites()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position());
-        world.Commands.AddComponent(entity, new Position());
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.Commands.AddComponent(entity, new Position { X = 2f });
 
         var act = () => world.ApplyCommands();
 
-        act.Should().Throw<InvalidOperationException>();
+        act.Should().NotThrow();
+        world.GetComponent<Position>(entity).X.Should().Be(2f);
     }
 
     [Fact]

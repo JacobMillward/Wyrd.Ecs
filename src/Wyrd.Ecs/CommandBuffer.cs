@@ -132,9 +132,18 @@ public sealed partial class CommandBuffer
 
     private static class AddComponentOp<T> where T : struct, IComponent
     {
+        // TODO: once logging exists, warn here when the overwrite branch runs -
+        // it's valid (last-queued value wins, matching every other op's
+        // already-in-that-state-is-fine stance) but usually signals two systems
+        // queuing AddComponent for the same entity without coordinating.
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, slot) =>
         {
-            if (w.IsAlive(e)) w.AddComponent<T>(e) = ((AddComponentBuffer<T>)buffer!).Items[slot];
+            if (!w.IsAlive(e)) return;
+            var value = ((AddComponentBuffer<T>)buffer!).Items[slot];
+            if (w.HasComponent<T>(e))
+                w.GetComponent<T>(e) = value;
+            else
+                w.AddComponent<T>(e) = value;
         };
     }
 
@@ -170,7 +179,16 @@ public sealed partial class CommandBuffer
     public void DestroyEntity(Entity entity) =>
         Enqueue(new QueuedCommand(entity, DestroyEntityOp.Apply, null, 0));
 
-    /// <summary>Queues adding <paramref name="value"/> to <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command.</summary>
+    /// <summary>
+    /// Queues adding <paramref name="value"/> to <paramref name="entity"/>. A no-op at
+    /// apply time if the entity was destroyed by an earlier queued command. If
+    /// <paramref name="entity"/> already has a <typeparamref name="T"/> by the time this
+    /// command runs (an earlier queued <see cref="AddComponent{T}"/> for the same entity,
+    /// or one from a previous batch that was never removed), this overwrites it instead
+    /// of adding a second one — last-queued value wins, the same
+    /// already-in-that-state-is-fine stance every other queued operation on this class
+    /// takes.
+    /// </summary>
     public void AddComponent<T>(Entity entity, T value) where T : struct, IComponent
     {
         var buffer = GetAddComponentBuffer<T>();
@@ -198,14 +216,14 @@ public sealed partial class CommandBuffer
     /// sequence (a just-created entity's placement always runs before any command
     /// queued after it, so chaining is safe), so an earlier command that destroys an
     /// entity silently invalidates any later command in the same batch still targeting
-    /// it, rather than throwing. <see cref="AddComponent{T}"/> is the one queued
-    /// operation that can still throw (the entity already has that component) — if it
-    /// does, every command queued before it in this batch has already taken effect and
-    /// stays applied, the exception propagates to the caller as a real usage error, and
-    /// the queue is cleared regardless (in a <c>finally</c>) so the failed batch is
-    /// never replayed on a later call: without that, the next <see cref="Apply"/> would
-    /// re-run this same batch from the start, corrupting archetype state for every
-    /// command that had already succeeded.
+    /// it, rather than throwing — every queued operation on this class takes that same
+    /// already-in-that-state-is-fine stance, so nothing on this class's own logic throws
+    /// here in normal use. What can still throw is arbitrary consumer code reached
+    /// through a structural-change notification (an <see cref="IStructuralChangeObserver"/>
+    /// implementation this library doesn't control). The cleanup (clearing the queue,
+    /// resetting the per-type add-component buffers) runs in a <c>finally</c> regardless,
+    /// so a misbehaving observer never leaves the batch half-applied to be silently
+    /// replayed by the next call to <see cref="Apply"/>.
     /// </summary>
     internal void Apply()
     {

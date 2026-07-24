@@ -183,42 +183,33 @@ public class CommandsTests
     }
 
     [Fact]
-    public void Apply_WhenACommandThrows_StillClearsTheQueue_SoTheFailedBatchIsNeverReplayed()
+    public void AddComponent_WhenTheEntityAlreadyHasIt_Overwrites()
     {
         var world = new World();
         var entity = world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
 
-        world.Commands.AddComponent(entity, new Position { X = 2f }); // entity already has Position: throws on apply
+        world.Commands.AddComponent(entity, new Position { X = 2f });
 
         var act = () => world.ApplyCommands();
-        act.Should().Throw<InvalidOperationException>();
 
-        // A second Apply must be a clean no-op, not a replay of the failed batch.
-        var act2 = () => world.ApplyCommands();
-        act2.Should().NotThrow();
+        act.Should().NotThrow();
+        world.GetComponent<Position>(entity).X.Should().Be(2f);
     }
 
     [Fact]
-    public void Apply_WhenALaterCommandThrows_EarlierCommandsInTheSameBatchStayAppliedAndAreNotReplayed()
+    public void AddComponent_QueuedTwiceForTheSameEntityInOneBatch_LastQueuedValueWins()
     {
         var world = new World();
-        var duplicateTarget = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity();
         world.ApplyCommands();
 
-        var freshEntity = world.Commands.CreateEntity();
-        world.Commands.AddComponent(duplicateTarget, new Position { X = 2f }); // throws: duplicate component
+        world.Commands.AddComponent(entity, new Position { X = 1f });
+        world.Commands.AddComponent(entity, new Position { X = 2f });
+        world.ApplyCommands();
 
-        var act = () => world.ApplyCommands();
-        act.Should().Throw<InvalidOperationException>();
-
-        world.IsAlive(freshEntity).Should().BeTrue();
-
-        // Replaying the batch would call PlaceReservedEntity on freshEntity a second
-        // time, corrupting its archetype row - this must not happen.
-        var act2 = () => world.ApplyCommands();
-        act2.Should().NotThrow();
-        world.IsAlive(freshEntity).Should().BeTrue();
+        world.HasComponent<Position>(entity).Should().BeTrue();
+        world.GetComponent<Position>(entity).X.Should().Be(2f);
     }
 
     [Fact]
