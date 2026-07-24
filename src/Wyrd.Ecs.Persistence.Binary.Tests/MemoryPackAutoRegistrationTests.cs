@@ -77,4 +77,24 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         }
         found.Should().BeTrue();
     }
+
+    [Fact]
+    public void GeneratedAddBinaryPersistence_WithAStore_AutoRegistersAndConfiguresTheStore()
+    {
+        var store = new FileStore(_path);
+
+        var world = new WorldBuilder().AddBinaryPersistence(store).Build();
+
+        world.DefaultPersistenceStore.Should().BeSameAs(store);
+        world.DefaultComponentCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public void GeneratedAddBinaryPersistence_WithAPathString_AutoRegistersAndCreatesAFileStore()
+    {
+        var world = new WorldBuilder().AddBinaryPersistence(_path).Build();
+
+        world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
+        world.DefaultComponentCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+    }
 }

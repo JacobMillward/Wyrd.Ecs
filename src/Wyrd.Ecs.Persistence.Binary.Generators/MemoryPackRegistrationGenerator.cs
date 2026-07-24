@@ -7,17 +7,30 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c> and marked
-/// <c>[MemoryPackable]</c>, and emits <c>MemoryPackAutoRegistration.RegisterAll</c>:
-/// one <c>ComponentCodecRegistry.Register&lt;T&gt;</c> call per match, using
+/// <c>[MemoryPackable]</c>, and emits two things into the referencing project's own
+/// compilation (this generator only sees that project's syntax, never
+/// <c>Wyrd.Ecs.Persistence.Binary</c>'s own — a library convenience calling this
+/// generator's output could never see a real consumer's component types, which is why
+/// both live here instead):
+/// <list type="bullet">
+/// <item><c>MemoryPackAutoRegistration.RegisterAll</c>: one
+/// <c>ComponentCodecRegistry.Register&lt;T&gt;</c> call per match, using
 /// <c>MemoryPackSerializer.Serialize</c>/<c>Deserialize&lt;T&gt;</c> wrapped in a
 /// lambda — confirmed directly that they don't method-group-convert to
 /// <c>ComponentEncoder&lt;T&gt;</c>/<c>ComponentDecoder&lt;T&gt;</c>, a plain
-/// assignment fails to compile. Only ever calls MemoryPack's public runtime API,
-/// never anything MemoryPack's own generator emits by name, so there is no
-/// cross-generator ordering risk here the way the JSON codec's auto-registration has.
-/// Discriminators are each type's fully qualified name — unique and stable at compile
-/// time, avoiding a collision between two same-named components in different
-/// namespaces, which a bare simple name would risk.
+/// assignment fails to compile.</item>
+/// <item>A one-argument <c>WorldBuilder.AddBinaryPersistence(IPersistenceStore)</c>/
+/// <c>AddBinaryPersistence(string)</c> pair that builds a registry, calls the
+/// <c>RegisterAll</c> just generated, and delegates to
+/// <c>Wyrd.Ecs.Persistence.Binary</c>'s own two-argument
+/// <c>AddBinaryPersistence(store, registry)</c> — the "just make it work" call a
+/// consumer with this generator wired in actually uses.</item>
+/// </list>
+/// Only ever calls MemoryPack's public runtime API, never anything MemoryPack's own
+/// generator emits by name, so there is no cross-generator ordering risk here the way
+/// the JSON codec's auto-registration has. Discriminators are each type's fully
+/// qualified name — unique and stable at compile time, avoiding a collision between two
+/// same-named components in different namespaces, which a bare simple name would risk.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
@@ -50,6 +63,26 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
                 sb.AppendLine($"            bytes => global::MemoryPack.MemoryPackSerializer.Deserialize<global::{typeName}>(bytes));");
             }
 
+            sb.AppendLine("    }");
+            sb.AppendLine("}");
+            sb.AppendLine();
+            sb.AppendLine("public static class MemoryPackAutoRegistrationWorldBuilderExtensions");
+            sb.AppendLine("{");
+            sb.AppendLine("    extension(global::Wyrd.Ecs.WorldBuilder builder)");
+            sb.AppendLine("    {");
+            sb.AppendLine("        public global::Wyrd.Ecs.WorldBuilder AddBinaryPersistence(global::Wyrd.Ecs.Persistence.IPersistenceStore store)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            var registry = new global::Wyrd.Ecs.ComponentCodecRegistry();");
+            sb.AppendLine("            MemoryPackAutoRegistration.RegisterAll(registry);");
+            sb.AppendLine("            return builder.AddBinaryPersistence(store, registry);");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+            sb.AppendLine("        public global::Wyrd.Ecs.WorldBuilder AddBinaryPersistence(string path)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            var registry = new global::Wyrd.Ecs.ComponentCodecRegistry();");
+            sb.AppendLine("            MemoryPackAutoRegistration.RegisterAll(registry);");
+            sb.AppendLine("            return builder.AddBinaryPersistence(path, registry);");
+            sb.AppendLine("        }");
             sb.AppendLine("    }");
             sb.AppendLine("}");
             spc.AddSource("MemoryPackAutoRegistration.g.cs", sb.ToString());
