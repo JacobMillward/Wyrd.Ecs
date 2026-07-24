@@ -7,6 +7,13 @@ namespace Wyrd.Ecs.Persistence;
 /// synchronous walk of the world out, and a synchronous walk of the file back in. A
 /// continuous WAL layer (a separate, later piece of this pipeline) calls
 /// <see cref="Save"/> as its own periodic checkpoint rather than duplicating this walk.
+///
+/// TODO: <paramref name="store"/> already falls back to <c>World.DefaultPersistenceStore</c>
+/// when omitted (see <c>ResolveDefaultStore</c>); <c>registry</c> should get the same
+/// treatment against <c>World.DefaultComponentCodecRegistry</c> instead of being a
+/// required positional argument, and both methods should become <c>World</c> extension
+/// members (<c>world.Save()</c> / <c>world.Load()</c>) alongside the existing
+/// <c>extension(World world)</c> block in <c>WorldPersistenceExtensions</c>.
 /// </summary>
 public static class WorldSnapshot
 {
