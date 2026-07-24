@@ -34,6 +34,16 @@ internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, ICom
         return changes;
     }
 
+    public List<RawChange> ReadRawChanges(World world, int sinceTick)
+    {
+        var changes = new List<RawChange>();
+        foreach (var change in world.ReadChanges<T>(sinceTick))
+            changes.Add(new RawChange(change.Entity, change.Tick, change.Value));
+        return changes;
+    }
+
+    public byte[] EncodeValue(object value) => _encode((T)value);
+
     public byte[] EncodeRow(Array rawItems, int row) => _encode(((T[])rawItems)[row]);
 
     public void DecodeInto(World world, Entity entity, byte[] data) =>

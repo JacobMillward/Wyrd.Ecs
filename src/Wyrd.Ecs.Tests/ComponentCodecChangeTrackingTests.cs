@@ -92,4 +92,53 @@ public class ComponentCodecChangeTrackingTests
 
         changes.Should().BeEmpty();
     }
+
+    [Fact]
+    public void ReadRawChanges_WithNoTrackingEnabled_ReturnsNothing()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+        registry.TryGetByDiscriminator("Position", out var codec);
+
+        var changes = codec.ReadRawChanges(world, sinceTick: 0);
+
+        changes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EnableChangeTracking_ThenReadRawChanges_ReturnsTheBoxedValueUnencoded()
+    {
+        var world = new World();
+        var registry = BuildRegistry(schemaHash: 7u);
+        registry.TryGetByDiscriminator("Position", out var codec);
+        using var tracking = codec.EnableChangeTracking(world);
+
+        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+
+        var changes = codec.ReadRawChanges(world, sinceTick: 0);
+
+        changes.Should().ContainSingle();
+        var change = changes[0];
+        change.Entity.Should().Be(entity);
+        change.Value.Should().BeOfType<Position>().Which.X.Should().Be(5f);
+    }
+
+    [Fact]
+    public void EncodeValue_EncodesABoxedValueTheSameWayEncodeChangesWould()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        registry.TryGetByDiscriminator("Position", out var codec);
+        using var tracking = codec.EnableChangeTracking(world);
+        world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        var raw = codec.ReadRawChanges(world, sinceTick: 0)[0];
+
+        var encoded = codec.EncodeValue(raw.Value);
+
+        Encoding.UTF8.GetString(encoded).Should().Be("5");
+    }
 }

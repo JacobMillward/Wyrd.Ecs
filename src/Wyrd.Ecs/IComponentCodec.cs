@@ -43,8 +43,26 @@ public interface IComponentCodec
     /// </summary>
     List<EncodedChange> EncodeChanges(World world, int sinceTick);
 
+    /// <summary>
+    /// Scans for every change to this registration's concrete component type since
+    /// <paramref name="sinceTick"/>, the same scan <see cref="EncodeChanges"/> uses, but
+    /// without encoding — each value is returned boxed, for a caller who wants to defer
+    /// the actual encode cost (e.g. off the thread that produced this list). Call
+    /// <see cref="EncodeValue"/> on each result's <see cref="RawChange.Value"/> when
+    /// ready to materialize the bytes.
+    /// </summary>
+    List<RawChange> ReadRawChanges(World world, int sinceTick);
+
     /// <summary>Serializes the component at <paramref name="row"/> in <paramref name="rawItems"/> (a component storage's <c>RawItems</c> array, of this registration's concrete component type).</summary>
     byte[] EncodeRow(Array rawItems, int row);
+
+    /// <summary>
+    /// Encodes <paramref name="value"/>, a previously-boxed value obtained from
+    /// <see cref="ReadRawChanges"/>. <paramref name="value"/> must be a boxed instance
+    /// of this registration's concrete component type — passing anything else throws
+    /// an <see cref="InvalidCastException"/>.
+    /// </summary>
+    byte[] EncodeValue(object value);
 
     /// <summary>
     /// Deserializes <paramref name="data"/> and queues adding it to <paramref name="entity"/>
