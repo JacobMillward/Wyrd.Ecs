@@ -183,6 +183,45 @@ public class CommandsTests
     }
 
     [Fact]
+    public void Apply_WhenACommandThrows_StillClearsTheQueue_SoTheFailedBatchIsNeverReplayed()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+
+        world.Commands.AddComponent(entity, new Position { X = 2f }); // entity already has Position: throws on apply
+
+        var act = () => world.ApplyCommands();
+        act.Should().Throw<InvalidOperationException>();
+
+        // A second Apply must be a clean no-op, not a replay of the failed batch.
+        var act2 = () => world.ApplyCommands();
+        act2.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Apply_WhenALaterCommandThrows_EarlierCommandsInTheSameBatchStayAppliedAndAreNotReplayed()
+    {
+        var world = new World();
+        var duplicateTarget = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+
+        var freshEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(duplicateTarget, new Position { X = 2f }); // throws: duplicate component
+
+        var act = () => world.ApplyCommands();
+        act.Should().Throw<InvalidOperationException>();
+
+        world.IsAlive(freshEntity).Should().BeTrue();
+
+        // Replaying the batch would call PlaceReservedEntity on freshEntity a second
+        // time, corrupting its archetype row - this must not happen.
+        var act2 = () => world.ApplyCommands();
+        act2.Should().NotThrow();
+        world.IsAlive(freshEntity).Should().BeTrue();
+    }
+
+    [Fact]
     public void QueuedStructuralChange_DuringQueryIteration_DoesNotCorruptTheIteration()
     {
         var world = new World();

@@ -198,20 +198,32 @@ public sealed partial class CommandBuffer
     /// sequence (a just-created entity's placement always runs before any command
     /// queued after it, so chaining is safe), so an earlier command that destroys an
     /// entity silently invalidates any later command in the same batch still targeting
-    /// it, rather than throwing.
+    /// it, rather than throwing. <see cref="AddComponent{T}"/> is the one queued
+    /// operation that can still throw (the entity already has that component) — if it
+    /// does, every command queued before it in this batch has already taken effect and
+    /// stays applied, the exception propagates to the caller as a real usage error, and
+    /// the queue is cleared regardless (in a <c>finally</c>) so the failed batch is
+    /// never replayed on a later call: without that, the next <see cref="Apply"/> would
+    /// re-run this same batch from the start, corrupting archetype state for every
+    /// command that had already succeeded.
     /// </summary>
     internal void Apply()
     {
-        for (var i = 0; i < _count; i++)
+        try
         {
-            ref readonly var command = ref _queue[i];
-            command.Apply(_world, command.Entity, command.Buffer, command.Slot);
+            for (var i = 0; i < _count; i++)
+            {
+                ref readonly var command = ref _queue[i];
+                command.Apply(_world, command.Entity, command.Buffer, command.Slot);
+            }
         }
+        finally
+        {
+            Array.Clear(_queue, 0, _count);
+            _count = 0;
 
-        Array.Clear(_queue, 0, _count);
-        _count = 0;
-
-        foreach (var buffer in _addComponentBuffers)
-            (buffer as IResettableBuffer)?.ResetForNextBatch();
+            foreach (var buffer in _addComponentBuffers)
+                (buffer as IResettableBuffer)?.ResetForNextBatch();
+        }
     }
 }
