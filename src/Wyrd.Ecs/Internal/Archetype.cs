@@ -4,8 +4,8 @@ namespace Wyrd.Ecs.Internal;
 /// One archetype: every entity sharing this exact component/tag <see cref="Signature"/>,
 /// stored as parallel dense arrays — one <see cref="ComponentStorage{T}"/> per component
 /// type (tags contribute only to <see cref="Signature"/>, never get a storage entry) plus
-/// <see cref="Entities"/> mapping row → the entity occupying it. For Phase 4, "chunk" and
-/// "archetype" are the same thing — see the archetype-storage plan's Global Constraints.
+/// <see cref="Entities"/> mapping row → the entity occupying it. A query's "chunk" is one
+/// archetype's full row range — there is no finer-grained chunking within an archetype.
 /// </summary>
 internal sealed class Archetype
 {

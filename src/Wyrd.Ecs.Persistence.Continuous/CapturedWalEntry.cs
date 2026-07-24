@@ -12,7 +12,7 @@ public readonly record struct CapturedWalEntry(WalRecordKind Kind, int Tick, Ent
     /// <summary>
     /// Value equality over <see cref="Payload"/>'s contents, not the default record
     /// struct behavior a <c>byte[]</c> field would otherwise get (reference equality) —
-    /// the same gap <c>EncodedChange</c> and <c>EncodedComponent</c> were fixed for.
+    /// the same reason <c>EncodedChange</c> and <c>EncodedComponent</c> override it too.
     /// </summary>
     public bool Equals(CapturedWalEntry other) =>
         Kind == other.Kind &&
