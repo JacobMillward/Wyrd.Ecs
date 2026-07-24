@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
-    <ProjectReference Include="..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
+    <ProjectReference Include="..\Persistence\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

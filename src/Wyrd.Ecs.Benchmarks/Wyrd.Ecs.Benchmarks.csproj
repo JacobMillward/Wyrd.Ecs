@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
-    <ProjectReference Include="..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
+    <ProjectReference Include="..\Persistence\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence.Continuous\Wyrd.Ecs.Persistence.Continuous.csproj" />
     <ProjectReference Include="..\Core\Wyrd.Ecs.Analyzers\Wyrd.Ecs.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\Core\Wyrd.Ecs.Interceptors\Wyrd.Ecs.Interceptors.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />

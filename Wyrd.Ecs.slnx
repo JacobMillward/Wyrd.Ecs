@@ -11,6 +11,10 @@
     <Project Path="src/Core/Wyrd.Ecs.Analyzers/Wyrd.Ecs.Analyzers.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.Analyzers.Tests/Wyrd.Ecs.Analyzers.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Persistence/">
+    <Project Path="src/Persistence/Wyrd.Ecs.Persistence/Wyrd.Ecs.Persistence.csproj" />
+    <Project Path="src/Persistence/Wyrd.Ecs.Persistence.Tests/Wyrd.Ecs.Persistence.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
     <Project Path="src/Wyrd.Ecs.Persistence.Binary.Generators.Tests/Wyrd.Ecs.Persistence.Binary.Generators.Tests.csproj" />
@@ -23,7 +27,5 @@
     <Project Path="src/Wyrd.Ecs.Persistence.Json.Generators/Wyrd.Ecs.Persistence.Json.Generators.csproj" />
     <Project Path="src/Wyrd.Ecs.Persistence.Json.Tests/Wyrd.Ecs.Persistence.Json.Tests.csproj" />
     <Project Path="src/Wyrd.Ecs.Persistence.Json/Wyrd.Ecs.Persistence.Json.csproj" />
-    <Project Path="src/Wyrd.Ecs.Persistence.Tests/Wyrd.Ecs.Persistence.Tests.csproj" />
-    <Project Path="src/Wyrd.Ecs.Persistence/Wyrd.Ecs.Persistence.csproj" />
   </Folder>
 </Solution>
