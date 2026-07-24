@@ -11,7 +11,7 @@ namespace Wyrd.Ecs.Persistence.Internal;
 /// misreading garbage as records. The tick lets any consumer built on top of a raw
 /// checkpoint (continuous persistence's checkpoint-merge, for one) know exactly what
 /// state it captures without extra out-of-band bookkeeping — a plain manual
-/// <see cref="WorldSnapshot.Save"/> stamps it the same way, whether or not anything
+/// <c>World.Save</c> stamps it the same way, whether or not anything
 /// downstream ever reads it. Each record is a permanent <see cref="EntityId"/>, a
 /// component's stable wire discriminator, its registered schema hash (an explicit
 /// has-a-hash flag plus the value, not a 0-means-unset sentinel), and its serialized
