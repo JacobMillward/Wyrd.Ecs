@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wyrd.Ecs.Benchmarks</RootNamespace>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Wyrd.Ecs.Interceptors.Generated</InterceptorsNamespaces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageReference Include="Friflo.Engine.ECS" Version="3.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\..\src\Persistence\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Persistence\Continuous\Wyrd.Ecs.Persistence.Continuous\Wyrd.Ecs.Persistence.Continuous.csproj" />
+    <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.Analyzers\Wyrd.Ecs.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.Interceptors\Wyrd.Ecs.Interceptors.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.SystemGenerators\Wyrd.Ecs.SystemGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

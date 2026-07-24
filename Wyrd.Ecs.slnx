@@ -31,7 +31,7 @@
     <Project Path="src/Persistence/Continuous/Wyrd.Ecs.Persistence.Continuous/Wyrd.Ecs.Persistence.Continuous.csproj" />
     <Project Path="src/Persistence/Continuous/Wyrd.Ecs.Persistence.Continuous.Tests/Wyrd.Ecs.Persistence.Continuous.Tests.csproj" />
   </Folder>
-  <Folder Name="/src/">
-    <Project Path="src/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
   </Folder>
 </Solution>
