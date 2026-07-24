@@ -1,3 +1,6 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
 namespace Wyrd.Ecs.Persistence.Binary.Generators.Tests;
 
 public class MemoryPackRegistrationGeneratorTests
@@ -89,5 +92,54 @@ public class MemoryPackRegistrationGeneratorTests
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().Contain("public global::Wyrd.Ecs.WorldBuilder AddBinaryPersistence(global::Wyrd.Ecs.Persistence.IPersistenceStore store)");
         generated.Should().Contain("public global::Wyrd.Ecs.WorldBuilder AddBinaryPersistence(string path)");
+    }
+
+    [Fact]
+    public void EditingAnUnrelatedMethodBody_LeavesTheCandidateStepUnchanged()
+    {
+        const string sourceV1 = """
+            using MemoryPack;
+            using Wyrd.Ecs;
+
+            [MemoryPackable]
+            public partial struct Position : IComponent { public float X; }
+
+            public static class Unrelated
+            {
+                public static int Compute() => 1;
+            }
+            """;
+
+        const string sourceV2 = """
+            using MemoryPack;
+            using Wyrd.Ecs;
+
+            [MemoryPackable]
+            public partial struct Position : IComponent { public float X; }
+
+            public static class Unrelated
+            {
+                public static int Compute() => 2;
+            }
+            """;
+
+        var generator = new MemoryPackRegistrationGenerator().AsSourceGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            generators: [generator],
+            driverOptions: new GeneratorDriverOptions(trackIncrementalGeneratorSteps: true));
+
+        var compilationV1 = GeneratorTestHost.Compile(sourceV1);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilationV1, out _, out _);
+
+        var originalTree = compilationV1.SyntaxTrees.Single();
+        var editedTree = originalTree.WithChangedText(Microsoft.CodeAnalysis.Text.SourceText.From(sourceV2));
+        var compilationV2 = compilationV1.ReplaceSyntaxTree(originalTree, editedTree);
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilationV2, out _, out _);
+
+        var steps = driver.GetRunResult().Results[0].TrackedSteps["RegisteredComponentInfo"];
+        steps.Should().ContainSingle();
+        steps[0].Outputs.Should().Contain(o =>
+            o.Reason == IncrementalStepRunReason.Cached || o.Reason == IncrementalStepRunReason.Unchanged);
     }
 }
