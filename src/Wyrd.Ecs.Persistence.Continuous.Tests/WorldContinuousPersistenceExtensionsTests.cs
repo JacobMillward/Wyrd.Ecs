@@ -162,7 +162,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
             .EnableContinuousPersistence(walStore, options: new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(20), CheckpointInterval = TimeSpan.FromMinutes(10) })
             .Build();
 
-        world.StopContinuousPersistence();
+        world.StopContinuousPersistence(mergeFinalCheckpoint: false);
         var segmentTickAtStop = walStore.ListSegmentStartTicks().Single();
 
         var entity = world.Commands.CreateEntity(new Position { X = 1f });
@@ -205,10 +205,6 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         world.AdvanceTick();
 
         world.StopContinuousPersistence();
-        // Fold whatever's left in the WAL into the checkpoint, exactly as real recovery
-        // would after a crash. Task 6 makes Stop do this on its own; until then this
-        // manual step is still required for the reload below to see everything.
-        CheckpointBuilder.Build(checkpointStore, walStore, world.CurrentTick);
 
         var reloaded = new World();
         var reloadedRegistry = BuildRegistry();
@@ -223,5 +219,50 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         foreach (var row in reloaded.Query<Velocity>())
             velocityCount++;
         velocityCount.Should().Be(0); // added then removed — must not resurrect
+    }
+
+    [Fact]
+    public void StopContinuousPersistence_DefaultsToMergingWalIntoTheCheckpoint()
+    {
+        var checkpointStore = new FileStore(CheckpointPath);
+        var walStore = new FileWalStore(WalBasePath);
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(checkpointStore)
+            .EnableContinuousPersistence(walStore)
+            .Build();
+
+        world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        world.StopContinuousPersistence();
+
+        var (tick, entries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        tick.Should().Be(world.CurrentTick);
+        entries.Keys.Should().Contain(k => k.Discriminator == "Position");
+    }
+
+    [Fact]
+    public void StopContinuousPersistence_WithMergeFinalCheckpointFalse_LeavesTheCheckpointAtItsBootstrapState()
+    {
+        var checkpointStore = new FileStore(CheckpointPath);
+        var walStore = new FileWalStore(WalBasePath);
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(checkpointStore)
+            .EnableContinuousPersistence(walStore)
+            .Build();
+        var (bootstrapTick, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+
+        world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        world.StopContinuousPersistence(mergeFinalCheckpoint: false);
+
+        var (tick, entries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        tick.Should().Be(bootstrapTick);
+        entries.Keys.Should().NotContain(k => k.Discriminator == "Position");
     }
 }

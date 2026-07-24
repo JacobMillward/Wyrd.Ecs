@@ -94,10 +94,15 @@ public static class WorldContinuousPersistenceExtensions
         /// Stops continuous persistence: disposes the WAL-writer/checkpoint-merge
         /// threads (the WAL-writer finishes draining and fsyncs one last time; the
         /// checkpoint-merge thread finishes any in-flight merge rather than aborting
-        /// it, but performs no forced final merge), then stops change tracking. Throws
-        /// if <c>EnableContinuousPersistence</c> was never called for this World.
+        /// it, but performs no forced final merge), then stops change tracking. When
+        /// <paramref name="mergeFinalCheckpoint"/> is true (the default), also folds
+        /// everything left in the WAL into the checkpoint before returning, so
+        /// <c>WorldSnapshot.Load</c> alone reflects everything written before this call —
+        /// pass false for the fastest possible shutdown, leaving the WAL unmerged for a
+        /// caller who will merge it later or elsewhere. Throws if
+        /// <c>EnableContinuousPersistence</c> was never called for this World.
         /// </summary>
-        public void StopContinuousPersistence()
+        public void StopContinuousPersistence(bool mergeFinalCheckpoint = true)
         {
             if (!Sessions.TryGetValue(world, out var session))
                 throw new InvalidOperationException(
@@ -105,6 +110,7 @@ public static class WorldContinuousPersistenceExtensions
                     "(WorldBuilder.EnableContinuousPersistence was never called).");
 
             session.WalWorker.Dispose();
+            if (mergeFinalCheckpoint) session.WalWorker.MergeFinalCheckpoint();
             session.Capture.Dispose();
             Sessions.Remove(world);
         }

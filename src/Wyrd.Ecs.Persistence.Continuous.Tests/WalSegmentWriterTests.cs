@@ -145,6 +145,34 @@ public class WalSegmentWriterTests : IDisposable
         WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _).Should().BeTrue();
     }
 
+    [Fact]
+    public void CloseCurrentSegment_ClosesWithoutOpeningAReplacement()
+    {
+        var walStore = new FileWalStore(BasePath);
+        var writer = new WalSegmentWriter(walStore);
+        writer.EnsureSegmentOpen(1);
+
+        writer.CloseCurrentSegment();
+
+        writer.CurrentSegmentStartTick.Should().Be(-1);
+    }
+
+    [Fact]
+    public void CloseCurrentSegment_TheClosedSegmentIsReadableAfterwards()
+    {
+        var walStore = new FileWalStore(BasePath);
+        var writer = new WalSegmentWriter(walStore);
+        writer.EnsureSegmentOpen(1);
+        writer.WriteRecords(new DrainedChanges([new CapturedWalEntry(WalRecordKind.ComponentChanged, 1, EntityId.NewId(), "Position", null, [1])], []));
+        writer.Flush();
+
+        writer.CloseCurrentSegment();
+
+        using var readStream = walStore.OpenSegmentRead(1);
+        WalSegmentIO.ReadHeader(readStream);
+        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _).Should().BeTrue();
+    }
+
     private sealed class FakeCodec : IComponentCodec
     {
         public string Discriminator => "Fake";

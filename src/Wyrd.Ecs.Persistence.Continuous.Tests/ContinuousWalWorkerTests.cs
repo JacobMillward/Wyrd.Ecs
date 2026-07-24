@@ -289,4 +289,47 @@ public class ContinuousWalWorkerTests : IDisposable
             found = found || readEntity == world.GetPermanentId(entity);
         found.Should().BeTrue();
     }
+
+    [Fact]
+    public void MergeFinalCheckpoint_MergesEverythingWrittenSoFarIntoTheCheckpoint()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var checkpointStore = new FileStore(CheckpointPath);
+        var worker = new ContinuousWalWorker(world, capture, checkpointStore, walStore, WalOptions.Default);
+
+        world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+        worker.WalWriteCycle();
+        worker.Dispose();
+
+        worker.MergeFinalCheckpoint();
+
+        var (_, entries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        entries.Keys.Should().Contain(k => k.Discriminator == "Position");
+    }
+
+    [Fact]
+    public void MergeFinalCheckpoint_RetiresEveryWalSegment()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        var walStore = new FileWalStore(WalBasePath);
+        var checkpointStore = new FileStore(CheckpointPath);
+        var worker = new ContinuousWalWorker(world, capture, checkpointStore, walStore, WalOptions.Default);
+
+        world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+        world.AdvanceTick();
+        worker.WalWriteCycle();
+        worker.Dispose();
+
+        worker.MergeFinalCheckpoint();
+
+        walStore.ListSegmentStartTicks().Should().BeEmpty();
+    }
 }

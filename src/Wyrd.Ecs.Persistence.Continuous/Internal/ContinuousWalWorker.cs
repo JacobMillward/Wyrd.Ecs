@@ -169,4 +169,21 @@ internal sealed class ContinuousWalWorker : IDisposable
         _rotationDone.Dispose();
         _cts.Dispose();
     }
+
+    /// <summary>
+    /// Closes the currently open WAL segment (no replacement is opened — this worker is
+    /// stopping) and merges every WAL segment into a new checkpoint stamped at the
+    /// World's current tick, then retires the merged segments. Only safe to call after
+    /// <see cref="Dispose"/>'s background threads have already stopped — closing the
+    /// segment out from under the WAL-writer thread while it's still running would race
+    /// it.
+    /// </summary>
+    internal void MergeFinalCheckpoint()
+    {
+        _segmentWriter.CloseCurrentSegment();
+        var toRetire = _walStore.ListSegmentStartTicks().ToList();
+        CheckpointBuilder.Build(_checkpointStore, _walStore, _world.CurrentTick);
+        foreach (var startTick in toRetire)
+            _walStore.DeleteSegment(startTick);
+    }
 }

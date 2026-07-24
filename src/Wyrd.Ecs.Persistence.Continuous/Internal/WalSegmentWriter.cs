@@ -83,6 +83,17 @@ internal sealed class WalSegmentWriter(IWalStore walStore)
         }
     }
 
+    /// <summary>Closes the currently open segment (if any) without opening a replacement — for a final shutdown merge where no further writing will happen.</summary>
+    internal void CloseCurrentSegment()
+    {
+        lock (_lock)
+        {
+            _currentSegment?.Dispose();
+            _currentSegment = null;
+            _currentSegmentStartTick = -1;
+        }
+    }
+
     /// <summary>Closes the currently open segment (if any) and opens a fresh one starting at <paramref name="newStartTick"/>.</summary>
     internal void Rotate(int newStartTick)
     {
