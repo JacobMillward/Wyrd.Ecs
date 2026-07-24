@@ -30,11 +30,19 @@ public static class WorldContinuousPersistenceExtensions
         /// <see cref="FileStore"/> (no naming collision — <see cref="FileWalStore"/>
         /// names segments <c>{path}.wal.{tick}</c>, distinct from the checkpoint file at
         /// <c>path</c> itself); otherwise it must be supplied explicitly.
+        /// <paramref name="registerProcessExitSafetyNet"/> (default true) tracks this
+        /// session so that if the process exits without <c>StopContinuousPersistence</c>
+        /// ever being called, it's force-stopped and merged then, as a safety net for
+        /// crashes, forced quits, or a missing shutdown path — not a fix for a World
+        /// abandoned mid-process while the game keeps running, which still leaks until
+        /// the process itself exits. Pass false to opt this session out and guarantee
+        /// <c>Stop</c> is only ever called explicitly.
         /// </summary>
         public WorldBuilder EnableContinuousPersistence(
             IWalStore? walStore = null,
             WalOptions? options = null,
-            Action<Exception>? onError = null)
+            Action<Exception>? onError = null,
+            bool registerProcessExitSafetyNet = true)
         {
             builder.OnBuilt += world =>
             {
@@ -83,6 +91,8 @@ public static class WorldContinuousPersistenceExtensions
                 walWorker.Start();
 
                 Sessions.Add(world, new ContinuousSession(capture, walWorker));
+                if (registerProcessExitSafetyNet)
+                    Internal.ProcessExitSafetyNet.Register(world, world.StopContinuousPersistence);
             };
             return builder;
         }
@@ -109,6 +119,7 @@ public static class WorldContinuousPersistenceExtensions
                     "Continuous persistence was never enabled for this World " +
                     "(WorldBuilder.EnableContinuousPersistence was never called).");
 
+            Internal.ProcessExitSafetyNet.Unregister(world);
             session.WalWorker.Dispose();
             if (mergeFinalCheckpoint) session.WalWorker.MergeFinalCheckpoint();
             session.Capture.Dispose();

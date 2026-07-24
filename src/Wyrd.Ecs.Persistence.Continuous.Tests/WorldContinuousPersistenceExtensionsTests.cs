@@ -265,4 +265,38 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         tick.Should().Be(bootstrapTick);
         entries.Keys.Should().NotContain(k => k.Discriminator == "Position");
     }
+
+    [Fact]
+    public void RegisterProcessExitSafetyNetFalse_TheSessionIsNotSweptOnProcessExit()
+    {
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath), registerProcessExitSafetyNet: false)
+            .Build();
+
+        // If the session had been tracked despite opting out, this sweep would already
+        // have stopped it, and the explicit Stop below would throw "never enabled."
+        ProcessExitSafetyNet.StopAllTrackedSessions();
+
+        var act = () => world.StopContinuousPersistence(mergeFinalCheckpoint: false);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void RegisterProcessExitSafetyNetDefaultsToTrue_TheSessionIsTrackedForTheExitSweep()
+    {
+        var world = new WorldBuilder()
+            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
+            .EnableContinuousPersistence(new FileWalStore(WalBasePath))
+            .Build();
+
+        ProcessExitSafetyNet.StopAllTrackedSessions();
+
+        var act = () => world.StopContinuousPersistence();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }
