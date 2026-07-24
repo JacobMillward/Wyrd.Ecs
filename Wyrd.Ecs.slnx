@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Wyrd.Ecs.Analyzers.Tests/Wyrd.Ecs.Analyzers.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Analyzers/Wyrd.Ecs.Analyzers.csproj" />
+    <Project Path="src/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
+    <Project Path="src/Wyrd.Ecs.Generators.Tests/Wyrd.Ecs.Generators.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Generators/Wyrd.Ecs.Generators.csproj" />
+    <Project Path="src/Wyrd.Ecs.Interceptors.Tests/Wyrd.Ecs.Interceptors.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Interceptors/Wyrd.Ecs.Interceptors.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Binary.Generators.Tests/Wyrd.Ecs.Persistence.Binary.Generators.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Binary.Generators/Wyrd.Ecs.Persistence.Binary.Generators.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Binary.Tests/Wyrd.Ecs.Persistence.Binary.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Binary/Wyrd.Ecs.Persistence.Binary.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Continuous.Tests/Wyrd.Ecs.Persistence.Continuous.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Continuous/Wyrd.Ecs.Persistence.Continuous.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Json.Generators.Tests/Wyrd.Ecs.Persistence.Json.Generators.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Json.Generators/Wyrd.Ecs.Persistence.Json.Generators.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Json.Tests/Wyrd.Ecs.Persistence.Json.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Json/Wyrd.Ecs.Persistence.Json.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence.Tests/Wyrd.Ecs.Persistence.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.Persistence/Wyrd.Ecs.Persistence.csproj" />
+    <Project Path="src/Wyrd.Ecs.SystemGenerators.Tests/Wyrd.Ecs.SystemGenerators.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs.SystemGenerators/Wyrd.Ecs.SystemGenerators.csproj" />
+    <Project Path="src/Wyrd.Ecs.Tests/Wyrd.Ecs.Tests.csproj" />
+    <Project Path="src/Wyrd.Ecs/Wyrd.Ecs.csproj" />
+  </Folder>
+</Solution>

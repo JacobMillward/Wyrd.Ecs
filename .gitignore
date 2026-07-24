@@ -1,0 +1,12 @@
+# Superpowers specs/plans are working docs, not repo history
+/docs/superpowers/
+
+# .NET
+bin/
+obj/
+BenchmarkDotNet.Artifacts/
+*.user
+
+# Mirrored build output for Wyrd.Ecs.Persistence.Json.Generators' UsingTask path -
+# see the copy target in that project's csproj
+src/Wyrd.Ecs.Persistence.Json.Generators/tasks/
