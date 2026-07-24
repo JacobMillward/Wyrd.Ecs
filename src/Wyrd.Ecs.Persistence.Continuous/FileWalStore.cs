@@ -41,7 +41,13 @@ public sealed class FileWalStore(string basePath) : IWalStore
     public void DeleteSegment(int startTick) => File.Delete(SegmentPath(startTick));
 
     /// <inheritdoc/>
-    public void Flush(Stream segment) => ((FileStream)segment).Flush(flushToDisk: true);
+    public void Flush(Stream segment)
+    {
+        if (segment is not FileStream fileStream)
+            throw new ArgumentException($"{nameof(segment)} must be a stream returned by {nameof(OpenSegmentAppend)} on this same {nameof(FileWalStore)} instance, not a {segment.GetType()}.", nameof(segment));
+
+        fileStream.Flush(flushToDisk: true);
+    }
 
     private string SegmentPath(int startTick) => $"{basePath}.wal.{startTick}";
 }

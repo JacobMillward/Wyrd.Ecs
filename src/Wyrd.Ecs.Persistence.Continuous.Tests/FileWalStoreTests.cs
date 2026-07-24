@@ -97,4 +97,15 @@ public class FileWalStoreTests : IDisposable
 
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Flush_OnAStreamNotFromThisStore_ThrowsWithAClearMessage()
+    {
+        var store = new FileWalStore(BasePath);
+        using var stream = new MemoryStream();
+
+        var act = () => store.Flush(stream);
+
+        act.Should().Throw<ArgumentException>().WithMessage("*OpenSegmentAppend*");
+    }
 }
