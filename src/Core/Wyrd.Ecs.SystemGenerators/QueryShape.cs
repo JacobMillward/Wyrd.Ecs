@@ -10,20 +10,49 @@ internal readonly record struct AnyElement(string Type0Name, string Type1Name);
 
 /// <summary>
 /// A query shape extracted from a chain's resolved <c>Query&lt;TShape&gt;</c> receiver
-/// type. Deliberately a plain class, not a value-equatable record -- comparing two
-/// shapes for the two purposes this design actually needs (exact-overload
-/// deduplication via <see cref="ExactShapeTypeName"/>, logical-shape backend sharing
-/// via <see cref="QueryShapeExtensions.DedupKey"/>) always goes through those two
-/// plain-string members explicitly, never through this type's own equality -- avoiding
-/// the well-known pitfall where a record's synthesized equality on
-/// <see cref="ImmutableArray{T}"/> fields compares by reference, not element-wise.
+/// type. A plain class, not a record -- a record's synthesized equality on
+/// <see cref="ImmutableArray{T}"/> fields compares by reference, not element-wise, which
+/// is never what two independently-extracted shapes with the same content need. Instead
+/// <see cref="IEquatable{QueryShape}"/> is implemented explicitly below with
+/// <c>SequenceEqual</c> on each array. Correct equality here matters beyond this type's
+/// own two comparison purposes (exact-overload deduplication via
+/// <see cref="ExactShapeTypeName"/>, logical-shape backend sharing via
+/// <see cref="QueryShapeExtensions.DedupKey"/>): <c>QueryChainGenerator</c>'s
+/// <see cref="IIncrementalGenerator"/> pipeline threads <see cref="QueryShape"/> values
+/// through <c>Select</c>/<c>Where</c>/<c>Collect</c>/<c>Combine</c>, and Roslyn's
+/// incremental caching relies on value equality between runs to decide whether
+/// <c>RegisterSourceOutput</c> needs to re-run at all -- reference equality here would
+/// make every edit anywhere in a consuming project look like a change to every shape,
+/// forcing a full regeneration on every keystroke.
 /// </summary>
-internal sealed class QueryShape
+internal sealed class QueryShape : IEquatable<QueryShape>
 {
     public required string ExactShapeTypeName { get; init; }
     public required ImmutableArray<MarkerElement> Markers { get; init; }
     public required ImmutableArray<WithoutElement> Withouts { get; init; }
     public required ImmutableArray<AnyElement> Anys { get; init; }
+
+    public bool Equals(QueryShape? other) =>
+        other is not null
+        && ExactShapeTypeName == other.ExactShapeTypeName
+        && Markers.SequenceEqual(other.Markers)
+        && Withouts.SequenceEqual(other.Withouts)
+        && Anys.SequenceEqual(other.Anys);
+
+    public override bool Equals(object? obj) => obj is QueryShape other && Equals(other);
+
+    /// <summary>Manual combine, not <c>System.HashCode</c> -- this project targets netstandard2.0, where that type doesn't exist.</summary>
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = ExactShapeTypeName.GetHashCode();
+            foreach (var marker in Markers) hash = hash * 31 + marker.GetHashCode();
+            foreach (var without in Withouts) hash = hash * 31 + without.GetHashCode();
+            foreach (var any in Anys) hash = hash * 31 + any.GetHashCode();
+            return hash;
+        }
+    }
 }
 
 internal static class QueryShapeExtensions
