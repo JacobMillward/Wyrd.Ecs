@@ -5,4 +5,3 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-WYRD001 | Correctness | Error | ForgottenRefOnGetAnalyzer
