@@ -8,8 +8,8 @@ namespace Wyrd.Ecs;
 /// <c>ref struct</c> so it can never be smuggled into a field or held past the
 /// current scope. Not the tool for a hot per-entity loop — it goes through
 /// <see cref="Entity"/>'s location-resolution indirection on every call (necessary to
-/// remain correct after a structural move), unlike <see cref="QueryRow{T0}.Get{T}"/>'s
-/// pre-cached, per-archetype-transition span access. See the design's Entity identity
+/// remain correct after a structural move), unlike <see cref="ArchetypeChunk.Access{TAccessor}"/>'s
+/// pre-cached, per-chunk span access. See the design's Entity identity
 /// section.
 /// </summary>
 public readonly ref struct EntityView
