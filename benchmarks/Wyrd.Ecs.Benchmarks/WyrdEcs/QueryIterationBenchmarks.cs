@@ -141,4 +141,31 @@ public class QueryIterationBenchmarks
                 position[i].X += velocity[i].X * 0f;
         }
     }
+
+    /// <summary>
+    /// The new query-chain generator's terminal -- the ergonomic tier a system actually
+    /// writes against, as opposed to <see cref="OneComponent_ArchetypeQuery"/>'s raw
+    /// primitive. Same access pattern as <see cref="OneComponent_ChunkCallback"/>, so this
+    /// measures the generated <c>QueryChainWorker</c>'s overhead (delegate dispatch through
+    /// its cached <see cref="ArchetypeQuery"/>, plus the uniform parameter every terminal
+    /// takes) against the old deleted <c>QueryRow&lt;T&gt;.Get&lt;T&gt;()</c> hidden-chunk
+    /// tier this replaces -- see the 2026-07-25 comparison doc for the old-tier numbers,
+    /// captured from the pre-migration commit since that API no longer exists here.
+    /// </summary>
+    [Benchmark]
+    public void OneComponent_FluentChain()
+    {
+        _world1.AdvanceTick();
+        _world1.Query().With<Writes<Position>>()
+            .ForEach(0, (int _, ref Position p) => p.X += p.Y * 0f);
+    }
+
+    /// <summary>Two-component counterpart to <see cref="OneComponent_FluentChain"/> -- same access pattern as <see cref="TwoComponent_ChunkCallback"/>.</summary>
+    [Benchmark]
+    public void TwoComponent_FluentChain()
+    {
+        _world2.AdvanceTick();
+        _world2.Query().With<Writes<Position>>().With<Reads<Velocity>>()
+            .ForEach(0, (int _, ref Position p, in Velocity v) => p.X += v.X * 0f);
+    }
 }
