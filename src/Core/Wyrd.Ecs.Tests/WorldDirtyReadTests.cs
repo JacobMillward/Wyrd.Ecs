@@ -94,8 +94,12 @@ public class WorldDirtyReadTests
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
 
-        foreach (var row in world.Query<Position>())
-            row.Get<Position>().X += 1f;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Mut<Position>>().Resolve(world))
+        {
+            var positions = chunk.Access<Mut<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+                positions[i].X += 1f;
+        }
 
         var seen = new List<Entity>();
         foreach (var change in world.ReadChanges<Position>(sinceTick))

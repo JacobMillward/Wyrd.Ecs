@@ -221,10 +221,13 @@ public class CommandsTests
         world.ApplyCommands();
 
         var visited = new List<Entity>();
-        foreach (var row in world.Query<Position>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(world))
         {
-            visited.Add(row.Entity);
-            world.Commands.RemoveComponent<Position>(toRemoveFrom); // deferred: safe to queue mid-iteration
+            foreach (var entity in chunk.Entities)
+            {
+                visited.Add(entity);
+                world.Commands.RemoveComponent<Position>(toRemoveFrom); // deferred: safe to queue mid-iteration
+            }
         }
 
         visited.Should().BeEquivalentTo(new[] { toRemoveFrom, untouched });

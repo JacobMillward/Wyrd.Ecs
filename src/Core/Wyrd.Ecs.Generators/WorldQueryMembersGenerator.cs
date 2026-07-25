@@ -4,14 +4,17 @@ using Microsoft.CodeAnalysis;
 namespace Wyrd.Ecs.Generators;
 
 /// <summary>
-/// Emits the <c>Query&lt;T0..T{QueryArity.Max-1}&gt;()</c> member declarations on
-/// <c>IWorld</c> and their implementations on <c>World</c> (arity 1 through
-/// <see cref="QueryArity.Max"/>), as <c>partial interface</c>/<c>partial class</c>
-/// additions. Kept separate from <see cref="QueryTypesGenerator"/> — generating the
-/// <c>Query&lt;...&gt;</c>/<c>QueryRow&lt;...&gt;</c> type family and generating
-/// members onto existing hand-authored types are different concerns with different
-/// failure modes (a mistake here breaks <c>IWorld</c>/<c>World</c>'s own compile, not
-/// just the generated types).
+/// Emits the <c>CommandBuffer.CreateEntity&lt;T0..T{QueryArity.Max-1}&gt;(...)</c>
+/// multi-component entity-creation overloads (arity 1 through
+/// <see cref="QueryArity.Max"/>), plus <c>World</c>'s internal
+/// <c>PlaceReservedEntity&lt;T0..T{QueryArity.Max-1}&gt;</c> helper and the
+/// <c>QuerySignature&lt;T0..T{QueryArity.Max-1}&gt;</c> cache it needs to find or
+/// create a multi-component entity's target archetype. Query-shape members used to
+/// live here too (<c>IWorld</c>/<c>World</c>'s fluent <c>Query&lt;T0..TN-1&gt;()</c>);
+/// they were removed when the arity-templated <c>Query&lt;T0,...,T7&gt;</c>/
+/// <c>QueryRow&lt;T0,...,T7&gt;</c> family was replaced by the generator-backed
+/// unbounded query-shape design — entity creation is an unrelated concern that
+/// happened to share this file and <see cref="QueryArity"/>.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
@@ -20,31 +23,18 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(ctx =>
         {
-            var iworld = new StringBuilder();
-            iworld.AppendLine("namespace Wyrd.Ecs;");
-            iworld.AppendLine();
-            iworld.AppendLine("public partial interface IWorld");
-            iworld.AppendLine("{");
-            for (var n = 1; n <= QueryArity.Max; n++)
-            {
-                iworld.AppendLine(ArityTemplates.IWorldMember(n));
-                iworld.AppendLine();
-            }
-            iworld.AppendLine("}");
-            ctx.AddSource("IWorld.QueryMembers.g.cs", iworld.ToString());
-
             var world = new StringBuilder();
             world.AppendLine("using Wyrd.Ecs.Internal;");
             world.AppendLine();
             world.AppendLine("namespace Wyrd.Ecs;");
             world.AppendLine();
-            world.AppendLine("public sealed partial class World");
-            world.AppendLine("{");
             for (var n = 1; n <= QueryArity.Max; n++)
             {
-                world.AppendLine(ArityTemplates.WorldMember(n));
+                world.AppendLine(ArityTemplates.QuerySignature(n));
                 world.AppendLine();
             }
+            world.AppendLine("public sealed partial class World");
+            world.AppendLine("{");
             for (var n = 1; n <= QueryArity.Max; n++)
             {
                 world.AppendLine(ArityTemplates.PlaceReservedEntityMember(n));

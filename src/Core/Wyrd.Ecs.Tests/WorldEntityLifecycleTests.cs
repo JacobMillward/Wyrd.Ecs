@@ -57,8 +57,8 @@ public class WorldEntityLifecycleTests
         world.ApplyCommands();
 
         var visited = new List<Entity>();
-        foreach (var row in world.Query<Position, Velocity>())
-            visited.Add(row.Entity);
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Access<Ref<Velocity>>().Resolve(world))
+            visited.AddRange(chunk.Entities.ToArray());
 
         visited.Should().BeEquivalentTo(new[] { a, b });
     }

@@ -64,14 +64,6 @@ public class QueryIterationBenchmarks
     }
 
     [Benchmark]
-    public void OneComponent_HiddenChunkForEach()
-    {
-        _world1.AdvanceTick();
-        foreach (var row in _world1.Query<Position>())
-            row.Get<Position>().X += row.Get<Position>().Y * 0f;
-    }
-
-    [Benchmark]
     public void TwoComponent_ChunkCallback()
     {
         _world2.AdvanceTick();

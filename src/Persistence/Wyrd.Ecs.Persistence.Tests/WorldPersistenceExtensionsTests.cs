@@ -163,11 +163,16 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         var found = false;
-        foreach (var row in target.Query<Position, Velocity>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Access<Ref<Velocity>>().Resolve(target))
         {
-            row.Get<Position>().X.Should().Be(1f);
-            row.Get<Velocity>().X.Should().Be(2f);
-            found = true;
+            var positions = chunk.Access<Ref<Position>>();
+            var velocities = chunk.Access<Ref<Velocity>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(1f);
+                velocities[i].X.Should().Be(2f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -190,8 +195,12 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         var values = new List<float>();
-        foreach (var row in target.Query<Position>())
-            values.Add(row.Get<Position>().X);
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
+        {
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+                values.Add(positions[i].X);
+        }
 
         values.Should().BeEquivalentTo([10f, 20f]);
     }
@@ -212,10 +221,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(_path);
 
         var found = false;
-        foreach (var row in target.Query<Position>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
         {
-            row.Get<Position>().X.Should().Be(3f);
-            found = true;
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(3f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -248,10 +261,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
         act.Should().NotThrow();
 
         var positionCount = 0;
-        foreach (var row in target.Query<Position>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
         {
-            row.Get<Position>().X.Should().Be(1f);
-            positionCount++;
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(1f);
+                positionCount++;
+            }
         }
         positionCount.Should().Be(1);
     }
@@ -270,7 +287,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         var count = 0;
-        foreach (var _ in target.Query<Position>()) count++;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target)) count += chunk.Count;
         count.Should().Be(0);
     }
 
@@ -292,10 +309,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load();
 
         var found = false;
-        foreach (var row in target.Query<Position>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
         {
-            row.Get<Position>().X.Should().Be(7f);
-            found = true;
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(7f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -406,10 +427,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         var found = false;
-        foreach (var row in target.Query<PositionV1>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<PositionV1>>().Resolve(target))
         {
-            row.Get<PositionV1>().X.Should().Be(5f);
-            found = true;
+            var positions = chunk.Access<Ref<PositionV1>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(5f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -460,11 +485,15 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         var found = false;
-        foreach (var row in target.Query<PositionV2>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<PositionV2>>().Resolve(target))
         {
-            row.Get<PositionV2>().X.Should().Be(5f);
-            row.Get<PositionV2>().Y.Should().Be(0f);
-            found = true;
+            var positions = chunk.Access<Ref<PositionV2>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(5f);
+                positions[i].Y.Should().Be(0f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -493,12 +522,16 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         var found = false;
-        foreach (var row in target.Query<PositionV3>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<PositionV3>>().Resolve(target))
         {
-            row.Get<PositionV3>().X.Should().Be(5f);
-            row.Get<PositionV3>().Y.Should().Be(0f);
-            row.Get<PositionV3>().Z.Should().Be(0f);
-            found = true;
+            var positions = chunk.Access<Ref<PositionV3>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(5f);
+                positions[i].Y.Should().Be(0f);
+                positions[i].Z.Should().Be(0f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -524,10 +557,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
 
         act.Should().NotThrow();
         var found = false;
-        foreach (var row in target.Query<PositionV1>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<PositionV1>>().Resolve(target))
         {
-            row.Get<PositionV1>().X.Should().Be(5f);
-            found = true;
+            var positions = chunk.Access<Ref<PositionV1>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(5f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -553,10 +590,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
 
         act.Should().NotThrow();
         var found = false;
-        foreach (var row in target.Query<PositionV1>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<PositionV1>>().Resolve(target))
         {
-            row.Get<PositionV1>().X.Should().Be(5f);
-            found = true;
+            var positions = chunk.Access<Ref<PositionV1>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(5f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }
@@ -588,10 +629,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.DefaultComponentCodecRegistry = registry;
         target.Load(store);
         var found = false;
-        foreach (var row in target.Query<Position>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
         {
-            row.Get<Position>().X.Should().Be(1f);
-            found = true;
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(1f);
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }

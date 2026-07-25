@@ -212,13 +212,17 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         reloaded.Load(checkpointStore);
 
         var positions = new List<float>();
-        foreach (var row in reloaded.Query<Position>())
-            positions.Add(row.Get<Position>().X);
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(reloaded))
+        {
+            var values = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+                positions.Add(values[i].X);
+        }
         positions.Should().Equal(1f); // only the surviving entity, at its original value — the destroyed one is gone
 
         var velocityCount = 0;
-        foreach (var row in reloaded.Query<Velocity>())
-            velocityCount++;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Velocity>>().Resolve(reloaded))
+            velocityCount += chunk.Count;
         velocityCount.Should().Be(0); // added then removed — must not resurrect
     }
 
