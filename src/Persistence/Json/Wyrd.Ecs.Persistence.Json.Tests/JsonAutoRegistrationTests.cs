@@ -68,17 +68,25 @@ public class JsonAutoRegistrationTests : IDisposable
         target.Load(store);
 
         var foundTop = false;
-        foreach (var row in target.Query<AutoPosition>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<AutoPosition>>().Resolve(target))
         {
-            row.Get<AutoPosition>().Name.Should().Be("top");
-            foundTop = true;
+            var values = chunk.Access<Ref<AutoPosition>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                values[i].Name.Should().Be("top");
+                foundTop = true;
+            }
         }
 
         var foundOther = false;
-        foreach (var row in target.Query<Other.AutoPosition>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Other.AutoPosition>>().Resolve(target))
         {
-            row.Get<Other.AutoPosition>().Layer.Should().Be(5);
-            foundOther = true;
+            var values = chunk.Access<Ref<Other.AutoPosition>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                values[i].Layer.Should().Be(5);
+                foundOther = true;
+            }
         }
 
         foundTop.Should().BeTrue();
@@ -104,12 +112,16 @@ public class JsonAutoRegistrationTests : IDisposable
         target.Load(store);
 
         var found = false;
-        foreach (var row in target.Query<AutoPosition>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<AutoPosition>>().Resolve(target))
         {
-            row.Get<AutoPosition>().X.Should().Be(1f);
-            row.Get<AutoPosition>().Y.Should().Be(2f);
-            row.Get<AutoPosition>().Name.Should().Be("hi");
-            found = true;
+            var positions = chunk.Access<Ref<AutoPosition>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(1f);
+                positions[i].Y.Should().Be(2f);
+                positions[i].Name.Should().Be("hi");
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }

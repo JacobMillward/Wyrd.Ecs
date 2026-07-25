@@ -50,14 +50,19 @@ public class CodecIndependenceTests : IDisposable
         binaryTarget.Load(_binaryPath);
 
         var foundInJsonTarget = false;
-        foreach (var _ in jsonTarget.Query<BinaryOnlyComponent>()) foundInJsonTarget = true;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<BinaryOnlyComponent>>().Resolve(jsonTarget))
+            if (chunk.Count > 0) foundInJsonTarget = true;
         foundInJsonTarget.Should().BeFalse();
 
         var foundInBinaryTarget = false;
-        foreach (var row in binaryTarget.Query<BinaryOnlyComponent>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<BinaryOnlyComponent>>().Resolve(binaryTarget))
         {
-            row.Get<BinaryOnlyComponent>().Value.Should().Be(42);
-            foundInBinaryTarget = true;
+            var values = chunk.Access<Ref<BinaryOnlyComponent>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                values[i].Value.Should().Be(42);
+                foundInBinaryTarget = true;
+            }
         }
         foundInBinaryTarget.Should().BeTrue();
     }

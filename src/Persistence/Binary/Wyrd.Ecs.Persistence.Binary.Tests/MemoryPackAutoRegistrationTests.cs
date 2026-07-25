@@ -70,12 +70,16 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         target.Load(store);
 
         var found = false;
-        foreach (var row in target.Query<AutoPosition>())
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<AutoPosition>>().Resolve(target))
         {
-            row.Get<AutoPosition>().X.Should().Be(1f);
-            row.Get<AutoPosition>().Y.Should().Be(2f);
-            row.Get<AutoPosition>().Name.Should().Be("hi");
-            found = true;
+            var positions = chunk.Access<Ref<AutoPosition>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(1f);
+                positions[i].Y.Should().Be(2f);
+                positions[i].Name.Should().Be("hi");
+                found = true;
+            }
         }
         found.Should().BeTrue();
     }

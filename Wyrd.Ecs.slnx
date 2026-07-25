@@ -6,8 +6,6 @@
     <Project Path="src/Core/Wyrd.Ecs.Generators.Tests/Wyrd.Ecs.Generators.Tests.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.SystemGenerators/Wyrd.Ecs.SystemGenerators.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.SystemGenerators.Tests/Wyrd.Ecs.SystemGenerators.Tests.csproj" />
-    <Project Path="src/Core/Wyrd.Ecs.Interceptors/Wyrd.Ecs.Interceptors.csproj" />
-    <Project Path="src/Core/Wyrd.Ecs.Interceptors.Tests/Wyrd.Ecs.Interceptors.Tests.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.Analyzers/Wyrd.Ecs.Analyzers.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.Analyzers.Tests/Wyrd.Ecs.Analyzers.Tests.csproj" />
   </Folder>
