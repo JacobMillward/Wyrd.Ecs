@@ -6,7 +6,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Wyrd.Ecs.Benchmarks</RootNamespace>
-    <InterceptorsNamespaces>$(InterceptorsNamespaces);Wyrd.Ecs.Interceptors.Generated</InterceptorsNamespaces>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +18,6 @@
     <ProjectReference Include="..\..\src\Persistence\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Persistence\Continuous\Wyrd.Ecs.Persistence.Continuous\Wyrd.Ecs.Persistence.Continuous.csproj" />
     <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.Analyzers\Wyrd.Ecs.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
-    <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.Interceptors\Wyrd.Ecs.Interceptors.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.SystemGenerators\Wyrd.Ecs.SystemGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
