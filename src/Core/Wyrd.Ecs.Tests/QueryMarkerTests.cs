@@ -1,7 +1,7 @@
 namespace Wyrd.Ecs.Tests;
 
 file struct Tag1 : ITag;
-file struct Comp1 : IComponent { public int Value; }
+file struct Comp1 : IComponent;
 
 public class QueryMarkerTests
 {

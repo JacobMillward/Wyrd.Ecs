@@ -1,7 +1,7 @@
 namespace Wyrd.Ecs.Tests;
 
-file struct Position : IComponent { public float X; }
-file struct Velocity : IComponent { public float X; }
+file struct Position : IComponent;
+file struct Velocity : IComponent;
 file struct Dead : ITag;
 file struct BuffA : ITag;
 file struct BuffB : ITag;

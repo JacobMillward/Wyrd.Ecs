@@ -5,7 +5,6 @@ public class WorldComponentTests
     private struct Position : IComponent
     {
         public float X;
-        public float Y;
     }
 
     private struct Velocity : IComponent

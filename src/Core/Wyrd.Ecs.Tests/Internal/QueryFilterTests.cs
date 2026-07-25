@@ -2,7 +2,7 @@ using Wyrd.Ecs.Internal;
 
 namespace Wyrd.Ecs.Tests.Internal;
 
-file struct Alpha : IComponent { public int Value; }
+file struct Alpha : IComponent;
 file struct Gamma : ITag;
 file struct Delta : ITag;
 
