@@ -38,6 +38,20 @@ public sealed partial class CommandBuffer
     private QueuedCommand[] _queue = new QueuedCommand[4];
     private int _count;
 
+    /// <summary>
+    /// Guards every enqueue-side mutation (<see cref="_queue"/>/<see cref="_count"/>,
+    /// <see cref="_addComponentBuffers"/>, and each <see cref="AddComponentBuffer{T}"/>'s
+    /// own <c>Items</c>/<c>Count</c>) so several systems in the same
+    /// <c>ScheduledExecutor</c> stage can call <see cref="AddComponent{T}"/>/
+    /// <see cref="RemoveComponent{T}"/>/etc. against this same shared <c>world.Commands</c>
+    /// buffer concurrently. Every public method below takes this lock for its entire
+    /// body in one shot, rather than <see cref="Enqueue"/>/<see cref="GetAddComponentBuffer{T}"/>
+    /// locking themselves — those two are plain unlocked helpers, always called with
+    /// <see cref="_gate"/> already held, so a method needing both (<see cref="AddComponent{T}"/>)
+    /// never has to acquire it twice.
+    /// </summary>
+    private readonly Lock _gate = new();
+
     internal CommandBuffer(World world) => _world = world;
 
     /// <summary>The <see cref="World"/> this buffer was created for — checked by <see cref="Wyrd.Ecs.World.ApplyCommands(CommandBuffer)"/> before replaying it.</summary>
@@ -50,7 +64,8 @@ public sealed partial class CommandBuffer
     /// none of which use <c>List&lt;T&gt;</c>. <c>List&lt;T&gt;</c> bumps a version counter
     /// on every <c>Add</c>/<c>Clear</c> and checks it on every enumerator <c>MoveNext</c>,
     /// to detect mutation during enumeration — a safety check this queue never needs,
-    /// since nothing ever enumerates it while it's still being built.
+    /// since nothing ever enumerates it while it's still being built. Caller must
+    /// already hold <see cref="_gate"/> — see the field's own doc.
     /// </summary>
     private void Enqueue(QueuedCommand command)
     {
@@ -94,8 +109,9 @@ public sealed partial class CommandBuffer
     /// generic array. A pooling scheme was measured and rejected here (see the pooling
     /// benchmarks) — every thread-safe pool tried cost more, in the access pattern
     /// <see cref="CommandBuffer"/> actually has, than the box it was meant to avoid. This
-    /// sidesteps that whole tradeoff: nothing is pooled or shared, so nothing needs
-    /// synchronization — it's exactly as single-writer as <see cref="_queue"/> already is.
+    /// sidesteps that whole tradeoff: nothing is pooled, so nothing needs its own
+    /// synchronization beyond <see cref="_gate"/>, which every caller reaching this
+    /// type already holds (see <see cref="AddComponent{T}"/>).
     /// Reset to empty at the end of every <see cref="Apply"/> (its backing array is kept,
     /// not reallocated, same as <see cref="_queue"/>'s own <c>Array.Clear</c> pattern).
     /// </summary>
@@ -109,6 +125,7 @@ public sealed partial class CommandBuffer
 
     private object?[] _addComponentBuffers = new object?[4];
 
+    /// <summary>Caller must already hold <see cref="_gate"/> — see the field's own doc.</summary>
     private AddComponentBuffer<T> GetAddComponentBuffer<T>() where T : struct, IComponent
     {
         var typeIndex = Internal.TypeIndex<T>.Value;
@@ -166,18 +183,22 @@ public sealed partial class CommandBuffer
     /// Reserves a real <see cref="Entity"/> immediately (so it can be used to chain
     /// further commands in the same batch) and queues its placement into the world.
     /// The returned entity is not <see cref="World.IsAlive"/> until
-    /// <see cref="World.ApplyCommands()"/> runs.
+    /// <see cref="World.ApplyCommands()"/> runs. Safe to call concurrently from several
+    /// threads at once (<see cref="World.ReserveEntity"/> is itself lock-free; only the
+    /// queueing that follows needs <see cref="_gate"/>).
     /// </summary>
     public Entity CreateEntity()
     {
         var entity = _world.ReserveEntity();
-        Enqueue(new QueuedCommand(entity, PlaceReservedOp.Apply, null, 0));
+        lock (_gate) Enqueue(new QueuedCommand(entity, PlaceReservedOp.Apply, null, 0));
         return entity;
     }
 
-    /// <summary>Queues destroying <paramref name="entity"/>. A no-op at apply time if the entity was already destroyed (or never placed) by an earlier queued command.</summary>
-    public void DestroyEntity(Entity entity) =>
-        Enqueue(new QueuedCommand(entity, DestroyEntityOp.Apply, null, 0));
+    /// <summary>Queues destroying <paramref name="entity"/>. A no-op at apply time if the entity was already destroyed (or never placed) by an earlier queued command. Safe to call concurrently from several threads at once.</summary>
+    public void DestroyEntity(Entity entity)
+    {
+        lock (_gate) Enqueue(new QueuedCommand(entity, DestroyEntityOp.Apply, null, 0));
+    }
 
     /// <summary>
     /// Queues adding <paramref name="value"/> to <paramref name="entity"/>. A no-op at
@@ -187,28 +208,37 @@ public sealed partial class CommandBuffer
     /// or one from a previous batch that was never removed), this overwrites it instead
     /// of adding a second one — last-queued value wins, the same
     /// already-in-that-state-is-fine stance every other queued operation on this class
-    /// takes.
+    /// takes. Safe to call concurrently from several threads at once.
     /// </summary>
     public void AddComponent<T>(Entity entity, T value) where T : struct, IComponent
     {
-        var buffer = GetAddComponentBuffer<T>();
-        Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
-        var slot = buffer.Count++;
-        buffer.Items[slot] = value;
-        Enqueue(new QueuedCommand(entity, AddComponentOp<T>.Apply, buffer, slot));
+        lock (_gate)
+        {
+            var buffer = GetAddComponentBuffer<T>();
+            Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
+            var slot = buffer.Count++;
+            buffer.Items[slot] = value;
+            Enqueue(new QueuedCommand(entity, AddComponentOp<T>.Apply, buffer, slot));
+        }
     }
 
-    /// <summary>Queues removing <typeparamref name="T"/> from <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command.</summary>
-    public void RemoveComponent<T>(Entity entity) where T : struct, IComponent =>
-        Enqueue(new QueuedCommand(entity, RemoveComponentOp<T>.Apply, null, 0));
+    /// <summary>Queues removing <typeparamref name="T"/> from <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command. Safe to call concurrently from several threads at once.</summary>
+    public void RemoveComponent<T>(Entity entity) where T : struct, IComponent
+    {
+        lock (_gate) Enqueue(new QueuedCommand(entity, RemoveComponentOp<T>.Apply, null, 0));
+    }
 
-    /// <summary>Queues adding tag <typeparamref name="T"/> to <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command.</summary>
-    public void AddTag<T>(Entity entity) where T : struct, ITag =>
-        Enqueue(new QueuedCommand(entity, AddTagOp<T>.Apply, null, 0));
+    /// <summary>Queues adding tag <typeparamref name="T"/> to <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command. Safe to call concurrently from several threads at once.</summary>
+    public void AddTag<T>(Entity entity) where T : struct, ITag
+    {
+        lock (_gate) Enqueue(new QueuedCommand(entity, AddTagOp<T>.Apply, null, 0));
+    }
 
-    /// <summary>Queues removing tag <typeparamref name="T"/> from <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command.</summary>
-    public void RemoveTag<T>(Entity entity) where T : struct, ITag =>
-        Enqueue(new QueuedCommand(entity, RemoveTagOp<T>.Apply, null, 0));
+    /// <summary>Queues removing tag <typeparamref name="T"/> from <paramref name="entity"/>. A no-op at apply time if the entity was destroyed by an earlier queued command. Safe to call concurrently from several threads at once.</summary>
+    public void RemoveTag<T>(Entity entity) where T : struct, ITag
+    {
+        lock (_gate) Enqueue(new QueuedCommand(entity, RemoveTagOp<T>.Apply, null, 0));
+    }
 
     /// <summary>
     /// Applies every queued command, in the order it was queued, then clears the queue.
@@ -223,7 +253,13 @@ public sealed partial class CommandBuffer
     /// implementation this library doesn't control). The cleanup (clearing the queue,
     /// resetting the per-type add-component buffers) runs in a <c>finally</c> regardless,
     /// so a misbehaving observer never leaves the batch half-applied to be silently
-    /// replayed by the next call to <see cref="Apply"/>.
+    /// replayed by the next call to <see cref="Apply"/>. Only ever called single-threaded,
+    /// from a stage's join point after every enqueueing thread has already returned — the
+    /// replay loop itself doesn't need <see cref="_gate"/>, but the cleanup still takes it
+    /// defensively, so a caller invoking <see cref="World.ApplyCommands()"/> while another
+    /// thread is still enqueueing serializes safely instead of corrupting state (a misuse
+    /// this lock happens to also catch, not a scenario the join-point discipline should
+    /// ever actually produce).
     /// </summary>
     internal void Apply()
     {
@@ -237,11 +273,14 @@ public sealed partial class CommandBuffer
         }
         finally
         {
-            Array.Clear(_queue, 0, _count);
-            _count = 0;
+            lock (_gate)
+            {
+                Array.Clear(_queue, 0, _count);
+                _count = 0;
 
-            foreach (var buffer in _addComponentBuffers)
-                (buffer as IResettableBuffer)?.ResetForNextBatch();
+                foreach (var buffer in _addComponentBuffers)
+                    (buffer as IResettableBuffer)?.ResetForNextBatch();
+            }
         }
     }
 }

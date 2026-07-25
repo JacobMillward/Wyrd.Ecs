@@ -170,6 +170,7 @@ public sealed partial class World : IWorld
             throw new InvalidOperationException("This CommandBuffer was created for a different World.");
 
         commands.Apply();
+        _entityTable.FlushReservations();
     }
 
     /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="CommandBuffer.CreateEntity"/>.</summary>

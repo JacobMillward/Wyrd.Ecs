@@ -9,6 +9,40 @@ public class CommandsTests
 
     private struct Marker : ITag;
 
+    private struct ConcurrentMarker : IComponent
+    {
+        public int Value;
+    }
+
+    [Fact]
+    public void ConcurrentCreateEntity_FromMultipleThreads_EveryEntityGetsAUniqueIdAndSurvivesApply()
+    {
+        var world = new World();
+
+        var entities = new Entity[500];
+        Parallel.For(0, 500, i => entities[i] = world.Commands.CreateEntity());
+        world.ApplyCommands();
+
+        entities.Distinct().Should().HaveCount(500); // every reservation produced a unique entity, none clobbered by a race
+        entities.Should().OnlyContain(e => world.IsAlive(e));
+    }
+
+    [Fact]
+    public void ConcurrentAddComponent_FromMultipleThreads_QueuesEveryCommandSafely()
+    {
+        var world = new World();
+        var entities = Enumerable.Range(0, 500).Select(_ => world.Commands.CreateEntity()).ToArray();
+        world.ApplyCommands();
+
+        Parallel.ForEach(entities, entity => world.Commands.AddComponent(entity, new ConcurrentMarker { Value = 1 }));
+        world.ApplyCommands();
+
+        var count = 0;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ConcurrentMarker>>().Resolve(world))
+            count += chunk.Count;
+        count.Should().Be(500); // every one of the 500 concurrent enqueues must survive, none lost to a race
+    }
+
     [Fact]
     public void CreateEntity_ReturnsARealEntityImmediately_ButItIsNotAliveYet()
     {
