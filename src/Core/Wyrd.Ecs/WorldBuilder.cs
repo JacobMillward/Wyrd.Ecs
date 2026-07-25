@@ -8,6 +8,9 @@ namespace Wyrd.Ecs;
 public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
+    private IReadOnlyDictionary<Type, SystemAccess>? _generatedAccess;
+    private EcsSystem[] _systems = [];
+    private int _parallelThreshold = 1000;
 
     /// <summary>
     /// Sets the entity capacity every archetype's dense arrays (its entity list and
@@ -42,5 +45,49 @@ public sealed class WorldBuilder
         var world = new World(_archetypeCapacity);
         OnBuilt?.Invoke(world);
         return world;
+    }
+
+    /// <summary>
+    /// Registers the systems <see cref="BuildWithExecutor"/> will schedule, along with
+    /// the generated <c>Type → SystemAccess</c> registry the query-chain generator
+    /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>) —
+    /// passed explicitly by the caller, since <see cref="WorldBuilder"/> lives in
+    /// <c>Wyrd.Ecs</c> itself and can't reference a type generated into a consumer's
+    /// own compilation. <paramref name="systems"/>' order is preserved into
+    /// <see cref="Internal.SystemScheduler.BuildStages"/>, which processes systems in
+    /// the order given.
+    /// </summary>
+    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params EcsSystem[] systems)
+    {
+        _generatedAccess = generatedAccess;
+        _systems = systems;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the minimum <see cref="World.TotalEntityCount"/> a stage needs before
+    /// <see cref="ScheduledExecutor"/> dispatches it to the thread pool instead of
+    /// running it inline — a stage below this threshold runs sequentially even if it
+    /// has more than one system, since thread-pool dispatch overhead can outweigh the
+    /// parallelism gain at small world sizes. Defaults to 1000, a starting point, not
+    /// a benchmarked value.
+    /// </summary>
+    public WorldBuilder WithParallelThreshold(int entityCount)
+    {
+        _parallelThreshold = entityCount;
+        return this;
+    }
+
+    /// <summary>
+    /// Builds a new <see cref="World"/> exactly like <see cref="Build"/>, plus a
+    /// <see cref="ScheduledExecutor"/> whose stages come from
+    /// <see cref="Internal.SystemScheduler.BuildStages"/> over whatever
+    /// <see cref="WithSystems"/> registered (an empty schedule if it was never called).
+    /// </summary>
+    public (World World, ScheduledExecutor Executor) BuildWithExecutor()
+    {
+        var world = Build();
+        var stages = Internal.SystemScheduler.BuildStages(_systems, _generatedAccess ?? new Dictionary<Type, SystemAccess>());
+        return (world, new ScheduledExecutor(stages, _parallelThreshold));
     }
 }
