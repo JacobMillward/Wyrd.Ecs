@@ -1,6 +1,6 @@
 namespace Wyrd.Ecs.Tests;
 
-file struct Config : IComponent { public int Value; }
+file struct Config : IComponent;
 
 file sealed class DynamicConfigSystem : EcsSystem, IQueryAccessDescriptor
 {
