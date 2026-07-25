@@ -163,6 +163,31 @@ internal static class QueryChainEmitter
         return sb.ToString();
     }
 
+    /// <summary>Emits the <c>GeneratedSystemAccess</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>
+    internal static string RenderSystemAccessRegistry(IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("using System;");
+        sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using Wyrd.Ecs;");
+        sb.AppendLine();
+        sb.AppendLine("namespace Wyrd.Ecs.Generated;");
+        sb.AppendLine();
+        sb.AppendLine("public static class GeneratedSystemAccess");
+        sb.AppendLine("{");
+        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemAccess> Entries = new Dictionary<Type, SystemAccess>");
+        sb.AppendLine("    {");
+        foreach (var system in systems)
+        {
+            var reads = string.Join(", ", system.Reads.Select(t => $"typeof({t})"));
+            var writes = string.Join(", ", system.Writes.Select(t => $"typeof({t})"));
+            sb.AppendLine($"        [typeof(global::{system.SystemTypeName})] = new(Reads: new Type[] {{ {reads} }}, Writes: new Type[] {{ {writes} }}),");
+        }
+        sb.AppendLine("    };");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
     /// <summary>A stable, valid-C#-identifier suffix derived from <see cref="QueryShape.ExactShapeTypeName"/> — distinct from <see cref="QueryShapeExtensions.HashName"/>, which is derived from the order-independent <see cref="QueryShapeExtensions.DedupKey"/> instead.</summary>
     internal static string ExactShapeHash(QueryShape shape)
     {
