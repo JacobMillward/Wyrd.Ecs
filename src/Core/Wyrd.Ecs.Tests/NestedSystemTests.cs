@@ -8,16 +8,16 @@ sealed partial class MovementSystem : QuerySystem
     private static Query<(Reads<NestedVelocity>, (Writes<NestedPosition>, Nil))> Build(World world) =>
         world.Query().With<Writes<NestedPosition>>().With<Reads<NestedVelocity>>();
 
-    private partial void Execute(ulong tick, ref NestedPosition p, in NestedVelocity v) => p.X += v.X;
+    private partial void Execute(ulong tick, ref NestedPosition nestedPosition, in NestedVelocity nestedVelocity) => nestedPosition.X += nestedVelocity.X;
 }
 
 sealed partial class BoundsClampSystem : QuerySystem
 {
     private static Query<(Writes<NestedPosition>, Nil)> Build(World world) => world.Query().With<Writes<NestedPosition>>();
 
-    private partial void Execute(ulong tick, ref NestedPosition p)
+    private partial void Execute(ulong tick, ref NestedPosition nestedPosition)
     {
-        if (p.X > 10f) p.X = 10f;
+        if (nestedPosition.X > 10f) nestedPosition.X = 10f;
     }
 }
 
