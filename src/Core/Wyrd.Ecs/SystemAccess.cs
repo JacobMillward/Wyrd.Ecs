@@ -10,20 +10,27 @@ namespace Wyrd.Ecs;
 /// </summary>
 public sealed class SystemAccess : IEquatable<SystemAccess>
 {
+    /// <summary>Every component type this system reads.</summary>
     public IReadOnlyList<Type> Reads { get; }
+
+    /// <summary>Every component type this system writes.</summary>
     public IReadOnlyList<Type> Writes { get; }
 
+    /// <summary>Wraps an already-computed read/write set — populated by the query-chain generator's <c>GeneratedSystemAccess</c> registry.</summary>
     public SystemAccess(IReadOnlyList<Type> Reads, IReadOnlyList<Type> Writes)
     {
         this.Reads = Reads;
         this.Writes = Writes;
     }
 
+    /// <summary>Value-equality: the same reads and the same writes, in the same order.</summary>
     public bool Equals(SystemAccess? other) =>
         other is not null && Reads.SequenceEqual(other.Reads) && Writes.SequenceEqual(other.Writes);
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj) => Equals(obj as SystemAccess);
 
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         var hash = new HashCode();
