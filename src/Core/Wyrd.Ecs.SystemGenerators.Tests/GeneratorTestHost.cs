@@ -33,4 +33,31 @@ internal static class GeneratorTestHost
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
         return driver.GetRunResult();
     }
+
+    /// <summary>
+    /// Runs <paramref name="generator"/> against <paramref name="compilation"/>, emits
+    /// the result (original + generated sources) to an in-memory assembly, and loads
+    /// it — for tests that need to actually execute generated code against a real
+    /// <c>World</c>, not just inspect generated source text.
+    /// </summary>
+    public static System.Reflection.Assembly CompileAndLoad(IIncrementalGenerator generator, Compilation compilation)
+    {
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generators: [generator.AsSourceGenerator()]);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var updatedCompilation, out var diagnostics);
+
+        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        if (errors.Count > 0)
+            throw new InvalidOperationException("Generator reported errors:\n" + string.Join("\n", errors));
+
+        using var stream = new MemoryStream();
+        var result = updatedCompilation.Emit(stream);
+        if (!result.Success)
+        {
+            var compileErrors = result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error);
+            throw new InvalidOperationException("Emit failed:\n" + string.Join("\n", compileErrors));
+        }
+
+        stream.Seek(0, SeekOrigin.Begin);
+        return System.Reflection.Assembly.Load(stream.ToArray());
+    }
 }
