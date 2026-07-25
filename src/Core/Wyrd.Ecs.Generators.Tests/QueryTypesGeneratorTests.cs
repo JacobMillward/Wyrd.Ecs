@@ -47,8 +47,8 @@ public class QueryTypesGeneratorTests
     [Fact]
     public void EmitsExactlyNineArities()
     {
-        // 8 arities (1..8) for each of QueryRow, Query, QuerySignature, QuerySystem = 32 template
-        // expansions, but they land in only 4 files (one per type family). This just guards
+        // 8 arities (1..8) for each of QueryRow, Query, QuerySignature = 24 template
+        // expansions, but they land in only 3 files (one per type family). This just guards
         // against QueryArity.Max silently changing without anyone noticing.
         var sources = Run();
         var queryRowFile = sources.Single(s => s.Contains("public readonly ref struct QueryRow<T0>"));

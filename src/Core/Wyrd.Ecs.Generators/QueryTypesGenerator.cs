@@ -69,15 +69,6 @@ public sealed class QueryTypesGenerator : IIncrementalGenerator
             }
             ctx.AddSource("QuerySignature.g.cs", querySignature.ToString());
 
-            var querySystem = new StringBuilder();
-            querySystem.AppendLine("namespace Wyrd.Ecs;");
-            querySystem.AppendLine();
-            for (var n = 1; n <= QueryArity.Max; n++)
-            {
-                querySystem.AppendLine(ArityTemplates.QuerySystem(n));
-                querySystem.AppendLine();
-            }
-            ctx.AddSource("QuerySystem.g.cs", querySystem.ToString());
         });
     }
 }
