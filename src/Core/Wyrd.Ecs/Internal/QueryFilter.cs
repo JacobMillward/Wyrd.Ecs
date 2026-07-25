@@ -23,7 +23,11 @@ internal readonly struct QueryFilter : IEquatable<QueryFilter>
     }
 
     internal QueryFilter Has<T>() where T : struct =>
-        new(Required.With(TypeIndex<T>.Value), Excluded, AnyOf);
+        HasIndex(TypeIndex<T>.Value);
+
+    /// <summary>Same as <see cref="Has{T}"/>, for a caller that already has the type index (e.g. from <see cref="IComponentAccessor{TSelf}.TypeIndex"/>) rather than the type itself.</summary>
+    internal QueryFilter HasIndex(int typeIndex) =>
+        new(Required.With(typeIndex), Excluded, AnyOf);
 
     internal QueryFilter Without<T>() where T : struct =>
         new(Required, Excluded.With(TypeIndex<T>.Value), AnyOf);

@@ -344,15 +344,8 @@ public sealed partial class World : IWorld
     /// <inheritdoc/>
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {
-        var typeIndex = TAccess0.TypeIndex;
-        var tracked = IsTracked(typeIndex);
-        foreach (var archetype in GetMatchingArchetypes(Internal.QuerySignature<TAccess0>.Value))
-        {
-            if (archetype.Count == 0) continue;
-
-            var storage = archetype.Storages[typeIndex];
-            action(TAccess0.CreateChunk(storage.RawItems, storage.RawLastMarkedTick, _currentTick, 0, archetype.Count, tracked));
-        }
+        foreach (var chunk in Internal.ChunkQuery<TAccess0>.Value.Resolve(this))
+            action(chunk.Access<TAccess0>());
     }
 
     /// <inheritdoc/>
@@ -360,20 +353,8 @@ public sealed partial class World : IWorld
         where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
         where TAccess1 : struct, IComponentAccessor<TAccess1>, allows ref struct
     {
-        var index0 = TAccess0.TypeIndex;
-        var index1 = TAccess1.TypeIndex;
-        var tracked0 = IsTracked(index0);
-        var tracked1 = IsTracked(index1);
-        foreach (var archetype in GetMatchingArchetypes(Internal.QuerySignature<TAccess0, TAccess1>.Value))
-        {
-            if (archetype.Count == 0) continue;
-
-            var storage0 = archetype.Storages[index0];
-            var storage1 = archetype.Storages[index1];
-            action(
-                TAccess0.CreateChunk(storage0.RawItems, storage0.RawLastMarkedTick, _currentTick, 0, archetype.Count, tracked0),
-                TAccess1.CreateChunk(storage1.RawItems, storage1.RawLastMarkedTick, _currentTick, 0, archetype.Count, tracked1));
-        }
+        foreach (var chunk in Internal.ChunkQuery<TAccess0, TAccess1>.Value.Resolve(this))
+            action(chunk.Access<TAccess0>(), chunk.Access<TAccess1>());
     }
 
     // Query<T0..T{QueryArity.Max-1}>() implementations are generated — see

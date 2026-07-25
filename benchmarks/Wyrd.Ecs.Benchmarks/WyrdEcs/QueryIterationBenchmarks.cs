@@ -8,6 +8,13 @@ public class QueryIterationBenchmarks
 {
     private const int EntityCount = 10_000;
 
+    // Built once, mirroring how World.Query<TAccess0> itself (and, eventually,
+    // generator-emitted code for the new unbounded query-shape design) caches one
+    // ArchetypeQuery per shape in a static field and resolves it fresh
+    // (cache-backed via World.GetMatchingArchetypes) on every call.
+    private static readonly ArchetypeQuery OneComponentQuery = ArchetypeQuery.Empty.Access<Mut<Position>>();
+    private static readonly ArchetypeQuery TwoComponentQuery = ArchetypeQuery.Empty.Access<Mut<Position>>().Access<Ref<Velocity>>();
+
     [Params(false, true)]
     public bool Fragmented { get; set; }
 
@@ -73,5 +80,73 @@ public class QueryIterationBenchmarks
             for (var i = 0; i < position.Length; i++)
                 position[i].X += velocity[i].X * 0f;
         });
+    }
+
+    /// <summary>
+    /// Same access pattern as <see cref="OneComponent_ChunkCallback"/>, calling
+    /// <see cref="ArchetypeQuery"/>/<see cref="ArchetypeChunk"/> directly instead of through
+    /// the <see cref="ChunkAction{TAccess0}"/> delegate <c>World.Query&lt;TAccess0&gt;</c>
+    /// wraps it in -- the same underlying implementation either way, so this measures
+    /// wrapper overhead (delegate dispatch, closure capture), not a different code path.
+    /// This is also the calling style generator-emitted code for the new unbounded
+    /// query-shape design will use.
+    /// </summary>
+    [Benchmark]
+    public void OneComponent_ArchetypeQuery()
+    {
+        _world1.AdvanceTick();
+        foreach (var chunk in OneComponentQuery.Resolve(_world1))
+        {
+            var position = chunk.Access<Mut<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+                position[i].X += position[i].Y * 0f;
+        }
+    }
+
+    /// <summary>
+    /// Same access pattern as <see cref="TwoComponent_ChunkCallback"/>, calling
+    /// <see cref="ArchetypeQuery"/>/<see cref="ArchetypeChunk"/> directly with the loop
+    /// written bare-inline -- see <see cref="OneComponent_ArchetypeQuery"/>. Kept
+    /// deliberately alongside <see cref="TwoComponent_ArchetypeQuery_LocalFunction"/>: with
+    /// two or more live accessors, this bare-inline shape measures consistently slower
+    /// (~25-40%) than either the delegate-wrapped or local-function versions, a JIT
+    /// register-allocation artifact confirmed in `wrapper-vs-inline-spike/`, not something
+    /// specific to this primitive -- documented here so the gap (and its fix, below) stays
+    /// visible in the one place someone benchmarking this API would actually look.
+    /// </summary>
+    [Benchmark]
+    public void TwoComponent_ArchetypeQuery()
+    {
+        _world2.AdvanceTick();
+        foreach (var chunk in TwoComponentQuery.Resolve(_world2))
+        {
+            var position = chunk.Access<Mut<Position>>();
+            var velocity = chunk.Access<Ref<Velocity>>();
+            for (var i = 0; i < chunk.Count; i++)
+                position[i].X += velocity[i].X * 0f;
+        }
+    }
+
+    /// <summary>
+    /// Same work as <see cref="TwoComponent_ArchetypeQuery"/>, with the per-chunk body
+    /// factored into a <c>static</c> local function instead of written bare-inline in the
+    /// loop. A direct call, not a delegate -- no indirection, no allocation -- but gives
+    /// the JIT a small, dedicated method to allocate registers for, matching
+    /// <see cref="TwoComponent_ChunkCallback"/>'s performance despite calling
+    /// <see cref="ArchetypeChunk"/> directly. This is the recommended pattern for any
+    /// multi-accessor loop written directly against <see cref="ArchetypeQuery"/>.
+    /// </summary>
+    [Benchmark]
+    public void TwoComponent_ArchetypeQuery_LocalFunction()
+    {
+        _world2.AdvanceTick();
+        foreach (var chunk in TwoComponentQuery.Resolve(_world2))
+            Process(chunk.Access<Mut<Position>>(), chunk.Access<Ref<Velocity>>());
+
+        static void Process(Mut<Position> position, Ref<Velocity> velocity)
+        {
+            for (var i = 0; i < position.Length; i++)
+                position[i].X += velocity[i].X * 0f;
+        }
     }
 }
