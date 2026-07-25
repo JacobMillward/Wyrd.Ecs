@@ -1,6 +1,52 @@
 namespace Wyrd.Ecs.Tests;
 
+struct NestedPosition : IComponent { public float X; }
+struct NestedVelocity : IComponent { public float X; }
+
+sealed partial class MovementSystem : QuerySystem
+{
+    private static Query<(Reads<NestedVelocity>, (Writes<NestedPosition>, Nil))> Build(World world) =>
+        world.Query().With<Writes<NestedPosition>>().With<Reads<NestedVelocity>>();
+
+    private partial void Execute(ulong tick, ref NestedPosition p, in NestedVelocity v) => p.X += v.X;
+}
+
+sealed partial class BoundsClampSystem : QuerySystem
+{
+    private static Query<(Writes<NestedPosition>, Nil)> Build(World world) => world.Query().With<Writes<NestedPosition>>();
+
+    private partial void Execute(ulong tick, ref NestedPosition p)
+    {
+        if (p.X > 10f) p.X = 10f;
+    }
+}
+
 public partial class NestedSystemTests
 {
-    // TODO(plan-task-4): migrate to QuerySystem<TShape>
+    [Fact]
+    public void TwoDeclaredSystems_RunInSequence_EachSeesThePreviousOnesEffect()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new NestedPosition { X = 8f }, new NestedVelocity { X = 5f });
+        world.ApplyCommands();
+
+        var movement = new MovementSystem();
+        var clamp = new BoundsClampSystem();
+
+        movement.RunOnce(world, tick: 0); // 8 + 5 = 13
+        clamp.RunOnce(world, tick: 0); // clamped to 10
+
+        world.GetComponent<NestedPosition>(entity).X.Should().Be(10f);
+    }
+
+    [Fact]
+    public void TwoDeclaredSystems_EachRegistersItsOwnGeneratedSystemAccessEntry()
+    {
+        Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries.Should().ContainKey(typeof(MovementSystem));
+        Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries.Should().ContainKey(typeof(BoundsClampSystem));
+
+        var movementAccess = Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries[typeof(MovementSystem)];
+        movementAccess.Writes.Should().Equal(typeof(NestedPosition));
+        movementAccess.Reads.Should().Equal(typeof(NestedVelocity));
+    }
 }
