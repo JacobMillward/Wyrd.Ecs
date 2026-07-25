@@ -47,6 +47,16 @@ public sealed class QueryTypesGenerator : IIncrementalGenerator
             }
             ctx.AddSource("Query.g.cs", query.ToString());
 
+            var queryAction = new StringBuilder();
+            queryAction.AppendLine("namespace Wyrd.Ecs;");
+            queryAction.AppendLine();
+            for (var n = 1; n <= QueryArity.Max; n++)
+            {
+                queryAction.AppendLine(ArityTemplates.QueryActionDelegate(n));
+                queryAction.AppendLine();
+            }
+            ctx.AddSource("QueryAction.g.cs", queryAction.ToString());
+
             var querySignature = new StringBuilder();
             querySignature.AppendLine("using Wyrd.Ecs.Internal;");
             querySignature.AppendLine();

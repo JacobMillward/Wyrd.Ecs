@@ -176,30 +176,99 @@ internal static class ArityTemplates
         sb.AppendLine($"public readonly ref struct Query<{tp}>");
         sb.AppendLine(WhereClauses(n, "    "));
         sb.AppendLine("{");
-        sb.AppendLine("    private readonly Archetype[] _archetypes;");
+        sb.AppendLine("    private readonly World _world;");
         foreach (var i in Indices(n))
         {
             sb.AppendLine($"    private readonly int _typeIndex{i};");
             sb.AppendLine($"    private readonly bool _tracked{i};");
         }
         sb.AppendLine("    private readonly int _tick;");
+        sb.AppendLine("    private readonly QueryFilter _filter;");
         sb.AppendLine();
 
         var ctorIndexParams = string.Join(", ", Indices(n).Select(i => $"int typeIndex{i}, bool tracked{i}"));
-        sb.AppendLine($"    internal Query(Archetype[] archetypes, {ctorIndexParams}, int tick)");
+        sb.AppendLine($"    internal Query(World world, {ctorIndexParams}, int tick, QueryFilter filter)");
         sb.AppendLine("    {");
-        sb.AppendLine("        _archetypes = archetypes;");
+        sb.AppendLine("        _world = world;");
         foreach (var i in Indices(n))
             sb.AppendLine($"        _typeIndex{i} = typeIndex{i}; _tracked{i} = tracked{i};");
         sb.AppendLine("        _tick = tick;");
+        sb.AppendLine("        _filter = filter;");
         sb.AppendLine("    }");
         sb.AppendLine();
 
+        var fieldArgs = string.Join(", ", Indices(n).Select(i => $"_typeIndex{i}, _tracked{i}"));
         var enumCtorArgs = string.Join(", ", Indices(n).Select(i => $"_typeIndex{i}, _tracked{i}"));
         sb.AppendLine(n == 1
-            ? "    /// <summary>Returns the enumerator for this query.</summary>"
+            ? "    /// <summary>Returns the enumerator for this query, resolving matching archetypes now (cached — see <see cref=\"World.GetMatchingArchetypes(ArchetypeSignature, QueryFilter)\"/>).</summary>"
             : "    /// <inheritdoc cref=\"Query{T0}.GetEnumerator\"/>");
-        sb.AppendLine($"    public Enumerator GetEnumerator() => new(_archetypes, {enumCtorArgs}, _tick);");
+        sb.AppendLine($"    public Enumerator GetEnumerator() => new(_world.GetMatchingArchetypes(QuerySignature<{tp}>.Value, _filter), {enumCtorArgs}, _tick);");
+        sb.AppendLine();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Narrows this query to archetypes that also contain <typeparamref name=\"T\"/> — never yields an accessor for it.</summary>"
+            : "    /// <inheritdoc cref=\"Query{T0}.Has{T}\"/>");
+        sb.AppendLine($"    public Query<{tp}> Has<T>() where T : struct => new(_world, {fieldArgs}, _tick, _filter.Has<T>());");
+        sb.AppendLine();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Narrows this query to archetypes that do NOT contain <typeparamref name=\"T\"/>.</summary>"
+            : "    /// <inheritdoc cref=\"Query{T0}.Without{T}\"/>");
+        sb.AppendLine($"    public Query<{tp}> Without<T>() where T : struct => new(_world, {fieldArgs}, _tick, _filter.Without<T>());");
+        sb.AppendLine();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Narrows this query to archetypes containing at least one of <typeparamref name=\"TA\"/>/<typeparamref name=\"TB\"/>. A second call replaces the first any-of group rather than adding another.</summary>"
+            : "    /// <inheritdoc cref=\"Query{T0}.Any{TA,TB}\"/>");
+        sb.AppendLine($"    public Query<{tp}> Any<TA, TB>() where TA : struct where TB : struct => new(_world, {fieldArgs}, _tick, _filter.Any<TA, TB>());");
+        sb.AppendLine();
+
+        var executeArgs = string.Join(", ", Indices(n).Select(i => $"ref component{i}"));
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Runs <paramref name=\"action\"/> once per matching entity, sequentially on the calling thread.</summary>"
+            : "    /// <inheritdoc cref=\"Query{T0}.ForEach{TUniform}\"/>");
+        sb.AppendLine($"    public void ForEach<TUniform>(TUniform uniform, QueryAction<TUniform, {tp}> action)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        foreach (var row in this)");
+        sb.AppendLine("        {");
+        foreach (var i in Indices(n))
+            sb.AppendLine($"            ref var component{i} = ref row.Get<T{i}>();");
+        sb.AppendLine($"            action(uniform, {executeArgs});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Runs <paramref name=\"action\"/> once per matching entity, fanned out across the thread pool one archetype at a time via <see cref=\"System.Threading.Tasks.Parallel.ForEach{TSource}(IEnumerable{TSource}, Action{TSource})\"/>. The caller is responsible for <paramref name=\"action\"/> being safe to run concurrently with itself and with anything else touching the same World at the same time.</summary>"
+            : "    /// <inheritdoc cref=\"Query{T0}.ParallelForEach{TUniform}\"/>");
+        sb.AppendLine($"    public void ParallelForEach<TUniform>(TUniform uniform, QueryAction<TUniform, {tp}> action)");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        var archetypes = _world.GetMatchingArchetypes(QuerySignature<{tp}>.Value, _filter);");
+        foreach (var i in Indices(n))
+        {
+            sb.AppendLine($"        var typeIndex{i} = _typeIndex{i};");
+            sb.AppendLine($"        var tracked{i} = _tracked{i};");
+        }
+        sb.AppendLine("        var tick = _tick;");
+        sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(archetypes, archetype =>");
+        sb.AppendLine("        {");
+        sb.AppendLine("            if (archetype.Count == 0) return;");
+        foreach (var i in Indices(n))
+        {
+            sb.AppendLine($"            var storage{i} = archetype.Storages[typeIndex{i}];");
+            sb.AppendLine($"            var items{i} = ((T{i}[])storage{i}.RawItems).AsSpan(0, archetype.Count);");
+            sb.AppendLine($"            var lastMarkedTick{i} = storage{i}.RawLastMarkedTick.AsSpan(0, archetype.Count);");
+        }
+        sb.AppendLine("            for (var row = 0; row < archetype.Count; row++)");
+        sb.AppendLine("            {");
+        foreach (var i in Indices(n))
+            sb.AppendLine($"                if (tracked{i}) lastMarkedTick{i}[row] = tick;");
+        foreach (var i in Indices(n))
+            sb.AppendLine($"                ref var component{i} = ref items{i}[row];");
+        sb.AppendLine($"                action(uniform, {executeArgs});");
+        sb.AppendLine("            }");
+        sb.AppendLine("        });");
+        sb.AppendLine("    }");
         sb.AppendLine();
 
         sb.AppendLine(n == 1
@@ -285,6 +354,18 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
+    /// <summary>Emits the <c>QueryAction&lt;TUniform, T0..TN-1&gt;</c> delegate used by <c>Query{T0..TN-1}.ForEach</c>/<c>ParallelForEach</c> for arity <paramref name="n"/>.</summary>
+    internal static string QueryActionDelegate(int n)
+    {
+        var tp = TypeParams(n);
+        var refParams = string.Join(", ", Indices(n).Select(i => $"ref T{i} component{i}"));
+        return (n == 1
+                ? "/// <summary>Callback shape for <see cref=\"Query{T0}.ForEach{TUniform}\"/>/<see cref=\"Query{T0}.ParallelForEach{TUniform}\"/> — <paramref name=\"uniform\"/> is passed by value, not captured, so no closure allocation is needed per call.</summary>"
+                : $"/// <summary>{n}-component overload of <see cref=\"QueryAction{{TUniform, T0}}\"/>.</summary>")
+            + $"\npublic delegate void QueryAction<in TUniform, {tp}>(TUniform uniform, {refParams})"
+            + $"\n{WhereClauses(n, "    ")};";
+    }
+
     /// <summary>
     /// Emits <c>QuerySignature&lt;T0..TN-1&gt;</c>: the required archetype signature for
     /// a <c>Query&lt;T0..TN-1&gt;</c>, resolved once per closed generic instantiation
@@ -319,7 +400,10 @@ internal static class ArityTemplates
                 + "    /// <see cref=\"QueryRow{T0}\"/>, one per matching entity, with no chunk or\n"
                 + "    /// archetype vocabulary required. Replaces <c>QueryMut&lt;T&gt;</c>/\n"
                 + "    /// <c>QueryRef&lt;T&gt;</c> outright — see the design's Unified entity-tier query\n"
-                + "    /// section.\n"
+                + "    /// section. Narrow the result further via the returned <c>Query{T0}</c>'s own\n"
+                + "    /// <c>Has</c>/<c>Without</c>/<c>Any</c> fluent methods — there is no filter parameter\n"
+                + "    /// here directly, since that would require exposing the internal\n"
+                + "    /// <c>QueryFilter</c> type on a public signature.\n"
                 + "    /// </summary>\n"
                 + $"    Query<{tp}> Query<{tp}>() {where};"
             : $"    /// <inheritdoc cref=\"Query{{T0}}()\"/>\n    Query<{tp}> Query<{tp}>() {where};";
@@ -333,7 +417,7 @@ internal static class ArityTemplates
         var ctorArgs = string.Join(", ", Indices(n).Select(i => $"TypeIndex<T{i}>.Value, IsTracked(TypeIndex<T{i}>.Value)"));
         return $"    /// <inheritdoc/>\n" +
                $"    public Query<{tp}> Query<{tp}>() {where} =>\n" +
-               $"        new(GetMatchingArchetypes(QuerySignature<{tp}>.Value), {ctorArgs}, _currentTick);";
+               $"        new(this, {ctorArgs}, _currentTick, QueryFilter.Empty);";
     }
 
     /// <summary>
