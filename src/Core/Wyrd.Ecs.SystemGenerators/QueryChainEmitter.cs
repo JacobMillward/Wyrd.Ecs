@@ -188,6 +188,47 @@ internal static class QueryChainEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Emits the `partial` class part supplying a `QuerySystem` subclass's `Execute`
+    /// declaration (as a required partial method — an explicit access modifier makes
+    /// C# 9+ treat a partial method as needing an implementation, confirmed via
+    /// `partial-method-check/`) and its `EcsSystem.OnUpdate` implementation.
+    /// </summary>
+    internal static string RenderQuerySystemGlue(QuerySystemCandidate candidate)
+    {
+        var dataElements = candidate.Shape.DataElements();
+        var executeParams = string.Join(", ", new[] { "ulong tick" }.Concat(dataElements.Select(ParamDecl)));
+        // Calling a ref/in parameter requires the same modifier at the call site, not
+        // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
+        // Both lists are built by prepending "ulong t"/"ulong tick" into the *same*
+        // list before joining (matching RenderBackend's actionParams pattern), not by
+        // joining dataElements alone and string-concatenating a separator afterward --
+        // the latter produces a trailing comma ("(ulong t, )") when dataElements is
+        // empty (a filter-only shape with no Writes/Reads at all), which doesn't compile.
+        var lambdaParams = string.Join(", ", new[] { "ulong t" }.Concat(dataElements.Select(ParamDecl)));
+        var executeCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
+
+        var sb = new StringBuilder();
+        sb.AppendLine("using Wyrd.Ecs;");
+        sb.AppendLine();
+
+        var hasNamespace = candidate.Namespace.Length > 0;
+        if (hasNamespace)
+        {
+            sb.AppendLine($"namespace {candidate.Namespace};");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"partial class {candidate.ClassName}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    private partial void Execute({executeParams});");
+        sb.AppendLine();
+        sb.AppendLine("    protected override void OnUpdate(World world, ulong tick) =>");
+        sb.AppendLine($"        Build(world).ForEach(tick, ({lambdaParams}) => Execute({executeCallArgs}));");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
     /// <summary>A stable, valid-C#-identifier suffix derived from <see cref="QueryShape.ExactShapeTypeName"/> — distinct from <see cref="QueryShapeExtensions.HashName"/>, which is derived from the order-independent <see cref="QueryShapeExtensions.DedupKey"/> instead.</summary>
     internal static string ExactShapeHash(QueryShape shape)
     {

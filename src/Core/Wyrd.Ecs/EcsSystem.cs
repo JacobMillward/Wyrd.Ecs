@@ -2,7 +2,7 @@ namespace Wyrd.Ecs;
 
 /// <summary>
 /// The entry point every system implements the same way, regardless of whether it
-/// uses no query, one query via <see cref="QuerySystem{T0}"/>, or several queries
+/// uses no query, one query via <see cref="QuerySystem"/>, or several queries
 /// called directly. A scheduler (not built here) discovers, orders, and invokes
 /// system instances through this single member. Named <c>EcsSystem</c>, not
 /// <c>System</c>, so a consumer's own <c>using Wyrd.Ecs;</c> never collides with the

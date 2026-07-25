@@ -9,10 +9,21 @@ internal static class ChainWalker
     internal static QueryShape? TryExtractShape(InvocationExpressionSyntax terminal, SemanticModel semanticModel, CancellationToken ct)
     {
         if (terminal.Expression is not MemberAccessExpressionSyntax { Expression: var receiverExpr }) return null;
-
         if (semanticModel.GetTypeInfo(receiverExpr, ct).Type is not INamedTypeSymbol receiverType) return null;
-        if (!IsQueryOfShape(receiverType)) return null;
-        if (receiverType.TypeArguments is not [var shapeType]) return null;
+        return TryExtractShapeFromQueryType(receiverType, ct);
+    }
+
+    /// <summary>
+    /// Unpacks an already-resolved <c>Wyrd.Ecs.Query&lt;TShape&gt;</c> type symbol's
+    /// nested-tuple <c>TShape</c> directly — shared by <see cref="TryExtractShape"/>
+    /// (a chain terminal's receiver expression type) and <c>QuerySystem</c> recognition
+    /// (a <c>Build</c> method's declared return type, Task 11) — both start from a
+    /// resolved <c>Query&lt;TShape&gt;</c> symbol, they just get it different ways.
+    /// </summary>
+    internal static QueryShape? TryExtractShapeFromQueryType(INamedTypeSymbol queryType, CancellationToken ct)
+    {
+        if (!IsQueryOfShape(queryType)) return null;
+        if (queryType.TypeArguments is not [var shapeType]) return null;
 
         var markers = ImmutableArray.CreateBuilder<MarkerElement>();
         var withouts = ImmutableArray.CreateBuilder<WithoutElement>();
@@ -37,11 +48,35 @@ internal static class ChainWalker
 
         return new QueryShape
         {
-            ExactShapeTypeName = receiverType.ToDisplayString(),
+            ExactShapeTypeName = queryType.ToDisplayString(),
             Markers = markers.ToImmutable(),
             Withouts = withouts.ToImmutable(),
             Anys = anys.ToImmutable(),
         };
+    }
+
+    /// <summary>
+    /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass whose
+    /// <c>OnUpdate</c> override directly contains <paramref name="terminal"/>, or
+    /// <c>null</c> if it isn't inside one — walks the override chain, not just the
+    /// method name, so a same-named method that isn't actually an <c>EcsSystem</c>
+    /// override never matches.
+    /// </summary>
+    internal static string? TryFindEnclosingSystemType(InvocationExpressionSyntax terminal, SemanticModel semanticModel, CancellationToken ct)
+    {
+        var methodDecl = terminal.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+        if (methodDecl is null) return null;
+        if (semanticModel.GetDeclaredSymbol(methodDecl, ct) is not IMethodSymbol method) return null;
+        if (method.Name != "OnUpdate" || !method.IsOverride) return null;
+
+        for (var overridden = method.OverriddenMethod; overridden is not null; overridden = overridden.OverriddenMethod)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (overridden.ContainingType.Name == "EcsSystem" && overridden.ContainingType.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs")
+                return method.ContainingType.ToDisplayString();
+        }
+
+        return null;
     }
 
     private static bool TryClassifyElement(
@@ -76,31 +111,7 @@ internal static class ChainWalker
         }
     }
 
-    /// <summary>
-    /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass whose
-    /// <c>OnUpdate</c> override directly contains <paramref name="terminal"/>, or
-    /// <c>null</c> if it isn't inside one — walks the override chain, not just the
-    /// method name, so a same-named method that isn't actually an <c>EcsSystem</c>
-    /// override never matches.
-    /// </summary>
-    internal static string? TryFindEnclosingSystemType(InvocationExpressionSyntax terminal, SemanticModel semanticModel, CancellationToken ct)
-    {
-        var methodDecl = terminal.FirstAncestorOrSelf<MethodDeclarationSyntax>();
-        if (methodDecl is null) return null;
-        if (semanticModel.GetDeclaredSymbol(methodDecl, ct) is not IMethodSymbol method) return null;
-        if (method.Name != "OnUpdate" || !method.IsOverride) return null;
-
-        for (var overridden = method.OverriddenMethod; overridden is not null; overridden = overridden.OverriddenMethod)
-        {
-            ct.ThrowIfCancellationRequested();
-            if (overridden.ContainingType.Name == "EcsSystem" && overridden.ContainingType.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs")
-                return method.ContainingType.ToDisplayString();
-        }
-
-        return null;
-    }
-
-    private static bool IsQueryOfShape(INamedTypeSymbol type)
+    internal static bool IsQueryOfShape(INamedTypeSymbol type)
     {
         var original = type.OriginalDefinition;
         return original.Name == "Query" && original.Arity == 1 && original.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs";
