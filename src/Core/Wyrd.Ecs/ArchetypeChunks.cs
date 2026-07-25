@@ -5,8 +5,8 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// The archetypes matching one <see cref="ArchetypeQuery.Resolve"/> call, each wrapped as
 /// an <see cref="ArchetypeChunk"/>. A plain struct enumerator (no <c>IEnumerable&lt;T&gt;</c>)
-/// so `foreach` over this never pays for interface dispatch or boxing, matching the
-/// generated <c>Query&lt;T0..T7&gt;</c> types' own enumerator.
+/// so `foreach` over this never pays for interface dispatch or boxing — same rationale as
+/// every other struct enumerator in this codebase.
 /// </summary>
 public readonly struct ArchetypeChunks
 {
