@@ -444,6 +444,14 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
+    /// The total number of live entities across every archetype — O(archetype count),
+    /// not O(entity count), since it just sums each archetype's own cached row count.
+    /// A cheap, deliberately coarse size proxy the static parallel scheduler's executor
+    /// uses to decide whether a stage is worth dispatching to the thread pool at all.
+    /// </summary>
+    internal int TotalEntityCount => _archetypes.Values.Sum(a => a.Count);
+
+    /// <summary>
     /// Every archetype whose signature contains all of <paramref name="required"/>'s bits,
     /// cached per required set and invalidated whenever a new archetype is created. A
     /// query only needs to walk this array, not every archetype in the world.

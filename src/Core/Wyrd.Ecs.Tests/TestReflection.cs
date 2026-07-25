@@ -17,4 +17,11 @@ internal static class TestReflection
         var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])locationsField.GetValue(entityTable)!;
         return locations[entity.Id];
     }
+
+    /// <summary>Peeks at <see cref="World.TotalEntityCount"/>, an <c>internal</c> property.</summary>
+    internal static int GetTotalEntityCount(World world)
+    {
+        var property = typeof(World).GetProperty("TotalEntityCount", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return (int)property.GetValue(world)!;
+    }
 }

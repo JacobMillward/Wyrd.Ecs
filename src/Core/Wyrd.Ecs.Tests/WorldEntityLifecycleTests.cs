@@ -238,4 +238,16 @@ public class WorldEntityLifecycleTests
         foreach (var entity in live)
             world.IsAlive(entity).Should().BeTrue();
     }
+
+    [Fact]
+    public void TotalEntityCount_SumsAcrossArchetypes()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        world.Commands.AddComponent(a, new Position { X = 1f });
+        world.Commands.CreateEntity(); // stays in the empty archetype
+        world.ApplyCommands();
+
+        TestReflection.GetTotalEntityCount(world).Should().Be(2);
+    }
 }
