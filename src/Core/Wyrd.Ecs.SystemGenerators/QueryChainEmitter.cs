@@ -23,8 +23,8 @@ internal static class QueryChainEmitter
         sb.AppendLine();
 
         var actionParams = string.Join(", ", new[] { "TUniform uniform" }.Concat(dataElements.Select(ParamDecl)));
-        sb.AppendLine($"public delegate void QueryChainAction_{hash}<TUniform>({actionParams});");
-        sb.AppendLine($"public delegate bool QueryChainPredicate_{hash}<TUniform>({actionParams});");
+        sb.AppendLine($"internal delegate void QueryChainAction_{hash}<TUniform>({actionParams});");
+        sb.AppendLine($"internal delegate bool QueryChainPredicate_{hash}<TUniform>({actionParams});");
         sb.AppendLine();
 
         sb.AppendLine($"internal static class QueryChainWorker_{hash}");
@@ -119,9 +119,9 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
-        sb.AppendLine($"public static class QueryChainTerminals_{overloadHash}");
+        sb.AppendLine($"internal static class QueryChainTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    public static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
+        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
         sb.AppendLine($"        QueryChainWorker_{hash}.RunForEach(query.World, uniform, action);");
         sb.AppendLine("}");
         return sb.ToString();
@@ -137,9 +137,9 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
-        sb.AppendLine($"public static class QueryChainPredicateTerminals_{overloadHash}");
+        sb.AppendLine($"internal static class QueryChainPredicateTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    public static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicate_{hash}<TUniform> action) =>");
+        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicate_{hash}<TUniform> action) =>");
         sb.AppendLine($"        QueryChainWorker_{hash}.RunForEachPredicate(query.World, uniform, action);");
         sb.AppendLine("}");
         return sb.ToString();
@@ -155,9 +155,9 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
-        sb.AppendLine($"public static class QueryChainParallelTerminals_{overloadHash}");
+        sb.AppendLine($"internal static class QueryChainParallelTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    public static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
+        sb.AppendLine($"    internal static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
         sb.AppendLine($"        QueryChainWorker_{hash}.RunParallelForEach(query.World, uniform, action);");
         sb.AppendLine("}");
         return sb.ToString();
