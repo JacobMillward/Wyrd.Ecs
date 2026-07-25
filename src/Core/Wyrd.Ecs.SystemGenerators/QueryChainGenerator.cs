@@ -23,7 +23,10 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var candidates = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is InvocationExpressionSyntax
                 {
-                    Expression: MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: "ForEach" } }
+                    Expression: MemberAccessExpressionSyntax
+                    {
+                        Name: IdentifierNameSyntax { Identifier.ValueText: "ForEach" or "ParallelForEach" }
+                    }
                 },
                 transform: static (ctx, ct) => ChainWalker.TryExtractShape((InvocationExpressionSyntax)ctx.Node, ctx.SemanticModel, ct))
             .Where(static shape => shape is not null)
@@ -52,6 +55,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
             foreach (var shape in byExactShape)
                 spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape));
+
+            foreach (var shape in byExactShape)
+                spc.AddSource($"QueryChainParallelForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape));
         });
     }
 }

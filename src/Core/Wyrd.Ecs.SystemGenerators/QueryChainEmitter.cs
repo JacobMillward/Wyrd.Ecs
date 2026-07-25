@@ -81,6 +81,25 @@ internal static class QueryChainEmitter
         sb.AppendLine("        }");
         sb.AppendLine("    }");
 
+        sb.AppendLine();
+        sb.AppendLine($"    internal static void RunParallelForEach<TUniform>(World world, TUniform uniform, QueryChainAction_{hash}<TUniform> action)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
+        sb.AppendLine("        foreach (var chunk in Cached.Resolve(world)) chunks.Add(chunk);");
+        sb.AppendLine();
+        sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(chunks, chunk =>");
+        var parallelProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(dataElements.Select(e => $"chunk.Access<{AccessorType(e)}>()")));
+        sb.AppendLine($"            Process({parallelProcessCallArgs}));");
+        sb.AppendLine();
+        var parallelProcessParams = string.Join(", ", new[] { "TUniform uniform", $"QueryChainAction_{hash}<TUniform> action", "int count" }.Concat(dataElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        sb.AppendLine($"        static void Process({parallelProcessParams})");
+        sb.AppendLine("        {");
+        sb.AppendLine("            for (var i = 0; i < count; i++)");
+        var parallelActionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
+        sb.AppendLine($"                action({parallelActionCallArgs});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -122,6 +141,24 @@ internal static class QueryChainEmitter
         sb.AppendLine("{");
         sb.AppendLine($"    public static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicate_{hash}<TUniform> action) =>");
         sb.AppendLine($"        QueryChainWorker_{hash}.RunForEachPredicate(query.World, uniform, action);");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>The `.ParallelForEach` overload — same receiver/grouping rules as <see cref="RenderForEachOverload"/>, see Task 9.</summary>
+    internal static string RenderParallelForEachOverload(QueryShape shape)
+    {
+        var hash = shape.HashName();
+        var overloadHash = ExactShapeHash(shape);
+        var sb = new StringBuilder();
+        sb.AppendLine("using Wyrd.Ecs;");
+        sb.AppendLine();
+        sb.AppendLine("namespace Wyrd.Ecs;");
+        sb.AppendLine();
+        sb.AppendLine($"public static class QueryChainParallelTerminals_{overloadHash}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
+        sb.AppendLine($"        QueryChainWorker_{hash}.RunParallelForEach(query.World, uniform, action);");
         sb.AppendLine("}");
         return sb.ToString();
     }
