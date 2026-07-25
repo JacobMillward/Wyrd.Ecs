@@ -49,6 +49,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
             foreach (var shape in byExactShape)
                 spc.AddSource($"QueryChainForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderForEachOverload(shape));
+
+            foreach (var shape in byExactShape)
+                spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape));
         });
     }
 }

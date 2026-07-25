@@ -24,6 +24,7 @@ internal static class QueryChainEmitter
 
         var actionParams = string.Join(", ", new[] { "TUniform uniform" }.Concat(dataElements.Select(ParamDecl)));
         sb.AppendLine($"public delegate void QueryChainAction_{hash}<TUniform>({actionParams});");
+        sb.AppendLine($"public delegate bool QueryChainPredicate_{hash}<TUniform>({actionParams});");
         sb.AppendLine();
 
         sb.AppendLine($"internal static class QueryChainWorker_{hash}");
@@ -62,6 +63,24 @@ internal static class QueryChainEmitter
         sb.AppendLine($"                action({actionCallArgs});");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
+
+        sb.AppendLine();
+        sb.AppendLine($"    internal static void RunForEachPredicate<TUniform>(World world, TUniform uniform, QueryChainPredicate_{hash}<TUniform> action)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        foreach (var chunk in Cached.Resolve(world))");
+        var predicateProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
+        sb.AppendLine($"            if (!Process({predicateProcessCallArgs})) return;");
+        sb.AppendLine();
+        var predicateProcessParams = string.Join(", ", new[] { "TUniform uniform", $"QueryChainPredicate_{hash}<TUniform> action", "int count" }.Concat(dataElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        sb.AppendLine($"        static bool Process({predicateProcessParams})");
+        sb.AppendLine("        {");
+        sb.AppendLine("            for (var i = 0; i < count; i++)");
+        var predicateActionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
+        sb.AppendLine($"                if (!action({predicateActionCallArgs})) return false;");
+        sb.AppendLine("            return true;");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -85,6 +104,24 @@ internal static class QueryChainEmitter
         sb.AppendLine("{");
         sb.AppendLine($"    public static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
         sb.AppendLine($"        QueryChainWorker_{hash}.RunForEach(query.World, uniform, action);");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>The predicate-delegate `.ForEach` overload — same receiver/grouping rules as <see cref="RenderForEachOverload"/>, see Task 8.</summary>
+    internal static string RenderPredicateForEachOverload(QueryShape shape)
+    {
+        var hash = shape.HashName();
+        var overloadHash = ExactShapeHash(shape);
+        var sb = new StringBuilder();
+        sb.AppendLine("using Wyrd.Ecs;");
+        sb.AppendLine();
+        sb.AppendLine("namespace Wyrd.Ecs;");
+        sb.AppendLine();
+        sb.AppendLine($"public static class QueryChainPredicateTerminals_{overloadHash}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    public static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicate_{hash}<TUniform> action) =>");
+        sb.AppendLine($"        QueryChainWorker_{hash}.RunForEachPredicate(query.World, uniform, action);");
         sb.AppendLine("}");
         return sb.ToString();
     }
