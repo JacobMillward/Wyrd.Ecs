@@ -264,12 +264,12 @@ public sealed partial class CommandBuffer
     /// resetting the per-type add-component buffers) runs in a <c>finally</c> regardless,
     /// so a misbehaving observer never leaves the batch half-applied to be silently
     /// replayed by the next call to <see cref="Apply"/>. Only ever called single-threaded,
-    /// from a stage's join point after every enqueueing thread has already returned — the
-    /// replay loop itself doesn't need <see cref="_gate"/>, but the cleanup still takes it
-    /// defensively, so a caller invoking <see cref="World.ApplyCommands()"/> while another
-    /// thread is still enqueueing serializes safely instead of corrupting state (a misuse
-    /// this lock happens to also catch, not a scenario the join-point discipline should
-    /// ever actually produce).
+    /// from a stage's join point after every enqueueing thread has already returned —
+    /// neither the replay loop nor the cleanup below takes <see cref="_gate"/>, since both
+    /// already rely on that same single-threaded-at-the-join-point contract. Calling this
+    /// concurrently with an in-flight <c>Commands.*</c> call from another thread is a
+    /// documented misuse with no defined behavior, not a scenario this class defends
+    /// against.
     /// </summary>
     internal void Apply()
     {
@@ -283,14 +283,11 @@ public sealed partial class CommandBuffer
         }
         finally
         {
-            lock (_gate)
-            {
-                Array.Clear(_queue, 0, _count);
-                _count = 0;
+            Array.Clear(_queue, 0, _count);
+            _count = 0;
 
-                foreach (var buffer in _addComponentBuffers)
-                    (buffer as IResettableBuffer)?.ResetForNextBatch();
-            }
+            foreach (var buffer in _addComponentBuffers)
+                (buffer as IResettableBuffer)?.ResetForNextBatch();
         }
     }
 }
