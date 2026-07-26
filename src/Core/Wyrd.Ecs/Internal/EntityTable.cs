@@ -37,7 +37,7 @@ internal struct EntityTable
     private bool[] _reserved = new bool[4];
     private int _nextId = 1; // Id 0 is reserved for Entity.Null.
 
-    public EntityTable() { }
+    public EntityTable() { Array.Fill(_reserved, true); }
 
     /// <summary>The archetype+row currently backing entity id <paramref name="id"/>.</summary>
     internal ref (Archetype Archetype, int Row) this[int id] => ref _locations[id];
@@ -50,9 +50,21 @@ internal struct EntityTable
     /// queued operation) plus every direct component read/write, so it's the hottest
     /// correctness check in the engine. A hash lookup here was real, avoidable overhead
     /// on that path; a bounds-checked array read costs a fraction of it.
+    ///
+    /// <para>
+    /// <c>id &lt; _reserved.Length</c>, not <c>id &lt; _nextId</c> — a purely capacity
+    /// bounds check, doubling as the guard against reading an index nothing has ever
+    /// touched. Liveness itself comes entirely from <see cref="_reserved"/>: every slot
+    /// defaults to <c>true</c> (not alive) the moment its capacity exists — either from
+    /// <see cref="EntityTable"/>'s own construction or from <see cref="EnsureCapacity"/>
+    /// growing into it — and <see cref="Place"/> is the only thing that ever clears one
+    /// to <c>false</c>. That makes each id's liveness independent of every other id's,
+    /// including a same-batch sibling that happens to share newly-grown capacity by
+    /// coincidence (<see cref="Place"/>'s own doc explains why that matters).
+    /// </para>
     /// </summary>
     internal bool IsAlive(int id, int generation) =>
-        id > 0 && id < _nextId && _generations[id] == generation && !_reserved[id];
+        id > 0 && id < _reserved.Length && _generations[id] == generation && !_reserved[id];
 
     /// <summary>
     /// Reserves a fresh entity id without placing it into any archetype — not
@@ -97,31 +109,22 @@ internal struct EntityTable
     /// <see cref="CommandBuffer.Apply"/>'s command loop.
     ///
     /// <para>
-    /// Bumps <see cref="_nextId"/> immediately, per entity, for a brand-new (never
-    /// recycled) id — deliberately not deferred to <see cref="FlushReservations"/>,
-    /// which only runs once <see cref="CommandBuffer.Apply"/>'s whole queue has
-    /// finished: a queued <c>AddComponent</c> for the same entity <c>CreateEntity</c>
-    /// just reserved, in the same batch, checks <see cref="IsAlive"/> before that
-    /// batch's <see cref="CommandBuffer.Apply"/> call returns, so it needs this entity
-    /// already alive mid-batch, not just by the time the whole batch is done. Not a
-    /// plain assignment, since two concurrently-reserved new ids in the same batch can
-    /// have their <see cref="Place"/> calls run in either order (a race in which
-    /// thread's <see cref="CommandBuffer.Enqueue"/> call wins the queue position first)
-    /// — order-independent by construction, so it doesn't matter which lands first.
-    /// </para>
-    ///
-    /// <para>
-    /// Known narrow gap, not fixed here: if entity A (id 5) and B (id 6) are both
-    /// reserved as brand-new ids in the same batch, and B's <see cref="Place"/> happens
-    /// to run before A's (per the ordering note above), <see cref="_nextId"/> jumps to
-    /// cover both the moment B is placed — so <see cref="IsAlive"/> would report A
-    /// (not yet placed) as alive too, for that brief window, to anything that checks
-    /// it from inside an <see cref="IStructuralChangeObserver"/> callback fired
-    /// synchronously by B's own placement. No current caller does this (checking a
-    /// *different*, not-yet-processed queued entity's liveness from inside a
-    /// same-batch structural-change callback); worth fixing properly — a two-phase
-    /// placement that defers every new id's <see cref="_nextId"/> visibility until
-    /// the whole batch's new ids are all placed — if a future caller ever needs it.
+    /// Clearing <see cref="_reserved"/>'s bit for this id is what actually makes it
+    /// <see cref="IsAlive"/> — immediately, regardless of placement order — since a
+    /// queued <c>AddComponent</c> for the same entity <c>CreateEntity</c> just reserved,
+    /// in the same batch, checks <see cref="IsAlive"/> before that batch's
+    /// <see cref="CommandBuffer.Apply"/> call returns, so it needs this entity already
+    /// alive mid-batch, not just by the time the whole batch is done. <see cref="_nextId"/>
+    /// still advances here too, for <see cref="Reserve"/>'s own bookkeeping (so the next
+    /// batch never mints an id this one already used) — but that bump plays no part in
+    /// this id's own liveness, or any other id's, unlike the scheme this replaced. Two
+    /// concurrently-reserved new ids in the same batch can have their <see cref="Place"/>
+    /// calls run in either order (a race in which thread's <see cref="CommandBuffer.Enqueue"/>
+    /// call wins the queue position first) — order-independent by construction: whichever
+    /// runs first only ever clears its own id's bit, never a sibling's, so a lower,
+    /// not-yet-placed sibling that happens to share newly-grown capacity (because
+    /// <see cref="EnsureCapacity"/> just grew arrays to cover this higher id) still reads
+    /// <c>true</c> — reserved, not alive — until its own <see cref="Place"/> call runs.
     /// </para>
     /// </summary>
     internal int Place(Entity entity, Archetype archetype)
@@ -187,21 +190,37 @@ internal struct EntityTable
     /// many entries are available — nothing to do in that case. Called once per
     /// <see cref="World.ApplyCommands()"/>, after <see cref="CommandBuffer.Apply"/>'s
     /// whole queue (hence every <see cref="Place"/>/<see cref="Retire"/> call it could
-    /// produce) has already run. Doesn't touch <see cref="_nextId"/> — <see cref="Place"/>
-    /// already bumps that immediately, per entity, precisely so a same-batch
-    /// <c>AddComponent</c> right after <c>CreateEntity</c> sees the entity alive without
-    /// waiting for this reconciliation.
+    /// produce) has already run. Doesn't touch <see cref="_nextId"/> or
+    /// <see cref="_reserved"/> — <see cref="Place"/> already updates both immediately,
+    /// per entity, precisely so a same-batch <c>AddComponent</c> right after
+    /// <c>CreateEntity</c> sees the entity alive without waiting for this reconciliation.
     /// </summary>
     internal void FlushReservations()
     {
         if (_freeCursor < 0) _freeCursor = 0;
     }
 
+    /// <summary>
+    /// Grows every parallel array to cover <paramref name="id"/>. <see cref="_reserved"/>
+    /// needs one thing the others don't: <c>Array.Resize</c> zero-fills new slots to
+    /// <c>false</c>, which for every other array is exactly "not yet meaningful, fine" —
+    /// but for <see cref="_reserved"/>, <c>false</c> means "alive." Growing past some
+    /// higher id (<paramref name="id"/> itself, mid-<see cref="Place"/>) would otherwise
+    /// silently make a lower, not-yet-placed sibling's still-untouched slot read as alive
+    /// the instant its capacity happens to exist — precisely the gap <see cref="IsAlive"/>'s
+    /// own doc describes. Explicitly filling the newly-added region with <c>true</c>
+    /// keeps every id "reserved" (not alive) by default until its own <see cref="Place"/>
+    /// call says otherwise.
+    /// </summary>
     private void EnsureCapacity(int id)
     {
         ArrayGrowth.EnsureCapacity(ref _generations, id + 1);
         ArrayGrowth.EnsureCapacity(ref _permanentIds, id + 1);
         ArrayGrowth.EnsureCapacity(ref _locations, id + 1);
+
+        var previousLength = _reserved.Length;
         ArrayGrowth.EnsureCapacity(ref _reserved, id + 1);
+        if (_reserved.Length > previousLength)
+            Array.Fill(_reserved, true, previousLength, _reserved.Length - previousLength);
     }
 }

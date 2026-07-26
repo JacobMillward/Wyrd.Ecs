@@ -24,6 +24,30 @@ sealed class SpawnerSystem : EcsSystem
     }
 }
 
+sealed class SpawnerASystem : EcsSystem
+{
+    protected override void OnUpdate(World world, ulong tick)
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var entity = world.Commands.CreateEntity();
+            world.Commands.AddComponent(entity, new ScheduledPosition { X = 1f });
+        }
+    }
+}
+
+sealed class SpawnerBSystem : EcsSystem
+{
+    protected override void OnUpdate(World world, ulong tick)
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var entity = world.Commands.CreateEntity();
+            world.Commands.AddComponent(entity, new ScheduledHealth { Value = 1 });
+        }
+    }
+}
+
 public class ScheduledExecutorTests
 {
     [Fact]
@@ -78,5 +102,38 @@ public class ScheduledExecutorTests
         executor.RunTick(world, tick: 1);
 
         world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f); // both MoveSystem instances ran, one per stage
+    }
+
+    [Fact]
+    public void TwoSystemsInTheSameParallelStage_BothCreatingEntitiesConcurrently_AllEntitiesSurvive()
+    {
+        // WithParallelThreshold(0) forces RunTick's `stage.Count > 1 && world.TotalEntityCount
+        // >= _parallelThreshold` check to take the Parallel.ForEach branch (both spawner
+        // systems have disjoint writes, so the scheduler places them in one stage) -- unlike
+        // this file's other tests, which never clear the default threshold and so only ever
+        // exercise the sequential branch. Both systems hammer world.Commands concurrently, so
+        // this is the one test that actually runs real user systems through ScheduledExecutor's
+        // thread-pool dispatch against the shared CommandBuffer/EntityTable.
+        var access = new Dictionary<Type, SystemAccess>
+        {
+            [typeof(SpawnerASystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
+            [typeof(SpawnerBSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
+        };
+        var (world, executor) = new WorldBuilder()
+            .WithSystems(access, new SpawnerASystem(), new SpawnerBSystem())
+            .WithParallelThreshold(0)
+            .BuildWithExecutor();
+
+        executor.RunTick(world, tick: 1);
+
+        var positionCount = 0;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledPosition>>().Resolve(world))
+            positionCount += chunk.Count;
+        var healthCount = 0;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledHealth>>().Resolve(world))
+            healthCount += chunk.Count;
+
+        positionCount.Should().Be(200); // SpawnerASystem's 200 concurrent creates all survived
+        healthCount.Should().Be(200); // SpawnerBSystem's 200 concurrent creates all survived, dispatched alongside SpawnerASystem
     }
 }
