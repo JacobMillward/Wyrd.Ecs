@@ -14,8 +14,9 @@ internal static class TestReflection
         var entityTableField = typeof(World).GetField("_entityTable", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var entityTable = entityTableField.GetValue(world)!;
         var locationsField = entityTable.GetType().GetField("_locations", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var locations = ((Wyrd.Ecs.Internal.Archetype Archetype, int Row)[])locationsField.GetValue(entityTable)!;
-        return locations[entity.Id];
+        var locations = (Wyrd.Ecs.Internal.EntityLocation[])locationsField.GetValue(entityTable)!;
+        var location = locations[entity.Id];
+        return (location.Archetype, location.Row);
     }
 
     /// <summary>Peeks at <see cref="World.TotalEntityCount"/>, an <c>internal</c> property.</summary>

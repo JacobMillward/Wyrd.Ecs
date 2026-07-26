@@ -31,7 +31,7 @@ internal struct EntityTable
 {
     private EntityId[] _permanentIds = new EntityId[4];
     private int[] _generations = new int[4];
-    private (Archetype Archetype, int Row)[] _locations = new (Archetype, int)[4];
+    private EntityLocation[] _locations = new EntityLocation[4];
     private int[] _pending = Array.Empty<int>();
     private int _freeCursor;
     private bool[] _reserved = new bool[4];
@@ -40,7 +40,7 @@ internal struct EntityTable
     public EntityTable() { Array.Fill(_reserved, true); }
 
     /// <summary>The archetype+row currently backing entity id <paramref name="id"/>.</summary>
-    internal ref (Archetype Archetype, int Row) this[int id] => ref _locations[id];
+    internal ref EntityLocation this[int id] => ref _locations[id];
 
     internal EntityId PermanentId(int id) => _permanentIds[id];
 
@@ -134,7 +134,7 @@ internal struct EntityTable
         _permanentIds[entity.Id] = EntityId.NewId();
         _reserved[entity.Id] = false;
         var row = archetype.AddRow(entity);
-        this[entity.Id] = (archetype, row);
+        this[entity.Id] = new EntityLocation(archetype, row);
         return row;
     }
 
@@ -148,7 +148,7 @@ internal struct EntityTable
         var (archetype, row) = this[id];
         var moved = archetype.RemoveRow(row);
         if (!moved.IsNull)
-            this[moved.Id] = (archetype, row);
+            this[moved.Id] = new EntityLocation(archetype, row);
 
         Retire(id);
     }

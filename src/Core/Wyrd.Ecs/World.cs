@@ -289,7 +289,7 @@ public sealed partial class World : IWorld
     /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
     /// and moves the entity onto it.
     /// </summary>
-    private (Archetype Target, int Row) MoveViaAddEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
+    private EntityLocation MoveViaAddEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
     {
         if (!source.TryGetAddEdge(typeIndex, out var target))
         {
@@ -298,7 +298,7 @@ public sealed partial class World : IWorld
         }
 
         var targetRow = MoveEntity(entity, source, sourceRow, target);
-        return (target, targetRow);
+        return new EntityLocation(target, targetRow);
     }
 
     /// <summary>
@@ -306,7 +306,7 @@ public sealed partial class World : IWorld
     /// looks up (or creates and caches) the archetype-remove edge for <paramref name="typeIndex"/>
     /// and moves the entity onto it.
     /// </summary>
-    private (Archetype Target, int Row) MoveViaRemoveEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
+    private EntityLocation MoveViaRemoveEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
     {
         if (!source.TryGetRemoveEdge(typeIndex, out var target))
         {
@@ -315,7 +315,7 @@ public sealed partial class World : IWorld
         }
 
         var targetRow = MoveEntity(entity, source, sourceRow, target);
-        return (target, targetRow);
+        return new EntityLocation(target, targetRow);
     }
 
     /// <inheritdoc/>
@@ -514,9 +514,9 @@ public sealed partial class World : IWorld
 
         var moved = source.RemoveRow(sourceRow);
         if (!moved.IsNull)
-            _entityTable[moved.Id] = (source, sourceRow);
+            _entityTable[moved.Id] = new EntityLocation(source, sourceRow);
 
-        _entityTable[entity.Id] = (target, targetRow);
+        _entityTable[entity.Id] = new EntityLocation(target, targetRow);
         return targetRow;
     }
 }
