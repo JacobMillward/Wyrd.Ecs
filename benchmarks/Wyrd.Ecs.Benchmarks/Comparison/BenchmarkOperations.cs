@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Wyrd.Ecs.Benchmarks.Comparison;
+namespace Comparison;
 
 /// <summary>
 /// Builds and disposes every <see cref="ContextAttribute"/>-tagged private field on a
