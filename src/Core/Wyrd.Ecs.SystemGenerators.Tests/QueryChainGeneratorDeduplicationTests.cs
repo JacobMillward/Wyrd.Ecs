@@ -29,7 +29,7 @@ public class QueryChainGeneratorDeduplicationTests
         var result = GeneratorTestHost.Run(new QueryChainGenerator(), compilation);
         var allSources = string.Join("\n---\n", result.Results[0].GeneratedSources.Select(s => s.SourceText.ToString()));
 
-        var backendClassNames = Regex.Matches(allSources, @"internal static class (QueryChainWorker_\w+)")
+        var backendClassNames = Regex.Matches(allSources, @"internal static class (QueryChainBackend_\w+)")
             .Select(m => m.Groups[1].Value)
             .Distinct()
             .ToList();
@@ -63,7 +63,7 @@ public class QueryChainGeneratorDeduplicationTests
         var result = GeneratorTestHost.Run(new QueryChainGenerator(), compilation);
         var allSources = string.Join("\n---\n", result.Results[0].GeneratedSources.Select(s => s.SourceText.ToString()));
 
-        var backendClassNames = Regex.Matches(allSources, @"internal static class (QueryChainWorker_\w+)")
+        var backendClassNames = Regex.Matches(allSources, @"internal static class (QueryChainBackend_\w+)")
             .Select(m => m.Groups[1].Value)
             .Distinct()
             .ToList();
