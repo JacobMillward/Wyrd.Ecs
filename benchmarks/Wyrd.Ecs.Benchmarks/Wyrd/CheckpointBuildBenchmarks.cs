@@ -2,7 +2,7 @@ using BenchmarkDotNet.Attributes;
 using Wyrd.Ecs.Persistence;
 using Wyrd.Ecs.Persistence.Continuous;
 
-namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
 /// Measures CheckpointBuilder.Build's full-rewrite cost at the engine's

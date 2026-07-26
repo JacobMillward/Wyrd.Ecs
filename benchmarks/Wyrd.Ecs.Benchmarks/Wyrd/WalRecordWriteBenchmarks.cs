@@ -2,7 +2,7 @@ using BenchmarkDotNet.Attributes;
 using Wyrd.Ecs.Persistence.Continuous;
 using Wyrd.Ecs.Persistence.Continuous.Internal;
 
-namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
 /// Isolated measurement of the WAL record write path

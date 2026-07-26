@@ -1,7 +1,8 @@
 using BenchmarkDotNet.Attributes;
 using Wyrd.Ecs;
+using Comparison.Wyrd;
 
-namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
 /// Measures <see cref="IWorld.ReadChanges{T}"/>'s full-archetype scan cost at the
