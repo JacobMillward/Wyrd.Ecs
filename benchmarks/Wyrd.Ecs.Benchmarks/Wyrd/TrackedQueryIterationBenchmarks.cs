@@ -1,17 +1,22 @@
 using BenchmarkDotNet.Attributes;
 using Wyrd.Ecs;
+using Comparison.Wyrd;
 
-namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
+/// <summary>
+/// The <see cref="Tracked"/> dimension, Wyrd.Ecs-only with no Friflo or fennecs equivalent — see
+/// <see cref="TrackedEntityLifecycleBenchmarks"/> for the same reasoning. Stays at arity 1-2 (the
+/// scope the original implementation covered before the arity cap was removed) rather than
+/// growing to 5 — the point of this class is measuring the tracked-write-stamping cost specifically,
+/// not re-deriving the arity-scaling numbers the untracked
+/// <see cref="Comparison.QueryIteration.QueryIterationBenchmarks"/> already covers.
+/// </summary>
 [MemoryDiagnoser]
-public class QueryIterationBenchmarks
+public class TrackedQueryIterationBenchmarks
 {
     private const int EntityCount = 10_000;
 
-    // Built once, mirroring how World.Query<TAccess0> itself (and, eventually,
-    // generator-emitted code for the new unbounded query-shape design) caches one
-    // ArchetypeQuery per shape in a static field and resolves it fresh
-    // (cache-backed via World.GetMatchingArchetypes) on every call.
     private static readonly ArchetypeQuery OneComponentQuery = ArchetypeQuery.Empty.Access<Mut<Position>>();
     private static readonly ArchetypeQuery TwoComponentQuery = ArchetypeQuery.Empty.Access<Mut<Position>>().Access<Ref<Velocity>>();
 
@@ -74,15 +79,6 @@ public class QueryIterationBenchmarks
         });
     }
 
-    /// <summary>
-    /// Same access pattern as <see cref="OneComponent_ChunkCallback"/>, calling
-    /// <see cref="ArchetypeQuery"/>/<see cref="ArchetypeChunk"/> directly instead of through
-    /// the <see cref="ChunkAction{TAccess0}"/> delegate <c>World.Query&lt;TAccess0&gt;</c>
-    /// wraps it in -- the same underlying implementation either way, so this measures
-    /// wrapper overhead (delegate dispatch, closure capture), not a different code path.
-    /// This is also the calling style generator-emitted code for the new unbounded
-    /// query-shape design will use.
-    /// </summary>
     [Benchmark]
     public void OneComponent_ArchetypeQuery()
     {
@@ -95,17 +91,6 @@ public class QueryIterationBenchmarks
         }
     }
 
-    /// <summary>
-    /// Same access pattern as <see cref="TwoComponent_ChunkCallback"/>, calling
-    /// <see cref="ArchetypeQuery"/>/<see cref="ArchetypeChunk"/> directly with the loop
-    /// written bare-inline -- see <see cref="OneComponent_ArchetypeQuery"/>. Kept
-    /// deliberately alongside <see cref="TwoComponent_ArchetypeQuery_LocalFunction"/>: with
-    /// two or more live accessors, this bare-inline shape measures consistently slower
-    /// (~25-40%) than either the delegate-wrapped or local-function versions, a JIT
-    /// register-allocation artifact confirmed in `wrapper-vs-inline-spike/`, not something
-    /// specific to this primitive -- documented here so the gap (and its fix, below) stays
-    /// visible in the one place someone benchmarking this API would actually look.
-    /// </summary>
     [Benchmark]
     public void TwoComponent_ArchetypeQuery()
     {
@@ -119,15 +104,6 @@ public class QueryIterationBenchmarks
         }
     }
 
-    /// <summary>
-    /// Same work as <see cref="TwoComponent_ArchetypeQuery"/>, with the per-chunk body
-    /// factored into a <c>static</c> local function instead of written bare-inline in the
-    /// loop. A direct call, not a delegate -- no indirection, no allocation -- but gives
-    /// the JIT a small, dedicated method to allocate registers for, matching
-    /// <see cref="TwoComponent_ChunkCallback"/>'s performance despite calling
-    /// <see cref="ArchetypeChunk"/> directly. This is the recommended pattern for any
-    /// multi-accessor loop written directly against <see cref="ArchetypeQuery"/>.
-    /// </summary>
     [Benchmark]
     public void TwoComponent_ArchetypeQuery_LocalFunction()
     {
@@ -142,16 +118,6 @@ public class QueryIterationBenchmarks
         }
     }
 
-    /// <summary>
-    /// The new query-chain generator's terminal -- the ergonomic tier a system actually
-    /// writes against, as opposed to <see cref="OneComponent_ArchetypeQuery"/>'s raw
-    /// primitive. Same access pattern as <see cref="OneComponent_ChunkCallback"/>, so this
-    /// measures the generated <c>QueryChainWorker</c>'s overhead (delegate dispatch through
-    /// its cached <see cref="ArchetypeQuery"/>, plus the uniform parameter every terminal
-    /// takes) against the old deleted <c>QueryRow&lt;T&gt;.Get&lt;T&gt;()</c> hidden-chunk
-    /// tier this replaces -- see the 2026-07-25 comparison doc for the old-tier numbers,
-    /// captured from the pre-migration commit since that API no longer exists here.
-    /// </summary>
     [Benchmark]
     public void OneComponent_FluentChain()
     {
@@ -160,7 +126,6 @@ public class QueryIterationBenchmarks
             .ForEach(0, (int _, ref Position p) => p.X += p.Y * 0f);
     }
 
-    /// <summary>Two-component counterpart to <see cref="OneComponent_FluentChain"/> -- same access pattern as <see cref="TwoComponent_ChunkCallback"/>.</summary>
     [Benchmark]
     public void TwoComponent_FluentChain()
     {
