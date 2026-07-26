@@ -1,6 +1,40 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
+/// The change-marking bookkeeping <see cref="Mut{T}"/> needs, factored out because none
+/// of it depends on the wrapped component type -- only <c>Span&lt;T&gt; _items</c> does.
+/// Kept as its own non-generic ref struct so this logic compiles to a single shared
+/// routine instead of being duplicated, once per closed <see cref="Mut{T}"/> instantiation,
+/// inside each type's own indexer. Mixing several distinct <c>Mut&lt;T&gt;</c> instantiations
+/// in one method forces the JIT to alternate between separately-optimized code per T;
+/// keeping the type-agnostic part of that work in one place shrinks how much of it there
+/// is to alternate between.
+/// </summary>
+internal readonly ref struct ChangeMarker
+{
+    private readonly Span<int> _lastMarkedTick;
+    private readonly int _tick;
+    private readonly bool _tracked;
+
+    internal ChangeMarker(Span<int> lastMarkedTick, int tick, bool tracked)
+    {
+        _lastMarkedTick = lastMarkedTick;
+        _tick = tick;
+        _tracked = tracked;
+    }
+
+    /// <summary>
+    /// Marks the entity at <paramref name="index"/> dirty (an unconditional tick stamp --
+    /// touching an entity more than once in a tick just re-stamps the same value), unless
+    /// change tracking is currently off, in which case this does nothing.
+    /// </summary>
+    internal void Mark(int index)
+    {
+        if (_tracked) _lastMarkedTick[index] = _tick;
+    }
+}
+
+/// <summary>
 /// Tracked, mutable chunk-level access to a <typeparamref name="T"/> component.
 /// Indexing marks the specific entity dirty by stamping the current tick, when this
 /// component type currently has change tracking on; otherwise indexing never marks
@@ -10,16 +44,12 @@ namespace Wyrd.Ecs;
 public readonly ref struct Mut<T> : IComponentAccessor<Mut<T>> where T : struct, IComponent
 {
     private readonly Span<T> _items;
-    private readonly Span<int> _lastMarkedTick;
-    private readonly int _tick;
-    private readonly bool _tracked;
+    private readonly ChangeMarker _marker;
 
-    private Mut(Span<T> items, Span<int> lastMarkedTick, int tick, bool tracked)
+    private Mut(Span<T> items, ChangeMarker marker)
     {
         _items = items;
-        _lastMarkedTick = lastMarkedTick;
-        _tick = tick;
-        _tracked = tracked;
+        _marker = marker;
     }
 
     /// <inheritdoc/>
@@ -27,7 +57,7 @@ public readonly ref struct Mut<T> : IComponentAccessor<Mut<T>> where T : struct,
 
     /// <inheritdoc/>
     public static Mut<T> CreateChunk(Array items, int[] lastMarkedTick, int tick, int start, int length, bool tracked) =>
-        new(((T[])items).AsSpan(start, length), lastMarkedTick.AsSpan(start, length), tick, tracked);
+        new(((T[])items).AsSpan(start, length), new ChangeMarker(lastMarkedTick.AsSpan(start, length), tick, tracked));
 
     /// <summary>The number of components accessible through this instance.</summary>
     public int Length => _items.Length;
@@ -42,7 +72,7 @@ public readonly ref struct Mut<T> : IComponentAccessor<Mut<T>> where T : struct,
     {
         get
         {
-            if (_tracked) _lastMarkedTick[index] = _tick;
+            _marker.Mark(index);
             return ref _items[index];
         }
     }
