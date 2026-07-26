@@ -191,32 +191,46 @@ public sealed partial class World : IWorld
     internal ref T AddComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
+        return ref AddComponent<T>(entity, _entityTable[entity.Id]);
+    }
+
+    /// <summary>
+    /// Same as <see cref="AddComponent{T}(Entity)"/>, for a caller (<see cref="CommandBuffer"/>'s
+    /// apply-time delegates) that already resolved <paramref name="source"/> via
+    /// <see cref="TryResolve"/> and shouldn't pay for a second entity-table read to get it again.
+    /// </summary>
+    internal ref T AddComponent<T>(Entity entity, EntityLocation source) where T : struct, IComponent
+    {
         var typeIndex = TypeIndex<T>.Value;
-        var (source, sourceRow) = _entityTable[entity.Id];
-        if (source.Signature.Contains(typeIndex))
+        if (source.Archetype.Signature.Contains(typeIndex))
             throw new InvalidOperationException($"Entity {entity} already has component {typeof(T)}.");
 
-        var (target, targetRow) = MoveViaAddEdge(entity, source, sourceRow, typeIndex);
+        var target = MoveViaAddEdge(entity, source.Archetype, source.Row, typeIndex);
 
-        var storage = target.GetOrCreateStorage<T>();
+        var storage = target.Archetype.GetOrCreateStorage<T>();
         if (IsTracked(typeIndex))
-            storage.MarkDirty(targetRow, _currentTick);
+            storage.MarkDirty(target.Row, _currentTick);
         NotifyComponentAdded(entity, typeIndex);
-        return ref storage[targetRow];
+        return ref storage[target.Row];
     }
 
     /// <inheritdoc/>
     public ref T GetComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
-        var (archetype, row) = _entityTable[entity.Id];
-        if (!archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
+        return ref GetComponent<T>(entity, _entityTable[entity.Id]);
+    }
+
+    /// <summary>Same as <see cref="GetComponent{T}(Entity)"/>, for an already-resolved <paramref name="location"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    internal ref T GetComponent<T>(Entity entity, EntityLocation location) where T : struct, IComponent
+    {
+        if (!location.Archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
             throw new InvalidOperationException($"Entity {entity} does not have component {typeof(T)}.");
 
         var typed = (ComponentStorage<T>)storage;
         if (IsTracked(TypeIndex<T>.Value))
-            typed.MarkDirty(row, _currentTick);
-        return ref typed[row];
+            typed.MarkDirty(location.Row, _currentTick);
+        return ref typed[location.Row];
     }
 
     /// <inheritdoc/>
@@ -255,10 +269,15 @@ public sealed partial class World : IWorld
     internal void RemoveComponent(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
-        var (source, sourceRow) = _entityTable[entity.Id];
-        if (!source.Signature.Contains(typeIndex)) return;
+        RemoveComponent(entity, _entityTable[entity.Id], typeIndex);
+    }
 
-        MoveViaRemoveEdge(entity, source, sourceRow, typeIndex);
+    /// <summary>Same as <see cref="RemoveComponent(Entity, int)"/>, for an already-resolved <paramref name="source"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    internal void RemoveComponent(Entity entity, EntityLocation source, int typeIndex)
+    {
+        if (!source.Archetype.Signature.Contains(typeIndex)) return;
+
+        MoveViaRemoveEdge(entity, source.Archetype, source.Row, typeIndex);
         NotifyComponentRemoved(entity, typeIndex);
     }
 
@@ -266,10 +285,15 @@ public sealed partial class World : IWorld
     internal void AddTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
-        var (source, sourceRow) = _entityTable[entity.Id];
-        if (source.Signature.Contains(typeIndex)) return;
+        AddTag(entity, _entityTable[entity.Id], typeIndex);
+    }
 
-        MoveViaAddEdge(entity, source, sourceRow, typeIndex);
+    /// <summary>Same as <see cref="AddTag(Entity, int)"/>, for an already-resolved <paramref name="source"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    internal void AddTag(Entity entity, EntityLocation source, int typeIndex)
+    {
+        if (source.Archetype.Signature.Contains(typeIndex)) return;
+
+        MoveViaAddEdge(entity, source.Archetype, source.Row, typeIndex);
         NotifyTagAdded(entity, typeIndex);
     }
 
@@ -277,15 +301,20 @@ public sealed partial class World : IWorld
     internal void RemoveTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
-        var (source, sourceRow) = _entityTable[entity.Id];
-        if (!source.Signature.Contains(typeIndex)) return;
+        RemoveTag(entity, _entityTable[entity.Id], typeIndex);
+    }
 
-        MoveViaRemoveEdge(entity, source, sourceRow, typeIndex);
+    /// <summary>Same as <see cref="RemoveTag(Entity, int)"/>, for an already-resolved <paramref name="source"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    internal void RemoveTag(Entity entity, EntityLocation source, int typeIndex)
+    {
+        if (!source.Archetype.Signature.Contains(typeIndex)) return;
+
+        MoveViaRemoveEdge(entity, source.Archetype, source.Row, typeIndex);
         NotifyTagRemoved(entity, typeIndex);
     }
 
     /// <summary>
-    /// Shared by every add path (<see cref="AddComponent{T}"/>, <see cref="AddTag(Entity, int)"/>):
+    /// Shared by every add path (<see cref="AddComponent{T}(Entity)"/>, <see cref="AddTag(Entity, int)"/>):
     /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
     /// and moves the entity onto it.
     /// </summary>
@@ -402,6 +431,20 @@ public sealed partial class World : IWorld
     {
         if (!IsAlive(entity))
             throw new InvalidOperationException($"Entity {entity} is not alive.");
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="entity"/>'s current location in one entity-table read, or
+    /// <c>false</c> if it isn't alive. The single-lookup counterpart to calling
+    /// <see cref="IsAlive"/> and then indexing <c>_entityTable</c> separately — used by
+    /// <see cref="CommandBuffer"/>'s apply-time delegates, each of which used to do both
+    /// independently (and often a third lookup after that) for one queued operation.
+    /// </summary>
+    internal bool TryResolve(Entity entity, out EntityLocation location)
+    {
+        if (!IsAlive(entity)) { location = default; return false; }
+        location = _entityTable[entity.Id];
+        return true;
     }
 
     /// <summary>

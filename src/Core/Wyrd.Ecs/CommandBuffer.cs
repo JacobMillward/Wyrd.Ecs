@@ -17,7 +17,7 @@ namespace Wyrd.Ecs;
 /// one only reachable through discipline, not the type system, a caller could still
 /// trigger the exact hazard this exists to prevent by picking the wrong one. Reading and
 /// mutating an already-placed entity's existing component values
-/// (<see cref="World.GetComponent{T}"/> and friends) never touches archetype row
+/// (<see cref="World.GetComponent{T}(Entity)"/> and friends) never touches archetype row
 /// layout, carries no such hazard, and stays direct on <see cref="IWorld"/> — this class
 /// is only ever about changing an entity's shape, never about its values.
 ///
@@ -42,12 +42,12 @@ public sealed partial class CommandBuffer
     /// Guards every enqueue-side mutation (<see cref="_queue"/>/<see cref="_count"/>,
     /// <see cref="_addComponentBuffers"/>, and each <see cref="AddComponentBuffer{T}"/>'s
     /// own <c>Items</c>/<c>Count</c>) so several systems in the same
-    /// <c>ScheduledExecutor</c> stage can call <see cref="AddComponent{T}"/>/
+    /// <c>ScheduledExecutor</c> stage can call <see cref="World.AddComponent{T}(Entity)"/>/
     /// <see cref="RemoveComponent{T}"/>/etc. against this same shared <c>world.Commands</c>
     /// buffer concurrently. Every public method below takes this lock for its entire
     /// body in one shot, rather than <see cref="Enqueue"/>/<see cref="GetAddComponentBuffer{T}"/>
     /// locking themselves — those two are plain unlocked helpers, always called with
-    /// <see cref="_gate"/> already held, so a method needing both (<see cref="AddComponent{T}"/>)
+    /// <see cref="_gate"/> already held, so a method needing both (<see cref="World.AddComponent{T}(Entity)"/>)
     /// never has to acquire it twice.
     /// </summary>
     private readonly Lock _gate = new();
@@ -76,7 +76,7 @@ public sealed partial class CommandBuffer
     /// <summary>
     /// One queued operation: the target entity, a cached non-capturing dispatcher
     /// delegate (one static instance per closed generic operation, shared across every
-    /// call rather than allocated per call), and — for <see cref="AddComponent{T}"/>
+    /// call rather than allocated per call), and — for <see cref="World.AddComponent{T}(Entity)"/>
     /// only — a reference to that component type's <see cref="AddComponentBuffer{T}"/>
     /// plus the slot within it. Every other operation leaves <see cref="Buffer"/> null
     /// and <see cref="Slot"/> 0; their dispatcher delegates ignore both. Passing a
@@ -100,7 +100,7 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// One component type's queued <see cref="AddComponent{T}"/> values, stored as a
+    /// One component type's queued <see cref="World.AddComponent{T}(Entity)"/> values, stored as a
     /// real <typeparamref name="T"/>[] — the same struct-of-arrays shape
     /// <c>ComponentStorage&lt;T&gt;</c> already uses for archetype columns, and for the
     /// same reason: the *container* reference is type-erased (indexed by
@@ -111,7 +111,7 @@ public sealed partial class CommandBuffer
     /// <see cref="CommandBuffer"/> actually has, than the box it was meant to avoid. This
     /// sidesteps that whole tradeoff: nothing is pooled, so nothing needs its own
     /// synchronization beyond <see cref="_gate"/>, which every caller reaching this
-    /// type already holds (see <see cref="AddComponent{T}"/>).
+    /// type already holds (see <see cref="World.AddComponent{T}(Entity)"/>).
     /// Reset to empty at the end of every <see cref="Apply"/> (its backing array is kept,
     /// not reallocated, same as <see cref="_queue"/>'s own <c>Array.Clear</c> pattern).
     /// </summary>
@@ -204,7 +204,7 @@ public sealed partial class CommandBuffer
     /// Queues adding <paramref name="value"/> to <paramref name="entity"/>. A no-op at
     /// apply time if the entity was destroyed by an earlier queued command. If
     /// <paramref name="entity"/> already has a <typeparamref name="T"/> by the time this
-    /// command runs (an earlier queued <see cref="AddComponent{T}"/> for the same entity,
+    /// command runs (an earlier queued <see cref="World.AddComponent{T}(Entity)"/> for the same entity,
     /// or one from a previous batch that was never removed), this overwrites it instead
     /// of adding a second one — last-queued value wins, the same
     /// already-in-that-state-is-fine stance every other queued operation on this class

@@ -51,8 +51,8 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
     public IComponentStorage CreateEmpty(int capacity) => new ComponentStorage<T>(capacity);
 
     /// <summary>
-    /// Single-entity mark-dirty path used by <see cref="World.GetComponent{T}"/>/
-    /// <see cref="World.AddComponent{T}"/> — an unconditional stamp, no dedup, since
+    /// Single-entity mark-dirty path used by <see cref="World.GetComponent{T}(Entity)"/>/
+    /// <see cref="World.AddComponent{T}(Entity)"/> — an unconditional stamp, no dedup, since
     /// there is no log entry to avoid duplicating.
     /// </summary>
     internal void MarkDirty(int row, int tick) => _lastMarkedTick[row] = tick;

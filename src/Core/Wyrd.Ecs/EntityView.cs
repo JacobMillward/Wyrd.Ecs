@@ -3,7 +3,7 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// A non-storable, <see cref="World"/>-scoped bound view over one entity: the "I have
 /// a stored <see cref="Entity"/>, fetch a component now" convenience, for use outside
-/// any active query iteration. Backed by <see cref="World.GetComponent{T}"/> — the
+/// any active query iteration. Backed by <see cref="World.GetComponent{T}(Entity)"/> — the
 /// same tracked path, no new tracking logic, just a call-site convenience. A
 /// <c>ref struct</c> so it can never be smuggled into a field or held past the
 /// current scope. Not the tool for a hot per-entity loop — it goes through
