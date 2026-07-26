@@ -1,20 +1,19 @@
 using BenchmarkDotNet.Attributes;
 using Wyrd.Ecs;
+using Comparison.Wyrd;
 
-namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Unlike <see cref="StructuralChangeBenchmarks"/> and <see cref="QueryIterationBenchmarks"/>,
-/// this class can't build <see cref="Tracked"/>'s world once in <c>[GlobalSetup]</c>:
-/// every benchmark here mutates the world's entity/archetype table itself (that's the
-/// thing being measured), so it needs a fresh <see cref="World"/> per invocation,
-/// rebuilt in <c>[IterationSetup]</c>. Every benchmark here queues through
-/// <see cref="Commands"/> and calls <see cref="World.ApplyCommands"/> in the same
-/// method — that round trip is now the real, only cost of creating or destroying an
-/// entity, not something to hide from the measurement.
+/// The <see cref="Tracked"/> (<see cref="IWorld.TrackChanges{T}"/>) dimension and the
+/// one-at-a-time component-add variants — both Wyrd.Ecs-only, with no Friflo or fennecs
+/// equivalent, so they don't belong on the shared
+/// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/> comparison class. Needs a
+/// fresh <see cref="World"/> per invocation, same reasoning as
+/// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/>.
 /// </summary>
 [MemoryDiagnoser]
-public class EntityLifecycleBenchmarks
+public class TrackedEntityLifecycleBenchmarks
 {
     [Params(false, true)]
     public bool Tracked { get; set; }
@@ -77,13 +76,6 @@ public class EntityLifecycleBenchmarks
         return entity;
     }
 
-    /// <summary>
-    /// Creates an entity empty, then queues each component add one at a time, moving
-    /// through an intermediate archetype per add once applied. Kept alongside
-    /// <see cref="CreateFourComponentEntity"/> to show the cost of that pattern against
-    /// the batched <c>Commands.CreateEntity{T...}</c> overload directly, in both tracked
-    /// and untracked form.
-    /// </summary>
     [Benchmark]
     public Entity CreateFourComponentEntity_OneAtATime()
     {
@@ -96,7 +88,6 @@ public class EntityLifecycleBenchmarks
         return entity;
     }
 
-    /// <inheritdoc cref="CreateFourComponentEntity_OneAtATime"/>
     [Benchmark]
     public Entity CreateEightComponentEntity_OneAtATime()
     {
