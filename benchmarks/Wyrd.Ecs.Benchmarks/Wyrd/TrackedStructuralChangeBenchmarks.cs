@@ -1,10 +1,15 @@
 using BenchmarkDotNet.Attributes;
 using Wyrd.Ecs;
+using Comparison.Wyrd;
 
-namespace Wyrd.Ecs.Benchmarks.WyrdEcs;
+namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
+/// <summary>
+/// The <see cref="Tracked"/> dimension, Wyrd.Ecs-only with no Friflo or fennecs equivalent — see
+/// <see cref="TrackedEntityLifecycleBenchmarks"/> for the same reasoning.
+/// </summary>
 [MemoryDiagnoser]
-public class StructuralChangeBenchmarks
+public class TrackedStructuralChangeBenchmarks
 {
     [Params(false, true)]
     public bool Tracked { get; set; }
@@ -43,12 +48,6 @@ public class StructuralChangeBenchmarks
         _world.ApplyCommands();
     }
 
-    /// <summary>
-    /// Tags carry no data and have no <see cref="IWorld.TrackChanges{T}"/> equivalent
-    /// (it requires <c>IComponent</c>, not <c>ITag</c>), so tag churn itself has no
-    /// tracked-vs-untracked cost. It still runs under both <see cref="Tracked"/> values
-    /// because <see cref="Tracked"/> is a class-level dimension, not a per-benchmark one.
-    /// </summary>
     [Benchmark]
     public void AddRemoveTag_ArchetypeMove()
     {
