@@ -155,28 +155,38 @@ public sealed partial class CommandBuffer
         // queuing AddComponent for the same entity without coordinating.
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, slot) =>
         {
-            if (!w.IsAlive(e)) return;
+            if (!w.TryResolve(e, out var location)) return;
             var value = ((AddComponentBuffer<T>)buffer!).Items[slot];
-            if (w.HasComponent<T>(e))
-                w.GetComponent<T>(e) = value;
+            var typeIndex = Internal.TypeIndex<T>.Value;
+            if (location.Archetype.Signature.Contains(typeIndex))
+                w.GetComponent<T>(e, location) = value;
             else
-                w.AddComponent<T>(e) = value;
+                w.AddComponent<T>(e, location) = value;
         };
     }
 
     private static class RemoveComponentOp<T> where T : struct, IComponent
     {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.RemoveComponent(e, Internal.TypeIndex<T>.Value); };
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) =>
+        {
+            if (w.TryResolve(e, out var location)) w.RemoveComponent(e, location, Internal.TypeIndex<T>.Value);
+        };
     }
 
     private static class AddTagOp<T> where T : struct, ITag
     {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.AddTag(e, Internal.TypeIndex<T>.Value); };
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) =>
+        {
+            if (w.TryResolve(e, out var location)) w.AddTag(e, location, Internal.TypeIndex<T>.Value);
+        };
     }
 
     private static class RemoveTagOp<T> where T : struct, ITag
     {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => { if (w.IsAlive(e)) w.RemoveTag(e, Internal.TypeIndex<T>.Value); };
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) =>
+        {
+            if (w.TryResolve(e, out var location)) w.RemoveTag(e, location, Internal.TypeIndex<T>.Value);
+        };
     }
 
     /// <summary>
