@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 
 namespace Wyrd.Ecs.SystemGenerators;
@@ -105,62 +106,100 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits the thin per-exact-shape extension method overload (one call per distinct
-    /// <see cref="QueryShape.ExactShapeTypeName"/>) that delegates into the shared
-    /// backend <see cref="RenderBackend"/> emits for this shape's
-    /// <see cref="QueryShapeExtensions.DedupKey"/>.
+    /// Emits the per-exact-shape extension method overload (one call per distinct
+    /// <see cref="QueryShape.ExactShapeTypeName"/>). Its public delegate/parameter list uses
+    /// this shape's own declaration order (<see cref="QueryShapeExtensions.OwnDataElements"/>),
+    /// not the shared backend's alphabetical order — the body adapts between the two orders
+    /// when calling into <see cref="RenderBackend"/>'s backend for this shape's
+    /// <see cref="QueryShapeExtensions.DedupKey"/>, so a caller never needs to know or match
+    /// the backend's internal ordering.
     /// </summary>
     internal static string RenderForEachOverload(QueryShape shape)
     {
         var hash = shape.HashName();
         var overloadHash = ExactShapeHash(shape);
+        var ownElements = shape.OwnDataElements();
+        var canonicalElements = shape.DataElements();
+
         var sb = new StringBuilder();
         sb.AppendLine("using Wyrd.Ecs;");
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
+
+        var ownActionParams = string.Join(", ", new[] { "TUniform uniform" }.Concat(ownElements.Select(ParamDecl)));
+        sb.AppendLine($"internal delegate void QueryChainActionOwn_{overloadHash}<TUniform>({ownActionParams});");
+        sb.AppendLine();
+
         sb.AppendLine($"internal static class QueryChainTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
-        sb.AppendLine($"        QueryChainWorker_{hash}.RunForEach(query.World, uniform, action);");
+        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainActionOwn_{overloadHash}<TUniform> action) =>");
+        sb.AppendLine($"        QueryChainWorker_{hash}.RunForEach(query.World, uniform, {AdapterLambda(canonicalElements, ownElements)});");
         sb.AppendLine("}");
         return sb.ToString();
     }
 
-    /// <summary>The predicate-delegate `.ForEach` overload — same receiver/grouping rules as <see cref="RenderForEachOverload"/>, see Task 8.</summary>
+    /// <summary>The predicate-delegate `.ForEach` overload — same own-order/adapter rules as <see cref="RenderForEachOverload"/>, see Task 8.</summary>
     internal static string RenderPredicateForEachOverload(QueryShape shape)
     {
         var hash = shape.HashName();
         var overloadHash = ExactShapeHash(shape);
+        var ownElements = shape.OwnDataElements();
+        var canonicalElements = shape.DataElements();
+
         var sb = new StringBuilder();
         sb.AppendLine("using Wyrd.Ecs;");
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
+
+        var ownActionParams = string.Join(", ", new[] { "TUniform uniform" }.Concat(ownElements.Select(ParamDecl)));
+        sb.AppendLine($"internal delegate bool QueryChainPredicateOwn_{overloadHash}<TUniform>({ownActionParams});");
+        sb.AppendLine();
+
         sb.AppendLine($"internal static class QueryChainPredicateTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicate_{hash}<TUniform> action) =>");
-        sb.AppendLine($"        QueryChainWorker_{hash}.RunForEachPredicate(query.World, uniform, action);");
+        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicateOwn_{overloadHash}<TUniform> action) =>");
+        sb.AppendLine($"        QueryChainWorker_{hash}.RunForEachPredicate(query.World, uniform, {AdapterLambda(canonicalElements, ownElements)});");
         sb.AppendLine("}");
         return sb.ToString();
     }
 
-    /// <summary>The `.ParallelForEach` overload — same receiver/grouping rules as <see cref="RenderForEachOverload"/>, see Task 9.</summary>
+    /// <summary>The `.ParallelForEach` overload — same own-order/adapter rules as <see cref="RenderForEachOverload"/>, see Task 9.</summary>
     internal static string RenderParallelForEachOverload(QueryShape shape)
     {
         var hash = shape.HashName();
         var overloadHash = ExactShapeHash(shape);
+        var ownElements = shape.OwnDataElements();
+        var canonicalElements = shape.DataElements();
+
         var sb = new StringBuilder();
         sb.AppendLine("using Wyrd.Ecs;");
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
+
         sb.AppendLine($"internal static class QueryChainParallelTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainAction_{hash}<TUniform> action) =>");
-        sb.AppendLine($"        QueryChainWorker_{hash}.RunParallelForEach(query.World, uniform, action);");
+        sb.AppendLine($"    internal static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainActionOwn_{overloadHash}<TUniform> action) =>");
+        sb.AppendLine($"        QueryChainWorker_{hash}.RunParallelForEach(query.World, uniform, {AdapterLambda(canonicalElements, ownElements)});");
         sb.AppendLine("}");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds a lambda, typed to the shared backend's canonical-order delegate, whose body
+    /// forwards to the caller's own-order <c>action</c> — the adapter between
+    /// <see cref="QueryShapeExtensions.DataElements"/> (what the backend calls with) and
+    /// <see cref="QueryShapeExtensions.OwnDataElements"/> (what the caller's delegate declares).
+    /// Both element lists contain the same elements, just reordered, so this only reorders
+    /// call arguments — it never changes a component's ref-kind.
+    /// </summary>
+    private static string AdapterLambda(ImmutableArray<MarkerElement> canonicalElements, ImmutableArray<MarkerElement> ownElements)
+    {
+        var lambdaParams = string.Join(", ", new[] { "TUniform u" }.Concat(canonicalElements.Select(ParamDecl)));
+        var actionCallArgs = string.Join(", ", new[] { "u" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
+        return $"({lambdaParams}) => action({actionCallArgs})";
     }
 
     /// <summary>Emits the <c>GeneratedSystemAccess</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>

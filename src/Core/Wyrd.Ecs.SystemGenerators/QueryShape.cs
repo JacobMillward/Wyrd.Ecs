@@ -57,12 +57,26 @@ internal sealed class QueryShape : IEquatable<QueryShape>
 
 internal static class QueryShapeExtensions
 {
-    /// <summary>Writes/Reads elements only (Has is filter-only), sorted by component type name -- the canonical order used for every generated parameter list.</summary>
+    /// <summary>Writes/Reads elements only (Has is filter-only), sorted by component type name -- the canonical order the shared backend (<see cref="QueryChainEmitter.RenderBackend"/>) uses internally so shapes with the same components in a different declaration order still share one backend. Not used for any caller-facing parameter list -- see <see cref="OwnDataElements"/> for that.</summary>
     internal static ImmutableArray<MarkerElement> DataElements(this QueryShape shape) =>
         shape.Markers
             .Where(m => m.Kind != MarkerKind.Has)
             .OrderBy(m => m.ComponentTypeName, StringComparer.Ordinal)
             .ToImmutableArray();
+
+    /// <summary>
+    /// Writes/Reads elements only (Has is filter-only), in the order the caller actually wrote
+    /// their `.With&lt;&gt;()` calls -- the order their `.ForEach(...)` lambda must use for this
+    /// shape. <see cref="QueryShape.Markers"/> is populated outer-tuple-first while walking the
+    /// resolved type (see <c>ChainWalker.TryExtractShapeFromQueryType</c>), which is the
+    /// *reverse* of declaration order (`.With&lt;A&gt;().With&lt;B&gt;()` produces `(B, (A, Nil))`,
+    /// visited B-then-A) -- reversed back here. Every caller-facing delegate/parameter list
+    /// (<see cref="QueryChainEmitter.RenderForEachOverload"/> and its Predicate/Parallel
+    /// counterparts) is built from this, not <see cref="DataElements"/> -- callers should never
+    /// need to know or match the shared backend's alphabetical order.
+    /// </summary>
+    internal static ImmutableArray<MarkerElement> OwnDataElements(this QueryShape shape) =>
+        shape.Markers.Where(m => m.Kind != MarkerKind.Has).Reverse().ToImmutableArray();
 
     /// <summary>Order-independent identity for deduplication: two shapes with the same elements in different declaration order produce the same key.</summary>
     internal static string DedupKey(this QueryShape shape)
