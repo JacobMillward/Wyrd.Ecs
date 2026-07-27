@@ -5,7 +5,7 @@ namespace Wyrd.Ecs;
 /// expressed through the query-chain generator's <c>Reads&lt;T&gt;</c>/<c>Writes&lt;T&gt;</c>
 /// markers (e.g. a runtime/config-driven filter) but that still wants to participate
 /// in the static parallel schedule. <see cref="DescribeAccess"/> is called once, when
-/// the schedule is built (<c>WorldBuilder.BuildWithExecutor</c>) — never per tick.
+/// the schedule is built (<c>WorldBuilder.Build</c>) — never per tick.
 /// </summary>
 public interface IQueryAccessDescriptor
 {

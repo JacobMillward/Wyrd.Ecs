@@ -5,7 +5,7 @@ namespace Wyrd.Ecs.Internal;
 /// stages where no two systems in the same stage conflict (share a component type
 /// where at least one side writes it) — <c>Has</c>/<c>Without</c>/<c>Any</c> elements
 /// never contribute, since they're filter-only. Computed once, not re-evaluated per
-/// tick; the caller (<c>WorldBuilder.BuildWithExecutor</c>) is responsible for that.
+/// tick; the caller (<c>WorldBuilder.Build</c>) is responsible for that.
 /// </summary>
 internal static class SystemScheduler
 {

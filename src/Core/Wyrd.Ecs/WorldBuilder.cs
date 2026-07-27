@@ -39,16 +39,22 @@ public sealed class WorldBuilder
     /// </summary>
     public event Action<World>? OnBuilt;
 
-    /// <summary>Builds a new <see cref="World"/> with the configured options.</summary>
+    /// <summary>
+    /// Builds a new <see cref="World"/> with the configured options, including whatever
+    /// <see cref="WithSystems"/> registered — the returned <see cref="World"/> already owns
+    /// a static parallel schedule (empty if <see cref="WithSystems"/> was never called) and
+    /// drives it itself via <see cref="World.Tick"/>.
+    /// </summary>
     public World Build()
     {
-        var world = new World(_archetypeCapacity);
+        var stages = Internal.SystemScheduler.BuildStages(_systems, _generatedAccess ?? new Dictionary<Type, SystemAccess>());
+        var world = new World(_archetypeCapacity, new ScheduledExecutor(stages, _parallelThreshold));
         OnBuilt?.Invoke(world);
         return world;
     }
 
     /// <summary>
-    /// Registers the systems <see cref="BuildWithExecutor"/> will schedule, along with
+    /// Registers the systems <see cref="Build"/> will schedule, along with
     /// the generated <c>Type → SystemAccess</c> registry the query-chain generator
     /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>) —
     /// passed explicitly by the caller, since <see cref="WorldBuilder"/> lives in
@@ -76,18 +82,5 @@ public sealed class WorldBuilder
     {
         _parallelThreshold = entityCount;
         return this;
-    }
-
-    /// <summary>
-    /// Builds a new <see cref="World"/> exactly like <see cref="Build"/>, plus a
-    /// <see cref="ScheduledExecutor"/> whose stages come from
-    /// <see cref="Internal.SystemScheduler.BuildStages"/> over whatever
-    /// <see cref="WithSystems"/> registered (an empty schedule if it was never called).
-    /// </summary>
-    public (World World, ScheduledExecutor Executor) BuildWithExecutor()
-    {
-        var world = Build();
-        var stages = Internal.SystemScheduler.BuildStages(_systems, _generatedAccess ?? new Dictionary<Type, SystemAccess>());
-        return (world, new ScheduledExecutor(stages, _parallelThreshold));
     }
 }

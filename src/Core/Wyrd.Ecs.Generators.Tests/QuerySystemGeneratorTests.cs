@@ -27,7 +27,7 @@ public class QuerySystemGeneratorTests
                 world.Commands.CreateEntity(new Position { X = 10f }, new Velocity { X = 20f });
                 world.ApplyCommands();
 
-                new MovementSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+                world.RunOnce(new MovementSystem(), TimeSpan.Zero);
 
                 var total = 0f;
                 world.Query().With<Reads<Position>>()
@@ -88,7 +88,7 @@ public class QuerySystemGeneratorTests
                 world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }, new Health { Current = 3f });
                 world.ApplyCommands();
 
-                new ThreeComponentSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+                world.RunOnce(new ThreeComponentSystem(), TimeSpan.Zero);
 
                 var total = 0f;
                 world.Query().With<Reads<Position>>().ForEach(0, (int _, in Position p) => total += p.X);

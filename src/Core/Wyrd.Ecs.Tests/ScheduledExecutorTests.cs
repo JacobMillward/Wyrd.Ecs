@@ -58,13 +58,13 @@ public class ScheduledExecutorTests
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
             [typeof(DamageSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
-        var (world, executor) = new WorldBuilder().WithSystems(access, new MoveSystem(), new DamageSystem()).BuildWithExecutor();
+        var world = new WorldBuilder().WithSystems(access, new MoveSystem(), new DamageSystem()).Build();
         var e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.Commands.AddComponent(e, new ScheduledHealth { Value = 5 });
         world.ApplyCommands();
 
-        executor.RunTick(world, tick: 1);
+        world.Tick(TimeSpan.Zero);
 
         world.GetComponent<ScheduledPosition>(e).X.Should().Be(1f); // MoveSystem ran exactly once
         world.GetComponent<ScheduledHealth>(e).Value.Should().Be(4); // DamageSystem ran exactly once
@@ -77,9 +77,9 @@ public class ScheduledExecutorTests
         {
             [typeof(SpawnerSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
-        var (world, executor) = new WorldBuilder().WithSystems(access, new SpawnerSystem()).BuildWithExecutor();
+        var world = new WorldBuilder().WithSystems(access, new SpawnerSystem()).Build();
 
-        executor.RunTick(world, tick: 1);
+        world.Tick(TimeSpan.Zero);
 
         var count = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledHealth>>().Resolve(world))
@@ -94,12 +94,12 @@ public class ScheduledExecutorTests
         {
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
         };
-        var (world, executor) = new WorldBuilder().WithSystems(access, new MoveSystem(), new MoveSystem()).BuildWithExecutor();
+        var world = new WorldBuilder().WithSystems(access, new MoveSystem(), new MoveSystem()).Build();
         var e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
 
-        executor.RunTick(world, tick: 1);
+        world.Tick(TimeSpan.Zero);
 
         world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f); // both MoveSystem instances ran, one per stage
     }
@@ -119,12 +119,12 @@ public class ScheduledExecutorTests
             [typeof(SpawnerASystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
             [typeof(SpawnerBSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
-        var (world, executor) = new WorldBuilder()
+        var world = new WorldBuilder()
             .WithSystems(access, new SpawnerASystem(), new SpawnerBSystem())
             .WithParallelThreshold(0)
-            .BuildWithExecutor();
+            .Build();
 
-        executor.RunTick(world, tick: 1);
+        world.Tick(TimeSpan.Zero);
 
         var positionCount = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledPosition>>().Resolve(world))
@@ -135,5 +135,20 @@ public class ScheduledExecutorTests
 
         positionCount.Should().Be(200); // SpawnerASystem's 200 concurrent creates all survived
         healthCount.Should().Be(200); // SpawnerBSystem's 200 concurrent creates all survived, dispatched alongside SpawnerASystem
+    }
+
+    [Fact]
+    public void Tick_AdvancesCurrentTickEachCall()
+    {
+        var access = new Dictionary<Type, SystemAccess>
+        {
+            [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
+        };
+        var world = new WorldBuilder().WithSystems(access, new MoveSystem()).Build();
+
+        world.Tick(TimeSpan.FromSeconds(1));
+        world.Tick(TimeSpan.FromSeconds(2));
+
+        world.CurrentTick.Should().Be(3); // starts at 1 (World's own default), advanced once per Tick call
     }
 }

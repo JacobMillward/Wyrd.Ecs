@@ -33,8 +33,8 @@ public partial class NestedSystemTests
         var movement = new MovementSystem();
         var clamp = new BoundsClampSystem();
 
-        movement.RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero)); // 8 + 5 = 13
-        clamp.RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero)); // clamped to 10
+        world.RunOnce(movement, TimeSpan.Zero); // 8 + 5 = 13
+        world.RunOnce(clamp, TimeSpan.Zero); // clamped to 10
 
         world.GetComponent<NestedPosition>(entity).X.Should().Be(10f);
     }

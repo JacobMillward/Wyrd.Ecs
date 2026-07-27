@@ -18,7 +18,7 @@ public class QuerySystemTests
         var entity = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
         world.ApplyCommands();
 
-        new DrainSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        world.RunOnce(new DrainSystem(), TimeSpan.Zero);
 
         world.GetComponent<Energy>(entity).Current.Should().Be(90f);
     }
@@ -32,7 +32,7 @@ public class QuerySystemTests
             entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 1f });
         world.ApplyCommands();
 
-        new DrainSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        world.RunOnce(new DrainSystem(), TimeSpan.Zero);
 
         foreach (var entity in entities)
             world.GetComponent<Energy>(entity).Current.Should().Be(99f);

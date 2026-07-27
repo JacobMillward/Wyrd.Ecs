@@ -32,15 +32,19 @@ public sealed partial class World : IWorld
     private EntityTable _entityTable = new();
     private int _currentTick = 1;
 
-    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>. Use <see cref="WorldBuilder"/> to configure it.</summary>
-    public World() : this(DefaultArchetypeCapacity) { }
+    private readonly ScheduledExecutor _executor;
+    private TimeSpan _totalElapsed;
 
-    internal World(int archetypeCapacity)
+    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>. Use <see cref="WorldBuilder"/> to configure it.</summary>
+    public World() : this(DefaultArchetypeCapacity, new ScheduledExecutor([], 1000)) { }
+
+    internal World(int archetypeCapacity, ScheduledExecutor executor)
     {
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(ArchetypeSignature.Empty, archetypeCapacity);
         _archetypes[ArchetypeSignature.Empty] = _emptyArchetype;
         _commands = new CommandBuffer(this);
+        _executor = executor;
     }
 
     /// <inheritdoc/>
@@ -158,6 +162,34 @@ public sealed partial class World : IWorld
     {
         _currentTick++;
         OnTickAdvanced?.Invoke(_currentTick);
+    }
+
+    /// <summary>
+    /// Runs one iteration of every system registered via <see cref="WorldBuilder.WithSystems"/>,
+    /// staged by the static parallel schedule computed once at <see cref="WorldBuilder.Build"/>
+    /// time. Advances <see cref="CurrentTick"/> and accumulates <paramref name="delta"/> into
+    /// a running total before handing both down as a single <see cref="Time"/> value — the
+    /// only tick concept a system ever sees.
+    /// </summary>
+    public void Tick(TimeSpan delta)
+    {
+        AdvanceTick();
+        _totalElapsed += delta;
+        _executor.RunTick(this, new Time(delta, _totalElapsed));
+    }
+
+    /// <summary>
+    /// Runs <paramref name="system"/> once, without going through the scheduled stages —
+    /// a harness/test convenience, or for a system deliberately run outside the normal
+    /// schedule. Advances <see cref="CurrentTick"/> and the running elapsed-time total the
+    /// same way <see cref="Tick"/> does, so the two stay consistent regardless of which one
+    /// a caller mixes in.
+    /// </summary>
+    public void RunOnce(EcsSystem system, TimeSpan delta)
+    {
+        AdvanceTick();
+        _totalElapsed += delta;
+        system.InvokeOnUpdate(this, new Time(delta, _totalElapsed));
     }
 
     /// <inheritdoc/>
