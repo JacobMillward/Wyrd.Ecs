@@ -20,15 +20,5 @@ internal sealed class QuerySystemCandidate : IEquatable<QuerySystemCandidate>
 
     public override bool Equals(object? obj) => obj is QuerySystemCandidate other && Equals(other);
 
-    /// <summary>Manual combine, not <c>System.HashCode</c> -- this project targets netstandard2.0, where that type doesn't exist.</summary>
-    public override int GetHashCode()
-    {
-        unchecked
-        {
-            var hash = Namespace.GetHashCode();
-            hash = hash * 31 + ClassName.GetHashCode();
-            hash = hash * 31 + Shape.GetHashCode();
-            return hash;
-        }
-    }
+    public override int GetHashCode() => StableHashCode.Start(Namespace).Add(ClassName).Add(Shape);
 }

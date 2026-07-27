@@ -56,19 +56,8 @@ internal sealed class QueryShape : IEquatable<QueryShape>
 
     public override bool Equals(object? obj) => obj is QueryShape other && Equals(other);
 
-    /// <summary>Manual combine, not <c>System.HashCode</c> -- this project targets netstandard2.0, where that type doesn't exist.</summary>
-    public override int GetHashCode()
-    {
-        unchecked
-        {
-            var hash = ExactShapeTypeName.GetHashCode();
-            foreach (var marker in Markers) hash = hash * 31 + marker.GetHashCode();
-            foreach (var pending in PendingDataElements) hash = hash * 31 + pending.GetHashCode();
-            foreach (var without in Withouts) hash = hash * 31 + without.GetHashCode();
-            foreach (var any in Anys) hash = hash * 31 + any.GetHashCode();
-            return hash;
-        }
-    }
+    public override int GetHashCode() =>
+        StableHashCode.Start(ExactShapeTypeName).AddEach(Markers).AddEach(PendingDataElements).AddEach(Withouts).AddEach(Anys);
 }
 
 internal static class QueryShapeExtensions
