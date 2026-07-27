@@ -1,7 +1,7 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
 
-namespace Wyrd.Ecs.Generators;
+namespace Wyrd.Ecs.InternalGenerators;
 
 /// <summary>
 /// Emits the <c>CommandBuffer.CreateEntity&lt;T0..T{QueryArity.Max-1}&gt;(...)</c>

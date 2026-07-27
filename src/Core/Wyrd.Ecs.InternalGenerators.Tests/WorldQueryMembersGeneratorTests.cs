@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace Wyrd.Ecs.Generators.Tests;
+namespace Wyrd.Ecs.InternalGenerators.Tests;
 
 public class WorldQueryMembersGeneratorTests
 {

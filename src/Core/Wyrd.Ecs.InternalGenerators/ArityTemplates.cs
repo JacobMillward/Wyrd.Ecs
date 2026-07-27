@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Wyrd.Ecs.Generators;
+namespace Wyrd.Ecs.InternalGenerators;
 
 /// <summary>
 /// Shared per-arity C# source templates used by <see cref="WorldQueryMembersGenerator"/>

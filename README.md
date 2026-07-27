@@ -8,11 +8,12 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 > Pre-release. APIs are still moving and nothing is published to NuGet yet.
 
 - Archetype storage: entities with the same component/tag set live in the same dense arrays
-- Typed `Query<T0..T7>` and `QuerySystem<T0..T7>` generated for arity 1 through 8, no boxing or reflection on the hot path
+- A fluent, generator-backed query chain of unbounded arity: `world.Query().With<Writes<T>>().With<Reads<U>>().Without<X>().Any<A, B>().ForEach(...)`, no boxing or reflection on the hot path, no arity cap
+- `QuerySystem` sugar for the declared-system case: write a `Build` (query shape) and `Execute` (per-entity body) method, the generator fills in dispatch
+- A static parallel scheduler: `WorldBuilder.WithSystems(...)` partitions systems into stages with no read/write conflicts, then `ScheduledExecutor` runs each stage inline or on the thread pool depending on world size
 - All structural mutation goes through `CommandBuffer`, deferred and applied in one deterministic pass, so it never invalidates a query mid-iteration
 - Tick-based change tracking, opt in per component type
 - Structural change observers for entity/component add/remove
-- A `GetComponent` call-site interceptor, plus a Roslyn analyzer that catches a forgotten `ref` on `GetComponent`
 - AOT-compatible throughout
 - [Easy add-in persistence](docs/persistence.md): mark your components, reference a codec package, one method on `WorldBuilder`. Pick binary or JSON, then optionally layer on a continuous WAL for crash-safe incremental saves
 
@@ -27,13 +28,12 @@ public struct Energy : IComponent
     public float DrainPerSecond;
 }
 
-// partial: the generator fills in OnUpdate from Execute
-public sealed partial class EnergyDrainSystem : QuerySystem<Energy>
+// partial: the generator fills in OnUpdate from Build + Execute
+public sealed partial class EnergyDrainSystem : QuerySystem
 {
-    protected override void Execute(World world, ulong tick, ref Energy energy)
-    {
-        energy.Current -= energy.DrainPerSecond;
-    }
+    private static Query<(Writes<Energy>, Nil)> Build(World world) => world.Query().With<Writes<Energy>>();
+
+    private partial void Execute(ulong tick, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
 }
 
 var world = new World();
@@ -45,12 +45,29 @@ world.ApplyCommands();
 new EnergyDrainSystem().RunOnce(world, tick: 1);
 ```
 
+No system class needed for a one-off query: the same chain works directly against a `World`.
+
+```csharp
+world.Query().With<Writes<Energy>>()
+    .ForEach(0, (int _, ref Energy energy) => energy.Current -= energy.DrainPerSecond);
+```
+
+To run several systems together, register them with `WorldBuilder` and let the scheduler figure out what can run concurrently:
+
+```csharp
+var (world, executor) = new WorldBuilder()
+    .WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, new EnergyDrainSystem(), /* ... */)
+    .BuildWithExecutor();
+
+executor.RunTick(world, tick: 1);
+```
+
 ## Project layout
 
 ```
-src/Core/          World, entities, queries, command buffer, source generators, interceptors, analyzers
-src/Persistence/    Snapshot persistence, and the Binary, Json, and Continuous packages built on it
-benchmarks/         BenchmarkDotNet suites
+src/Core/          World, entities, archetype storage, the query chain, command buffer, the scheduler, and the source generators behind them
+src/Persistence/    Snapshot persistence core, and the Binary, Json, and Continuous packages built on it
+benchmarks/         BenchmarkDotNet suites, including head-to-head comparisons against Friflo.Engine.ECS and fennecs
 ```
 
 Each package under `src/` has a matching `.Tests` project alongside it.
@@ -61,7 +78,6 @@ Each package under `src/` has a matching `.Tests` project alongside it.
 
 ## Known gaps
 
-- No scheduler. `RunOnce` invokes one system directly; ordering and running many systems is on the caller for now.
 - No published package. Reference the projects directly until a release goes out.
 
 ## License

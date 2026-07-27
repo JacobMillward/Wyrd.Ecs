@@ -2,8 +2,8 @@
   <Folder Name="/src/Core/">
     <Project Path="src/Core/Wyrd.Ecs/Wyrd.Ecs.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.Tests/Wyrd.Ecs.Tests.csproj" />
-    <Project Path="src/Core/Wyrd.Ecs.Generators/Wyrd.Ecs.Generators.csproj" />
-    <Project Path="src/Core/Wyrd.Ecs.Generators.Tests/Wyrd.Ecs.Generators.Tests.csproj" />
+    <Project Path="src/Core/Wyrd.Ecs.InternalGenerators/Wyrd.Ecs.InternalGenerators.csproj" />
+    <Project Path="src/Core/Wyrd.Ecs.InternalGenerators.Tests/Wyrd.Ecs.InternalGenerators.Tests.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.SystemGenerators/Wyrd.Ecs.SystemGenerators.csproj" />
     <Project Path="src/Core/Wyrd.Ecs.SystemGenerators.Tests/Wyrd.Ecs.SystemGenerators.Tests.csproj" />
   </Folder>

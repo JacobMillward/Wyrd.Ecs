@@ -1,4 +1,4 @@
-namespace Wyrd.Ecs.Generators;
+namespace Wyrd.Ecs.InternalGenerators;
 
 /// <summary>
 /// The arity cap for <see cref="WorldQueryMembersGenerator"/>'s multi-component

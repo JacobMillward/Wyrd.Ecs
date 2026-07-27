@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Wyrd.Ecs.Generators\Wyrd.Ecs.Generators.csproj" />
+    <ProjectReference Include="..\Wyrd.Ecs.InternalGenerators\Wyrd.Ecs.InternalGenerators.csproj" />
   </ItemGroup>
 
 </Project>
