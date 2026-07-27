@@ -20,4 +20,28 @@
     <InternalsVisibleTo Include="Wyrd.Ecs.Generators.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!--
+      RS1038: this assembly deliberately holds an IIncrementalGenerator/DiagnosticAnalyzer
+      pair alongside a CodeFixProvider (GenerateUpdateStubCodeFixProvider), which needs
+      Microsoft.CodeAnalysis.CSharp.Workspaces: a considered trade-off (see the spec's
+      "Diagnostics and a codefix" section: no new project for the codefix), not an
+      oversight. CodeFixProviders are only ever invoked by an IDE host, which always has
+      Workspaces loaded, so the scenario this rule warns about (a bare command-line
+      compiler host lacking Workspaces) never actually exercises the codefix path.
+
+      RS1030: QuerySystemShapeAnalyzer's one Compilation.GetSemanticModel() call mirrors
+      the same pattern QueryChainGenerator.TryExtractQuerySystem already uses elsewhere in
+      this codebase (reading a return expression's type from a different syntax tree than
+      the one being analyzed): unavoidable for what this analyzer needs to do, and runs
+      once per QuerySystem class symbol, not a hot path.
+    -->
+    <NoWarn>$(NoWarn);RS1038;RS1030</NoWarn>
+  </PropertyGroup>
+
 </Project>
