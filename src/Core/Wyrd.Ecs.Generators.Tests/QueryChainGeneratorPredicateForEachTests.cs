@@ -44,6 +44,24 @@ public class QueryChainGeneratorPredicateForEachTests
 
                 return visited;
             }
+
+            public static int RunNoUniformStoppingAtTheSecondEntity()
+            {
+                var world = new World();
+                for (var i = 0; i < 5; i++)
+                    world.Commands.CreateEntity(new Position { X = i });
+                world.ApplyCommands();
+
+                var visited = 0;
+                world.Query().With<Reads<Position>>()
+                    .ForEach((in Position p) =>
+                    {
+                        visited++;
+                        return visited < 2; // stop after the second entity
+                    });
+
+                return visited;
+            }
         }
         """;
 
@@ -65,5 +83,15 @@ public class QueryChainGeneratorPredicateForEachTests
         var result = (int)assembly.GetType("Harness")!.GetMethod("RunNeverStopping")!.Invoke(null, null)!;
 
         result.Should().Be(5);
+    }
+
+    [Fact]
+    public void PredicateForEach_NoUniformOverload_ReturningFalse_StopsVisitingFurtherEntities()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (int)assembly.GetType("Harness")!.GetMethod("RunNoUniformStoppingAtTheSecondEntity")!.Invoke(null, null)!;
+
+        result.Should().Be(2);
     }
 }

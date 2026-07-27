@@ -127,12 +127,17 @@ internal static class QueryChainEmitter
         sb.AppendLine($"internal delegate bool QueryChainPredicateOwn_{overloadHash}<TUniform>({ownActionParams});");
         sb.AppendLine();
 
+        var noUniformPredicateParams = string.Join(", ", ownElements.Select(ParamDecl));
+        sb.AppendLine($"internal delegate bool QueryChainPredicate_{overloadHash}({noUniformPredicateParams});");
+        sb.AppendLine();
+
+        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()").ToList();
+
         sb.AppendLine($"internal static class QueryChainPredicateTerminals_{overloadHash}");
         sb.AppendLine("{");
         sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicateOwn_{overloadHash}<TUniform> action)");
         sb.AppendLine("    {");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
-        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()");
         var predicateProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
         sb.AppendLine($"            if (!Process({predicateProcessCallArgs})) return;");
         sb.AppendLine();
@@ -142,6 +147,22 @@ internal static class QueryChainEmitter
         sb.AppendLine("            for (var i = 0; i < count; i++)");
         var predicateActionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
         sb.AppendLine($"                if (!action({predicateActionCallArgs})) return false;");
+        sb.AppendLine("            return true;");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine($"    internal static void ForEach(this {shape.ExactShapeTypeName} query, QueryChainPredicate_{overloadHash} action)");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
+        var noUniformPredicateProcessCallArgs = string.Join(", ", new[] { "action", "chunk.Count" }.Concat(accessArgs));
+        sb.AppendLine($"            if (!Process({noUniformPredicateProcessCallArgs})) return;");
+        sb.AppendLine();
+        var noUniformPredicateProcessParams = string.Join(", ", new[] { $"QueryChainPredicate_{overloadHash} action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        sb.AppendLine($"        static bool Process({noUniformPredicateProcessParams})");
+        sb.AppendLine("        {");
+        sb.AppendLine("            for (var i = 0; i < count; i++)");
+        var noUniformPredicateActionCallArgs = string.Join(", ", ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]"));
+        sb.AppendLine($"                if (!action({noUniformPredicateActionCallArgs})) return false;");
         sb.AppendLine("            return true;");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
