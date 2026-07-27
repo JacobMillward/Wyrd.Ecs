@@ -24,12 +24,13 @@ public sealed class ScheduledExecutor
     /// <summary>Runs every stage once, in order, applying <see cref="World.Commands"/> at each stage's boundary.</summary>
     public void RunTick(World world, ulong tick)
     {
+        var time = new Time(TimeSpan.Zero, TimeSpan.Zero); // placeholder -- Task 6 replaces RunTick's own signature and this construction entirely
         foreach (var stage in _stages)
         {
             if (stage.Count > 1 && world.TotalEntityCount >= _parallelThreshold)
-                System.Threading.Tasks.Parallel.ForEach(stage, system => system.RunOnce(world, tick));
+                System.Threading.Tasks.Parallel.ForEach(stage, system => system.RunOnce(world, time));
             else
-                foreach (var system in stage) system.RunOnce(world, tick);
+                foreach (var system in stage) system.RunOnce(world, time);
 
             world.ApplyCommands();
         }

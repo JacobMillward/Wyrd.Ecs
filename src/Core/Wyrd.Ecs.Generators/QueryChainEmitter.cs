@@ -205,15 +205,15 @@ internal static class QueryChainEmitter
         // have alphabetical-by-type-name order match declaration order, which is why
         // this went uncaught until a three-component shape where they diverge.
         var dataElements = candidate.Shape.OwnDataElements();
-        var executeParams = string.Join(", ", new[] { "ulong tick" }.Concat(dataElements.Select(ParamDecl)));
+        var executeParams = string.Join(", ", new[] { "Time time" }.Concat(dataElements.Select(ParamDecl)));
         // Calling a ref/in parameter requires the same modifier at the call site, not
         // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
-        // Both lists are built by prepending "ulong t"/"ulong tick" into the *same*
+        // Both lists are built by prepending "Time t"/"Time time" into the *same*
         // list before joining (matching RenderBackend's actionParams pattern), not by
         // joining dataElements alone and string-concatenating a separator afterward --
-        // the latter produces a trailing comma ("(ulong t, )") when dataElements is
+        // the latter produces a trailing comma ("(Time t, )") when dataElements is
         // empty (a filter-only shape with no Writes/Reads at all), which doesn't compile.
-        var lambdaParams = string.Join(", ", new[] { "ulong t" }.Concat(dataElements.Select(ParamDecl)));
+        var lambdaParams = string.Join(", ", new[] { "Time t" }.Concat(dataElements.Select(ParamDecl)));
         var executeCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
 
         var sb = new StringBuilder();
@@ -231,8 +231,8 @@ internal static class QueryChainEmitter
         sb.AppendLine("{");
         sb.AppendLine($"    private partial void Execute({executeParams});");
         sb.AppendLine();
-        sb.AppendLine("    protected override void OnUpdate(World world, ulong tick) =>");
-        sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})Build(world)).ForEach(tick, ({lambdaParams}) => Execute({executeCallArgs}));");
+        sb.AppendLine("    protected override void OnUpdate(World world, Time time) =>");
+        sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})Build(world)).ForEach(time, ({lambdaParams}) => Execute({executeCallArgs}));");
         sb.AppendLine("}");
         return sb.ToString();
     }

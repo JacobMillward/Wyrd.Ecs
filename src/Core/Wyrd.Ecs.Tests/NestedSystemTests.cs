@@ -8,14 +8,14 @@ sealed partial class MovementSystem : QuerySystem
     private static IQueryDefinition Build(World world) =>
         world.Query().With<Writes<NestedPosition>>().With<Reads<NestedVelocity>>();
 
-    private partial void Execute(ulong tick, ref NestedPosition nestedPosition, in NestedVelocity nestedVelocity) => nestedPosition.X += nestedVelocity.X;
+    private partial void Execute(Time time, ref NestedPosition nestedPosition, in NestedVelocity nestedVelocity) => nestedPosition.X += nestedVelocity.X;
 }
 
 sealed partial class BoundsClampSystem : QuerySystem
 {
     private static IQueryDefinition Build(World world) => world.Query().With<Writes<NestedPosition>>();
 
-    private partial void Execute(ulong tick, ref NestedPosition nestedPosition)
+    private partial void Execute(Time time, ref NestedPosition nestedPosition)
     {
         if (nestedPosition.X > 10f) nestedPosition.X = 10f;
     }
@@ -33,8 +33,8 @@ public partial class NestedSystemTests
         var movement = new MovementSystem();
         var clamp = new BoundsClampSystem();
 
-        movement.RunOnce(world, tick: 0); // 8 + 5 = 13
-        clamp.RunOnce(world, tick: 0); // clamped to 10
+        movement.RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero)); // 8 + 5 = 13
+        clamp.RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero)); // clamped to 10
 
         world.GetComponent<NestedPosition>(entity).X.Should().Be(10f);
     }

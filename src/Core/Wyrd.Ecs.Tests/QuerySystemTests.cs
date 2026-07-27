@@ -6,7 +6,7 @@ sealed partial class DrainSystem : QuerySystem
 {
     private static IQueryDefinition Build(World world) => world.Query().With<Writes<Energy>>();
 
-    private partial void Execute(ulong tick, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
+    private partial void Execute(Time time, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
 }
 
 public class QuerySystemTests
@@ -18,7 +18,7 @@ public class QuerySystemTests
         var entity = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
         world.ApplyCommands();
 
-        new DrainSystem().RunOnce(world, tick: 0);
+        new DrainSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
         world.GetComponent<Energy>(entity).Current.Should().Be(90f);
     }
@@ -32,7 +32,7 @@ public class QuerySystemTests
             entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 1f });
         world.ApplyCommands();
 
-        new DrainSystem().RunOnce(world, tick: 0);
+        new DrainSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
         foreach (var entity in entities)
             world.GetComponent<Energy>(entity).Current.Should().Be(99f);

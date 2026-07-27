@@ -10,9 +10,14 @@ namespace Wyrd.Ecs;
 /// </summary>
 public abstract class EcsSystem
 {
-    /// <summary>Runs one update. <paramref name="tick"/> is the caller's own tick counter; this type doesn't require it to match <see cref="World.CurrentTick"/>.</summary>
-    protected abstract void OnUpdate(World world, ulong tick);
+    /// <summary>
+    /// Runs one iteration. <paramref name="time"/> is built by <see cref="World.Tick"/>/
+    /// <see cref="World.RunOnce"/> from the caller-supplied delta — unrelated to
+    /// <see cref="World.CurrentTick"/>, the separate internal counter change-tracking
+    /// stamps against.
+    /// </summary>
+    protected abstract void OnUpdate(World world, Time time);
 
     /// <summary>Test/harness convenience: runs <see cref="OnUpdate"/> once directly, without a scheduler.</summary>
-    public void RunOnce(World world, ulong tick) => OnUpdate(world, tick);
+    public void RunOnce(World world, Time time) => OnUpdate(world, time);
 }

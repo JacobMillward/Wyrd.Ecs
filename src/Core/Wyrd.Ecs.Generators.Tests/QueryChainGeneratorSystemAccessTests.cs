@@ -14,16 +14,16 @@ public class QueryChainGeneratorSystemAccessTests
 
         public sealed class MovementSystem : EcsSystem
         {
-            protected override void OnUpdate(World world, ulong tick) =>
-                world.Query().With<Writes<Position>>().With<Reads<Velocity>>().ForEach(tick, (ulong t, ref Position p, in Velocity v) => { });
+            protected override void OnUpdate(World world, Time time) =>
+                world.Query().With<Writes<Position>>().With<Reads<Velocity>>().ForEach(time, (Time t, ref Position p, in Velocity v) => { });
         }
 
         public sealed class MultiQuerySystem : EcsSystem
         {
-            protected override void OnUpdate(World world, ulong tick)
+            protected override void OnUpdate(World world, Time time)
             {
-                world.Query().With<Writes<Health>>().ForEach(tick, (ulong t, ref Health h) => { });
-                world.Query().With<Reads<Position>>().ForEach(tick, (ulong t, in Position p) => { });
+                world.Query().With<Writes<Health>>().ForEach(time, (Time t, ref Health h) => { });
+                world.Query().With<Reads<Position>>().ForEach(time, (Time t, in Position p) => { });
             }
         }
 

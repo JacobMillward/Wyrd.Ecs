@@ -6,10 +6,10 @@ file struct Position : IComponent;
 file struct Velocity : IComponent;
 file struct Health : IComponent;
 
-file sealed class WriterA : EcsSystem { protected override void OnUpdate(World world, ulong tick) { } }
-file sealed class WriterB : EcsSystem { protected override void OnUpdate(World world, ulong tick) { } }
-file sealed class ReaderC : EcsSystem { protected override void OnUpdate(World world, ulong tick) { } }
-file sealed class UnknownSystem : EcsSystem { protected override void OnUpdate(World world, ulong tick) { } }
+file sealed class WriterA : EcsSystem { protected override void OnUpdate(World world, Time time) { } }
+file sealed class WriterB : EcsSystem { protected override void OnUpdate(World world, Time time) { } }
+file sealed class ReaderC : EcsSystem { protected override void OnUpdate(World world, Time time) { } }
+file sealed class UnknownSystem : EcsSystem { protected override void OnUpdate(World world, Time time) { } }
 
 public class SystemSchedulerTests
 {
@@ -93,7 +93,7 @@ public class SystemSchedulerTests
 
     private sealed class DynamicHealthWriter : EcsSystem, IQueryAccessDescriptor
     {
-        protected override void OnUpdate(World world, ulong tick) { }
+        protected override void OnUpdate(World world, Time time) { }
         public SystemAccess DescribeAccess() => new(Reads: [], Writes: [typeof(Health)]);
     }
 }

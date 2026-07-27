@@ -5,19 +5,19 @@ struct ScheduledHealth : IComponent { public int Value; }
 
 sealed class MoveSystem : EcsSystem
 {
-    protected override void OnUpdate(World world, ulong tick) =>
+    protected override void OnUpdate(World world, Time time) =>
         world.Query().With<Writes<ScheduledPosition>>().ForEach(0, (int _, ref ScheduledPosition p) => p.X += 1f);
 }
 
 sealed class DamageSystem : EcsSystem
 {
-    protected override void OnUpdate(World world, ulong tick) =>
+    protected override void OnUpdate(World world, Time time) =>
         world.Query().With<Writes<ScheduledHealth>>().ForEach(0, (int _, ref ScheduledHealth h) => h.Value -= 1);
 }
 
 sealed class SpawnerSystem : EcsSystem
 {
-    protected override void OnUpdate(World world, ulong tick)
+    protected override void OnUpdate(World world, Time time)
     {
         var entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new ScheduledHealth { Value = 10 });
@@ -26,7 +26,7 @@ sealed class SpawnerSystem : EcsSystem
 
 sealed class SpawnerASystem : EcsSystem
 {
-    protected override void OnUpdate(World world, ulong tick)
+    protected override void OnUpdate(World world, Time time)
     {
         for (var i = 0; i < 200; i++)
         {
@@ -38,7 +38,7 @@ sealed class SpawnerASystem : EcsSystem
 
 sealed class SpawnerBSystem : EcsSystem
 {
-    protected override void OnUpdate(World world, ulong tick)
+    protected override void OnUpdate(World world, Time time)
     {
         for (var i = 0; i < 200; i++)
         {

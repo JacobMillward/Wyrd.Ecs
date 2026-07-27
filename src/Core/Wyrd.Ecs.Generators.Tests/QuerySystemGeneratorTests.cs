@@ -3,6 +3,7 @@ namespace Wyrd.Ecs.Generators.Tests;
 public class QuerySystemGeneratorTests
 {
     private const string Harness = """
+        using System;
         using Wyrd.Ecs;
         using Wyrd.Ecs.Generated;
 
@@ -14,7 +15,7 @@ public class QuerySystemGeneratorTests
             private static IQueryDefinition Build(World world) =>
                 world.Query().With<Writes<Position>>().With<Reads<Velocity>>();
 
-            private partial void Execute(ulong tick, ref Position p, in Velocity v) => p.X += v.X;
+            private partial void Execute(Time time, ref Position p, in Velocity v) => p.X += v.X;
         }
 
         public static class Harness
@@ -26,7 +27,7 @@ public class QuerySystemGeneratorTests
                 world.Commands.CreateEntity(new Position { X = 10f }, new Velocity { X = 20f });
                 world.ApplyCommands();
 
-                new MovementSystem().RunOnce(world, tick: 0);
+                new MovementSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
                 var total = 0f;
                 world.Query().With<Reads<Position>>()
@@ -63,6 +64,7 @@ public class QuerySystemGeneratorTests
     }
 
     private const string EditedShapeHarness = """
+        using System;
         using Wyrd.Ecs;
         using Wyrd.Ecs.Generated;
 
@@ -75,7 +77,7 @@ public class QuerySystemGeneratorTests
             private static IQueryDefinition Build(World world) =>
                 world.Query().With<Writes<Position>>().With<Reads<Velocity>>().With<Reads<Health>>();
 
-            private partial void Execute(ulong tick, ref Position p, in Velocity v, in Health h) => p.X += v.X + h.Current;
+            private partial void Execute(Time time, ref Position p, in Velocity v, in Health h) => p.X += v.X + h.Current;
         }
 
         public static class Harness
@@ -86,7 +88,7 @@ public class QuerySystemGeneratorTests
                 world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }, new Health { Current = 3f });
                 world.ApplyCommands();
 
-                new ThreeComponentSystem().RunOnce(world, tick: 0);
+                new ThreeComponentSystem().RunOnce(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
                 var total = 0f;
                 world.Query().With<Reads<Position>>().ForEach(0, (int _, in Position p) => total += p.X);

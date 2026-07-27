@@ -4,7 +4,7 @@ file struct Config : IComponent;
 
 file sealed class DynamicConfigSystem : EcsSystem, IQueryAccessDescriptor
 {
-    protected override void OnUpdate(World world, ulong tick) { }
+    protected override void OnUpdate(World world, Time time) { }
     public SystemAccess DescribeAccess() => new(Reads: [], Writes: [typeof(Config)]);
 }
 
