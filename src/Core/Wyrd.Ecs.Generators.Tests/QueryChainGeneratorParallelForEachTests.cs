@@ -27,6 +27,24 @@ public class QueryChainGeneratorParallelForEachTests
 
                 return visited;
             }
+
+            public static int RunNoUniform()
+            {
+                var world = new World();
+                for (var i = 0; i < 200; i++)
+                    world.Commands.CreateEntity(new Position { X = i });
+                world.ApplyCommands();
+
+                var visited = 0;
+                world.Query().With<Writes<Position>>()
+                    .ParallelForEach((ref Position p) =>
+                    {
+                        p.X += 1f;
+                        Interlocked.Increment(ref visited);
+                    });
+
+                return visited;
+            }
         }
         """;
 
@@ -36,6 +54,16 @@ public class QueryChainGeneratorParallelForEachTests
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
 
         var result = (int)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
+
+        result.Should().Be(200);
+    }
+
+    [Fact]
+    public void ParallelForEach_NoUniformOverload_VisitsEveryMatchingEntity()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (int)assembly.GetType("Harness")!.GetMethod("RunNoUniform")!.Invoke(null, null)!;
 
         result.Should().Be(200);
     }

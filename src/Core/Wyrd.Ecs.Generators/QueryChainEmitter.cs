@@ -162,6 +162,8 @@ internal static class QueryChainEmitter
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
 
+        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()").ToList();
+
         sb.AppendLine($"internal static class QueryChainParallelTerminals_{overloadHash}");
         sb.AppendLine("{");
         sb.AppendLine($"    internal static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainActionOwn_{overloadHash}<TUniform> action)");
@@ -170,7 +172,7 @@ internal static class QueryChainEmitter
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World)) chunks.Add(chunk);");
         sb.AppendLine();
         sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(chunks, chunk =>");
-        var parallelProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()")));
+        var parallelProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
         sb.AppendLine($"            Process({parallelProcessCallArgs}));");
         sb.AppendLine();
         var parallelProcessParams = string.Join(", ", new[] { "TUniform uniform", $"QueryChainActionOwn_{overloadHash}<TUniform> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
@@ -179,6 +181,24 @@ internal static class QueryChainEmitter
         sb.AppendLine("            for (var i = 0; i < count; i++)");
         var parallelActionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
         sb.AppendLine($"                action({parallelActionCallArgs});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine($"    internal static void ParallelForEach(this {shape.ExactShapeTypeName} query, QueryChainAction_{overloadHash} action)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World)) chunks.Add(chunk);");
+        sb.AppendLine();
+        sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(chunks, chunk =>");
+        var noUniformParallelProcessCallArgs = string.Join(", ", new[] { "action", "chunk.Count" }.Concat(accessArgs));
+        sb.AppendLine($"            Process({noUniformParallelProcessCallArgs}));");
+        sb.AppendLine();
+        var noUniformParallelProcessParams = string.Join(", ", new[] { $"QueryChainAction_{overloadHash} action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        sb.AppendLine($"        static void Process({noUniformParallelProcessParams})");
+        sb.AppendLine("        {");
+        sb.AppendLine("            for (var i = 0; i < count; i++)");
+        var noUniformParallelActionCallArgs = string.Join(", ", ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]"));
+        sb.AppendLine($"                action({noUniformParallelActionCallArgs});");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");
