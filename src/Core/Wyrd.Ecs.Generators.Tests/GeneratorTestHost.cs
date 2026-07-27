@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Wyrd.Ecs.Generators.Tests;
 
@@ -59,5 +60,28 @@ internal static class GeneratorTestHost
 
         stream.Seek(0, SeekOrigin.Begin);
         return System.Reflection.Assembly.Load(stream.ToArray());
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="source"/> in a real workspace <see cref="Document"/> --
+    /// needed by anything driving a <c>CodeFixProvider</c> directly (no
+    /// <c>Microsoft.CodeAnalysis.Testing</c> harness in this repo: its latest release
+    /// still depends on a decade-old <c>Microsoft.CodeAnalysis.Workspaces 1.0.1</c>,
+    /// which hard-conflicts (<c>CS1705</c>) with the 5.6.0 this repo already targets
+    /// everywhere else), since <see cref="Compile"/>'s plain <see cref="CSharpCompilation"/>
+    /// has no <see cref="Document"/>/<see cref="Solution"/> wrapper a codefix can edit.
+    /// </summary>
+    public static Document CreateDocument(string source)
+    {
+        using var workspace = new Microsoft.CodeAnalysis.AdhocWorkspace();
+        var projectId = ProjectId.CreateNewId();
+        var documentId = DocumentId.CreateNewId(projectId);
+
+        var solution = workspace.CurrentSolution
+            .AddProject(projectId, "GeneratorsTestAssembly", "GeneratorsTestAssembly", LanguageNames.CSharp)
+            .AddMetadataReferences(projectId, References)
+            .AddDocument(documentId, "Test.cs", SourceText.From(source));
+
+        return solution.GetDocument(documentId)!;
     }
 }
