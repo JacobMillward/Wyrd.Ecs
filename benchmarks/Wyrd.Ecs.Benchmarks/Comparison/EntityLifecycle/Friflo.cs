@@ -12,32 +12,57 @@ public partial class EntityLifecycleBenchmarks
     private sealed class FrifloContext
     {
         public readonly EntityStore Store = new();
-        public readonly Entity ToDispose;
 
-        public FrifloContext()
-        {
-            ToDispose = Store.CreateEntity(new Position());
-        }
+        /// <summary>Reused scratch space for <see cref="Friflo_DisposeEntity"/> — sized once, never reallocated, so it doesn't contaminate that method's own allocation measurement.</summary>
+        public readonly Entity[] DisposeScratch = new Entity[EntityCount];
     }
 
     [Context] private FrifloContext _friflo = null!;
 
-    [Benchmark]
-    public Entity Friflo_CreateBareEntity() => _friflo.Store.CreateEntity();
+    /// <summary>Resets <see cref="_friflo"/> every iteration for the growing <c>Create*</c> methods — see <see cref="Wyrd_ResetContext"/>'s docs for why.</summary>
+    [IterationSetup(Targets = [
+        nameof(Friflo_CreateBareEntity), nameof(Friflo_CreateOneComponentEntity),
+        nameof(Friflo_CreateFourComponentEntity), nameof(Friflo_CreateEightComponentEntity)])]
+    public void Friflo_ResetContext() => _friflo = new FrifloContext();
 
-    [Benchmark]
-    public Entity Friflo_CreateOneComponentEntity() => _friflo.Store.CreateEntity(new Position());
+    [Benchmark(OperationsPerInvoke = EntityCount)]
+    public void Friflo_CreateBareEntity()
+    {
+        for (var i = 0; i < EntityCount; i++)
+            _friflo.Store.CreateEntity();
+    }
 
-    [Benchmark]
-    public Entity Friflo_CreateFourComponentEntity() =>
-        _friflo.Store.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
+    [Benchmark(OperationsPerInvoke = EntityCount)]
+    public void Friflo_CreateOneComponentEntity()
+    {
+        for (var i = 0; i < EntityCount; i++)
+            _friflo.Store.CreateEntity(new Position());
+    }
 
-    [Benchmark]
-    public Entity Friflo_CreateEightComponentEntity() =>
-        _friflo.Store.CreateEntity(
-            new Position(), new Velocity(), new Health(), new BulkPayload(),
-            new Padding1(), new Padding2(), new Padding3(), new Padding4());
+    [Benchmark(OperationsPerInvoke = EntityCount)]
+    public void Friflo_CreateFourComponentEntity()
+    {
+        for (var i = 0; i < EntityCount; i++)
+            _friflo.Store.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
+    }
 
-    [Benchmark]
-    public void Friflo_DisposeEntity() => _friflo.ToDispose.DeleteEntity();
+    [Benchmark(OperationsPerInvoke = EntityCount)]
+    public void Friflo_CreateEightComponentEntity()
+    {
+        for (var i = 0; i < EntityCount; i++)
+            _friflo.Store.CreateEntity(
+                new Position(), new Velocity(), new Health(), new BulkPayload(),
+                new Padding1(), new Padding2(), new Padding3(), new Padding4());
+    }
+
+    /// <summary>Create-then-destroy pairs, self-resetting — see <see cref="EntityLifecycleBenchmarks.Wyrd_DisposeEntity"/>'s docs for why.</summary>
+    [Benchmark(OperationsPerInvoke = EntityCount)]
+    public void Friflo_DisposeEntity()
+    {
+        for (var i = 0; i < EntityCount; i++)
+            _friflo.DisposeScratch[i] = _friflo.Store.CreateEntity();
+
+        for (var i = 0; i < EntityCount; i++)
+            _friflo.DisposeScratch[i].DeleteEntity();
+    }
 }
