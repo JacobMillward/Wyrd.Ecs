@@ -4,17 +4,17 @@ using Microsoft.CodeAnalysis;
 namespace Wyrd.Ecs.InternalGenerators;
 
 /// <summary>
-/// Emits the <c>CommandBuffer.CreateEntity&lt;T0..T{QueryArity.Max-1}&gt;(...)</c>
+/// Emits the <c>CommandBuffer.CreateEntity&lt;T0..T{ArityCap.Max-1}&gt;(...)</c>
 /// multi-component entity-creation overloads (arity 1 through
-/// <see cref="QueryArity.Max"/>), plus <c>World</c>'s internal
-/// <c>PlaceReservedEntity&lt;T0..T{QueryArity.Max-1}&gt;</c> helper and the
-/// <c>QuerySignature&lt;T0..T{QueryArity.Max-1}&gt;</c> cache it needs to find or
+/// <see cref="ArityCap.Max"/>), plus <c>World</c>'s internal
+/// <c>PlaceReservedEntity&lt;T0..T{ArityCap.Max-1}&gt;</c> helper and the
+/// <c>QuerySignature&lt;T0..T{ArityCap.Max-1}&gt;</c> cache it needs to find or
 /// create a multi-component entity's target archetype. Query-shape members used to
 /// live here too (<c>IWorld</c>/<c>World</c>'s fluent <c>Query&lt;T0..TN-1&gt;()</c>);
 /// they were removed when the arity-templated <c>Query&lt;T0,...,T7&gt;</c>/
 /// <c>QueryRow&lt;T0,...,T7&gt;</c> family was replaced by the generator-backed
 /// unbounded query-shape design — entity creation is an unrelated concern that
-/// happened to share this file and <see cref="QueryArity"/>.
+/// happened to share this file and <see cref="ArityCap"/>.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
@@ -28,14 +28,14 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             world.AppendLine();
             world.AppendLine("namespace Wyrd.Ecs;");
             world.AppendLine();
-            for (var n = 1; n <= QueryArity.Max; n++)
+            for (var n = 1; n <= ArityCap.Max; n++)
             {
                 world.AppendLine(ArityTemplates.QuerySignature(n));
                 world.AppendLine();
             }
             world.AppendLine("public sealed partial class World");
             world.AppendLine("{");
-            for (var n = 1; n <= QueryArity.Max; n++)
+            for (var n = 1; n <= ArityCap.Max; n++)
             {
                 world.AppendLine(ArityTemplates.PlaceReservedEntityMember(n));
                 world.AppendLine();
@@ -48,14 +48,14 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             commands.AppendLine("using System;");
             commands.AppendLine("namespace Wyrd.Ecs;");
             commands.AppendLine();
-            for (var n = 1; n <= QueryArity.Max; n++)
+            for (var n = 1; n <= ArityCap.Max; n++)
             {
                 commands.AppendLine(ArityTemplates.CreateEntityOpClass(n));
                 commands.AppendLine();
             }
             commands.AppendLine("public sealed partial class CommandBuffer");
             commands.AppendLine("{");
-            for (var n = 1; n <= QueryArity.Max; n++)
+            for (var n = 1; n <= ArityCap.Max; n++)
             {
                 commands.AppendLine(ArityTemplates.CommandBufferCreateEntityMember(n));
                 commands.AppendLine();
