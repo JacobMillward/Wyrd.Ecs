@@ -10,7 +10,7 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 - Archetype storage: entities with the same component/tag set live in the same dense arrays
 - A fluent, generator-backed query chain of unbounded arity: `world.Query().With<Writes<T>>().With<Reads<U>>().Without<X>().Any<A, B>().ForEach(...)`, no boxing or reflection on the hot path, no arity cap
 - `QuerySystem` sugar for the declared-system case: write a `Build` (query shape) and `Execute` (per-entity body) method, the generator fills in dispatch
-- A static parallel scheduler: `WorldBuilder.WithSystems(...)` partitions systems into stages with no read/write conflicts, then `ScheduledExecutor` runs each stage inline or on the thread pool depending on world size
+- A static parallel scheduler: `WorldBuilder.WithSystems(...)` partitions systems into stages with no read/write conflicts, then `World.Tick(...)` runs each stage inline or on the thread pool depending on world size
 - All structural mutation goes through `CommandBuffer`, deferred and applied in one deterministic pass, so it never invalidates a query mid-iteration
 - Tick-based change tracking, opt in per component type
 - Structural change observers for entity/component add/remove
@@ -31,9 +31,9 @@ public struct Energy : IComponent
 // partial: the generator fills in OnUpdate from Build + Execute
 public sealed partial class EnergyDrainSystem : QuerySystem
 {
-    private static Query<(Writes<Energy>, Nil)> Build(World world) => world.Query().With<Writes<Energy>>();
+    private static IQueryDefinition Build(World world) => world.Query().With<Writes<Energy>>();
 
-    private partial void Execute(ulong tick, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
+    private partial void Execute(Time time, ref Energy energy) => energy.Current -= energy.DrainPerSecond * (float)time.Delta.TotalSeconds;
 }
 
 var world = new World();
@@ -42,7 +42,7 @@ var entity = world.Commands.CreateEntity();
 world.Commands.AddComponent(entity, new Energy { Current = 100, DrainPerSecond = 1 });
 world.ApplyCommands();
 
-new EnergyDrainSystem().RunOnce(world, tick: 1);
+world.RunOnce(new EnergyDrainSystem(), TimeSpan.FromSeconds(1.0 / 60));
 ```
 
 No system class needed for a one-off query: the same chain works directly against a `World`.
@@ -55,11 +55,11 @@ world.Query().With<Writes<Energy>>()
 To run several systems together, register them with `WorldBuilder` and let the scheduler figure out what can run concurrently:
 
 ```csharp
-var (world, executor) = new WorldBuilder()
-    .WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, new EnergyDrainSystem(), /* ... */)
-    .BuildWithExecutor();
+var world = new WorldBuilder()
+    .WithSystems<EnergyDrainSystem>()
+    .Build();
 
-executor.RunTick(world, tick: 1);
+world.Tick(TimeSpan.FromSeconds(1.0 / 60));
 ```
 
 ## Project layout
