@@ -48,7 +48,7 @@ public sealed class QuerySystemShapeAnalyzer : DiagnosticAnalyzer
         var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken);
         if (shape is null) return;
 
-        var declaredComponents = shape.PendingDataElements.Reverse().ToImmutableArray(); // outer-first -> declaration order
+        var declaredComponents = shape.PendingDataElements; // already declaration order -- see ChainWalker.TryExtractShapeFromQueryType
         var update = type.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
 
         var mismatch = update switch

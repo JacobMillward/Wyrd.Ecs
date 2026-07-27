@@ -70,9 +70,11 @@ internal static class ChainWalker
     /// </summary>
     internal static QueryShape? ResolveAccessKinds(QueryShape raw, ImmutableArray<RefKind> refKindsInDeclarationOrder)
     {
-        // PendingDataElements is outer-first (reverse-declaration) order, same as Markers --
-        // reverse it back to left-to-right, same convention OwnDataElements already uses.
-        var declarationOrder = raw.PendingDataElements.Reverse().ToImmutableArray();
+        // raw.PendingDataElements is already in declaration order (QueryShape.Markers and
+        // QueryShape.PendingDataElements are both normalized to declaration order once, in
+        // TryExtractShapeFromQueryType) -- no reversal needed to line it up with
+        // refKindsInDeclarationOrder.
+        var declarationOrder = raw.PendingDataElements;
         if (declarationOrder.Length != refKindsInDeclarationOrder.Length) return null;
 
         var resolvedInDeclarationOrder = ImmutableArray.CreateBuilder<MarkerElement>(declarationOrder.Length);
@@ -88,14 +90,10 @@ internal static class ChainWalker
             resolvedInDeclarationOrder.Add(new MarkerElement(kind.Value, declarationOrder[i]));
         }
 
-        // Markers is stored outer-first (reverse-declaration) order everywhere else in
-        // this file -- OwnDataElements() unconditionally reverses it once to recover
-        // declaration order. Append these newly-resolved markers in that same outer-first
-        // order (i.e. reversed from the declaration order just used for the ref-kind zip
-        // above), or OwnDataElements()'s single reversal flips them the wrong way.
+        // raw.Markers is already in declaration order too, so the newly-resolved markers
+        // append directly, in the same order just computed above.
         var resolved = raw.Markers.ToBuilder();
-        for (var i = resolvedInDeclarationOrder.Count - 1; i >= 0; i--)
-            resolved.Add(resolvedInDeclarationOrder[i]);
+        resolved.AddRange(resolvedInDeclarationOrder);
 
         return new QueryShape
         {
@@ -140,6 +138,14 @@ internal static class ChainWalker
 
             current = rest;
         }
+
+        // The walk above visits `.With<A>().With<B>()`'s nested-tuple type
+        // `(B, (A, Nil))` outer-first, i.e. last-declared-first -- the reverse of
+        // declaration order. Reverse both builders once, here, so QueryShape.Markers and
+        // QueryShape.PendingDataElements are in declaration order everywhere downstream
+        // (OwnDataElements, ResolveAccessKinds, every caller-facing parameter list).
+        markers.Reverse();
+        pendingData.Reverse();
 
         return new QueryShape
         {

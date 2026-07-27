@@ -57,7 +57,7 @@ public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
 
             var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken);
             if (shape is null) continue;
-            var declaredComponents = shape.PendingDataElements.Reverse().ToImmutableArray();
+            var declaredComponents = shape.PendingDataElements; // already declaration order -- see ChainWalker.TryExtractShapeFromQueryType
 
             context.RegisterCodeFix(
                 CodeAction.Create(

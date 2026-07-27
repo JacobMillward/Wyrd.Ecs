@@ -72,16 +72,15 @@ internal static class QueryShapeExtensions
     /// <summary>
     /// Writes/Reads elements only (Has is filter-only), in the order the caller actually wrote
     /// their `.With&lt;&gt;()` calls -- the order their `.ForEach(...)` lambda must use for this
-    /// shape. <see cref="QueryShape.Markers"/> is populated outer-tuple-first while walking the
-    /// resolved type (see <c>ChainWalker.TryExtractShapeFromQueryType</c>), which is the
-    /// *reverse* of declaration order (`.With&lt;A&gt;().With&lt;B&gt;()` produces `(B, (A, Nil))`,
-    /// visited B-then-A) -- reversed back here. Every caller-facing delegate/parameter list
+    /// shape. <see cref="QueryShape.Markers"/> is already stored in that declaration order (see
+    /// <c>ChainWalker.TryExtractShapeFromQueryType</c>), so this just drops the filter-only
+    /// `Has` markers. Every caller-facing delegate/parameter list
     /// (<see cref="QueryChainEmitter.RenderForEachOverload"/> and its Predicate/Parallel
     /// counterparts) is built from this, not <see cref="DataElements"/> -- callers should never
     /// need to know or match the shared backend's alphabetical order.
     /// </summary>
     internal static ImmutableArray<MarkerElement> OwnDataElements(this QueryShape shape) =>
-        shape.Markers.Where(m => m.Kind != MarkerKind.Has).Reverse().ToImmutableArray();
+        shape.Markers.Where(m => m.Kind != MarkerKind.Has).ToImmutableArray();
 
     /// <summary>Order-independent identity for deduplication: two shapes with the same elements in different declaration order produce the same key.</summary>
     internal static string DedupKey(this QueryShape shape)
