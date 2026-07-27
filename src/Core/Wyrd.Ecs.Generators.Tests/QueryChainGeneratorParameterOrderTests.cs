@@ -1,4 +1,4 @@
-namespace Wyrd.Ecs.SystemGenerators.Tests;
+namespace Wyrd.Ecs.Generators.Tests;
 
 /// <summary>
 /// The shared backend RenderBackend emits sorts a shape's Reads/Writes elements

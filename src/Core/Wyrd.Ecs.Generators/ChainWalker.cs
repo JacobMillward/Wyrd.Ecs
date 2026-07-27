@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Wyrd.Ecs.SystemGenerators;
+namespace Wyrd.Ecs.Generators;
 
 internal static class ChainWalker
 {

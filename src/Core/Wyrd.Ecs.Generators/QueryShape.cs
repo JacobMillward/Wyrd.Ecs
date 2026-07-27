@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Wyrd.Ecs.SystemGenerators;
+namespace Wyrd.Ecs.Generators;
 
 internal enum MarkerKind { Writes, Reads, Has }
 

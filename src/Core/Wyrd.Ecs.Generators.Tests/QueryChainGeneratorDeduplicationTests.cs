@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Wyrd.Ecs.SystemGenerators.Tests;
+namespace Wyrd.Ecs.Generators.Tests;
 
 public class QueryChainGeneratorDeduplicationTests
 {

@@ -1,4 +1,4 @@
-namespace Wyrd.Ecs.SystemGenerators;
+namespace Wyrd.Ecs.Generators;
 
 /// <summary>
 /// One discovered `QuerySystem` subclass: its containing namespace (empty string for

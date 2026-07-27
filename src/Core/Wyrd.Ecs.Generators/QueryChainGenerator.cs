@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Wyrd.Ecs.SystemGenerators;
+namespace Wyrd.Ecs.Generators;
 
 /// <summary>
 /// Finds every `.ForEach`/`.ParallelForEach` terminal call on a fluent query chain, and

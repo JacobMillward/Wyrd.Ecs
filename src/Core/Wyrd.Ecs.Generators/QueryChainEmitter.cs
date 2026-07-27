@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Wyrd.Ecs.SystemGenerators;
+namespace Wyrd.Ecs.Generators;
 
 internal static class QueryChainEmitter
 {

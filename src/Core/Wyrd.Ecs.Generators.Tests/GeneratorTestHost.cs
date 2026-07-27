@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace Wyrd.Ecs.SystemGenerators.Tests;
+namespace Wyrd.Ecs.Generators.Tests;
 
 /// <summary>
 /// Builds a compilation referencing every trusted platform assembly plus the real
@@ -20,7 +20,7 @@ internal static class GeneratorTestHost
 
     public static CSharpCompilation Compile(string source) =>
         CSharpCompilation.Create(
-            assemblyName: "SystemGeneratorsTestAssembly",
+            assemblyName: "GeneratorsTestAssembly",
             syntaxTrees: [CSharpSyntaxTree.ParseText(source)],
             references: References,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));

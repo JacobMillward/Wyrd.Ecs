@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Wyrd.Ecs.SystemGenerators.Tests;
+namespace Wyrd.Ecs.Generators.Tests;
 
 public class ChainWalkerTests
 {
