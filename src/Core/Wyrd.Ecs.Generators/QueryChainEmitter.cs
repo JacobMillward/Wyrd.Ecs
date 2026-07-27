@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 
 namespace Wyrd.Ecs.Generators;
@@ -185,6 +186,43 @@ internal static class QueryChainEmitter
             sb.AppendLine($"        [typeof(global::{system.SystemTypeName})] = new(Reads: new Type[] {{ {reads} }}, Writes: new Type[] {{ {writes} }}),");
         }
         sb.AppendLine("    };");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits `WithSystems` sugar so a consumer never has to spell out
+    /// `Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries` by hand: a `params EcsSystem[]`
+    /// overload for constructor-arg systems, plus `WithSystems&lt;T0..T{ArityCap.Max}&gt;()`
+    /// for the parameterless case. Emitted into namespace `Wyrd.Ecs` itself, not
+    /// `Wyrd.Ecs.Generated` — every consumer already has `using Wyrd.Ecs;` in scope for
+    /// `WorldBuilder`/`EcsSystem`, so the extension methods are visible without a second
+    /// `using` just for them. Unconditional — this doesn't depend on any discovered
+    /// `QuerySystem`/chain candidate, so it's the same fixed output regardless of what a
+    /// consumer's own compilation contains.
+    /// </summary>
+    internal static string RenderWithSystemsExtensions()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("namespace Wyrd.Ecs;");
+        sb.AppendLine();
+        sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
+        sb.AppendLine("{");
+        sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params EcsSystem[] systems) =>");
+        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, systems);");
+        sb.AppendLine();
+
+        for (var n = 1; n <= ArityCap.Max; n++)
+        {
+            var typeParams = string.Join(", ", Enumerable.Range(0, n).Select(i => $"T{i}"));
+            var constraints = string.Join(" ", Enumerable.Range(0, n).Select(i => $"where T{i} : EcsSystem, new()"));
+            var instances = string.Join(", ", Enumerable.Range(0, n).Select(i => $"new T{i}()"));
+
+            sb.AppendLine($"    public static WorldBuilder WithSystems<{typeParams}>(this WorldBuilder builder) {constraints} =>");
+            sb.AppendLine($"        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, {instances});");
+            sb.AppendLine();
+        }
+
         sb.AppendLine("}");
         return sb.ToString();
     }
