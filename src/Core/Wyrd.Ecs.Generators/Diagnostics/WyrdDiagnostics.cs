@@ -11,4 +11,12 @@ internal static class WyrdDiagnostics
         category: "Wyrd.Ecs.QueryChain",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor UpdateShapeMismatch = new(
+        id: "WYRD002",
+        title: "QuerySystem.Update does not match DefineQuery's declared components",
+        messageFormat: "'{0}.Update' must take Time followed by exactly {1} ({2}), in that order",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }
