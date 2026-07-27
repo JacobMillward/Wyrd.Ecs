@@ -136,8 +136,22 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
         var namespaceName = classSymbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
 
+        // Update is name-convention-recognized, not a real override -- its parameter list
+        // depends on unpacking an arbitrary TShape tuple, which isn't expressible as a
+        // fixed C# signature (see QuerySystem.cs's doc comment). A missing/malformed
+        // Update falls through to WYRD002, not this method returning null for a reason a
+        // developer can't see -- so this only returns null here for "no method named
+        // Update exists at all" (the true "nothing to resolve against" case, for both the
+        // filter-only and data-bearing shapes below); count/type/order mismatches against
+        // an Update that *does* exist are WYRD002's job, checked separately by its
+        // analyzer, not blocked here.
+        var updateMethod = classSymbol.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
+        if (updateMethod is null) return null;
+
         if (shape.PendingDataElements.IsEmpty)
         {
+            if (updateMethod.Parameters.Length != 1) return null; // just Time, no data parameters
+
             return new QuerySystemCandidate
             {
                 Namespace = namespaceName,
@@ -145,17 +159,6 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 Shape = shape,
             };
         }
-
-        // Update is name-convention-recognized, not a real override -- its parameter list
-        // depends on unpacking an arbitrary TShape tuple, which isn't expressible as a
-        // fixed C# signature (see QuerySystem.cs's doc comment). A missing/malformed
-        // Update falls through to WYRD002, not this method returning null for a reason a
-        // developer can't see -- so this only returns null here for "no method named
-        // Update exists at all" (the true "nothing to resolve against" case);
-        // count/type/order mismatches against an Update that *does* exist are WYRD002's
-        // job, checked separately by its analyzer, not blocked here.
-        var updateMethod = classSymbol.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
-        if (updateMethod is null) return null;
 
         // Skip Update's leading Time parameter, same convention as the lambda case.
         var dataParameters = updateMethod.Parameters.Skip(1).ToImmutableArray();

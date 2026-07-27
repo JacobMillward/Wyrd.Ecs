@@ -130,4 +130,44 @@ public class QuerySystemGeneratorTests
 
         result.GeneratedTrees.Should().NotContain(t => t.FilePath.Contains("BrokenSystem"));
     }
+
+    [Fact]
+    public void FilterOnlyDefineQuery_MissingUpdate_IsNotRecognizedAsAValidQuerySystem()
+    {
+        var source = """
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class BrokenSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().Has<Position>();
+            }
+            """;
+
+        var result = GeneratorTestHost.Run(new QueryChainGenerator(), GeneratorTestHost.Compile(source));
+
+        result.GeneratedTrees.Should().NotContain(t => t.FilePath.Contains("BrokenSystem"));
+    }
+
+    [Fact]
+    public void FilterOnlyDefineQuery_UpdateWithExtraParameter_IsNotRecognizedAsAValidQuerySystem()
+    {
+        var source = """
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class BrokenSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().Has<Position>();
+
+                public void Update(Time time, ref Position p) { }
+            }
+            """;
+
+        var result = GeneratorTestHost.Run(new QueryChainGenerator(), GeneratorTestHost.Compile(source));
+
+        result.GeneratedTrees.Should().NotContain(t => t.FilePath.Contains("BrokenSystem"));
+    }
 }
