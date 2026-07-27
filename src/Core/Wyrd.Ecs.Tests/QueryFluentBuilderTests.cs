@@ -39,7 +39,7 @@ public class QueryFluentBuilderTests
 
         var count = 0;
         world.Query().With<Writes<Position>>().With<Reads<Velocity>>().Without<Dead>()
-            .ForEach(0, (int _, ref Position p, in Velocity v) => count++);
+            .ForEach(0, (in int _, ref Position p, in Velocity v) => count++);
 
         count.Should().Be(2);
     }
@@ -52,7 +52,7 @@ public class QueryFluentBuilderTests
 
         var matchedPositions = new List<float>();
         world.Query().With<Reads<Position>>().Any<BuffA, BuffB>()
-            .ForEach(matchedPositions, (List<float> matches, in Position p) => matches.Add(p.X));
+            .ForEach(matchedPositions, (in List<float> matches, in Position p) => matches.Add(p.X));
 
         matchedPositions.Should().Equal(3f);
     }
@@ -64,7 +64,7 @@ public class QueryFluentBuilderTests
 
         var matchedCount = 0;
         world.Query().With<Reads<Position>>().With<Has<BuffA>>()
-            .ForEach(0, (int _, in Position p) => matchedCount++);
+            .ForEach(0, (in int _, in Position p) => matchedCount++);
 
         matchedCount.Should().Be(1);
     }
@@ -76,7 +76,7 @@ public class QueryFluentBuilderTests
         var total = 0f;
 
         world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-            .ForEach(0f, (float _, ref Position p, in Velocity v) => { total += p.X; });
+            .ForEach(0f, (in float _, ref Position p, in Velocity v) => { total += p.X; });
 
         total.Should().Be(6f);
     }
@@ -88,7 +88,7 @@ public class QueryFluentBuilderTests
         var total = 0;
 
         world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-            .ParallelForEach(0, (int _, ref Position p, in Velocity v) => Interlocked.Increment(ref total));
+            .ParallelForEach(0, (in int _, ref Position p, in Velocity v) => Interlocked.Increment(ref total));
 
         total.Should().Be(3);
     }
@@ -100,7 +100,7 @@ public class QueryFluentBuilderTests
 
         var count = 0;
         world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-            .ForEach(0, (int _, ref Position p, in Velocity v) => count++);
+            .ForEach(0, (in int _, ref Position p, in Velocity v) => count++);
 
         count.Should().Be(3);
     }
@@ -112,7 +112,7 @@ public class QueryFluentBuilderTests
         var visited = 0;
 
         world.Query().With<Reads<Position>>()
-            .ForEach(0, (int _, in Position p) =>
+            .ForEach(0, (in int _, in Position p) =>
             {
                 visited++;
                 return visited < 2;

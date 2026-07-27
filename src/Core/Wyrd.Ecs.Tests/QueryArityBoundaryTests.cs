@@ -40,7 +40,7 @@ public class QueryArityBoundaryTests
             .With<Writes<C0>>().With<Writes<C1>>().With<Writes<C2>>().With<Writes<C3>>()
             .With<Writes<C4>>().With<Writes<C5>>().With<Writes<C6>>().With<Writes<C7>>()
             .With<Writes<C8>>().With<Writes<C9>>().With<Writes<C10>>().With<Writes<C11>>()
-            .ForEach(0, (int _, ref C0 c0, ref C1 c1, ref C2 c2, ref C3 c3,
+            .ForEach(0, (in int _, ref C0 c0, ref C1 c1, ref C2 c2, ref C3 c3,
                 ref C4 c4, ref C5 c5, ref C6 c6, ref C7 c7, ref C8 c8, ref C9 c9, ref C10 c10, ref C11 c11) =>
             {
                 sum = c0.Value + c1.Value + c2.Value + c3.Value + c4.Value + c5.Value
@@ -75,7 +75,7 @@ public class QueryArityBoundaryTests
             .With<Writes<C0>>().With<Writes<C1>>().With<Writes<C2>>().With<Writes<C3>>()
             .With<Writes<C4>>().With<Writes<C5>>().With<Writes<C6>>().With<Writes<C7>>()
             .With<Writes<C8>>().With<Writes<C9>>().With<Writes<C10>>().With<Writes<C11>>()
-            .ForEach(0, (int _, ref C0 c0, ref C1 c1, ref C2 c2, ref C3 c3,
+            .ForEach(0, (in int _, ref C0 c0, ref C1 c1, ref C2 c2, ref C3 c3,
                 ref C4 c4, ref C5 c5, ref C6 c6, ref C7 c7, ref C8 c8, ref C9 c9, ref C10 c10, ref C11 c11) => found = true);
 
         found.Should().BeFalse();

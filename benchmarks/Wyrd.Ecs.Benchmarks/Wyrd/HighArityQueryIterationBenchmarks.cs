@@ -103,7 +103,7 @@ public class HighArityQueryIterationBenchmarks
         _world8.Query()
             .With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>().With<Reads<BulkPayload>>()
             .With<Reads<Padding1>>().With<Reads<Padding2>>().With<Reads<Padding3>>().With<Reads<Padding4>>()
-            .ForEach(0, (int _, in Position p, in Velocity v, ref Health h, in BulkPayload b,
+            .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h, in BulkPayload b,
                 in Padding1 pad1, in Padding2 pad2, in Padding3 pad3, in Padding4 pad4) =>
                 h.Current += (p.X + v.X + b.A + pad1.Value + pad2.Value + pad3.Value + pad4.Value) * 0f);
     }
@@ -139,7 +139,7 @@ public class HighArityQueryIterationBenchmarks
             .With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>().With<Reads<BulkPayload>>()
             .With<Reads<Padding1>>().With<Reads<Padding2>>().With<Reads<Padding3>>().With<Reads<Padding4>>()
             .With<Reads<Padding5>>().With<Reads<Padding6>>().With<Reads<Padding7>>().With<Reads<Padding8>>()
-            .ForEach(0, (int _, in Position p, in Velocity v, ref Health h, in BulkPayload b,
+            .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h, in BulkPayload b,
                 in Padding1 pad1, in Padding2 pad2, in Padding3 pad3, in Padding4 pad4,
                 in Padding5 pad5, in Padding6 pad6, in Padding7 pad7, in Padding8 pad8) =>
                 h.Current += (p.X + v.X + b.A + pad1.Value + pad2.Value + pad3.Value + pad4.Value

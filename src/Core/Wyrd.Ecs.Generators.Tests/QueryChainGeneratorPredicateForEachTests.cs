@@ -18,7 +18,7 @@ public class QueryChainGeneratorPredicateForEachTests
 
                 var visited = 0;
                 world.Query().With<Reads<Position>>()
-                    .ForEach(0, (int _, in Position p) =>
+                    .ForEach(0, (in int _, in Position p) =>
                     {
                         visited++;
                         return visited < 2; // stop after the second entity
@@ -36,7 +36,7 @@ public class QueryChainGeneratorPredicateForEachTests
 
                 var visited = 0;
                 world.Query().With<Reads<Position>>()
-                    .ForEach(0, (int _, in Position p) =>
+                    .ForEach(0, (in int _, in Position p) =>
                     {
                         visited++;
                         return true;

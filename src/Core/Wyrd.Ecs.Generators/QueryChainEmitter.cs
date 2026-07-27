@@ -65,8 +65,8 @@ internal static class QueryChainEmitter
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
 
-        var ownActionParams = string.Join(", ", new[] { "TUniform uniform" }.Concat(ownElements.Select(ParamDecl)));
-        sb.AppendLine($"internal delegate void QueryChainActionOwn_{overloadHash}<TUniform>({ownActionParams});");
+        var ownActionParams = string.Join(", ", new[] { "in TState state" }.Concat(ownElements.Select(ParamDecl)));
+        sb.AppendLine($"internal delegate void QueryChainActionOwn_{overloadHash}<TState>({ownActionParams});");
         sb.AppendLine();
 
         var noUniformActionParams = string.Join(", ", ownElements.Select(ParamDecl));
@@ -77,17 +77,17 @@ internal static class QueryChainEmitter
 
         sb.AppendLine($"internal static class QueryChainTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainActionOwn_{overloadHash}<TUniform> action)");
+        sb.AppendLine($"    internal static void ForEach<TState>(this {shape.ExactShapeTypeName} query, in TState state, QueryChainActionOwn_{overloadHash}<TState> action)");
         sb.AppendLine("    {");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
-        var processCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
+        var processCallArgs = string.Join(", ", new[] { "state", "action", "chunk.Count" }.Concat(accessArgs));
         sb.AppendLine($"            Process({processCallArgs});");
         sb.AppendLine();
-        var processParams = string.Join(", ", new[] { "TUniform uniform", $"QueryChainActionOwn_{overloadHash}<TUniform> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        var processParams = string.Join(", ", new[] { "in TState state", $"QueryChainActionOwn_{overloadHash}<TState> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
         sb.AppendLine($"        static void Process({processParams})");
         sb.AppendLine("        {");
         sb.AppendLine("            for (var i = 0; i < count; i++)");
-        var actionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
+        var actionCallArgs = string.Join(", ", new[] { "state" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
         sb.AppendLine($"                action({actionCallArgs});");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
@@ -123,8 +123,8 @@ internal static class QueryChainEmitter
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
 
-        var ownActionParams = string.Join(", ", new[] { "TUniform uniform" }.Concat(ownElements.Select(ParamDecl)));
-        sb.AppendLine($"internal delegate bool QueryChainPredicateOwn_{overloadHash}<TUniform>({ownActionParams});");
+        var ownActionParams = string.Join(", ", new[] { "in TState state" }.Concat(ownElements.Select(ParamDecl)));
+        sb.AppendLine($"internal delegate bool QueryChainPredicateOwn_{overloadHash}<TState>({ownActionParams});");
         sb.AppendLine();
 
         var noUniformPredicateParams = string.Join(", ", ownElements.Select(ParamDecl));
@@ -135,17 +135,17 @@ internal static class QueryChainEmitter
 
         sb.AppendLine($"internal static class QueryChainPredicateTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainPredicateOwn_{overloadHash}<TUniform> action)");
+        sb.AppendLine($"    internal static void ForEach<TState>(this {shape.ExactShapeTypeName} query, in TState state, QueryChainPredicateOwn_{overloadHash}<TState> action)");
         sb.AppendLine("    {");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
-        var predicateProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
+        var predicateProcessCallArgs = string.Join(", ", new[] { "state", "action", "chunk.Count" }.Concat(accessArgs));
         sb.AppendLine($"            if (!Process({predicateProcessCallArgs})) return;");
         sb.AppendLine();
-        var predicateProcessParams = string.Join(", ", new[] { "TUniform uniform", $"QueryChainPredicateOwn_{overloadHash}<TUniform> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        var predicateProcessParams = string.Join(", ", new[] { "in TState state", $"QueryChainPredicateOwn_{overloadHash}<TState> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
         sb.AppendLine($"        static bool Process({predicateProcessParams})");
         sb.AppendLine("        {");
         sb.AppendLine("            for (var i = 0; i < count; i++)");
-        var predicateActionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
+        var predicateActionCallArgs = string.Join(", ", new[] { "state" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
         sb.AppendLine($"                if (!action({predicateActionCallArgs})) return false;");
         sb.AppendLine("            return true;");
         sb.AppendLine("        }");
@@ -187,20 +187,24 @@ internal static class QueryChainEmitter
 
         sb.AppendLine($"internal static class QueryChainParallelTerminals_{overloadHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static void ParallelForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainActionOwn_{overloadHash}<TUniform> action)");
+        sb.AppendLine($"    internal static void ParallelForEach<TState>(this {shape.ExactShapeTypeName} query, in TState state, QueryChainActionOwn_{overloadHash}<TState> action)");
         sb.AppendLine("    {");
         sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World)) chunks.Add(chunk);");
         sb.AppendLine();
+        // An `in` parameter can't be captured by a closure (CS1628) -- copy it to an
+        // ordinary local first. One copy per `.ParallelForEach()` call, not per entity,
+        // so it doesn't undermine the no-per-entity-allocation point of `in` at all.
+        sb.AppendLine("        var capturedState = state;");
         sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(chunks, chunk =>");
-        var parallelProcessCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
+        var parallelProcessCallArgs = string.Join(", ", new[] { "capturedState", "action", "chunk.Count" }.Concat(accessArgs));
         sb.AppendLine($"            Process({parallelProcessCallArgs}));");
         sb.AppendLine();
-        var parallelProcessParams = string.Join(", ", new[] { "TUniform uniform", $"QueryChainActionOwn_{overloadHash}<TUniform> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        var parallelProcessParams = string.Join(", ", new[] { "in TState state", $"QueryChainActionOwn_{overloadHash}<TState> action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
         sb.AppendLine($"        static void Process({parallelProcessParams})");
         sb.AppendLine("        {");
         sb.AppendLine("            for (var i = 0; i < count; i++)");
-        var parallelActionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
+        var parallelActionCallArgs = string.Join(", ", new[] { "state" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
         sb.AppendLine($"                action({parallelActionCallArgs});");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
@@ -307,12 +311,16 @@ internal static class QueryChainEmitter
         var executeParams = string.Join(", ", new[] { "Time time" }.Concat(dataElements.Select(ParamDecl)));
         // Calling a ref/in parameter requires the same modifier at the call site, not
         // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
-        // Both lists are built by prepending "Time t"/"Time time" into the *same*
+        // Both lists are built by prepending "in Time t"/"Time time" into the *same*
         // list before joining (matching RenderBackend's actionParams pattern), not by
         // joining dataElements alone and string-concatenating a separator afterward --
-        // the latter produces a trailing comma ("(Time t, )") when dataElements is
+        // the latter produces a trailing comma ("(in Time t, )") when dataElements is
         // empty (a filter-only shape with no Writes/Reads at all), which doesn't compile.
-        var lambdaParams = string.Join(", ", new[] { "Time t" }.Concat(dataElements.Select(ParamDecl)));
+        // The lambda's own first parameter needs "in" to match ForEach<TState>'s now-`in
+        // TState state` delegate parameter (QueryChainActionOwn_<hash><TState>) -- Execute's
+        // own declared "Time time" above doesn't, since it's called with a plain by-value
+        // copy of `t` from inside the lambda body, not required to repeat the modifier.
+        var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
         var executeCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
 
         var sb = new StringBuilder();

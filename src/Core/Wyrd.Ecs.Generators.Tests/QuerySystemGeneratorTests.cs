@@ -31,7 +31,7 @@ public class QuerySystemGeneratorTests
 
                 var total = 0f;
                 world.Query().With<Reads<Position>>()
-                    .ForEach(0, (int _, in Position p) => total += p.X);
+                    .ForEach(0, (in int _, in Position p) => total += p.X);
                 return total;
             }
 
@@ -91,7 +91,7 @@ public class QuerySystemGeneratorTests
                 world.RunOnce(new ThreeComponentSystem(), TimeSpan.Zero);
 
                 var total = 0f;
-                world.Query().With<Reads<Position>>().ForEach(0, (int _, in Position p) => total += p.X);
+                world.Query().With<Reads<Position>>().ForEach(0, (in int _, in Position p) => total += p.X);
                 return total;
             }
         }

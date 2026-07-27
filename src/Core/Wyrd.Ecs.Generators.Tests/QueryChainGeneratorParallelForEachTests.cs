@@ -19,7 +19,7 @@ public class QueryChainGeneratorParallelForEachTests
 
                 var visited = 0;
                 world.Query().With<Writes<Position>>()
-                    .ParallelForEach(0, (int _, ref Position p) =>
+                    .ParallelForEach(0, (in int _, ref Position p) =>
                     {
                         p.X += 1f;
                         Interlocked.Increment(ref visited);

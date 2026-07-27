@@ -16,13 +16,13 @@ public class QueryChainGeneratorDeduplicationTests
             public static class SiteA
             {
                 public static void M(World world) =>
-                    world.Query().With<Writes<Position>>().With<Reads<Velocity>>().ForEach(0, (int _, ref Position p, in Velocity v) => { });
+                    world.Query().With<Writes<Position>>().With<Reads<Velocity>>().ForEach(0, (in int _, ref Position p, in Velocity v) => { });
             }
 
             public static class SiteB
             {
                 public static void M(World world) =>
-                    world.Query().With<Reads<Velocity>>().With<Writes<Position>>().ForEach(0, (int _, ref Position p, in Velocity v) => { });
+                    world.Query().With<Reads<Velocity>>().With<Writes<Position>>().ForEach(0, (in int _, ref Position p, in Velocity v) => { });
             }
             """);
 
@@ -50,13 +50,13 @@ public class QueryChainGeneratorDeduplicationTests
             public static class SiteA
             {
                 public static void M(World world) =>
-                    world.Query().With<Writes<Position>>().ForEach(0, (int _, ref Position p) => { });
+                    world.Query().With<Writes<Position>>().ForEach(0, (in int _, ref Position p) => { });
             }
 
             public static class SiteB
             {
                 public static void M(World world) =>
-                    world.Query().With<Writes<Health>>().ForEach(0, (int _, ref Health h) => { });
+                    world.Query().With<Writes<Health>>().ForEach(0, (in int _, ref Health h) => { });
             }
             """);
 

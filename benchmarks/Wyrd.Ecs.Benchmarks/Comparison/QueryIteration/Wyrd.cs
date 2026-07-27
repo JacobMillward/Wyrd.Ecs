@@ -70,7 +70,7 @@ public partial class QueryIterationBenchmarks
     public void Wyrd_OneComponent_FluentChain()
     {
         _wyrd.World1.Query().With<Writes<Position>>()
-            .ForEach(0, (int _, ref Position p) => p.X += p.Y * 0f);
+            .ForEach(0, (in int _, ref Position p) => p.X += p.Y * 0f);
     }
 
     [Benchmark]
@@ -89,7 +89,7 @@ public partial class QueryIterationBenchmarks
     public void Wyrd_TwoComponent_FluentChain()
     {
         _wyrd.World2.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-            .ForEach(0, (int _, ref Position p, in Velocity v) => p.X += v.X * 0f);
+            .ForEach(0, (in int _, ref Position p, in Velocity v) => p.X += v.X * 0f);
     }
 
     [Benchmark]
@@ -109,7 +109,7 @@ public partial class QueryIterationBenchmarks
     public void Wyrd_ThreeComponent_FluentChain()
     {
         _wyrd.World3.Query().With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>()
-            .ForEach(0, (int _, in Position p, in Velocity v, ref Health h) => h.Current += (p.X + v.X) * 0f);
+            .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h) => h.Current += (p.X + v.X) * 0f);
     }
 
     [Benchmark]
@@ -130,7 +130,7 @@ public partial class QueryIterationBenchmarks
     public void Wyrd_FourComponent_FluentChain()
     {
         _wyrd.World4.Query().With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>().With<Reads<BulkPayload>>()
-            .ForEach(0, (int _, in Position p, in Velocity v, ref Health h, in BulkPayload b) => h.Current += (p.X + v.X + b.A) * 0f);
+            .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h, in BulkPayload b) => h.Current += (p.X + v.X + b.A) * 0f);
     }
 
     [Benchmark]
@@ -153,7 +153,7 @@ public partial class QueryIterationBenchmarks
     {
         _wyrd.World5.Query().With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>()
             .With<Reads<BulkPayload>>().With<Reads<Padding1>>()
-            .ForEach(0, (int _, in Position p, in Velocity v, ref Health h, in BulkPayload b, in Padding1 pad) =>
+            .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h, in BulkPayload b, in Padding1 pad) =>
                 h.Current += (p.X + v.X + b.A + pad.Value) * 0f);
     }
 }

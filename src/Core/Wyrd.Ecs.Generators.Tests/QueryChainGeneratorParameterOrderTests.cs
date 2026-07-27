@@ -25,7 +25,7 @@ public class QueryChainGeneratorParameterOrderTests
             // compilation -- exactly the condition that exposed the ordering bug.
             public static void RunTwoComponent(World world) =>
                 world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-                    .ForEach(0, (int _, ref Position p, in Velocity v) => p.X += v.X);
+                    .ForEach(0, (in int _, ref Position p, in Velocity v) => p.X += v.X);
 
             // Lambda parameters follow the .With<>() declaration order (Position, Velocity,
             // Health) -- not alphabetical-by-type-name order (Health, Position, Velocity).
@@ -38,7 +38,7 @@ public class QueryChainGeneratorParameterOrderTests
 
                 var total = 0f;
                 world.Query().With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>()
-                    .ForEach(0, (int _, in Position p, in Velocity v, ref Health h) =>
+                    .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h) =>
                     {
                         h.Current += p.X + v.X;
                         total = h.Current;

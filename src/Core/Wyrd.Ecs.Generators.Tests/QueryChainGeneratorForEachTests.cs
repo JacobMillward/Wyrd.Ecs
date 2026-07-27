@@ -19,7 +19,7 @@ public class QueryChainGeneratorForEachTests
 
                 var total = 0f;
                 world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-                    .ForEach(0, (int _, ref Position p, in Velocity v) =>
+                    .ForEach(0, (in int _, ref Position p, in Velocity v) =>
                     {
                         p.X += v.X;
                         total += p.X;
@@ -37,7 +37,7 @@ public class QueryChainGeneratorForEachTests
 
                 var count = 0;
                 world.Query().With<Writes<Position>>()
-                    .ForEach(0, (int _, ref Position p) => count++);
+                    .ForEach(0, (in int _, ref Position p) => count++);
 
                 return count;
             }
@@ -69,7 +69,7 @@ public class QueryChainGeneratorForEachTests
                 var visitedByUniformForm = 0;
                 var visitedByPlainForm = 0;
 
-                world.Query().With<Writes<Position>>().ForEach(0, (int _, ref Position p) => visitedByUniformForm++);
+                world.Query().With<Writes<Position>>().ForEach(0, (in int _, ref Position p) => visitedByUniformForm++);
                 world.Query().With<Writes<Position>>().ForEach((ref Position p) => visitedByPlainForm++);
 
                 return visitedByUniformForm + visitedByPlainForm;
