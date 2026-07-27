@@ -60,45 +60,75 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         {
             var (chains, querySystems) = input;
 
-            var byExactShape = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape))
-                .GroupBy(s => s.ExactShapeTypeName)
-                .Select(g => g.First())
-                .ToList();
+            var (byExactShape, byDedupKey) = DeduplicateShapes(chains, querySystems);
 
-            var byDedupKey = byExactShape
-                .GroupBy(s => s.DedupKey())
-                .Select(g => g.First())
-                .ToList();
-
-            foreach (var shape in byDedupKey)
-                spc.AddSource($"QueryChainBackend.{shape.HashName()}.g.cs", QueryChainEmitter.RenderBackend(shape));
-
-            foreach (var shape in byExactShape)
-            {
-                spc.AddSource($"QueryChainForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderForEachOverload(shape));
-                spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape));
-                spc.AddSource($"QueryChainParallelForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape));
-            }
-
-            foreach (var system in querySystems)
-                spc.AddSource($"QuerySystem.{system.Namespace}.{system.ClassName}.g.cs", QueryChainEmitter.RenderQuerySystemGlue(system));
-
-            var accessFromChains = chains
-                .Where(c => c.SystemTypeName is not null)
-                .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape));
-            var accessFromQuerySystems = querySystems
-                .Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape));
-
-            var bySystemType = accessFromChains.Concat(accessFromQuerySystems)
-                .GroupBy(c => c.SystemTypeName)
-                .Select(g => (
-                    SystemTypeName: g.Key,
-                    Reads: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
-                    Writes: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList()))
-                .ToList();
-
-            spc.AddSource("GeneratedSystemAccess.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
+            EmitBackends(spc, byDedupKey);
+            EmitOverloads(spc, byExactShape);
+            EmitQuerySystemGlue(spc, querySystems);
+            EmitSystemAccessRegistry(spc, chains, querySystems);
         });
+    }
+
+    /// <summary>Two-level grouping: <paramref name="byExactShape"/> gets one call site's exact declaration-order tuple type each (one extension-method overload each), nested inside <paramref name="byDedupKey"/>, one per distinct logical shape (one shared backend each).</summary>
+    private static (List<QueryShape> ByExactShape, List<QueryShape> ByDedupKey) DeduplicateShapes(
+        ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
+        ImmutableArray<QuerySystemCandidate> querySystems)
+    {
+        var byExactShape = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape))
+            .GroupBy(s => s.ExactShapeTypeName)
+            .Select(g => g.First())
+            .ToList();
+
+        var byDedupKey = byExactShape
+            .GroupBy(s => s.DedupKey())
+            .Select(g => g.First())
+            .ToList();
+
+        return (byExactShape, byDedupKey);
+    }
+
+    private static void EmitBackends(SourceProductionContext spc, IEnumerable<QueryShape> byDedupKey)
+    {
+        foreach (var shape in byDedupKey)
+            spc.AddSource($"QueryChainBackend.{shape.HashName()}.g.cs", QueryChainEmitter.RenderBackend(shape));
+    }
+
+    private static void EmitOverloads(SourceProductionContext spc, IEnumerable<QueryShape> byExactShape)
+    {
+        foreach (var shape in byExactShape)
+        {
+            spc.AddSource($"QueryChainForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderForEachOverload(shape));
+            spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape));
+            spc.AddSource($"QueryChainParallelForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape));
+        }
+    }
+
+    private static void EmitQuerySystemGlue(SourceProductionContext spc, ImmutableArray<QuerySystemCandidate> querySystems)
+    {
+        foreach (var system in querySystems)
+            spc.AddSource($"QuerySystem.{system.Namespace}.{system.ClassName}.g.cs", QueryChainEmitter.RenderQuerySystemGlue(system));
+    }
+
+    private static void EmitSystemAccessRegistry(
+        SourceProductionContext spc,
+        ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
+        ImmutableArray<QuerySystemCandidate> querySystems)
+    {
+        var accessFromChains = chains
+            .Where(c => c.SystemTypeName is not null)
+            .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape));
+        var accessFromQuerySystems = querySystems
+            .Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape));
+
+        var bySystemType = accessFromChains.Concat(accessFromQuerySystems)
+            .GroupBy(c => c.SystemTypeName)
+            .Select(g => (
+                SystemTypeName: g.Key,
+                Reads: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
+                Writes: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList()))
+            .ToList();
+
+        spc.AddSource("GeneratedSystemAccess.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
     }
 
     private static QuerySystemCandidate? TryExtractQuerySystem(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
