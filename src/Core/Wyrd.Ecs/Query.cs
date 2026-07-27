@@ -16,7 +16,7 @@ namespace Wyrd.Ecs;
 /// generic fallback for either, since C# has no variadic generics to express "one
 /// parameter per tuple element" for an arbitrary <typeparamref name="TShape"/>.
 /// </summary>
-public readonly struct Query<TShape> where TShape : struct
+public readonly struct Query<TShape> : IQueryDefinition where TShape : struct
 {
     /// <summary>
     /// The world this chain queries. Public, not internal — generated code compiles

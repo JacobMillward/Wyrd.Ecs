@@ -11,7 +11,7 @@ public class QuerySystemGeneratorTests
 
         public sealed partial class MovementSystem : QuerySystem
         {
-            private static Query<(Reads<Velocity>, (Writes<Position>, Nil))> Build(World world) =>
+            private static IQueryDefinition Build(World world) =>
                 world.Query().With<Writes<Position>>().With<Reads<Velocity>>();
 
             private partial void Execute(ulong tick, ref Position p, in Velocity v) => p.X += v.X;
@@ -60,5 +60,51 @@ public class QuerySystemGeneratorTests
         var result = (bool)assembly.GetType("Harness")!.GetMethod("RegistersGeneratedSystemAccess")!.Invoke(null, null)!;
 
         result.Should().BeTrue();
+    }
+
+    private const string EditedShapeHarness = """
+        using Wyrd.Ecs;
+        using Wyrd.Ecs.Generated;
+
+        public struct Position : IComponent { public float X; }
+        public struct Velocity : IComponent { public float X; }
+        public struct Health : IComponent { public float Current; }
+
+        public sealed partial class ThreeComponentSystem : QuerySystem
+        {
+            private static IQueryDefinition Build(World world) =>
+                world.Query().With<Writes<Position>>().With<Reads<Velocity>>().With<Reads<Health>>();
+
+            private partial void Execute(ulong tick, ref Position p, in Velocity v, in Health h) => p.X += v.X + h.Current;
+        }
+
+        public static class Harness
+        {
+            public static float Run()
+            {
+                var world = new World();
+                world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }, new Health { Current = 3f });
+                world.ApplyCommands();
+
+                new ThreeComponentSystem().RunOnce(world, tick: 0);
+
+                var total = 0f;
+                world.Query().With<Reads<Position>>().ForEach(0, (int _, in Position p) => total += p.X);
+                return total;
+            }
+        }
+        """;
+
+    [Fact]
+    public void Build_DeclaringIQueryDefinition_DoesNotNeedItsOwnSignatureUpdatedWhenTheChainGrows()
+    {
+        // IQueryDefinition means adding a marker to the chain (Reads<Health> here) only
+        // ever touches Build's body, never its declared return type -- this is the
+        // whole point of this task.
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(EditedShapeHarness));
+
+        var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
+
+        result.Should().Be(6f); // 1 (Position.X) + 2 (Velocity.X) + 3 (Health.Current)
     }
 }

@@ -197,7 +197,14 @@ internal static class QueryChainEmitter
     /// </summary>
     internal static string RenderQuerySystemGlue(QuerySystemCandidate candidate)
     {
-        var dataElements = candidate.Shape.DataElements();
+        // OwnDataElements(), not DataElements() -- this is a caller-facing parameter
+        // list (both Execute's own declaration and the lambda passed to .ForEach, which
+        // must match that terminal's own OwnDataElements()-ordered delegate type), and
+        // DataElements()'s own doc comment says exactly that: "Not used for any
+        // caller-facing parameter list." Every existing QuerySystem test happened to
+        // have alphabetical-by-type-name order match declaration order, which is why
+        // this went uncaught until a three-component shape where they diverge.
+        var dataElements = candidate.Shape.OwnDataElements();
         var executeParams = string.Join(", ", new[] { "ulong tick" }.Concat(dataElements.Select(ParamDecl)));
         // Calling a ref/in parameter requires the same modifier at the call site, not
         // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
@@ -225,7 +232,7 @@ internal static class QueryChainEmitter
         sb.AppendLine($"    private partial void Execute({executeParams});");
         sb.AppendLine();
         sb.AppendLine("    protected override void OnUpdate(World world, ulong tick) =>");
-        sb.AppendLine($"        Build(world).ForEach(tick, ({lambdaParams}) => Execute({executeCallArgs}));");
+        sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})Build(world)).ForEach(tick, ({lambdaParams}) => Execute({executeCallArgs}));");
         sb.AppendLine("}");
         return sb.ToString();
     }

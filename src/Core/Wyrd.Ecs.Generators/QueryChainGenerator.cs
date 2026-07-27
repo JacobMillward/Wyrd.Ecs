@@ -107,7 +107,18 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var buildMethod = classSymbol.GetMembers("Build").OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.IsStatic && m.Parameters is [{ Type.Name: "World" }]);
         if (buildMethod is null) return null;
-        if (buildMethod.ReturnType is not INamedTypeSymbol returnType) return null;
+
+        // Read the shape from Build's return *expression*, not its declared return
+        // type -- lets Build declare the non-generic IQueryDefinition instead of
+        // restating the exact tuple shape. Only a single-expression body (arrow or
+        // block-with-one-return) is recognized; anything else is treated the same as
+        // any other unrecognized Build shape (falls through to the ordinary "does not
+        // implement abstract member OnUpdate" compiler error).
+        if (buildMethod.DeclaringSyntaxReferences is not [var buildSyntaxRef, ..]) return null;
+        if (buildSyntaxRef.GetSyntax(ct) is not MethodDeclarationSyntax { ExpressionBody.Expression: var returnExpr }) return null;
+
+        var buildSemanticModel = semanticModel.Compilation.GetSemanticModel(buildSyntaxRef.SyntaxTree);
+        if (buildSemanticModel.GetTypeInfo(returnExpr, ct).Type is not INamedTypeSymbol returnType) return null;
 
         var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, ct);
         if (shape is null) return null;

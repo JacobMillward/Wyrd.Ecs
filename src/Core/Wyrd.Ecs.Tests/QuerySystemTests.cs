@@ -4,7 +4,7 @@ struct Energy : IComponent { public float Current; public float DrainPerSecond; 
 
 sealed partial class DrainSystem : QuerySystem
 {
-    private static Query<(Writes<Energy>, Nil)> Build(World world) => world.Query().With<Writes<Energy>>();
+    private static IQueryDefinition Build(World world) => world.Query().With<Writes<Energy>>();
 
     private partial void Execute(ulong tick, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
 }

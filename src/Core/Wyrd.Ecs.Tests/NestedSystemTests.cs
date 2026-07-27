@@ -5,7 +5,7 @@ struct NestedVelocity : IComponent { public float X; }
 
 sealed partial class MovementSystem : QuerySystem
 {
-    private static Query<(Reads<NestedVelocity>, (Writes<NestedPosition>, Nil))> Build(World world) =>
+    private static IQueryDefinition Build(World world) =>
         world.Query().With<Writes<NestedPosition>>().With<Reads<NestedVelocity>>();
 
     private partial void Execute(ulong tick, ref NestedPosition nestedPosition, in NestedVelocity nestedVelocity) => nestedPosition.X += nestedVelocity.X;
@@ -13,7 +13,7 @@ sealed partial class MovementSystem : QuerySystem
 
 sealed partial class BoundsClampSystem : QuerySystem
 {
-    private static Query<(Writes<NestedPosition>, Nil)> Build(World world) => world.Query().With<Writes<NestedPosition>>();
+    private static IQueryDefinition Build(World world) => world.Query().With<Writes<NestedPosition>>();
 
     private partial void Execute(ulong tick, ref NestedPosition nestedPosition)
     {
