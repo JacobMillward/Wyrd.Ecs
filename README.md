@@ -55,7 +55,7 @@ No system class needed for a one-off query: the same chain works directly agains
 
 ```csharp
 world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
-    .ForEach(0, (int _, ref Position position, in Velocity velocity) =>
+    .ForEach((ref Position position, in Velocity velocity) =>
     {
         position.X += velocity.X;
         position.Y += velocity.Y;
