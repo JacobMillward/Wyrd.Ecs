@@ -3,6 +3,9 @@ namespace Wyrd.Ecs.Tests;
 struct ArityPosition : IComponent { public float X; }
 struct ArityVelocity : IComponent { public float X; }
 struct ArityFrozen : ITag;
+struct ArityBuffA : ITag;
+struct ArityBuffB : ITag;
+struct ArityBuffC : ITag;
 
 public class QueryArityOverloadTests
 {
@@ -64,5 +67,23 @@ public class QueryArityOverloadTests
             .ForEach(0, (in int _, ref ArityPosition p, in ArityVelocity v) => total += p.X + v.X);
 
         total.Should().Be(3f);
+    }
+
+    [Fact]
+    public void Any_ThreeTypes_MatchesArchetypesWithAnyOneOfThem()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity(new ArityPosition { X = 1f });
+        world.Commands.AddTag<ArityBuffA>(a);
+        var b = world.Commands.CreateEntity(new ArityPosition { X = 10f });
+        world.Commands.AddTag<ArityBuffB>(b);
+        world.Commands.CreateEntity(new ArityPosition { X = 100f }); // none of ArityBuffA/B/C
+        world.ApplyCommands();
+
+        var total = 0f;
+        world.Query().With<ArityPosition>().Any<ArityBuffA, ArityBuffB, ArityBuffC>()
+            .ForEach(0, (in int _, in ArityPosition p) => total += p.X);
+
+        total.Should().Be(11f); // 1 (ArityBuffA) + 10 (ArityBuffB); the tagless entity (100) excluded
     }
 }

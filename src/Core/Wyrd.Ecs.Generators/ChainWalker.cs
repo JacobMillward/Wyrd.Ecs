@@ -204,8 +204,8 @@ internal static class ChainWalker
             case "Without" when named.TypeArguments is [var t]:
                 withouts.Add(new WithoutElement(t.ToDisplayString()));
                 return true;
-            case "Any" when named.TypeArguments is [var t0, var t1]:
-                anys.Add(new AnyElement(t0.ToDisplayString(), t1.ToDisplayString()));
+            case "Any" when named.TypeArguments.Length is >= 2 and <= 8:
+                anys.Add(new AnyElement(named.TypeArguments.Select(t => t.ToDisplayString()).ToImmutableArray()));
                 return true;
             default:
                 pendingData.Add(element.ToDisplayString());

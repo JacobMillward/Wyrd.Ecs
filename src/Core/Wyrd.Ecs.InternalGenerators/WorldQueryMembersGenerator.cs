@@ -79,8 +79,39 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
                 query.AppendLine(ArityTemplates.QueryHasMember(n));
                 query.AppendLine();
             }
+            for (var n = 3; n <= ArityCap.Max; n++) // arity 2 Any<T0,T1> already exists by hand in Query.cs
+            {
+                query.AppendLine(ArityTemplates.QueryAnyMember(n));
+                query.AppendLine();
+            }
             query.AppendLine("}");
             ctx.AddSource("Query.ArityMembers.g.cs", query.ToString());
+
+            var archetypeQuery = new StringBuilder();
+            archetypeQuery.AppendLine("namespace Wyrd.Ecs;");
+            archetypeQuery.AppendLine();
+            archetypeQuery.AppendLine("public sealed partial class ArchetypeQuery");
+            archetypeQuery.AppendLine("{");
+            for (var n = 3; n <= ArityCap.Max; n++)
+            {
+                archetypeQuery.AppendLine(ArityTemplates.ArchetypeQueryAnyMember(n));
+                archetypeQuery.AppendLine();
+            }
+            archetypeQuery.AppendLine("}");
+            ctx.AddSource("ArchetypeQuery.AnyMembers.g.cs", archetypeQuery.ToString());
+
+            var queryFilter = new StringBuilder();
+            queryFilter.AppendLine("namespace Wyrd.Ecs.Internal;");
+            queryFilter.AppendLine();
+            queryFilter.AppendLine("internal readonly partial struct QueryFilter");
+            queryFilter.AppendLine("{");
+            for (var n = 3; n <= ArityCap.Max; n++)
+            {
+                queryFilter.AppendLine(ArityTemplates.QueryFilterAnyMember(n));
+                queryFilter.AppendLine();
+            }
+            queryFilter.AppendLine("}");
+            ctx.AddSource("QueryFilter.AnyMembers.g.cs", queryFilter.ToString());
         });
     }
 }

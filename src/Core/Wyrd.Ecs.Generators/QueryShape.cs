@@ -6,7 +6,20 @@ internal enum MarkerKind { Writes, Reads, Has }
 
 internal readonly record struct MarkerElement(MarkerKind Kind, string ComponentTypeName);
 internal readonly record struct WithoutElement(string TypeName);
-internal readonly record struct AnyElement(string Type0Name, string Type1Name);
+internal readonly record struct AnyElement(ImmutableArray<string> TypeNames)
+{
+    public bool Equals(AnyElement other) => TypeNames.SequenceEqual(other.TypeNames);
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var name in TypeNames) hash = hash * 31 + name.GetHashCode();
+            return hash;
+        }
+    }
+}
 
 /// <summary>
 /// A query shape extracted from a chain's resolved <c>Query&lt;TShape&gt;</c> receiver
@@ -87,7 +100,7 @@ internal static class QueryShapeExtensions
         var markers = shape.Markers.OrderBy(m => m.ComponentTypeName, StringComparer.Ordinal).Select(m => $"{m.Kind}:{m.ComponentTypeName}");
         var withouts = shape.Withouts.OrderBy(w => w.TypeName, StringComparer.Ordinal).Select(w => $"X:{w.TypeName}");
         var anys = shape.Anys
-            .Select(a => $"A:{string.Join(",", new[] { a.Type0Name, a.Type1Name }.OrderBy(t => t, StringComparer.Ordinal))}")
+            .Select(a => $"A:{string.Join(",", a.TypeNames.OrderBy(t => t, StringComparer.Ordinal))}")
             .OrderBy(s => s, StringComparer.Ordinal);
         return string.Join("|", markers.Concat(withouts).Concat(anys));
     }

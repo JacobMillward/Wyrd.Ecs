@@ -7,7 +7,7 @@ namespace Wyrd.Ecs.Internal;
 /// "required via Has&lt;T&gt;()" — both just set a bit); <see cref="Without{T}"/>
 /// and <see cref="Any{T0,T1}"/> are checked separately by <see cref="Matches"/>.
 /// </summary>
-internal readonly struct QueryFilter : IEquatable<QueryFilter>
+internal readonly partial struct QueryFilter : IEquatable<QueryFilter>
 {
     internal static readonly QueryFilter Empty = new(ArchetypeSignature.Empty, ArchetypeSignature.Empty, ArchetypeSignature.Empty);
 

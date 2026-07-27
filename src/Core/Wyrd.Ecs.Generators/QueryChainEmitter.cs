@@ -37,7 +37,7 @@ internal static class QueryChainEmitter
         foreach (var w in shape.Withouts)
             sb.AppendLine($"        query = query.Without<{w.TypeName}>();");
         foreach (var a in shape.Anys)
-            sb.AppendLine($"        query = query.Any<{a.Type0Name}, {a.Type1Name}>();");
+            sb.AppendLine($"        query = query.Any<{string.Join(", ", a.TypeNames)}>();");
         sb.AppendLine("        return query;");
         sb.AppendLine("    }");
         sb.AppendLine("}");

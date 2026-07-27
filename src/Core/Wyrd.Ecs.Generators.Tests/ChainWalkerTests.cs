@@ -103,7 +103,7 @@ public class ChainWalkerTests
             new MarkerElement(MarkerKind.Reads, "Velocity"),
         });
         shape.Withouts.Should().BeEquivalentTo(new[] { new WithoutElement("Dead") });
-        shape.Anys.Should().BeEquivalentTo(new[] { new AnyElement("BuffA", "BuffB") });
+        shape.Anys.Should().BeEquivalentTo(new[] { new AnyElement(["BuffA", "BuffB"]) });
     }
 
     [Fact]
@@ -182,5 +182,33 @@ public class ChainWalkerTests
         shape2.Should().NotBeNull();
         shape1!.DedupKey().Should().Be(shape2!.DedupKey());
         shape1.ExactShapeTypeName.Should().NotBe(shape2.ExactShapeTypeName);
+    }
+
+    [Fact]
+    public void AnyWithThreeTypes_ExtractsAllThree()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct BuffA : ITag;
+            public struct BuffB : ITag;
+            public struct BuffC : ITag;
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().Any<BuffA, BuffB, BuffC>().ForEach(0, DummyCallback);
+
+                private static void DummyCallback() { }
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        var shape = ChainWalker.TryExtractShape(terminal, model, default);
+
+        shape.Should().NotBeNull();
+        shape!.Anys.Should().BeEquivalentTo(new[] { new AnyElement(["BuffA", "BuffB", "BuffC"]) });
     }
 }

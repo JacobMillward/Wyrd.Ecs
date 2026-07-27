@@ -13,7 +13,7 @@ namespace Wyrd.Ecs;
 /// type whose data a chunk will actually read or write, since only that also readies the
 /// matching <see cref="ArchetypeChunk.Access{TAccessor}"/> call to succeed.
 /// </summary>
-public sealed class ArchetypeQuery
+public sealed partial class ArchetypeQuery
 {
     /// <summary>An empty query: matches every archetype in the world.</summary>
     public static readonly ArchetypeQuery Empty = new(QueryFilter.Empty);
