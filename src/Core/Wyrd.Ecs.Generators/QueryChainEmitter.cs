@@ -69,12 +69,17 @@ internal static class QueryChainEmitter
         sb.AppendLine($"internal delegate void QueryChainActionOwn_{overloadHash}<TUniform>({ownActionParams});");
         sb.AppendLine();
 
+        var noUniformActionParams = string.Join(", ", ownElements.Select(ParamDecl));
+        sb.AppendLine($"internal delegate void QueryChainAction_{overloadHash}({noUniformActionParams});");
+        sb.AppendLine();
+
+        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()").ToList();
+
         sb.AppendLine($"internal static class QueryChainTerminals_{overloadHash}");
         sb.AppendLine("{");
         sb.AppendLine($"    internal static void ForEach<TUniform>(this {shape.ExactShapeTypeName} query, TUniform uniform, QueryChainActionOwn_{overloadHash}<TUniform> action)");
         sb.AppendLine("    {");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
-        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()");
         var processCallArgs = string.Join(", ", new[] { "uniform", "action", "chunk.Count" }.Concat(accessArgs));
         sb.AppendLine($"            Process({processCallArgs});");
         sb.AppendLine();
@@ -84,6 +89,21 @@ internal static class QueryChainEmitter
         sb.AppendLine("            for (var i = 0; i < count; i++)");
         var actionCallArgs = string.Join(", ", new[] { "uniform" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
         sb.AppendLine($"                action({actionCallArgs});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine($"    internal static void ForEach(this {shape.ExactShapeTypeName} query, QueryChainAction_{overloadHash} action)");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
+        var noUniformProcessCallArgs = string.Join(", ", new[] { "action", "chunk.Count" }.Concat(accessArgs));
+        sb.AppendLine($"            Process({noUniformProcessCallArgs});");
+        sb.AppendLine();
+        var noUniformProcessParams = string.Join(", ", new[] { $"QueryChainAction_{overloadHash} action", "int count" }.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        sb.AppendLine($"        static void Process({noUniformProcessParams})");
+        sb.AppendLine("        {");
+        sb.AppendLine("            for (var i = 0; i < count; i++)");
+        var noUniformActionCallArgs = string.Join(", ", ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]"));
+        sb.AppendLine($"                action({noUniformActionCallArgs});");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");
