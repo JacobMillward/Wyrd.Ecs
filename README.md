@@ -8,7 +8,7 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 > Pre-release. APIs are still moving and nothing is published to NuGet yet.
 
 - Archetype storage. Entities with the same components live together in dense arrays.
-- A fluent, generator-backed query chain: `world.Query().With<T>().With<U>().Without<X>().Any<A, B>().ForEach(...)`. Query for as much as you need, no limit. Each component's read/write access comes from the `ref`/`in` on the callback itself — nothing to declare twice.
+- A fluent, generator-backed query chain: `world.Query().With<T>().With<U>().Without<X>().Any<A, B>().ForEach(...)`. Query for as much as you need, no limit. Each component's read/write access comes from the `ref`/`in` on the callback itself — nothing to declare twice. `.With<A, B, C>()` collapses what would otherwise be three chained calls into one (also works for `.Without`/`.Has`/`.Any`, up to 8 at a time).
 
   > No boxing, no reflection on the hot path.
 - `QuerySystem` sugar for the declared-system case. Override `DefineQuery` (query shape) and declare an `Update` (per-entity body) method, the generator fills in dispatch.
