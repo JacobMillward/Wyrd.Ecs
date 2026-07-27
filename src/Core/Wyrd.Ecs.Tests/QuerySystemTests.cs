@@ -4,9 +4,9 @@ struct Energy : IComponent { public float Current; public float DrainPerSecond; 
 
 sealed partial class DrainSystem : QuerySystem
 {
-    private static IQueryDefinition Build(World world) => world.Query().With<Writes<Energy>>();
+    protected override IQuery DefineQuery(World world) => world.Query().With<Energy>();
 
-    private partial void Execute(Time time, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
+    public void Update(Time time, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
 }
 
 public class QuerySystemTests

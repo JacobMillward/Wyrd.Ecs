@@ -293,35 +293,33 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits the `partial` class part supplying a `QuerySystem` subclass's `Execute`
-    /// declaration (as a required partial method — an explicit access modifier makes
-    /// C# 9+ treat a partial method as needing an implementation, confirmed via
-    /// `partial-method-check/`) and its `EcsSystem.OnUpdate` implementation.
+    /// Emits the `partial` class part supplying a `QuerySystem` subclass's
+    /// `EcsSystem.OnUpdate` implementation, calling the developer-written `Update` method
+    /// (an ordinary method, not `partial` — its own `ref`/`in` modifiers are the source of
+    /// truth for access mode, read by <c>QueryChainGenerator.TryExtractQuerySystem</c>, so
+    /// there is nothing left for this class to pre-declare).
     /// </summary>
     internal static string RenderQuerySystemGlue(QuerySystemCandidate candidate)
     {
         // OwnDataElements(), not DataElements() -- this is a caller-facing parameter
-        // list (both Execute's own declaration and the lambda passed to .ForEach, which
+        // list (both Update's own declaration and the lambda passed to .ForEach, which
         // must match that terminal's own OwnDataElements()-ordered delegate type), and
         // DataElements()'s own doc comment says exactly that: "Not used for any
         // caller-facing parameter list." Every existing QuerySystem test happened to
         // have alphabetical-by-type-name order match declaration order, which is why
         // this went uncaught until a three-component shape where they diverge.
         var dataElements = candidate.Shape.OwnDataElements();
-        var executeParams = string.Join(", ", new[] { "Time time" }.Concat(dataElements.Select(ParamDecl)));
         // Calling a ref/in parameter requires the same modifier at the call site, not
         // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
-        // Both lists are built by prepending "in Time t"/"Time time" into the *same*
-        // list before joining (matching RenderBackend's actionParams pattern), not by
-        // joining dataElements alone and string-concatenating a separator afterward --
-        // the latter produces a trailing comma ("(in Time t, )") when dataElements is
-        // empty (a filter-only shape with no Writes/Reads at all), which doesn't compile.
-        // The lambda's own first parameter needs "in" to match ForEach<TState>'s now-`in
-        // TState state` delegate parameter (QueryChainActionOwn_<hash><TState>) -- Execute's
-        // own declared "Time time" above doesn't, since it's called with a plain by-value
-        // copy of `t` from inside the lambda body, not required to repeat the modifier.
+        // Built by prepending "in Time t" into the same list before joining (matching
+        // RenderBackend's actionParams pattern), not by joining dataElements alone and
+        // string-concatenating a separator afterward -- the latter produces a trailing
+        // comma ("(in Time t, )") when dataElements is empty (a filter-only shape with no
+        // Writes/Reads at all), which doesn't compile. The lambda's own first parameter
+        // needs "in" to match ForEach<TState>'s now-`in TState state` delegate parameter
+        // (QueryChainActionOwn_<hash><TState>).
         var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
-        var executeCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
+        var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
 
         var sb = new StringBuilder();
         sb.AppendLine("using Wyrd.Ecs;");
@@ -336,10 +334,8 @@ internal static class QueryChainEmitter
 
         sb.AppendLine($"partial class {candidate.ClassName}");
         sb.AppendLine("{");
-        sb.AppendLine($"    private partial void Execute({executeParams});");
-        sb.AppendLine();
         sb.AppendLine("    protected override void OnUpdate(World world, Time time) =>");
-        sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})Build(world)).ForEach(time, ({lambdaParams}) => Execute({executeCallArgs}));");
+        sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
         sb.AppendLine("}");
         return sb.ToString();
     }

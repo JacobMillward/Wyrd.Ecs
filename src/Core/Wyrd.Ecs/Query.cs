@@ -18,7 +18,7 @@ namespace Wyrd.Ecs;
 /// data component's access mode (read-write vs read-only) is inferred from the
 /// `ref`/`in` modifier on that terminal's own parameter list, not declared here.
 /// </summary>
-public readonly struct Query<TShape> : IQueryDefinition where TShape : struct
+public readonly struct Query<TShape> : IQuery where TShape : struct
 {
     /// <summary>
     /// The world this chain queries. Public, not internal — generated code compiles

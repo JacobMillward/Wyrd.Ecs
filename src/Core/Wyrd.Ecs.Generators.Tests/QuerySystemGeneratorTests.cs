@@ -12,10 +12,10 @@ public class QuerySystemGeneratorTests
 
         public sealed partial class MovementSystem : QuerySystem
         {
-            private static IQueryDefinition Build(World world) =>
-                world.Query().With<Writes<Position>>().With<Reads<Velocity>>();
+            protected override IQuery DefineQuery(World world) =>
+                world.Query().With<Position>().With<Velocity>();
 
-            private partial void Execute(Time time, ref Position p, in Velocity v) => p.X += v.X;
+            public void Update(Time time, ref Position p, in Velocity v) => p.X += v.X;
         }
 
         public static class Harness
@@ -30,7 +30,7 @@ public class QuerySystemGeneratorTests
                 world.RunOnce(new MovementSystem(), TimeSpan.Zero);
 
                 var total = 0f;
-                world.Query().With<Reads<Position>>()
+                world.Query().With<Position>()
                     .ForEach(0, (in int _, in Position p) => total += p.X);
                 return total;
             }
@@ -43,7 +43,7 @@ public class QuerySystemGeneratorTests
         """;
 
     [Fact]
-    public void BuildAndExecute_RunOnce_MutatesThroughToRealStorage()
+    public void DefineQueryAndUpdate_RunOnce_MutatesThroughToRealStorage()
     {
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
 
@@ -74,10 +74,10 @@ public class QuerySystemGeneratorTests
 
         public sealed partial class ThreeComponentSystem : QuerySystem
         {
-            private static IQueryDefinition Build(World world) =>
-                world.Query().With<Writes<Position>>().With<Reads<Velocity>>().With<Reads<Health>>();
+            protected override IQuery DefineQuery(World world) =>
+                world.Query().With<Position>().With<Velocity>().With<Health>();
 
-            private partial void Execute(Time time, ref Position p, in Velocity v, in Health h) => p.X += v.X + h.Current;
+            public void Update(Time time, ref Position p, in Velocity v, in Health h) => p.X += v.X + h.Current;
         }
 
         public static class Harness
@@ -91,22 +91,43 @@ public class QuerySystemGeneratorTests
                 world.RunOnce(new ThreeComponentSystem(), TimeSpan.Zero);
 
                 var total = 0f;
-                world.Query().With<Reads<Position>>().ForEach(0, (in int _, in Position p) => total += p.X);
+                world.Query().With<Position>().ForEach(0, (in int _, in Position p) => total += p.X);
                 return total;
             }
         }
         """;
 
     [Fact]
-    public void Build_DeclaringIQueryDefinition_DoesNotNeedItsOwnSignatureUpdatedWhenTheChainGrows()
+    public void DefineQuery_DoesNotNeedItsOwnSignatureUpdatedWhenTheChainGrows()
     {
-        // IQueryDefinition means adding a marker to the chain (Reads<Health> here) only
-        // ever touches Build's body, never its declared return type -- this is the
-        // whole point of this task.
+        // IQuery means adding a component to the chain (Health here) only ever touches
+        // DefineQuery's body, never its declared return type -- this is the whole point
+        // of this task.
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(EditedShapeHarness));
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
 
         result.Should().Be(6f); // 1 (Position.X) + 2 (Velocity.X) + 3 (Health.Current)
+    }
+
+    [Fact]
+    public void UpdateWithABareUnmodifiedParameter_IsNotRecognizedAsAValidQuerySystem()
+    {
+        var source = """
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class BrokenSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, Position p) { }
+            }
+            """;
+
+        var result = GeneratorTestHost.Run(new QueryChainGenerator(), GeneratorTestHost.Compile(source));
+
+        result.GeneratedTrees.Should().NotContain(t => t.FilePath.Contains("BrokenSystem"));
     }
 }

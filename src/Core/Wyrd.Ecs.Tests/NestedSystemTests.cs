@@ -5,17 +5,17 @@ struct NestedVelocity : IComponent { public float X; }
 
 sealed partial class MovementSystem : QuerySystem
 {
-    private static IQueryDefinition Build(World world) =>
-        world.Query().With<Writes<NestedPosition>>().With<Reads<NestedVelocity>>();
+    protected override IQuery DefineQuery(World world) =>
+        world.Query().With<NestedPosition>().With<NestedVelocity>();
 
-    private partial void Execute(Time time, ref NestedPosition nestedPosition, in NestedVelocity nestedVelocity) => nestedPosition.X += nestedVelocity.X;
+    public void Update(Time time, ref NestedPosition nestedPosition, in NestedVelocity nestedVelocity) => nestedPosition.X += nestedVelocity.X;
 }
 
 sealed partial class BoundsClampSystem : QuerySystem
 {
-    private static IQueryDefinition Build(World world) => world.Query().With<Writes<NestedPosition>>();
+    protected override IQuery DefineQuery(World world) => world.Query().With<NestedPosition>();
 
-    private partial void Execute(Time time, ref NestedPosition nestedPosition)
+    public void Update(Time time, ref NestedPosition nestedPosition)
     {
         if (nestedPosition.X > 10f) nestedPosition.X = 10f;
     }

@@ -8,10 +8,10 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 > Pre-release. APIs are still moving and nothing is published to NuGet yet.
 
 - Archetype storage. Entities with the same components live together in dense arrays.
-- A fluent, generator-backed query chain: `world.Query().With<Writes<T>>().With<Reads<U>>().Without<X>().Any<A, B>().ForEach(...)`. Query for as much as you need, no limit.
+- A fluent, generator-backed query chain: `world.Query().With<T>().With<U>().Without<X>().Any<A, B>().ForEach(...)`. Query for as much as you need, no limit. Each component's read/write access comes from the `ref`/`in` on the callback itself — nothing to declare twice.
 
   > No boxing, no reflection on the hot path.
-- `QuerySystem` sugar for the declared-system case. Write a `Build` (query shape) and `Execute` (per-entity body) method, the generator fills in dispatch.
+- `QuerySystem` sugar for the declared-system case. Override `DefineQuery` (query shape) and declare an `Update` (per-entity body) method, the generator fills in dispatch.
 - Systems run in parallel automatically. Register them with `WorldBuilder.WithSystems(...)`, call `World.Tick(...)`, and independent systems spread across your CPU cores with no thread code of your own.
 
   > The scheduler looks at what each system reads and writes, groups the ones with no conflicts, and runs each group inline or on the thread pool depending on world size.
@@ -29,12 +29,11 @@ using Wyrd.Ecs;
 public struct Position : IComponent { public float X; public float Y; }
 public struct Velocity : IComponent { public float X; public float Y; }
 
-// partial: the generator fills in OnUpdate from Build + Execute
 public sealed partial class MovementSystem : QuerySystem
 {
-    private static IQueryDefinition Build(World world) => world.Query().With<Writes<Position>>().With<Reads<Velocity>>();
+    protected override IQuery DefineQuery(World world) => world.Query().With<Position>().With<Velocity>();
 
-    private partial void Execute(Time time, ref Position position, in Velocity velocity)
+    public void Update(Time time, ref Position position, in Velocity velocity)
     {
         position.X += velocity.X * (float)time.Delta.TotalSeconds;
         position.Y += velocity.Y * (float)time.Delta.TotalSeconds;
@@ -54,7 +53,7 @@ world.RunOnce(new MovementSystem(), TimeSpan.FromSeconds(1.0 / 60));
 No system class needed for a one-off query: the same chain works directly against a `World`.
 
 ```csharp
-world.Query().With<Writes<Position>>().With<Reads<Velocity>>()
+world.Query().With<Position>().With<Velocity>()
     .ForEach((ref position, in velocity) =>
     {
         position.X += velocity.X;

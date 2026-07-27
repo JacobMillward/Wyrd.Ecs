@@ -4,8 +4,8 @@ struct SugarPosition : IComponent { public float X; }
 
 sealed partial class SugarMoveSystem : QuerySystem
 {
-    private static IQueryDefinition Build(World world) => world.Query().With<Writes<SugarPosition>>();
-    private partial void Execute(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += 1f;
+    protected override IQuery DefineQuery(World world) => world.Query().With<SugarPosition>();
+    public void Update(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += 1f;
 }
 
 sealed partial class SugarConstructedSystem : QuerySystem
@@ -13,8 +13,8 @@ sealed partial class SugarConstructedSystem : QuerySystem
     private readonly float _amount;
     public SugarConstructedSystem(float amount) => _amount = amount;
 
-    private static IQueryDefinition Build(World world) => world.Query().With<Writes<SugarPosition>>();
-    private partial void Execute(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += _amount;
+    protected override IQuery DefineQuery(World world) => world.Query().With<SugarPosition>();
+    public void Update(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += _amount;
 }
 
 public class WithSystemsExtensionsTests
