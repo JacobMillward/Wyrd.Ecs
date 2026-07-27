@@ -9,12 +9,14 @@ namespace Wyrd.Ecs.InternalGenerators;
 /// <see cref="ArityCap.Max"/>), plus <c>World</c>'s internal
 /// <c>PlaceReservedEntity&lt;T0..T{ArityCap.Max-1}&gt;</c> helper and the
 /// <c>QuerySignature&lt;T0..T{ArityCap.Max-1}&gt;</c> cache it needs to find or
-/// create a multi-component entity's target archetype. Query-shape members used to
-/// live here too (<c>IWorld</c>/<c>World</c>'s fluent <c>Query&lt;T0..TN-1&gt;()</c>);
-/// they were removed when the arity-templated <c>Query&lt;T0,...,T7&gt;</c>/
-/// <c>QueryRow&lt;T0,...,T7&gt;</c> family was replaced by the generator-backed
-/// unbounded query-shape design — entity creation is an unrelated concern that
-/// happened to share this file and <see cref="ArityCap"/>.
+/// create a multi-component entity's target archetype. Also emits
+/// <c>Query&lt;TShape&gt;</c>'s arity-2+ <c>With</c>/<c>Without</c>/<c>Has</c>/<c>Any</c>
+/// overloads (a different arity-templated family from the bounded whole-query-shape
+/// <c>Query&lt;T0,...,T7&gt;</c>/<c>QueryRow&lt;T0,...,T7&gt;</c> family removed when
+/// queries moved to the generator-backed unbounded query-shape design — these are pure
+/// call-site sugar for chaining, not a cap on the total shape) — entity creation and
+/// query-chain sugar are unrelated concerns that happen to share this file and
+/// <see cref="ArityCap"/>.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
@@ -62,6 +64,23 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             }
             commands.AppendLine("}");
             ctx.AddSource("CommandBuffer.CreateEntityMembers.g.cs", commands.ToString());
+
+            var query = new StringBuilder();
+            query.AppendLine("namespace Wyrd.Ecs;");
+            query.AppendLine();
+            query.AppendLine("public readonly partial struct Query<TShape> where TShape : struct");
+            query.AppendLine("{");
+            for (var n = 2; n <= ArityCap.Max; n++)
+            {
+                query.AppendLine(ArityTemplates.QueryWithMember(n));
+                query.AppendLine();
+                query.AppendLine(ArityTemplates.QueryWithoutMember(n));
+                query.AppendLine();
+                query.AppendLine(ArityTemplates.QueryHasMember(n));
+                query.AppendLine();
+            }
+            query.AppendLine("}");
+            ctx.AddSource("Query.ArityMembers.g.cs", query.ToString());
         });
     }
 }

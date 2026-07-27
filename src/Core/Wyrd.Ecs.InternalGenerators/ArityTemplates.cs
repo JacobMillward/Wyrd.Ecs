@@ -27,6 +27,10 @@ internal static class ArityTemplates
     internal static string WhereClausesInline(int n) =>
         string.Join(" ", Indices(n).Select(i => $"where T{i} : struct, IComponent"));
 
+    /// <summary>Same as <see cref="WhereClausesInline"/> but without the <c>IComponent</c> constraint -- matches <c>Query&lt;TShape&gt;.With&lt;TMarker&gt;()</c>'s existing single-arg constraint (<c>where TMarker : struct</c>), since the arity-2+ `With`/`Without`/`Has`/`Any` overloads are sugar for that same call, not a new, stricter contract.</summary>
+    internal static string WhereClausesPlain(int n) =>
+        string.Join(" ", Indices(n).Select(i => $"where T{i} : struct"));
+
     /// <summary>
     /// Emits <c>QuerySignature&lt;T0..TN-1&gt;</c>: an archetype signature for a given
     /// component set, resolved once per closed generic instantiation (the same pattern
@@ -162,4 +166,90 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Emits the `Query&lt;TShape&gt;.With&lt;T0..Tn-1&gt;()` overload: pure call-site sugar
+    /// for `n` chained single-arg `.With&lt;T&gt;()` calls, producing the identical
+    /// nested-tuple type -- T0 innermost (first-declared), T{n-1} outermost (last-declared) --
+    /// so `ChainWalker`'s declaration-order recovery needs no changes to support it.
+    /// </summary>
+    internal static string QueryWithMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var nestedType = "TShape";
+        for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <summary>Adds T0..Tn-1 to the shape in one call, equivalent to chaining .With&lt;T0&gt;()...With&lt;Tn-1&gt;() individually.</summary>"
+            : "    /// <inheritdoc cref=\"With{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<{nestedType}> With<{tp}>() {where} => new(World);");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `Query&lt;TShape&gt;.Without&lt;T0..Tn-1&gt;()` overload -- same shape as <see cref="QueryWithMember"/>, each type wrapped in <c>Without&lt;T&gt;</c>.</summary>
+    internal static string QueryWithoutMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var nestedType = "TShape";
+        for (var i = 0; i < n; i++) nestedType = $"(Without<T{i}>, {nestedType})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <summary>Requires the archetype to contain none of T0..Tn-1, in one call.</summary>"
+            : "    /// <inheritdoc cref=\"Without{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<{nestedType}> Without<{tp}>() {where} => new(World);");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `Query&lt;TShape&gt;.Has&lt;T0..Tn-1&gt;()` overload -- same shape as <see cref="QueryWithMember"/>, each type wrapped in <c>Has&lt;T&gt;</c>.</summary>
+    internal static string QueryHasMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var nestedType = "TShape";
+        for (var i = 0; i < n; i++) nestedType = $"(Has<T{i}>, {nestedType})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <summary>Requires the archetype to contain all of T0..Tn-1, without reading their data, in one call.</summary>"
+            : "    /// <inheritdoc cref=\"Has{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<{nestedType}> Has<{tp}>() {where} => new(World);");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `Query&lt;TShape&gt;.Any&lt;T0..Tn-1&gt;()` overload for arity 3+ -- unlike With/Without/Has, this stays a single tuple slot holding all n type arguments, never nested (see <c>Query.cs</c>'s own arity-2 method for the arity-2 case this mirrors).</summary>
+    internal static string QueryAnyMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var sb = new StringBuilder();
+        sb.AppendLine("    /// <inheritdoc cref=\"Any{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<(Any<{tp}>, TShape)> Any<{tp}>() {where} => new(World);");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `ArchetypeQuery.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, delegating to the matching `QueryFilter.Any&lt;T0..Tn-1&gt;()`.</summary>
+    internal static string ArchetypeQueryAnyMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var sb = new StringBuilder();
+        sb.AppendLine("    /// <inheritdoc cref=\"Any{T0, T1}\"/>");
+        sb.AppendLine($"    public ArchetypeQuery Any<{tp}>() {where} => new(_filter.Any<{tp}>());");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the internal `QueryFilter.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, building `AnyOf` from all n type indices instead of two.</summary>
+    internal static string QueryFilterAnyMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var withChain = string.Join("", Indices(n).Select(i => $".With(TypeIndex<T{i}>.Value)"));
+        var sb = new StringBuilder();
+        sb.AppendLine($"    internal QueryFilter Any<{tp}>() {where} =>");
+        sb.AppendLine($"        new(Required, Excluded, ArchetypeSignature.Empty{withChain});");
+        return sb.ToString();
+    }
 }
