@@ -37,9 +37,9 @@ public class QueryArityBoundaryTests
         var sum = 0;
         var found = false;
         world.Query()
-            .With<Writes<C0>>().With<Writes<C1>>().With<Writes<C2>>().With<Writes<C3>>()
-            .With<Writes<C4>>().With<Writes<C5>>().With<Writes<C6>>().With<Writes<C7>>()
-            .With<Writes<C8>>().With<Writes<C9>>().With<Writes<C10>>().With<Writes<C11>>()
+            .With<C0>().With<C1>().With<C2>().With<C3>()
+            .With<C4>().With<C5>().With<C6>().With<C7>()
+            .With<C8>().With<C9>().With<C10>().With<C11>()
             .ForEach(0, (in int _, ref C0 c0, ref C1 c1, ref C2 c2, ref C3 c3,
                 ref C4 c4, ref C5 c5, ref C6 c6, ref C7 c7, ref C8 c8, ref C9 c9, ref C10 c10, ref C11 c11) =>
             {
@@ -72,9 +72,9 @@ public class QueryArityBoundaryTests
 
         var found = false;
         world.Query()
-            .With<Writes<C0>>().With<Writes<C1>>().With<Writes<C2>>().With<Writes<C3>>()
-            .With<Writes<C4>>().With<Writes<C5>>().With<Writes<C6>>().With<Writes<C7>>()
-            .With<Writes<C8>>().With<Writes<C9>>().With<Writes<C10>>().With<Writes<C11>>()
+            .With<C0>().With<C1>().With<C2>().With<C3>()
+            .With<C4>().With<C5>().With<C6>().With<C7>()
+            .With<C8>().With<C9>().With<C10>().With<C11>()
             .ForEach(0, (in int _, ref C0 c0, ref C1 c1, ref C2 c2, ref C3 c3,
                 ref C4 c4, ref C5 c5, ref C6 c6, ref C7 c7, ref C8 c8, ref C9 c9, ref C10 c10, ref C11 c11) => found = true);
 

@@ -19,13 +19,13 @@ public class QueryChainTests
     }
 
     [Fact]
-    public void With_PrependsTheMarkerOntoTheShape()
+    public void With_PrependsTheComponentOntoTheShape()
     {
         var world = new World();
 
-        var chain = world.Query().With<Writes<Position>>();
+        var chain = world.Query().With<Position>();
 
-        chain.Should().BeOfType<Query<(Writes<Position>, Nil)>>();
+        chain.Should().BeOfType<Query<(Position, Nil)>>();
     }
 
     [Fact]
@@ -33,9 +33,9 @@ public class QueryChainTests
     {
         var world = new World();
 
-        var chain = world.Query().With<Writes<Position>>().With<Reads<Velocity>>();
+        var chain = world.Query().With<Position>().With<Velocity>();
 
-        chain.Should().BeOfType<Query<(Reads<Velocity>, (Writes<Position>, Nil))>>();
+        chain.Should().BeOfType<Query<(Velocity, (Position, Nil))>>();
     }
 
     [Fact]
@@ -43,9 +43,9 @@ public class QueryChainTests
     {
         var world = new World();
 
-        var chain = world.Query().With<Writes<Position>>().Without<Dead>();
+        var chain = world.Query().With<Position>().Without<Dead>();
 
-        chain.Should().BeOfType<Query<(Without<Dead>, (Writes<Position>, Nil))>>();
+        chain.Should().BeOfType<Query<(Without<Dead>, (Position, Nil))>>();
     }
 
     [Fact]
@@ -53,8 +53,8 @@ public class QueryChainTests
     {
         var world = new World();
 
-        var chain = world.Query().With<Writes<Position>>().Any<BuffA, BuffB>();
+        var chain = world.Query().With<Position>().Any<BuffA, BuffB>();
 
-        chain.Should().BeOfType<Query<(Any<BuffA, BuffB>, (Writes<Position>, Nil))>>();
+        chain.Should().BeOfType<Query<(Any<BuffA, BuffB>, (Position, Nil))>>();
     }
 }

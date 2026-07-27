@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Wyrd.Ecs.Generators;
@@ -10,7 +11,100 @@ internal static class ChainWalker
     {
         if (terminal.Expression is not MemberAccessExpressionSyntax { Expression: var receiverExpr }) return null;
         if (semanticModel.GetTypeInfo(receiverExpr, ct).Type is not INamedTypeSymbol receiverType) return null;
-        return TryExtractShapeFromQueryType(receiverType, ct);
+
+        var raw = TryExtractShapeFromQueryType(receiverType, ct);
+        if (raw is null) return null;
+        if (raw.PendingDataElements.IsEmpty) return raw; // filter-only shape, e.g. .Has<T>() alone
+
+        if (terminal.ArgumentList.Arguments is not [.., var lastArgument]) return null;
+        // Every argument before the lambda is a leading uniform/state value the lambda
+        // receives as its own leading parameter(s) -- the uniform overload passes one
+        // (`ForEach(state, action)`, lambda takes `(in TState, ...)`), the no-uniform
+        // overload passes none (`ForEach(action)`, lambda's first parameter is already a
+        // real data component). Skip exactly that many of the lambda's own parameters
+        // before treating the rest as data.
+        var skipCount = terminal.ArgumentList.Arguments.Count - 1;
+        var refKinds = TryGetLambdaDataRefKinds(lastArgument, skipCount);
+        if (refKinds is null) return null;
+
+        return ResolveAccessKinds(raw, refKinds.Value);
+    }
+
+    /// <summary>
+    /// Reads the <c>ref</c>/<c>in</c> modifier off each of <paramref name="lambdaArgument"/>'s
+    /// data parameters, in declaration order, skipping <paramref name="skipCount"/> leading
+    /// uniform/state parameters. Pure syntax -- no semantic binding needed, since the
+    /// modifier keyword is right there in the parameter list regardless of whether the
+    /// lambda has explicit parameter types.
+    /// </summary>
+    private static ImmutableArray<RefKind>? TryGetLambdaDataRefKinds(ArgumentSyntax lambdaArgument, int skipCount)
+    {
+        if (lambdaArgument.Expression is not ParenthesizedLambdaExpressionSyntax lambda) return null;
+        if (lambda.ParameterList.Parameters.Count < skipCount) return null;
+
+        var dataParameters = lambda.ParameterList.Parameters.Skip(skipCount);
+        var builder = ImmutableArray.CreateBuilder<RefKind>();
+        foreach (var parameter in dataParameters)
+        {
+            builder.Add(parameter.Modifiers switch
+            {
+                var m when m.Any(SyntaxKind.RefKeyword) => RefKind.Ref,
+                var m when m.Any(SyntaxKind.InKeyword) => RefKind.In,
+                _ => RefKind.None,
+            });
+        }
+        return builder.ToImmutable();
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="raw"/>'s <see cref="QueryShape.PendingDataElements"/> (bare
+    /// data components whose Reads/Writes kind wasn't yet known during the tuple walk) into
+    /// real <see cref="MarkerElement"/>s, using <paramref name="refKindsInDeclarationOrder"/>
+    /// — the ref/in modifiers read off whatever the query's terminal actually is, in the same
+    /// left-to-right order the caller wrote their `.With&lt;&gt;()` calls (matching the
+    /// existing declaration-order convention <c>QueryShapeExtensions.OwnDataElements</c>
+    /// already relies on). Returns <c>null</c> if the counts don't match (caller declared a
+    /// different number of components than the terminal has parameters for) or any ref-kind
+    /// isn't <see cref="RefKind.Ref"/>/<see cref="RefKind.In"/> (a bare, unmodified parameter
+    /// -- <c>WYRD001</c>'s job to explain why, not this method's).
+    /// </summary>
+    internal static QueryShape? ResolveAccessKinds(QueryShape raw, ImmutableArray<RefKind> refKindsInDeclarationOrder)
+    {
+        // PendingDataElements is outer-first (reverse-declaration) order, same as Markers --
+        // reverse it back to left-to-right, same convention OwnDataElements already uses.
+        var declarationOrder = raw.PendingDataElements.Reverse().ToImmutableArray();
+        if (declarationOrder.Length != refKindsInDeclarationOrder.Length) return null;
+
+        var resolvedInDeclarationOrder = ImmutableArray.CreateBuilder<MarkerElement>(declarationOrder.Length);
+        for (var i = 0; i < declarationOrder.Length; i++)
+        {
+            var kind = refKindsInDeclarationOrder[i] switch
+            {
+                RefKind.Ref => MarkerKind.Writes,
+                RefKind.In => MarkerKind.Reads,
+                _ => (MarkerKind?)null,
+            };
+            if (kind is null) return null;
+            resolvedInDeclarationOrder.Add(new MarkerElement(kind.Value, declarationOrder[i]));
+        }
+
+        // Markers is stored outer-first (reverse-declaration) order everywhere else in
+        // this file -- OwnDataElements() unconditionally reverses it once to recover
+        // declaration order. Append these newly-resolved markers in that same outer-first
+        // order (i.e. reversed from the declaration order just used for the ref-kind zip
+        // above), or OwnDataElements()'s single reversal flips them the wrong way.
+        var resolved = raw.Markers.ToBuilder();
+        for (var i = resolvedInDeclarationOrder.Count - 1; i >= 0; i--)
+            resolved.Add(resolvedInDeclarationOrder[i]);
+
+        return new QueryShape
+        {
+            ExactShapeTypeName = raw.ExactShapeTypeName,
+            Markers = resolved.ToImmutable(),
+            PendingDataElements = ImmutableArray<string>.Empty,
+            Withouts = raw.Withouts,
+            Anys = raw.Anys,
+        };
     }
 
     /// <summary>
@@ -26,6 +120,7 @@ internal static class ChainWalker
         if (queryType.TypeArguments is not [var shapeType]) return null;
 
         var markers = ImmutableArray.CreateBuilder<MarkerElement>();
+        var pendingData = ImmutableArray.CreateBuilder<string>();
         var withouts = ImmutableArray.CreateBuilder<WithoutElement>();
         var anys = ImmutableArray.CreateBuilder<AnyElement>();
 
@@ -41,7 +136,7 @@ internal static class ChainWalker
             var element = named.TupleElements[0].Type;
             var rest = named.TupleElements[1].Type;
 
-            if (!TryClassifyElement(element, markers, withouts, anys)) return null;
+            if (!TryClassifyElement(element, markers, pendingData, withouts, anys)) return null;
 
             current = rest;
         }
@@ -50,6 +145,7 @@ internal static class ChainWalker
         {
             ExactShapeTypeName = queryType.ToDisplayString(),
             Markers = markers.ToImmutable(),
+            PendingDataElements = pendingData.ToImmutable(),
             Withouts = withouts.ToImmutable(),
             Anys = anys.ToImmutable(),
         };
@@ -82,21 +178,26 @@ internal static class ChainWalker
     private static bool TryClassifyElement(
         ITypeSymbol element,
         ImmutableArray<MarkerElement>.Builder markers,
+        ImmutableArray<string>.Builder pendingData,
         ImmutableArray<WithoutElement>.Builder withouts,
         ImmutableArray<AnyElement>.Builder anys)
     {
         if (element is not INamedTypeSymbol named) return false;
         var original = named.OriginalDefinition;
-        if (original.ContainingNamespace?.ToDisplayString() != "Wyrd.Ecs") return false;
+
+        // A bare struct with no Wyrd.Ecs wrapper -- e.g. .With<Position>() -- is a
+        // pending data element; its Reads/Writes kind isn't known until the terminal
+        // (a .ForEach lambda's ref/in, or QuerySystem.Update's real parameters) is
+        // read, which happens after this whole tuple walk finishes. See
+        // ChainWalker.ResolveAccessKinds.
+        if (original.ContainingNamespace?.ToDisplayString() != "Wyrd.Ecs")
+        {
+            pendingData.Add(element.ToDisplayString());
+            return true;
+        }
 
         switch (original.Name)
         {
-            case "Writes" when named.TypeArguments is [var t]:
-                markers.Add(new MarkerElement(MarkerKind.Writes, t.ToDisplayString()));
-                return true;
-            case "Reads" when named.TypeArguments is [var t]:
-                markers.Add(new MarkerElement(MarkerKind.Reads, t.ToDisplayString()));
-                return true;
             case "Has" when named.TypeArguments is [var t]:
                 markers.Add(new MarkerElement(MarkerKind.Has, t.ToDisplayString()));
                 return true;
@@ -107,7 +208,8 @@ internal static class ChainWalker
                 anys.Add(new AnyElement(t0.ToDisplayString(), t1.ToDisplayString()));
                 return true;
             default:
-                return false;
+                pendingData.Add(element.ToDisplayString());
+                return true;
         }
     }
 

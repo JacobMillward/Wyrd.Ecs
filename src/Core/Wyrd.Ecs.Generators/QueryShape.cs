@@ -29,6 +29,7 @@ internal sealed class QueryShape : IEquatable<QueryShape>
 {
     public required string ExactShapeTypeName { get; init; }
     public required ImmutableArray<MarkerElement> Markers { get; init; }
+    public required ImmutableArray<string> PendingDataElements { get; init; }
     public required ImmutableArray<WithoutElement> Withouts { get; init; }
     public required ImmutableArray<AnyElement> Anys { get; init; }
 
@@ -36,6 +37,7 @@ internal sealed class QueryShape : IEquatable<QueryShape>
         other is not null
         && ExactShapeTypeName == other.ExactShapeTypeName
         && Markers.SequenceEqual(other.Markers)
+        && PendingDataElements.SequenceEqual(other.PendingDataElements)
         && Withouts.SequenceEqual(other.Withouts)
         && Anys.SequenceEqual(other.Anys);
 
@@ -48,6 +50,7 @@ internal sealed class QueryShape : IEquatable<QueryShape>
         {
             var hash = ExactShapeTypeName.GetHashCode();
             foreach (var marker in Markers) hash = hash * 31 + marker.GetHashCode();
+            foreach (var pending in PendingDataElements) hash = hash * 31 + pending.GetHashCode();
             foreach (var without in Withouts) hash = hash * 31 + without.GetHashCode();
             foreach (var any in Anys) hash = hash * 31 + any.GetHashCode();
             return hash;

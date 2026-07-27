@@ -122,7 +122,7 @@ public class TrackedQueryIterationBenchmarks
     public void OneComponent_FluentChain()
     {
         _world1.AdvanceTick();
-        _world1.Query().With<Writes<Position>>()
+        _world1.Query().With<Position>()
             .ForEach(0, (in int _, ref Position p) => p.X += p.Y * 0f);
     }
 
@@ -130,7 +130,7 @@ public class TrackedQueryIterationBenchmarks
     public void TwoComponent_FluentChain()
     {
         _world2.AdvanceTick();
-        _world2.Query().With<Writes<Position>>().With<Reads<Velocity>>()
+        _world2.Query().With<Position>().With<Velocity>()
             .ForEach(0, (in int _, ref Position p, in Velocity v) => p.X += v.X * 0f);
     }
 }

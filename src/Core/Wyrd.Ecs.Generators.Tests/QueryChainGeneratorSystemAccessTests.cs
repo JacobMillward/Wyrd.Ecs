@@ -15,15 +15,15 @@ public class QueryChainGeneratorSystemAccessTests
         public sealed class MovementSystem : EcsSystem
         {
             protected override void OnUpdate(World world, Time time) =>
-                world.Query().With<Writes<Position>>().With<Reads<Velocity>>().ForEach(time, (in Time t, ref Position p, in Velocity v) => { });
+                world.Query().With<Position>().With<Velocity>().ForEach(time, (in Time t, ref Position p, in Velocity v) => { });
         }
 
         public sealed class MultiQuerySystem : EcsSystem
         {
             protected override void OnUpdate(World world, Time time)
             {
-                world.Query().With<Writes<Health>>().ForEach(time, (in Time t, ref Health h) => { });
-                world.Query().With<Reads<Position>>().ForEach(time, (in Time t, in Position p) => { });
+                world.Query().With<Health>().ForEach(time, (in Time t, ref Health h) => { });
+                world.Query().With<Position>().ForEach(time, (in Time t, in Position p) => { });
             }
         }
 
@@ -44,7 +44,7 @@ public class QueryChainGeneratorSystemAccessTests
             public static bool AdHocChain_GetsNoEntry()
             {
                 var world = new World();
-                world.Query().With<Reads<Position>>().ForEach(0, (in int _, in Position p) => { });
+                world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
                 return GeneratedSystemAccess.Entries.Count == 2; // only MovementSystem and MultiQuerySystem -- this ad-hoc call adds nothing
             }
         }

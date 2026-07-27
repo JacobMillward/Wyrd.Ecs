@@ -17,7 +17,7 @@ public class QueryChainGeneratorPredicateForEachTests
                 world.ApplyCommands();
 
                 var visited = 0;
-                world.Query().With<Reads<Position>>()
+                world.Query().With<Position>()
                     .ForEach(0, (in int _, in Position p) =>
                     {
                         visited++;
@@ -35,7 +35,7 @@ public class QueryChainGeneratorPredicateForEachTests
                 world.ApplyCommands();
 
                 var visited = 0;
-                world.Query().With<Reads<Position>>()
+                world.Query().With<Position>()
                     .ForEach(0, (in int _, in Position p) =>
                     {
                         visited++;
@@ -53,7 +53,7 @@ public class QueryChainGeneratorPredicateForEachTests
                 world.ApplyCommands();
 
                 var visited = 0;
-                world.Query().With<Reads<Position>>()
+                world.Query().With<Position>()
                     .ForEach((in Position p) =>
                     {
                         visited++;

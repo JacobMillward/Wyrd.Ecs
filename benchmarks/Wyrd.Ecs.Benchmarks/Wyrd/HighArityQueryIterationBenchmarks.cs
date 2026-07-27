@@ -101,8 +101,8 @@ public class HighArityQueryIterationBenchmarks
     public void EightComponent_FluentChain()
     {
         _world8.Query()
-            .With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>().With<Reads<BulkPayload>>()
-            .With<Reads<Padding1>>().With<Reads<Padding2>>().With<Reads<Padding3>>().With<Reads<Padding4>>()
+            .With<Position>().With<Velocity>().With<Health>().With<BulkPayload>()
+            .With<Padding1>().With<Padding2>().With<Padding3>().With<Padding4>()
             .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h, in BulkPayload b,
                 in Padding1 pad1, in Padding2 pad2, in Padding3 pad3, in Padding4 pad4) =>
                 h.Current += (p.X + v.X + b.A + pad1.Value + pad2.Value + pad3.Value + pad4.Value) * 0f);
@@ -136,9 +136,9 @@ public class HighArityQueryIterationBenchmarks
     public void TwelveComponent_FluentChain()
     {
         _world12.Query()
-            .With<Reads<Position>>().With<Reads<Velocity>>().With<Writes<Health>>().With<Reads<BulkPayload>>()
-            .With<Reads<Padding1>>().With<Reads<Padding2>>().With<Reads<Padding3>>().With<Reads<Padding4>>()
-            .With<Reads<Padding5>>().With<Reads<Padding6>>().With<Reads<Padding7>>().With<Reads<Padding8>>()
+            .With<Position>().With<Velocity>().With<Health>().With<BulkPayload>()
+            .With<Padding1>().With<Padding2>().With<Padding3>().With<Padding4>()
+            .With<Padding5>().With<Padding6>().With<Padding7>().With<Padding8>()
             .ForEach(0, (in int _, in Position p, in Velocity v, ref Health h, in BulkPayload b,
                 in Padding1 pad1, in Padding2 pad2, in Padding3 pad3, in Padding4 pad4,
                 in Padding5 pad5, in Padding6 pad6, in Padding7 pad7, in Padding8 pad8) =>

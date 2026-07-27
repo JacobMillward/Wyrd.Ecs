@@ -18,7 +18,7 @@ public class QueryChainGeneratorParallelForEachTests
                 world.ApplyCommands();
 
                 var visited = 0;
-                world.Query().With<Writes<Position>>()
+                world.Query().With<Position>()
                     .ParallelForEach(0, (in int _, ref Position p) =>
                     {
                         p.X += 1f;
@@ -36,7 +36,7 @@ public class QueryChainGeneratorParallelForEachTests
                 world.ApplyCommands();
 
                 var visited = 0;
-                world.Query().With<Writes<Position>>()
+                world.Query().With<Position>()
                     .ParallelForEach((ref Position p) =>
                     {
                         p.X += 1f;

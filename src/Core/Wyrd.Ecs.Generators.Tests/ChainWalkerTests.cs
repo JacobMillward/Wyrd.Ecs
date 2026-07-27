@@ -10,7 +10,7 @@ public class ChainWalkerTests
             .Single(inv => inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ForEach" });
 
     [Fact]
-    public void TwoWrites_ExtractsBothAsWritesMarkers()
+    public void TwoBareComponentsWithRefLambda_ExtractsBothAsWritesMarkers()
     {
         var compilation = GeneratorTestHost.Compile("""
             using Wyrd.Ecs;
@@ -21,9 +21,8 @@ public class ChainWalkerTests
             public class C
             {
                 public void M(World world) =>
-                    world.Query().With<Writes<Position>>().With<Writes<Velocity>>().ForEach(0, DummyCallback);
-
-                private static void DummyCallback() { }
+                    world.Query().With<Position>().With<Velocity>()
+                        .ForEach(0, (in int _, ref Position p, ref Velocity v) => { });
             }
             """);
 
@@ -43,6 +42,29 @@ public class ChainWalkerTests
     }
 
     [Fact]
+    public void LambdaArityDoesNotMatchDeclaredComponents_ReturnsNull()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+            public struct Velocity : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().With<Velocity>()
+                        .ForEach(0, (in int _, ref Position p) => { });
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        ChainWalker.TryExtractShape(terminal, model, default).Should().BeNull();
+    }
+
+    [Fact]
     public void MixedWritesReadsHasWithoutAny_ClassifiesEachCorrectly()
     {
         var compilation = GeneratorTestHost.Compile("""
@@ -59,14 +81,12 @@ public class ChainWalkerTests
             {
                 public void M(World world) =>
                     world.Query()
-                        .With<Writes<Position>>()
-                        .With<Reads<Velocity>>()
-                        .With<Has<Frozen>>()
+                        .With<Position>()
+                        .With<Velocity>()
+                        .Has<Frozen>()
                         .Without<Dead>()
                         .Any<BuffA, BuffB>()
-                        .ForEach(0, DummyCallback);
-
-                private static void DummyCallback() { }
+                        .ForEach(0, (in int _, ref Position p, in Velocity v) => { });
             }
             """);
 
@@ -78,9 +98,9 @@ public class ChainWalkerTests
         shape.Should().NotBeNull();
         shape!.Markers.Should().BeEquivalentTo(new[]
         {
+            new MarkerElement(MarkerKind.Has, "Frozen"),
             new MarkerElement(MarkerKind.Writes, "Position"),
             new MarkerElement(MarkerKind.Reads, "Velocity"),
-            new MarkerElement(MarkerKind.Has, "Frozen"),
         });
         shape.Withouts.Should().BeEquivalentTo(new[] { new WithoutElement("Dead") });
         shape.Anys.Should().BeEquivalentTo(new[] { new AnyElement("BuffA", "BuffB") });
@@ -143,11 +163,9 @@ public class ChainWalkerTests
             public class C
             {
                 public void M1(World world) =>
-                    world.Query().With<Writes<Position>>().With<Reads<Velocity>>().ForEach(0, D);
+                    world.Query().With<Position>().With<Velocity>().ForEach(0, (in int _, ref Position p, in Velocity v) => { });
                 public void M2(World world) =>
-                    world.Query().With<Reads<Velocity>>().With<Writes<Position>>().ForEach(0, D);
-
-                private static void D() { }
+                    world.Query().With<Velocity>().With<Position>().ForEach(0, (in int _, in Velocity v, ref Position p) => { });
             }
             """);
 

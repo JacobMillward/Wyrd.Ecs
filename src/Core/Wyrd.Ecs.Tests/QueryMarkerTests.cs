@@ -14,11 +14,4 @@ public class QueryMarkerTests
         _ = typeof(Without<Comp1>);
         _ = typeof(Any<Tag1, Comp1>);
     }
-
-    [Fact]
-    public void WritesReads_AcceptComponentTypes()
-    {
-        _ = typeof(Writes<Comp1>);
-        _ = typeof(Reads<Comp1>);
-    }
 }
