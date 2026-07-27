@@ -14,13 +14,13 @@ public class QueryChainGeneratorSystemAccessTests
 
         public sealed class MovementSystem : EcsSystem
         {
-            protected override void OnUpdate(World world, Time time) =>
+            protected override void Execute(World world, Time time) =>
                 world.Query().With<Position>().With<Velocity>().ForEach(time, (in Time t, ref Position p, in Velocity v) => { });
         }
 
         public sealed class MultiQuerySystem : EcsSystem
         {
-            protected override void OnUpdate(World world, Time time)
+            protected override void Execute(World world, Time time)
             {
                 world.Query().With<Health>().ForEach(time, (in Time t, ref Health h) => { });
                 world.Query().With<Position>().ForEach(time, (in Time t, in Position p) => { });
@@ -51,7 +51,7 @@ public class QueryChainGeneratorSystemAccessTests
         """;
 
     [Fact]
-    public void OnUpdateChain_RegistersASystemAccessEntryKeyedByTheClass()
+    public void ExecuteChain_RegistersASystemAccessEntryKeyedByTheClass()
     {
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
 
@@ -64,7 +64,7 @@ public class QueryChainGeneratorSystemAccessTests
     }
 
     [Fact]
-    public void MultiQuerySystem_UnionsAccessAcrossBothChainsInOneOnUpdate()
+    public void MultiQuerySystem_UnionsAccessAcrossBothChainsInOneExecute()
     {
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
 

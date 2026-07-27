@@ -153,7 +153,7 @@ internal static class ChainWalker
 
     /// <summary>
     /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass whose
-    /// <c>OnUpdate</c> override directly contains <paramref name="terminal"/>, or
+    /// <c>Execute</c> override directly contains <paramref name="terminal"/>, or
     /// <c>null</c> if it isn't inside one — walks the override chain, not just the
     /// method name, so a same-named method that isn't actually an <c>EcsSystem</c>
     /// override never matches.
@@ -163,7 +163,7 @@ internal static class ChainWalker
         var methodDecl = terminal.FirstAncestorOrSelf<MethodDeclarationSyntax>();
         if (methodDecl is null) return null;
         if (semanticModel.GetDeclaredSymbol(methodDecl, ct) is not IMethodSymbol method) return null;
-        if (method.Name != "OnUpdate" || !method.IsOverride) return null;
+        if (method.Name != "Execute" || !method.IsOverride) return null;
 
         for (var overridden = method.OverriddenMethod; overridden is not null; overridden = overridden.OverriddenMethod)
         {

@@ -11,7 +11,7 @@ namespace Wyrd.Ecs.Generators;
 /// every `QuerySystem` subclass's `DefineQuery` override, anywhere in the consuming
 /// project's source. Extracts each one's shape (<see cref="ChainWalker"/>) and emits bespoke
 /// terminal methods, `QuerySystem` glue, and a `GeneratedSystemAccess` registry entry
-/// for both chains found directly inside an `EcsSystem.OnUpdate` override and
+/// for both chains found directly inside an `EcsSystem.Execute` override and
 /// `QuerySystem` subclasses. See the design's "The terminal methods only exist because
 /// a generator emits them" and "Canonical parameter order" for the two-level grouping
 /// this <see cref="Initialize"/> pipeline implements for chain terminals: exact

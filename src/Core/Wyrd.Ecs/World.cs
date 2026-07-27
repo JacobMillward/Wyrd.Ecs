@@ -189,7 +189,7 @@ public sealed partial class World : IWorld
     {
         AdvanceTick();
         _totalElapsed += delta;
-        system.InvokeOnUpdate(this, new Time(delta, _totalElapsed));
+        system.InvokeExecute(this, new Time(delta, _totalElapsed));
     }
 
     /// <inheritdoc/>

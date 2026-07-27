@@ -294,7 +294,7 @@ internal static class QueryChainEmitter
 
     /// <summary>
     /// Emits the `partial` class part supplying a `QuerySystem` subclass's
-    /// `EcsSystem.OnUpdate` implementation, calling the developer-written `Update` method
+    /// `EcsSystem.Execute` implementation, calling the developer-written `Update` method
     /// (an ordinary method, not `partial` — its own `ref`/`in` modifiers are the source of
     /// truth for access mode, read by <c>QueryChainGenerator.TryExtractQuerySystem</c>, so
     /// there is nothing left for this class to pre-declare).
@@ -334,7 +334,7 @@ internal static class QueryChainEmitter
 
         sb.AppendLine($"partial class {candidate.ClassName}");
         sb.AppendLine("{");
-        sb.AppendLine("    protected override void OnUpdate(World world, Time time) =>");
+        sb.AppendLine("    protected override void Execute(World world, Time time) =>");
         sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
         sb.AppendLine("}");
         return sb.ToString();

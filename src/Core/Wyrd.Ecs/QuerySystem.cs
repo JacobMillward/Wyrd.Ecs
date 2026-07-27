@@ -8,7 +8,7 @@ namespace Wyrd.Ecs;
 /// single-query, single-callback case" for why `Update` is name-convention-recognized
 /// rather than a real override: a method whose parameter list depends on unpacking an
 /// arbitrary `TShape` tuple isn't expressible in C#). The query-chain generator supplies
-/// <see cref="EcsSystem.OnUpdate"/>.
+/// <see cref="EcsSystem.Execute"/>.
 ///
 /// <see cref="DefineQuery"/> is a genuine `protected abstract` member, not a
 /// name-convention: its signature (`World` in, `IQuery` out) is fixed regardless of
