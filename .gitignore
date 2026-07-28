@@ -7,6 +7,9 @@ obj/
 BenchmarkDotNet.Artifacts/
 *.user
 
+# dotnet pack output
+artifacts/
+
 # Mirrored build output for Wyrd.Ecs.Persistence.Json.Generators' UsingTask path -
 # see the copy target in that project's csproj
 src/Persistence/Json/Wyrd.Ecs.Persistence.Json.Generators/tasks/

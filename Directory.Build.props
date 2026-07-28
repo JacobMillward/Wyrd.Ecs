@@ -1,0 +1,22 @@
+<Project>
+
+  <PropertyGroup>
+    <Authors>Jacob Millward-Yuan</Authors>
+    <Company>Jacob Millward-Yuan</Company>
+    <PackageProjectUrl>https://github.com/JacobMillward/Wyrd.Ecs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JacobMillward/Wyrd.Ecs</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>ecs;entity-component-system;archetype;game-development</PackageTags>
+    <Copyright>Copyright (c) 2026 Jacob Millward-Yuan</Copyright>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts/packages/</PackageOutputPath>
+  </PropertyGroup>
+
+</Project>
