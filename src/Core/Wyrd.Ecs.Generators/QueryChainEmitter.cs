@@ -350,7 +350,16 @@ internal static class QueryChainEmitter
         return sb.ToString();
     }
 
-    /// <summary>A stable, valid-C#-identifier suffix derived from <see cref="QueryShape.ExactShapeTypeName"/> — distinct from <see cref="QueryShapeExtensions.HashName"/>, which is derived from the order-independent <see cref="QueryShapeExtensions.DedupKey"/> instead.</summary>
+    /// <summary>
+    /// A stable, valid-C#-identifier suffix derived from <see cref="QueryShape.ExactShapeTypeName"/>
+    /// *and* <see cref="QueryShape.Markers"/> — distinct from <see cref="QueryShapeExtensions.HashName"/>,
+    /// which is derived from the order-independent <see cref="QueryShapeExtensions.DedupKey"/>
+    /// instead. Markers must be folded in here, not just the type name: since
+    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> no longer affect <c>TShape</c>, two shapes can
+    /// share one <see cref="QueryShape.ExactShapeTypeName"/> while resolving different ref/in
+    /// markers for the same component (see <c>QueryChainGenerator.DeduplicateShapes</c>'s own
+    /// doc comment) — hashing the type name alone would collide their generated class names.
+    /// </summary>
     internal static string ExactShapeHash(QueryShape shape)
     {
         var hash = 2166136261u;
@@ -358,6 +367,14 @@ internal static class QueryChainEmitter
         {
             hash ^= c;
             hash *= 16777619u;
+        }
+        foreach (var m in shape.Markers)
+        {
+            foreach (var c in $"|{m.Kind}:{m.ComponentTypeName}")
+            {
+                hash ^= c;
+                hash *= 16777619u;
+            }
         }
         return hash.ToString("x8");
     }

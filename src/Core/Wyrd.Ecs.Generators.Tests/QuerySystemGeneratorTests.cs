@@ -170,4 +170,54 @@ public class QuerySystemGeneratorTests
 
         result.GeneratedTrees.Should().NotContain(t => t.FilePath.Contains("BrokenSystem"));
     }
+
+    private const string WithoutFilterHarness = """
+        using System;
+        using Wyrd.Ecs;
+
+        public struct Position : IComponent { public float X; }
+        public struct Dead : ITag;
+
+        public sealed partial class MoveSystem : QuerySystem
+        {
+            protected override IQuery DefineQuery(World world) =>
+                world.Query().With<Position>().Without<Dead>();
+
+            public void Update(Time time, ref Position p) => p.X += 1f;
+        }
+
+        public static class Harness
+        {
+            public static float Run()
+            {
+                var world = new World();
+                var alive = world.Commands.CreateEntity(new Position { X = 1f });
+                var dead = world.Commands.CreateEntity(new Position { X = 100f });
+                world.Commands.AddTag<Dead>(dead);
+                world.ApplyCommands();
+
+                world.RunOnce(new MoveSystem(), TimeSpan.Zero);
+
+                // Read back directly (not via another .ForEach over Query<(Position, Nil)>):
+                // that would be a second, independent read-only call site sharing MoveSystem's
+                // exact shape while wanting `in` instead of `ref` for Position -- exactly the
+                // WYRD003 conflict this design surfaced (see QueryChainGenerator.DeduplicateShapes).
+                // GetComponent sidesteps it entirely, and is what this test actually needs: a
+                // direct value check, not another generated query terminal.
+                return world.GetComponent<Position>(alive).X + world.GetComponent<Position>(dead).X;
+            }
+        }
+        """;
+
+    [Fact]
+    public void QuerySystemWithWithoutInDefineQuery_FilterIsAppliedAtRuntime()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(WithoutFilterHarness));
+
+        var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
+
+        // alive: 1f, +1 from MoveSystem's own Update = 2f. dead: untouched, since Without<Dead>
+        // excludes it from MoveSystem's query -- stays 100f. 2 + 100 = 102.
+        result.Should().Be(102f);
+    }
 }

@@ -70,4 +70,33 @@ public class QueryChainGeneratorDeduplicationTests
 
         backendClassNames.Should().HaveCount(2, "Position-only and Health-only are genuinely different shapes");
     }
+
+    [Fact]
+    public void SameExactShapeTypeName_ConflictingRefInResolution_ReportsWYRD003()
+    {
+        // Both call sites declare the identical .With<Position>() set (so the identical
+        // Query<(Position, Nil)> closed type), but one writes it and one only reads it --
+        // since .Without/.Has/.Any no longer affect TShape, nothing else distinguishes them.
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public static class SiteA
+            {
+                public static void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, ref Position p) => { });
+            }
+
+            public static class SiteB
+            {
+                public static void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
+            }
+            """);
+
+        var result = GeneratorTestHost.Run(new QueryChainGenerator(), compilation);
+
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD003");
+    }
 }

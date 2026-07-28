@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Wyrd.Ecs.Generators.Diagnostics;
 
 namespace Wyrd.Ecs.Generators;
 
@@ -60,7 +61,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         {
             var (chains, querySystems) = input;
 
-            var (byExactShape, byDedupKey) = DeduplicateShapes(chains, querySystems);
+            var (byExactShape, byDedupKey) = DeduplicateShapes(spc, chains, querySystems);
 
             EmitBackends(spc, byDedupKey);
             EmitOverloads(spc, byExactShape);
@@ -69,15 +70,40 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         });
     }
 
-    /// <summary>Two-level grouping: <paramref name="byExactShape"/> gets one call site's exact declaration-order tuple type each (one extension-method overload each), nested inside <paramref name="byDedupKey"/>, one per distinct logical shape (one shared backend each).</summary>
+    /// <summary>
+    /// Two-level grouping: <paramref name="chains"/>/<paramref name="querySystems"/> collapse to
+    /// one shape per distinct <see cref="QueryShape.ExactShapeTypeName"/> (one extension-method
+    /// overload each), nested inside one per distinct <see cref="QueryShapeExtensions.DedupKey"/>
+    /// (one shared backend each). Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c> no longer affect
+    /// <c>TShape</c>, two otherwise-unrelated queries (e.g. a <c>QuerySystem</c> writing a
+    /// component and a plain read-only query reading the same component, with nothing else in
+    /// their <c>.With&lt;T&gt;()</c> set to distinguish them) can now share the exact same closed
+    /// <c>Query&lt;TShape&gt;</c> type while resolving different ref/in markers for it. Emitting
+    /// both as separate overloads compiles, but produces a hard-to-diagnose CS0121 "ambiguous
+    /// call" at every consumer call site (verified directly: C# doesn't reject the
+    /// wrong-ref/in candidate during overload resolution here, it reports both as equally
+    /// applicable). So conflicting groups are reported via <see cref="WyrdDiagnostics.ConflictingAccessForSameShape"/>
+    /// instead, keeping only the first shape encountered per <see cref="QueryShape.ExactShapeTypeName"/>
+    /// for emission -- same "first wins" fallback the naive type-name-only grouping already had,
+    /// just now with a diagnostic explaining why, instead of one of the two callers silently
+    /// getting the other's resolved access mode with no explanation.
+    /// </summary>
     private static (List<QueryShape> ByExactShape, List<QueryShape> ByDedupKey) DeduplicateShapes(
+        SourceProductionContext spc,
         ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
         ImmutableArray<QuerySystemCandidate> querySystems)
     {
-        var byExactShape = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape))
-            .GroupBy(s => s.ExactShapeTypeName)
-            .Select(g => g.First())
-            .ToList();
+        var allShapes = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape));
+
+        var byExactShape = new List<QueryShape>();
+        foreach (var group in allShapes.GroupBy(s => s.ExactShapeTypeName))
+        {
+            var distinctShapes = group.Distinct().ToList();
+            if (distinctShapes.Count > 1)
+                spc.ReportDiagnostic(Diagnostic.Create(WyrdDiagnostics.ConflictingAccessForSameShape, Location.None, group.Key));
+
+            byExactShape.Add(distinctShapes[0]);
+        }
 
         var byDedupKey = byExactShape
             .GroupBy(s => s.DedupKey())

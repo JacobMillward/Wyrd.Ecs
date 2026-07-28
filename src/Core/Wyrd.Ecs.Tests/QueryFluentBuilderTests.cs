@@ -120,4 +120,44 @@ public class QueryFluentBuilderTests
 
         visited.Should().Be(2);
     }
+
+    [Fact]
+    public void ConditionallyAppliedFilter_AffectsResolutionEitherWay()
+    {
+        var world = BuildWorld(out _, out _, out _);
+
+        int CountWithFilter(bool excludeDead)
+        {
+            var q = world.Query().With<Position>().With<Velocity>();
+            if (excludeDead) q = q.Without<Dead>();
+
+            var count = 0;
+            q.ForEach(0, (in int _, ref Position p, in Velocity v) => count++);
+            return count;
+        }
+
+        CountWithFilter(excludeDead: false).Should().Be(3);
+        CountWithFilter(excludeDead: true).Should().Be(2);
+    }
+
+    [Fact]
+    public void TwoIndependentAnyGroupsThroughTheSugaredChain_BothMustBeSatisfied()
+    {
+        var world = new World();
+        var onlyFirstGroup = world.Commands.CreateEntity();
+        world.Commands.AddComponent(onlyFirstGroup, new Position { X = 1f });
+        world.Commands.AddTag<BuffA>(onlyFirstGroup);
+
+        var bothGroups = world.Commands.CreateEntity();
+        world.Commands.AddComponent(bothGroups, new Position { X = 2f });
+        world.Commands.AddTag<BuffA>(bothGroups);
+        world.Commands.AddTag<Frozen>(bothGroups);
+        world.ApplyCommands();
+
+        var matched = new List<float>();
+        world.Query().With<Position>().Any<BuffA, BuffB>().Any<Frozen, Dead>()
+            .ForEach(matched, (in List<float> m, in Position p) => m.Add(p.X));
+
+        matched.Should().Equal(2f);
+    }
 }
