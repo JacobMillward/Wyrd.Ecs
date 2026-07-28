@@ -37,8 +37,6 @@ public class ChainWalkerTests
             new MarkerElement(MarkerKind.Writes, "Position"),
             new MarkerElement(MarkerKind.Writes, "Velocity"),
         });
-        shape.Withouts.Should().BeEmpty();
-        shape.Anys.Should().BeEmpty();
     }
 
     [Fact]
@@ -65,7 +63,7 @@ public class ChainWalkerTests
     }
 
     [Fact]
-    public void MixedWritesReadsHasWithoutAny_ClassifiesEachCorrectly()
+    public void HasWithoutAnyCalls_DoNotAffectTheExtractedShape()
     {
         var compilation = GeneratorTestHost.Compile("""
             using Wyrd.Ecs;
@@ -95,15 +93,15 @@ public class ChainWalkerTests
 
         var shape = ChainWalker.TryExtractShape(terminal, model, default);
 
+        // .Has/.Without/.Any never touch TShape -- the walked shape only ever reflects
+        // .With<T>() data elements, regardless of how many filter calls were chained in
+        // between or around them.
         shape.Should().NotBeNull();
         shape!.Markers.Should().BeEquivalentTo(new[]
         {
-            new MarkerElement(MarkerKind.Has, "Frozen"),
             new MarkerElement(MarkerKind.Writes, "Position"),
             new MarkerElement(MarkerKind.Reads, "Velocity"),
         });
-        shape.Withouts.Should().BeEquivalentTo(new[] { new WithoutElement("Dead") });
-        shape.Anys.Should().BeEquivalentTo(new[] { new AnyElement(["BuffA", "BuffB"]) });
     }
 
     [Fact]
@@ -127,8 +125,6 @@ public class ChainWalkerTests
 
         shape.Should().NotBeNull();
         shape!.Markers.Should().BeEmpty();
-        shape.Withouts.Should().BeEmpty();
-        shape.Anys.Should().BeEmpty();
     }
 
     [Fact]
@@ -185,30 +181,41 @@ public class ChainWalkerTests
     }
 
     [Fact]
-    public void AnyWithThreeTypes_ExtractsAllThree()
+    public void DifferentWithoutAnyCallsButSameWithSet_ProduceTheIdenticalExactShapeTypeName()
     {
         var compilation = GeneratorTestHost.Compile("""
             using Wyrd.Ecs;
 
+            public struct Position : IComponent { public float X; }
+            public struct Dead : ITag;
             public struct BuffA : ITag;
             public struct BuffB : ITag;
-            public struct BuffC : ITag;
 
             public class C
             {
-                public void M(World world) =>
-                    world.Query().Any<BuffA, BuffB, BuffC>().ForEach(0, DummyCallback);
-
-                private static void DummyCallback() { }
+                public void M1(World world) =>
+                    world.Query().With<Position>().Without<Dead>().ForEach(0, (in int _, in Position p) => { });
+                public void M2(World world) =>
+                    world.Query().With<Position>().Any<BuffA, BuffB>().ForEach(0, (in int _, in Position p) => { });
             }
             """);
 
-        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
-        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var terminals = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(inv => inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ForEach" })
+            .ToList();
 
-        var shape = ChainWalker.TryExtractShape(terminal, model, default);
+        var shape1 = ChainWalker.TryExtractShape(terminals[0], model, default);
+        var shape2 = ChainWalker.TryExtractShape(terminals[1], model, default);
 
-        shape.Should().NotBeNull();
-        shape!.Anys.Should().BeEquivalentTo(new[] { new AnyElement(["BuffA", "BuffB", "BuffC"]) });
+        // .Without<Dead>() and .Any<BuffA, BuffB>() both apply to Filter, never TShape -- so
+        // these two chains, differing only in which filter calls they made, resolve to the
+        // exact same Query<TShape> closed type, and therefore share one generated backend
+        // (same ExactShapeTypeName implies same HashName/DedupKey too).
+        shape1.Should().NotBeNull();
+        shape2.Should().NotBeNull();
+        shape1!.ExactShapeTypeName.Should().Be(shape2!.ExactShapeTypeName);
+        shape1.HashName().Should().Be(shape2.HashName());
     }
 }

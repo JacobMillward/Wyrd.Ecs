@@ -100,8 +100,6 @@ internal static class ChainWalker
             ExactShapeTypeName = raw.ExactShapeTypeName,
             Markers = resolved.ToImmutable(),
             PendingDataElements = ImmutableArray<string>.Empty,
-            Withouts = raw.Withouts,
-            Anys = raw.Anys,
         };
     }
 
@@ -117,10 +115,7 @@ internal static class ChainWalker
         if (!IsQueryOfShape(queryType)) return null;
         if (queryType.TypeArguments is not [var shapeType]) return null;
 
-        var markers = ImmutableArray.CreateBuilder<MarkerElement>();
         var pendingData = ImmutableArray.CreateBuilder<string>();
-        var withouts = ImmutableArray.CreateBuilder<WithoutElement>();
-        var anys = ImmutableArray.CreateBuilder<AnyElement>();
 
         var current = shapeType;
         while (true)
@@ -134,26 +129,22 @@ internal static class ChainWalker
             var element = named.TupleElements[0].Type;
             var rest = named.TupleElements[1].Type;
 
-            if (!TryClassifyElement(element, markers, pendingData, withouts, anys)) return null;
+            if (!TryClassifyElement(element, pendingData)) return null;
 
             current = rest;
         }
 
-        // The walk above visits `.With<A>().With<B>()`'s nested-tuple type
-        // `(B, (A, Nil))` outer-first, i.e. last-declared-first -- the reverse of
-        // declaration order. Reverse both builders once, here, so QueryShape.Markers and
-        // QueryShape.PendingDataElements are in declaration order everywhere downstream
-        // (OwnDataElements, ResolveAccessKinds, every caller-facing parameter list).
-        markers.Reverse();
+        // The walk above visits `.With<A>().With<B>()`'s nested-tuple type `(B, (A, Nil))`
+        // outer-first, i.e. last-declared-first -- the reverse of declaration order. Reverse
+        // once, here, so QueryShape.PendingDataElements is in declaration order everywhere
+        // downstream (OwnDataElements, ResolveAccessKinds, every caller-facing parameter list).
         pendingData.Reverse();
 
         return new QueryShape
         {
             ExactShapeTypeName = queryType.ToDisplayString(),
-            Markers = markers.ToImmutable(),
+            Markers = ImmutableArray<MarkerElement>.Empty,
             PendingDataElements = pendingData.ToImmutable(),
-            Withouts = withouts.ToImmutable(),
-            Anys = anys.ToImmutable(),
         };
     }
 
@@ -181,42 +172,18 @@ internal static class ChainWalker
         return null;
     }
 
-    private static bool TryClassifyElement(
-        ITypeSymbol element,
-        ImmutableArray<MarkerElement>.Builder markers,
-        ImmutableArray<string>.Builder pendingData,
-        ImmutableArray<WithoutElement>.Builder withouts,
-        ImmutableArray<AnyElement>.Builder anys)
+    private static bool TryClassifyElement(ITypeSymbol element, ImmutableArray<string>.Builder pendingData)
     {
-        if (element is not INamedTypeSymbol named) return false;
-        var original = named.OriginalDefinition;
+        if (element is not INamedTypeSymbol) return false;
 
-        // A bare struct with no Wyrd.Ecs wrapper -- e.g. .With<Position>() -- is a
-        // pending data element; its Reads/Writes kind isn't known until the terminal
-        // (a .ForEach lambda's ref/in, or QuerySystem.Update's real parameters) is
-        // read, which happens after this whole tuple walk finishes. See
+        // Every tuple element left after the runtime-filter-unification redesign is a bare
+        // data component -- .Without/.Has/.Any never touch TShape anymore (see Query.cs),
+        // so there is nothing else for this walk to classify. Its Reads/Writes kind isn't
+        // known until the terminal (a .ForEach lambda's ref/in, or QuerySystem.Update's real
+        // parameters) is read, which happens after this whole tuple walk finishes. See
         // ChainWalker.ResolveAccessKinds.
-        if (original.ContainingNamespace?.ToDisplayString() != "Wyrd.Ecs")
-        {
-            pendingData.Add(element.ToDisplayString());
-            return true;
-        }
-
-        switch (original.Name)
-        {
-            case "Has" when named.TypeArguments is [var t]:
-                markers.Add(new MarkerElement(MarkerKind.Has, t.ToDisplayString()));
-                return true;
-            case "Without" when named.TypeArguments is [var t]:
-                withouts.Add(new WithoutElement(t.ToDisplayString()));
-                return true;
-            case "Any" when named.TypeArguments.Length is >= 2 and <= 8:
-                anys.Add(new AnyElement(named.TypeArguments.Select(t => t.ToDisplayString()).ToImmutableArray()));
-                return true;
-            default:
-                pendingData.Add(element.ToDisplayString());
-                return true;
-        }
+        pendingData.Add(element.ToDisplayString());
+        return true;
     }
 
     internal static bool IsQueryOfShape(INamedTypeSymbol type)

@@ -9,9 +9,15 @@ internal static class QueryChainEmitter
     /// <summary>
     /// Emits the shared backend for one *logical* shape (one call per distinct
     /// <see cref="QueryShapeExtensions.DedupKey"/> among the shapes passed to
-    /// <see cref="RenderForEachOverload"/>): the cached <c>ArchetypeQuery</c>, the
-    /// bespoke delegate type, and the actual per-chunk iteration logic. Reused by
-    /// every exact-declaration-order overload sharing this shape.
+    /// <see cref="RenderForEachOverload"/>): the cached <c>ArchetypeQuery</c> covering just
+    /// this shape's statically-known accessor requirements (one <c>.Access&lt;TAccessor&gt;()</c>
+    /// per Reads/Writes marker), the bespoke delegate type, and the actual per-chunk
+    /// iteration logic. Reused by every exact-declaration-order overload sharing this shape.
+    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> are never baked in here anymore -- they live on
+    /// the caller's own <c>Query&lt;TShape&gt;.Filter</c> and get combined in at resolve time
+    /// (see <see cref="AppendMethod"/>), which is also why two shapes differing only by which
+    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> calls they chained now correctly share one
+    /// backend instead of getting separate ones.
     /// </summary>
     internal static string RenderBackend(QueryShape shape)
     {
@@ -30,15 +36,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("    {");
         sb.AppendLine("        var query = ArchetypeQuery.Empty;");
         foreach (var m in shape.Markers)
-        {
-            sb.AppendLine(m.Kind == MarkerKind.Has
-                ? $"        query = query.Has<{m.ComponentTypeName}>();"
-                : $"        query = query.Access<{AccessorType(m)}>();");
-        }
-        foreach (var w in shape.Withouts)
-            sb.AppendLine($"        query = query.Without<{w.TypeName}>();");
-        foreach (var a in shape.Anys)
-            sb.AppendLine($"        query = query.Any<{string.Join(", ", a.TypeNames)}>();");
+            sb.AppendLine($"        query = query.Access<{AccessorType(m)}>();");
         sb.AppendLine("        return query;");
         sb.AppendLine("    }");
         sb.AppendLine("}");
@@ -192,7 +190,7 @@ internal static class QueryChainEmitter
         if (spec.IsParallel)
         {
             sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
-            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World)) chunks.Add(chunk);");
+            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(query.World)) chunks.Add(chunk);");
             sb.AppendLine();
             if (uniform)
             {
@@ -209,7 +207,7 @@ internal static class QueryChainEmitter
         }
         else
         {
-            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World))");
+            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(query.World))");
             var leading = uniform ? new[] { "state", "action", "chunk.Count" } : ["action", "chunk.Count"];
             var callArgs = string.Join(", ", leading.Concat(accessArgs));
             var callStatement = spec.ProcessReturnType == "bool" ? $"if (!Process({callArgs})) return;" : $"Process({callArgs});";

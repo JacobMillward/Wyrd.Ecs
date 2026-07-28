@@ -1,10 +1,16 @@
 namespace Wyrd.Ecs.Tests;
 
-file struct Position : IComponent;
-file struct Velocity : IComponent;
-file struct Dead : ITag;
-file struct BuffA : ITag;
-file struct BuffB : ITag;
+// Named uniquely (not Position/Velocity/Dead/BuffA/BuffB, which QueryFluentBuilderTests.cs
+// already declares in this same namespace) and NOT `file`-scoped: the query-chain
+// generator's `.ForEach` extension methods are emitted into a separate generated source
+// file, which can never see a `file`-scoped type from this one -- `file` types only ever
+// worked in this file before because nothing here called `.ForEach`, only `.BeOfType<>()`
+// (a runtime/reflection check needing no generated code at all).
+struct ChainPosition : IComponent { public float X; }
+struct ChainVelocity : IComponent { public float X; }
+struct ChainDead : ITag;
+struct ChainBuffA : ITag;
+struct ChainBuffB : ITag;
 
 public class QueryChainTests
 {
@@ -23,9 +29,9 @@ public class QueryChainTests
     {
         var world = new World();
 
-        var chain = world.Query().With<Position>();
+        var chain = world.Query().With<ChainPosition>();
 
-        chain.Should().BeOfType<Query<(Position, Nil)>>();
+        chain.Should().BeOfType<Query<(ChainPosition, Nil)>>();
     }
 
     [Fact]
@@ -33,28 +39,61 @@ public class QueryChainTests
     {
         var world = new World();
 
-        var chain = world.Query().With<Position>().With<Velocity>();
+        var chain = world.Query().With<ChainPosition>().With<ChainVelocity>();
 
-        chain.Should().BeOfType<Query<(Velocity, (Position, Nil))>>();
+        chain.Should().BeOfType<Query<(ChainVelocity, (ChainPosition, Nil))>>();
     }
 
     [Fact]
-    public void Without_PrependsWithoutOntoTheShape()
+    public void Without_DoesNotChangeTheShape_OnlyTheFilter()
     {
         var world = new World();
 
-        var chain = world.Query().With<Position>().Without<Dead>();
+        var chain = world.Query().With<ChainPosition>().Without<ChainDead>();
 
-        chain.Should().BeOfType<Query<(Without<Dead>, (Position, Nil))>>();
+        chain.Should().BeOfType<Query<(ChainPosition, Nil)>>();
+        chain.Filter.Should().Be(ArchetypeQuery.Empty.Without<ChainDead>());
     }
 
     [Fact]
-    public void Any_PrependsAnyOntoTheShape()
+    public void Any_DoesNotChangeTheShape_OnlyTheFilter()
     {
         var world = new World();
 
-        var chain = world.Query().With<Position>().Any<BuffA, BuffB>();
+        var chain = world.Query().With<ChainPosition>().Any<ChainBuffA, ChainBuffB>();
 
-        chain.Should().BeOfType<Query<(Any<BuffA, BuffB>, (Position, Nil))>>();
+        chain.Should().BeOfType<Query<(ChainPosition, Nil)>>();
+        chain.Filter.Should().Be(ArchetypeQuery.Empty.Any<ChainBuffA, ChainBuffB>());
+    }
+
+    [Fact]
+    public void FilterCallsDoNotChangeTheShapeType_SoTheyCanBeAppliedConditionally()
+    {
+        var world = new World();
+
+        var q = world.Query().With<ChainPosition>();
+        if (true) q = q.Without<ChainDead>(); // must compile: same Query<TShape> before and after
+
+        q.Should().BeOfType<Query<(ChainPosition, Nil)>>();
+    }
+
+    [Fact]
+    public void FilterAppliedBeforeALaterWith_SurvivesIntoTheNewShape()
+    {
+        var world = new World();
+        var alive = world.Commands.CreateEntity();
+        world.Commands.AddComponent(alive, new ChainPosition { X = 1f });
+        world.Commands.AddComponent(alive, new ChainVelocity { X = 2f });
+        var dead = world.Commands.CreateEntity();
+        world.Commands.AddComponent(dead, new ChainPosition { X = 3f });
+        world.Commands.AddComponent(dead, new ChainVelocity { X = 4f });
+        world.Commands.AddTag<ChainDead>(dead);
+        world.ApplyCommands();
+
+        var matched = new List<float>();
+        world.Query().With<ChainPosition>().Without<ChainDead>().With<ChainVelocity>()
+            .ForEach(matched, (in List<float> m, ref ChainPosition p, in ChainVelocity v) => m.Add(p.X));
+
+        matched.Should().Equal(1f);
     }
 }

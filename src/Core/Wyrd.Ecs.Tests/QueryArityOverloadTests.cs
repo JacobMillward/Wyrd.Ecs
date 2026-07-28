@@ -21,25 +21,25 @@ public class QueryArityOverloadTests
     }
 
     [Fact]
-    public void Without_TwoArgs_ProducesTheSameShapeAsChainingIndividually()
+    public void Without_TwoArgs_ProducesTheSameFilterAsChainingIndividually()
     {
         var world = new World();
 
         var chained = world.Query().Without<ArityPosition>().Without<ArityVelocity>();
         var collapsed = world.Query().Without<ArityPosition, ArityVelocity>();
 
-        chained.GetType().Should().Be(collapsed.GetType());
+        collapsed.Filter.Should().Be(chained.Filter);
     }
 
     [Fact]
-    public void Has_TwoArgs_ProducesTheSameShapeAsChainingIndividually()
+    public void Has_TwoArgs_ProducesTheSameFilterAsChainingIndividually()
     {
         var world = new World();
 
         var chained = world.Query().Has<ArityPosition>().Has<ArityVelocity>();
         var collapsed = world.Query().Has<ArityPosition, ArityVelocity>();
 
-        chained.GetType().Should().Be(collapsed.GetType());
+        collapsed.Filter.Should().Be(chained.Filter);
     }
 
     [Fact]
