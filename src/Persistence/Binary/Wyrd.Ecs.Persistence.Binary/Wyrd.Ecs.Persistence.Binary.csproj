@@ -7,6 +7,9 @@
     <RootNamespace>Wyrd.Ecs.Persistence.Binary</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsAotCompatible>true</IsAotCompatible>
+    <IsPackable>true</IsPackable>
+    <Version>0.1.0-alpha</Version>
+    <Description>Binary (MemoryPack) snapshot codec for Wyrd.Ecs.Persistence.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,5 +24,22 @@
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wyrd.Ecs.Persistence.Binary.Generators\Wyrd.Ecs.Persistence.Binary.Generators.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_WyrdEmbedGeneratorAnalyzer" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="..\Wyrd.Ecs.Persistence.Binary.Generators\Wyrd.Ecs.Persistence.Binary.Generators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WyrdGeneratorTargetPath" />
+    </MSBuild>
+    <ItemGroup>
+      <None Include="@(_WyrdGeneratorTargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>
