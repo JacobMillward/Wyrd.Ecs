@@ -16,9 +16,9 @@ public class WorldGetMatchingArchetypesTests
         world.ApplyCommands();
 
         var required = ArchetypeSignature.Empty;
-        var withoutMarker = QueryFilter.Empty.Without<Marker>();
+        var withoutMarker = ArchetypeFilter.Empty.Without<Marker>();
 
-        var everyoneMatches = world.GetMatchingArchetypes(required, QueryFilter.Empty);
+        var everyoneMatches = world.GetMatchingArchetypes(required, ArchetypeFilter.Empty);
         var filteredMatches = world.GetMatchingArchetypes(required, withoutMarker);
 
         everyoneMatches.Sum(a => a.Count).Should().Be(2);

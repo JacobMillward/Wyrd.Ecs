@@ -23,7 +23,7 @@ public sealed partial class World : IWorld
 
     private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
     private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
-    private readonly Dictionary<(ArchetypeSignature Required, QueryFilter Filter), Archetype[]> _filteredQueryCache = new();
+    private readonly Dictionary<(ArchetypeSignature Required, ArchetypeFilter Filter), Archetype[]> _filteredQueryCache = new();
     private TrackingState _tracking = new();
     private readonly Archetype _emptyArchetype;
     private readonly int _archetypeCapacity;
@@ -554,7 +554,7 @@ public sealed partial class World : IWorld
     /// one, so the chunk-callback queries and <see cref="ReadChanges{T}"/> (which never
     /// filter) don't pay for a cache key that's always empty for them.
     /// </summary>
-    internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required, QueryFilter filter)
+    internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required, ArchetypeFilter filter)
     {
         var key = (required, filter);
         if (_filteredQueryCache.TryGetValue(key, out var cached)) return cached;

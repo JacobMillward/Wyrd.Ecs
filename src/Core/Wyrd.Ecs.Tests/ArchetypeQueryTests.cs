@@ -5,6 +5,8 @@ file struct Velocity : IComponent { public float X; }
 file struct Dead : ITag;
 file struct BuffA : ITag;
 file struct BuffB : ITag;
+file struct BuffC : ITag;
+file struct BuffD : ITag;
 
 public class ArchetypeQueryTests
 {
@@ -94,6 +96,33 @@ public class ArchetypeQueryTests
 
         chunks.Count.Should().Be(1);
         chunks[0].Entities[0].Should().Be(buffed);
+    }
+
+    [Fact]
+    public void MultipleAnyGroups_AllGroupsMustBeSatisfied()
+    {
+        var world = new World();
+
+        // Only BuffC -- satisfies the second group (BuffC or BuffD) but NOT the first
+        // (BuffA or BuffB). A "last call wins" bug would incorrectly include this entity,
+        // since it only checks the second group; correct AND-of-both-groups semantics
+        // must exclude it.
+        var onlySecondGroup = world.Commands.CreateEntity();
+        world.Commands.AddComponent(onlySecondGroup, new Position { X = 1f });
+        world.Commands.AddTag<BuffC>(onlySecondGroup);
+
+        // BuffA and BuffC -- satisfies both groups.
+        var bothGroups = world.Commands.CreateEntity();
+        world.Commands.AddComponent(bothGroups, new Position { X = 2f });
+        world.Commands.AddTag<BuffA>(bothGroups);
+        world.Commands.AddTag<BuffC>(bothGroups);
+        world.ApplyCommands();
+
+        var query = ArchetypeQuery.Empty.Has<Position>().Any<BuffA, BuffB>().Any<BuffC, BuffD>();
+        var chunks = query.Resolve(world);
+
+        chunks.Count.Should().Be(1);
+        chunks[0].Entities[0].Should().Be(bothGroups);
     }
 
     [Fact]

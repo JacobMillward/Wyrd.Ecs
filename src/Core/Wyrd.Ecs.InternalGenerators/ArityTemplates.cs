@@ -230,7 +230,7 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
-    /// <summary>Emits the `ArchetypeQuery.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, delegating to the matching `QueryFilter.Any&lt;T0..Tn-1&gt;()`.</summary>
+    /// <summary>Emits the `ArchetypeQuery.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, delegating to the matching `ArchetypeFilter.Any&lt;T0..Tn-1&gt;()`.</summary>
     internal static string ArchetypeQueryAnyMember(int n)
     {
         var tp = TypeParams(n);
@@ -241,15 +241,16 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
-    /// <summary>Emits the internal `QueryFilter.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, building `AnyOf` from all n type indices instead of two.</summary>
-    internal static string QueryFilterAnyMember(int n)
+    /// <summary>Emits the `ArchetypeFilter.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, appending a new group built from all n type indices instead of two.</summary>
+    internal static string ArchetypeFilterAnyMember(int n)
     {
         var tp = TypeParams(n);
         var where = WhereClausesPlain(n);
         var withChain = string.Join("", Indices(n).Select(i => $".With(TypeIndex<T{i}>.Value)"));
         var sb = new StringBuilder();
-        sb.AppendLine($"    internal QueryFilter Any<{tp}>() {where} =>");
-        sb.AppendLine($"        new(Required, Excluded, ArchetypeSignature.Empty{withChain});");
+        sb.AppendLine("    /// <inheritdoc cref=\"Any{T0, T1}\"/>");
+        sb.AppendLine($"    public ArchetypeFilter Any<{tp}>() {where} =>");
+        sb.AppendLine($"        new(Required, Excluded, AnyGroups.Add(ArchetypeSignature.Empty{withChain}));");
         return sb.ToString();
     }
 }

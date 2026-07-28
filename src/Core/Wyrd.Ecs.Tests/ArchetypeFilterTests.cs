@@ -1,0 +1,105 @@
+using Wyrd.Ecs.Internal;
+
+namespace Wyrd.Ecs.Tests;
+
+file struct Alpha : IComponent;
+file struct Gamma : ITag;
+file struct Delta : ITag;
+file struct Epsilon : ITag;
+
+public class ArchetypeFilterTests
+{
+    [Fact]
+    public void Empty_MatchesAnyArchetype()
+    {
+        var signature = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+
+        ArchetypeFilter.Empty.Matches(signature).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Has_RequiresPresence()
+    {
+        var filter = ArchetypeFilter.Empty.Has<Gamma>();
+        var withGamma = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
+        var withoutGamma = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+
+        filter.Matches(withGamma).Should().BeTrue();
+        filter.Matches(withoutGamma).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Without_ExcludesPresence()
+    {
+        var filter = ArchetypeFilter.Empty.Without<Delta>();
+        var withDelta = ArchetypeSignature.Empty.With(TypeIndex<Delta>.Value);
+        var withoutDelta = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+
+        filter.Matches(withDelta).Should().BeFalse();
+        filter.Matches(withoutDelta).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Any_RequiresAtLeastOne()
+    {
+        var filter = ArchetypeFilter.Empty.Any<Gamma, Delta>();
+        var withGammaOnly = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
+        var withNeither = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+
+        filter.Matches(withGammaOnly).Should().BeTrue();
+        filter.Matches(withNeither).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TwoIndependentAnyGroups_BothMustBeSatisfied()
+    {
+        var filter = ArchetypeFilter.Empty.Any<Gamma, Delta>().Any<Alpha, Epsilon>();
+
+        var satisfiesOnlyFirstGroup = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
+        var satisfiesBothGroups = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value).With(TypeIndex<Alpha>.Value);
+
+        filter.Matches(satisfiesOnlyFirstGroup).Should().BeFalse();
+        filter.Matches(satisfiesBothGroups).Should().BeTrue();
+    }
+
+    [Fact]
+    public void CombinedHasWithoutAny_AllMustHold()
+    {
+        var filter = ArchetypeFilter.Empty.Has<Alpha>().Without<Delta>().Any<Gamma, Delta>();
+        var violatesWithout = ArchetypeSignature.Empty
+            .With(TypeIndex<Alpha>.Value).With(TypeIndex<Delta>.Value);
+        var satisfiesAll = ArchetypeSignature.Empty
+            .With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value);
+
+        filter.Matches(violatesWithout).Should().BeFalse();
+        filter.Matches(satisfiesAll).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Combine_UnionsRequiredAndExcluded_ConcatenatesAnyGroups()
+    {
+        // a: requires Alpha, plus "Gamma or Delta". b: excludes Epsilon, plus "Alpha or Epsilon".
+        // Combined: requires Alpha, excludes Epsilon, AND both "Gamma or Delta" and "Alpha or Epsilon" must hold.
+        var a = ArchetypeFilter.Empty.Has<Alpha>().Any<Gamma, Delta>();
+        var b = ArchetypeFilter.Empty.Without<Epsilon>().Any<Alpha, Epsilon>();
+        var combined = a.Combine(b);
+
+        var satisfiesAll = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value);
+        var missingRequiredAlpha = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
+        var violatesExcludedEpsilon = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value).With(TypeIndex<Epsilon>.Value);
+
+        combined.Matches(satisfiesAll).Should().BeTrue();
+        combined.Matches(missingRequiredAlpha).Should().BeFalse();
+        combined.Matches(violatesExcludedEpsilon).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Equals_ComparesByValue()
+    {
+        var a = ArchetypeFilter.Empty.Has<Alpha>().Without<Delta>();
+        var b = ArchetypeFilter.Empty.Has<Alpha>().Without<Delta>();
+
+        a.Equals(b).Should().BeTrue();
+        a.GetHashCode().Should().Be(b.GetHashCode());
+    }
+}

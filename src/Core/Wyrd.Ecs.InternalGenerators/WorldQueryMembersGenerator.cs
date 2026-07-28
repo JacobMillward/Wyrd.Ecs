@@ -100,18 +100,20 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             archetypeQuery.AppendLine("}");
             ctx.AddSource("ArchetypeQuery.AnyMembers.g.cs", archetypeQuery.ToString());
 
-            var queryFilter = new StringBuilder();
-            queryFilter.AppendLine("namespace Wyrd.Ecs.Internal;");
-            queryFilter.AppendLine();
-            queryFilter.AppendLine("internal readonly partial struct QueryFilter");
-            queryFilter.AppendLine("{");
+            var archetypeFilter = new StringBuilder();
+            archetypeFilter.AppendLine("using Wyrd.Ecs.Internal;");
+            archetypeFilter.AppendLine();
+            archetypeFilter.AppendLine("namespace Wyrd.Ecs;");
+            archetypeFilter.AppendLine();
+            archetypeFilter.AppendLine("public readonly partial struct ArchetypeFilter");
+            archetypeFilter.AppendLine("{");
             for (var n = 3; n <= ArityCap.Max; n++)
             {
-                queryFilter.AppendLine(ArityTemplates.QueryFilterAnyMember(n));
-                queryFilter.AppendLine();
+                archetypeFilter.AppendLine(ArityTemplates.ArchetypeFilterAnyMember(n));
+                archetypeFilter.AppendLine();
             }
-            queryFilter.AppendLine("}");
-            ctx.AddSource("QueryFilter.AnyMembers.g.cs", queryFilter.ToString());
+            archetypeFilter.AppendLine("}");
+            ctx.AddSource("ArchetypeFilter.AnyMembers.g.cs", archetypeFilter.ToString());
         });
     }
 }
