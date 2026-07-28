@@ -15,10 +15,6 @@
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.14.28" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="build\Wyrd.Ecs.Persistence.Json.Generators.targets" Pack="true" PackagePath="build\" />
-  </ItemGroup>
-
   <!-- Mirrors the build output to tasks/$(TargetFramework)/, the fixed path the .targets file's UsingTask expects. -->
   <Target Name="CopyTaskAssemblyForLocalConsumption" AfterTargets="Build">
     <Copy SourceFiles="$(TargetPath)"

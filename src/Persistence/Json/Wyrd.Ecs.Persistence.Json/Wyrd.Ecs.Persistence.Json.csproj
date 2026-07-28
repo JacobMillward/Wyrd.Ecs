@@ -7,6 +7,9 @@
     <RootNamespace>Wyrd.Ecs.Persistence.Json</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsAotCompatible>true</IsAotCompatible>
+    <IsPackable>true</IsPackable>
+    <Version>0.1.0-alpha</Version>
+    <Description>JSON snapshot codec for Wyrd.Ecs.Persistence.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,5 +20,29 @@
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Wyrd.Ecs.Persistence.Json.Generators\build\Wyrd.Ecs.Persistence.Json.Generators.targets"
+          Pack="true"
+          PackagePath="buildTransitive\Wyrd.Ecs.Persistence.Json.targets"
+          Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_WyrdEmbedJsonGeneratorTask" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="..\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WyrdJsonGeneratorTargetPath" />
+    </MSBuild>
+    <ItemGroup>
+      <None Include="@(_WyrdJsonGeneratorTargetPath)" Pack="true" PackagePath="tasks/netstandard2.0/" Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>
