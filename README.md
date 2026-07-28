@@ -5,7 +5,7 @@
 
 An archetype-based ECS for .NET 10, built around source generation and first-class persistence.
 
-> Pre-release. APIs are still moving and nothing is published to NuGet yet.
+> Pre-release. APIs are still moving. Packages build locally with `dotnet pack`, but nothing is published to NuGet yet.
 
 - Archetype storage. Entities with the same components live together in dense arrays.
 - A fluent, generator-backed query chain: `world.Query().With<T>().With<U>().Without<X>().Any<A, B>().ForEach(...)`. Query for as much as you need, no limit. Each component's read/write access comes from the `ref`/`in` on the callback itself — nothing to declare twice. `.With<A, B, C>()` collapses what would otherwise be three chained calls into one (also works for `.Without`/`.Has`/`.Any`, up to 8 at a time).
@@ -87,7 +87,7 @@ Each package under `src/` has a matching `.Tests` project alongside it.
 
 ## Known gaps
 
-- No published package. Reference the projects directly until a release goes out.
+- No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, and `Wyrd.Ecs.Persistence.Continuous`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
 
 ## License
 
