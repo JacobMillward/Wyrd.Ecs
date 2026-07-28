@@ -89,7 +89,6 @@ Each package under `src/` has a matching `.Tests` project alongside it.
 ## Known gaps
 
 - No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, and `Wyrd.Ecs.Persistence.Continuous`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
-- Breaking change, pre-release: the `Has<T>`/`Without<T>`/`Any<T0,...,T7>` marker structs are gone — `.Has`/`.Without`/`.Any` are ordinary `Query<TShape>` methods now, and the internal `QueryFilter` type is public `ArchetypeFilter`. Nothing in this repo's own code named those marker types directly (they were compiler-only, never meant to be used by hand), but anything that did will need updating.
 
 ## License
 
