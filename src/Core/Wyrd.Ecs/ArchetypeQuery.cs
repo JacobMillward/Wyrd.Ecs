@@ -35,8 +35,21 @@ public sealed partial class ArchetypeQuery
     /// <summary>Requires the archetype to contain at least one of <typeparamref name="T0"/>/<typeparamref name="T1"/>.</summary>
     public ArchetypeQuery Any<T0, T1>() where T0 : struct where T1 : struct => new(_filter.Any<T0, T1>());
 
-    /// <summary>Combines this query's filter with <paramref name="other"/>'s — every requirement from both must hold. See <see cref="ArchetypeFilter.Combine"/>.</summary>
-    public ArchetypeQuery Combine(ArchetypeQuery other) => new(_filter.Combine(other._filter));
+    /// <summary>
+    /// Combines this query's filter with <paramref name="other"/>'s — every requirement from
+    /// both must hold. See <see cref="ArchetypeFilter.Combine"/>. Every generated
+    /// <c>.ForEach</c>/<c>.ParallelForEach</c> terminal calls this on its cached backend with
+    /// the caller's <c>Query&lt;TShape&gt;.Filter</c> — the common case is a caller who never
+    /// called <c>.Without</c>/<c>.Has</c>/<c>.Any</c> at all, so <paramref name="other"/> is
+    /// still the exact <see cref="Empty"/> reference <see cref="Query{TShape}"/>'s
+    /// parameterless constructor set it to. <see cref="ArchetypeQuery"/> is a reference type,
+    /// so skipping the real combine (and the `new` it would otherwise allocate) for that one
+    /// reference is a measured fix, not a speculative one — see
+    /// <c>ArchetypeSignatureBenchmarks</c>/the query-filter-runtime-unification plan's Task 6:
+    /// without this, every steady-state <c>.ForEach</c> call allocated where it previously
+    /// didn't, confirmed via <c>QueryIterationBenchmarks</c> before/after this fast path existed.
+    /// </summary>
+    public ArchetypeQuery Combine(ArchetypeQuery other) => ReferenceEquals(other, Empty) ? this : new(_filter.Combine(other._filter));
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is ArchetypeQuery other && _filter.Equals(other._filter);
