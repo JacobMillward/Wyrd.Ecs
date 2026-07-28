@@ -41,7 +41,23 @@
       <Output TaskParameter="TargetOutputs" ItemName="_WyrdJsonGeneratorTargetPath" />
     </MSBuild>
     <ItemGroup>
+      <!--
+        The same assembly serves two roles and is packed at both paths it needs to be
+        found at: tasks/netstandard2.0/ for JsonContextEmitTask, the MSBuild Task the
+        .targets file's UsingTask points at; analyzers/dotnet/cs/ for
+        JsonRegistrationGenerator, the IIncrementalGenerator that emits
+        ComponentCodecRegistry auto-registration and AddJsonPersistence(path)/(store) -
+        without this second path, a consumer pulling this package in via a plain
+        PackageReference gets the MSBuild task (so their project compiles) but never gets
+        the generator wired in, so AddJsonPersistence never materializes. Roslyn's own
+        generator/analyzer discovery already tolerates an assembly whose other types fail
+        to load (it catches ReflectionTypeLoadException and keeps whatever types did
+        load), which is what makes shipping one assembly both ways safe despite
+        JsonContextEmitTask's own base type needing Microsoft.Build.Utilities.Core, an
+        assembly no analyzer host loads.
+      -->
       <None Include="@(_WyrdJsonGeneratorTargetPath)" Pack="true" PackagePath="tasks/netstandard2.0/" Visible="false" />
+      <None Include="@(_WyrdJsonGeneratorTargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
     </ItemGroup>
   </Target>
 
