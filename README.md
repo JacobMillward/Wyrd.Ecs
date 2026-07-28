@@ -11,6 +11,7 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 - A fluent, generator-backed query chain: `world.Query().With<T>().With<U>().Without<X>().Any<A, B>().ForEach(...)`. Query for as much as you need, no limit. Each component's read/write access comes from the `ref`/`in` on the callback itself — nothing to declare twice. `.With<A, B, C>()` collapses what would otherwise be three chained calls into one (also works for `.Without`/`.Has`/`.Any`, up to 8 at a time).
 
   > No boxing, no reflection on the hot path.
+- `.Without`/`.Has`/`.Any` can be applied conditionally — they never change the query's shape, only its runtime filter, so `if (hardcore) query = query.Has<HardcoreOnly>();` compiles and works exactly as you'd expect.
 - `QuerySystem` sugar for the declared-system case. Override `DefineQuery` (query shape) and declare an `Update` (per-entity body) method, the generator fills in dispatch.
 - Systems run in parallel automatically. Register them with `WorldBuilder.WithSystems(...)`, call `World.Tick(...)`, and independent systems spread across your CPU cores with no thread code of your own.
 
@@ -88,6 +89,7 @@ Each package under `src/` has a matching `.Tests` project alongside it.
 ## Known gaps
 
 - No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, and `Wyrd.Ecs.Persistence.Continuous`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
+- Breaking change, pre-release: the `Has<T>`/`Without<T>`/`Any<T0,...,T7>` marker structs are gone — `.Has`/`.Without`/`.Any` are ordinary `Query<TShape>` methods now, and the internal `QueryFilter` type is public `ArchetypeFilter`. Nothing in this repo's own code named those marker types directly (they were compiler-only, never meant to be used by hand), but anything that did will need updating.
 
 ## License
 
