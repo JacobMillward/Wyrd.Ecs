@@ -2,41 +2,87 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// An archetype's identity: an immutable bitset over the shared <see cref="TypeIndex{T}"/>
-/// space (component and tag indices share one index space, so one bitset covers both).
-/// Words beyond either operand's length are treated as zero — <see cref="Equals(ArchetypeSignature)"/>
-/// and <see cref="GetHashCode"/> both ignore trailing all-zero words so equal bit sets
-/// compare/hash identically regardless of how they were constructed.
+/// space (component and tag indices share one index space, so one bitset covers both). The
+/// first 256 bits (<see cref="InlineWordCount"/> x 64) live directly in this struct's own
+/// fields — no heap allocation for any project realistically under that many distinct
+/// component+tag types combined. A type index at or beyond 256 falls back to a heap
+/// <c>ulong[]</c>, sized to fit only the overflow words actually needed — correctness for
+/// <see cref="TypeIndex{T}"/>'s unbounded index space is preserved; the common case just
+/// never touches the heap. Words beyond either operand's length (inline or overflow) are
+/// treated as zero — <see cref="Equals(ArchetypeSignature)"/> and <see cref="GetHashCode"/>
+/// both ignore trailing all-zero words so equal bit sets compare/hash identically regardless
+/// of how they were constructed. <c>default(ArchetypeSignature)</c> (all-zero inline words,
+/// null overflow) is deliberately equivalent to <see cref="Empty"/> — every operation below
+/// treats a null <see cref="_overflow"/> the same as an empty one, so a struct-defaulted
+/// value is always safe to call into, not just <see cref="Empty"/> itself.
 /// </summary>
 internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
 {
-    private readonly ulong[] _words;
+    private const int InlineWordCount = 4;
 
-    private ArchetypeSignature(ulong[] words) => _words = words;
+    private readonly ulong _w0, _w1, _w2, _w3;
+    private readonly ulong[]? _overflow;
 
-    internal static readonly ArchetypeSignature Empty = new(Array.Empty<ulong>());
+    private ArchetypeSignature(ulong w0, ulong w1, ulong w2, ulong w3, ulong[]? overflow)
+    {
+        _w0 = w0;
+        _w1 = w1;
+        _w2 = w2;
+        _w3 = w3;
+        _overflow = overflow;
+    }
+
+    internal static readonly ArchetypeSignature Empty = new(0, 0, 0, 0, null);
+
+    private int OverflowLength => _overflow?.Length ?? 0;
+
+    private int TotalWordCount => InlineWordCount + OverflowLength;
+
+    private ulong GetWord(int wordIndex) => wordIndex switch
+    {
+        0 => _w0,
+        1 => _w1,
+        2 => _w2,
+        3 => _w3,
+        _ => wordIndex - InlineWordCount < OverflowLength ? _overflow![wordIndex - InlineWordCount] : 0UL,
+    };
 
     internal bool Contains(int typeIndex)
     {
         var word = typeIndex >> 6;
-        return word < _words.Length && (_words[word] & (1UL << (typeIndex & 63))) != 0;
+        return (GetWord(word) & (1UL << (typeIndex & 63))) != 0;
     }
 
     internal ArchetypeSignature With(int typeIndex)
     {
         var word = typeIndex >> 6;
-        var words = new ulong[Math.Max(_words.Length, word + 1)];
-        Array.Copy(_words, words, _words.Length);
-        words[word] |= 1UL << (typeIndex & 63);
-        return new ArchetypeSignature(words);
+        var bit = 1UL << (typeIndex & 63);
+
+        if (word < InlineWordCount)
+        {
+            return new ArchetypeSignature(
+                word == 0 ? _w0 | bit : _w0,
+                word == 1 ? _w1 | bit : _w1,
+                word == 2 ? _w2 | bit : _w2,
+                word == 3 ? _w3 | bit : _w3,
+                _overflow);
+        }
+
+        var overflowIndex = word - InlineWordCount;
+        var overflow = new ulong[Math.Max(OverflowLength, overflowIndex + 1)];
+        if (_overflow is not null) Array.Copy(_overflow, overflow, _overflow.Length);
+        overflow[overflowIndex] |= bit;
+        return new ArchetypeSignature(_w0, _w1, _w2, _w3, overflow);
     }
 
     /// <summary>True when every bit set in this signature is also set in <paramref name="other"/>.</summary>
     internal bool IsSubsetOf(ArchetypeSignature other)
     {
-        for (var i = 0; i < _words.Length; i++)
+        var length = TotalWordCount;
+        for (var i = 0; i < length; i++)
         {
-            var theirs = i < other._words.Length ? other._words[i] : 0UL;
-            if ((_words[i] & theirs) != _words[i]) return false;
+            var mine = GetWord(i);
+            if ((mine & other.GetWord(i)) != mine) return false;
         }
         return true;
     }
@@ -44,9 +90,9 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
     /// <summary>True when any bit set in this signature is also set in <paramref name="other"/>.</summary>
     internal bool Intersects(ArchetypeSignature other)
     {
-        var length = Math.Min(_words.Length, other._words.Length);
+        var length = Math.Min(TotalWordCount, other.TotalWordCount);
         for (var i = 0; i < length; i++)
-            if ((_words[i] & other._words[i]) != 0)
+            if ((GetWord(i) & other.GetWord(i)) != 0)
                 return true;
         return false;
     }
@@ -54,21 +100,49 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
     internal ArchetypeSignature Without(int typeIndex)
     {
         var word = typeIndex >> 6;
-        if (word >= _words.Length) return this;
-        var words = (ulong[])_words.Clone();
-        words[word] &= ~(1UL << (typeIndex & 63));
-        return new ArchetypeSignature(words);
+        var bit = 1UL << (typeIndex & 63);
+
+        if (word < InlineWordCount)
+        {
+            return new ArchetypeSignature(
+                word == 0 ? _w0 & ~bit : _w0,
+                word == 1 ? _w1 & ~bit : _w1,
+                word == 2 ? _w2 & ~bit : _w2,
+                word == 3 ? _w3 & ~bit : _w3,
+                _overflow);
+        }
+
+        var overflowIndex = word - InlineWordCount;
+        if (overflowIndex >= OverflowLength) return this;
+        var overflow = (ulong[])_overflow!.Clone();
+        overflow[overflowIndex] &= ~bit;
+        return new ArchetypeSignature(_w0, _w1, _w2, _w3, overflow);
+    }
+
+    /// <summary>The bitwise union of this signature and <paramref name="other"/> — every bit set in either.</summary>
+    internal ArchetypeSignature Union(ArchetypeSignature other)
+    {
+        var length = Math.Max(TotalWordCount, other.TotalWordCount);
+        var result = this;
+        for (var word = 0; word < length; word++)
+        {
+            var bits = other.GetWord(word) & ~GetWord(word);
+            var bitIndex = 0;
+            while (bits != 0)
+            {
+                if ((bits & 1UL) != 0) result = result.With(word * 64 + bitIndex);
+                bits >>= 1;
+                bitIndex++;
+            }
+        }
+        return result;
     }
 
     public bool Equals(ArchetypeSignature other)
     {
-        var length = Math.Max(_words.Length, other._words.Length);
+        var length = Math.Max(TotalWordCount, other.TotalWordCount);
         for (var i = 0; i < length; i++)
-        {
-            var mine = i < _words.Length ? _words[i] : 0UL;
-            var theirs = i < other._words.Length ? other._words[i] : 0UL;
-            if (mine != theirs) return false;
-        }
+            if (GetWord(i) != other.GetWord(i)) return false;
         return true;
     }
 
@@ -76,12 +150,12 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
 
     public override int GetHashCode()
     {
-        var length = _words.Length;
-        while (length > 0 && _words[length - 1] == 0) length--;
+        var length = TotalWordCount;
+        while (length > 0 && GetWord(length - 1) == 0) length--;
 
         var hash = new HashCode();
         for (var i = 0; i < length; i++)
-            hash.Add(_words[i]);
+            hash.Add(GetWord(i));
         return hash.ToHashCode();
     }
 }

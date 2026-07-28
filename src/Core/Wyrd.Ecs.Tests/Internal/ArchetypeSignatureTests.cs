@@ -12,6 +12,39 @@ public class ArchetypeSignatureTests
     }
 
     [Fact]
+    public void Default_BehavesIdenticallyToEmpty()
+    {
+        var defaulted = default(ArchetypeSignature);
+
+        defaulted.Contains(0).Should().BeFalse();
+        defaulted.Contains(300).Should().BeFalse();
+        defaulted.Should().Be(ArchetypeSignature.Empty);
+        defaulted.GetHashCode().Should().Be(ArchetypeSignature.Empty.GetHashCode());
+        defaulted.IsSubsetOf(ArchetypeSignature.Empty.With(1)).Should().BeTrue();
+        defaulted.Intersects(ArchetypeSignature.Empty.With(1)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void With_IndexPastInlineCapacity_StillWorks()
+    {
+        // 4 inline 64-bit words = 256 bits; 300 forces the heap-array overflow path.
+        var signature = ArchetypeSignature.Empty.With(300);
+
+        signature.Contains(300).Should().BeTrue();
+        signature.Contains(299).Should().BeFalse();
+    }
+
+    [Fact]
+    public void SameBits_AreEqual_AcrossInlineAndOverflowConstructionOrder()
+    {
+        var a = ArchetypeSignature.Empty.With(1).With(300);
+        var b = ArchetypeSignature.Empty.With(300).With(1);
+
+        a.Should().Be(b);
+        a.GetHashCode().Should().Be(b.GetHashCode());
+    }
+
+    [Fact]
     public void With_AddsTheBit()
     {
         var signature = ArchetypeSignature.Empty.With(5);
