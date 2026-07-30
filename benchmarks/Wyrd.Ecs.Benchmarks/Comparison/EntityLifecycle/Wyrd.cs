@@ -35,7 +35,8 @@ public partial class EntityLifecycleBenchmarks
     /// </summary>
     [IterationSetup(Targets = [
         nameof(Wyrd_CreateBareEntity), nameof(Wyrd_CreateOneComponentEntity),
-        nameof(Wyrd_CreateFourComponentEntity), nameof(Wyrd_CreateEightComponentEntity)])]
+        nameof(Wyrd_CreateFourComponentEntity), nameof(Wyrd_CreateEightComponentEntity),
+        nameof(Wyrd_CreateOneComponentEntity_Batch)])]
     public void Wyrd_ResetContext() => _wyrd = new WyrdContext();
 
     [Benchmark(Baseline = true, OperationsPerInvoke = EntityCount)]
@@ -69,6 +70,14 @@ public partial class EntityLifecycleBenchmarks
             _wyrd.World.Commands.CreateEntity(
                 new Position(), new Velocity(), new Health(), new BulkPayload(),
                 new Padding1(), new Padding2(), new Padding3(), new Padding4());
+        _wyrd.World.ApplyCommands();
+    }
+
+    /// <summary>One <see cref="CommandBuffer.CreateEntity{T0}(int, T0)"/> call for the whole <see cref="EntityCount"/>-sized batch.</summary>
+    [Benchmark(OperationsPerInvoke = EntityCount)]
+    public void Wyrd_CreateOneComponentEntity_Batch()
+    {
+        _wyrd.World.Commands.CreateEntity(EntityCount, new Position());
         _wyrd.World.ApplyCommands();
     }
 
