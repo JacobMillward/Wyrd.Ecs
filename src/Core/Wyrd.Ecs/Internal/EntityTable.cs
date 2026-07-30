@@ -12,7 +12,7 @@ namespace Wyrd.Ecs.Internal;
 ///
 /// <para>
 /// <see cref="Reserve"/> is the one method here callable concurrently from several
-/// threads at once (via <see cref="CommandBuffer.CreateEntity"/>, from several systems
+/// threads at once (via <see cref="CommandBuffer.CreateEntity()"/>, from several systems
 /// in the same <c>ScheduledExecutor</c> stage) — every other method on this type still
 /// assumes single-threaded, pre-/post-stage access. Rather than a lock, it mirrors
 /// Bevy's <c>Entities::reserve_entity</c>: an atomic cursor (<see cref="_freeCursor"/>)

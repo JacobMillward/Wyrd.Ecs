@@ -147,6 +147,11 @@ public sealed partial class CommandBuffer
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, _, _) => w.PlaceReservedEntity(e);
     }
 
+    private static class BatchPlaceReservedOp
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, _, buffer, _) => w.PlaceReservedEntities((Entity[])buffer!);
+    }
+
     private static class AddComponentOp<T> where T : struct, IComponent
     {
         // TODO: once logging exists, warn here when the overwrite branch runs -
@@ -202,6 +207,28 @@ public sealed partial class CommandBuffer
         var entity = _world.ReserveEntity();
         lock (_gate) Enqueue(new QueuedCommand(entity, PlaceReservedOp.Apply, null, 0));
         return entity;
+    }
+
+    /// <summary>
+    /// Bulk counterpart to <see cref="CreateEntity()"/>: reserves <paramref name="count"/>
+    /// real <see cref="Entity"/> ids immediately via <see cref="World.ReserveEntityRange"/>
+    /// (one bulk reservation, not <paramref name="count"/> individual ones) and queues
+    /// their placement into the empty archetype as a single deferred command. The
+    /// returned entities are not <see cref="World.IsAlive"/> until
+    /// <see cref="World.ApplyCommands()"/> runs. Returns <see cref="Array.Empty{T}"/> for
+    /// <paramref name="count"/> == 0 without reserving or queuing anything; throws
+    /// <see cref="ArgumentOutOfRangeException"/> for a negative count.
+    /// </summary>
+    public Entity[] CreateEntity(int count)
+    {
+        if (count == 0) return Array.Empty<Entity>();
+        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), count, "count must be non-negative.");
+
+        var entities = new Entity[count];
+        _world.ReserveEntityRange(entities);
+
+        lock (_gate) Enqueue(new QueuedCommand(default, BatchPlaceReservedOp.Apply, entities, 0));
+        return entities;
     }
 
     /// <summary>Queues destroying <paramref name="entity"/>. A no-op at apply time if the entity was already destroyed (or never placed) by an earlier queued command. Safe to call concurrently from several threads at once.</summary>

@@ -205,14 +205,30 @@ public sealed partial class World : IWorld
         _entityTable.FlushReservations();
     }
 
-    /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="CommandBuffer.CreateEntity"/>.</summary>
+    /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="CommandBuffer.CreateEntity()"/>.</summary>
     internal Entity ReserveEntity() => _entityTable.Reserve();
 
-    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive, and notifies observers. Used only by <see cref="CommandBuffer.CreateEntity"/>'s queued placement.</summary>
+    /// <summary>Bulk counterpart to <see cref="ReserveEntity"/> — see <see cref="Internal.EntityTable.ReserveRange"/>. Used by <see cref="CommandBuffer.CreateEntity(int)"/> and its component-carrying siblings.</summary>
+    internal void ReserveEntityRange(Span<Entity> destination) => _entityTable.ReserveRange(destination);
+
+    /// <summary>Places a previously-reserved entity into the empty archetype, making it alive, and notifies observers. Used only by <see cref="CommandBuffer.CreateEntity()"/>'s queued placement.</summary>
     internal void PlaceReservedEntity(Entity entity)
     {
         _entityTable.Place(entity, _emptyArchetype);
         NotifyEntityCreated(entity);
+    }
+
+    /// <summary>
+    /// Bulk counterpart to <see cref="PlaceReservedEntity(Entity)"/>: places every entity
+    /// in <paramref name="entities"/> into the empty archetype in one
+    /// <see cref="Internal.Archetype.AddRows"/> call. Used only by
+    /// <see cref="CommandBuffer.CreateEntity(int)"/>'s queued placement.
+    /// </summary>
+    internal void PlaceReservedEntities(Entity[] entities)
+    {
+        var startRow = _emptyArchetype.AddRows(entities);
+        _entityTable.PlaceBatch(entities, _emptyArchetype, startRow);
+        foreach (var entity in entities) NotifyEntityCreated(entity);
     }
 
     /// <summary>
