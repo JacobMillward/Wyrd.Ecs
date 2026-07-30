@@ -41,6 +41,8 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             {
                 world.AppendLine(ArityTemplates.PlaceReservedEntityMember(n));
                 world.AppendLine();
+                world.AppendLine(ArityTemplates.PlaceReservedEntitiesMember(n));
+                world.AppendLine();
             }
             world.AppendLine("}");
             ctx.AddSource("World.QueryMembers.g.cs", world.ToString());
@@ -54,12 +56,16 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             {
                 commands.AppendLine(ArityTemplates.CreateEntityOpClass(n));
                 commands.AppendLine();
+                commands.AppendLine(ArityTemplates.BatchCreateEntityOpClass(n));
+                commands.AppendLine();
             }
             commands.AppendLine("public sealed partial class CommandBuffer");
             commands.AppendLine("{");
             for (var n = 1; n <= ArityCap.Max; n++)
             {
                 commands.AppendLine(ArityTemplates.CommandBufferCreateEntityMember(n));
+                commands.AppendLine();
+                commands.AppendLine(ArityTemplates.CommandBufferBatchCreateEntityMember(n));
                 commands.AppendLine();
             }
             commands.AppendLine("}");

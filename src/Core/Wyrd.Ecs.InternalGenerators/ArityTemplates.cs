@@ -96,6 +96,46 @@ internal static class ArityTemplates
     }
 
     /// <summary>
+    /// Emits the internal <c>World</c> method <c>PlaceReservedEntities&lt;T0..TN-1&gt;(Entity[], T0, ...)</c>:
+    /// batch counterpart of <see cref="PlaceReservedEntityMember"/> — places every entity
+    /// in the given array into the archetype matching <c>T0..TN-1</c> (creating it if
+    /// needed) and blits the given component values across every one of their rows in
+    /// one <see cref="Internal.ComponentStorage{T}.Fill"/> call per component type. Used
+    /// only by the matching generated <c>CommandBuffer.CreateEntity&lt;T0..TN-1&gt;(int, ...)</c>
+    /// overload's queued placement — see <see cref="CommandBufferBatchCreateEntityMember"/>.
+    /// </summary>
+    internal static string PlaceReservedEntitiesMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Batch counterpart of <see cref=\"PlaceReservedEntity{T0}(Entity, T0)\"/>: places every entity into the matching archetype, creating it if needed, and blits the given component value across every one of their rows.</summary>"
+            : "    /// <inheritdoc cref=\"PlaceReservedEntities{T0}(Entity[], T0)\"/>");
+        sb.AppendLine($"    internal void PlaceReservedEntities<{tp}>(Entity[] entities, {parameters}) {where}");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        var signature = QuerySignature<{tp}>.Value;");
+        sb.AppendLine("        if (!_archetypes.TryGetValue(signature, out var target))");
+        sb.AppendLine("            target = CreateArchetype(signature);");
+        sb.AppendLine();
+        sb.AppendLine("        var startRow = target.AddRows(entities);");
+        sb.AppendLine("        _entityTable.PlaceBatch(entities, target, startRow);");
+        sb.AppendLine();
+        foreach (var i in Indices(n))
+        {
+            sb.AppendLine($"        var storage{i} = target.GetOrCreateStorage<T{i}>();");
+            sb.AppendLine($"        storage{i}.Fill(startRow, entities.Length, component{i});");
+            sb.AppendLine($"        if (IsTracked(TypeIndex<T{i}>.Value)) storage{i}.MarkDirtyRange(startRow, entities.Length, _currentTick);");
+            sb.AppendLine();
+        }
+        sb.AppendLine("        foreach (var entity in entities) NotifyEntityCreated(entity);");
+        sb.AppendLine("    }");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Emits <c>file static class CreateEntityOp&lt;T0..TN-1&gt;</c>: a cached,
     /// non-capturing dispatcher delegate for <see cref="CommandBufferCreateEntityMember"/>'s
     /// queued placement — one static instance per closed generic combination, created
@@ -133,6 +173,36 @@ internal static class ArityTemplates
     }
 
     /// <summary>
+    /// Emits <c>file static class BatchCreateEntityOp&lt;T0..TN-1&gt;</c>: the batch
+    /// counterpart of <see cref="CreateEntityOpClass"/> — one cached, non-capturing
+    /// dispatcher per closed generic combination, unboxing a
+    /// <c>(Entity[] Entities, T0 Component0, ...)</c> tuple (rather than a single value
+    /// or value-only tuple) and calling <see cref="PlaceReservedEntitiesMember"/>'s
+    /// emitted method.
+    /// </summary>
+    internal static string BatchCreateEntityOpClass(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var tupleType = $"(Entity[], {tp})";
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "/// <summary>Cached, non-capturing dispatcher for <see cref=\"CommandBuffer.CreateEntity{T0}(int, T0)\"/>'s queued placement.</summary>"
+            : "/// <inheritdoc cref=\"BatchCreateEntityOp{T0}\"/>");
+        sb.AppendLine($"file static class BatchCreateEntityOp<{tp}> {where}");
+        sb.AppendLine("{");
+        var items = string.Join(", ", Indices(n).Select(i => $"t.Item{i + 2}"));
+        sb.AppendLine("    internal static readonly Action<World, Entity, object?, int> Apply = (w, _, v, _) =>");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        var t = ({tupleType})v!;");
+        sb.AppendLine($"        w.PlaceReservedEntities(t.Item1, {items});");
+        sb.AppendLine("    };");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Emits the <c>CommandBuffer</c> method <c>CreateEntity&lt;T0..TN-1&gt;(T0, ...)</c>:
     /// reserves a real entity id immediately (same as bare <c>CommandBuffer.CreateEntity()</c>)
     /// and queues its placement with the given component values already set, going
@@ -162,6 +232,41 @@ internal static class ArityTemplates
         sb.AppendLine("        var entity = _world.ReserveEntity();");
         sb.AppendLine($"        lock (_gate) Enqueue(new QueuedCommand(entity, CreateEntityOp<{tp}>.Apply, {value}, 0));");
         sb.AppendLine("        return entity;");
+        sb.AppendLine("    }");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits the <c>CommandBuffer</c> method <c>CreateEntity&lt;T0..TN-1&gt;(int count, T0, ...)</c>:
+    /// reserves <c>count</c> real <see cref="Entity"/> ids immediately via
+    /// <c>World.ReserveEntityRange</c> (one bulk reservation, not <c>count</c> individual
+    /// ones) and queues their placement — all sharing the given component values — as a
+    /// single deferred command. The returned entities are not <c>World.IsAlive</c> until
+    /// <c>World.ApplyCommands()</c> runs. Returns <c>Array.Empty&lt;Entity&gt;()</c> for
+    /// <c>count == 0</c> without reserving or queuing anything; throws
+    /// <c>ArgumentOutOfRangeException</c> for a negative count.
+    /// </summary>
+    internal static string CommandBufferBatchCreateEntityMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var parameters = string.Join(", ", Indices(n).Select(i => $"T{i} component{i}"));
+        var componentArgs = string.Join(", ", Indices(n).Select(i => $"component{i}"));
+        var sb = new StringBuilder();
+
+        sb.AppendLine(n == 1
+            ? "    /// <summary>Batch counterpart of <see cref=\"CreateEntity{T0}(T0)\"/>: reserves <c>count</c> real <see cref=\"Entity\"/> ids immediately and queues their placement, all sharing the given component value. Not <see cref=\"World.IsAlive\"/> until <see cref=\"World.ApplyCommands()\"/> runs.</summary>"
+            : "    /// <inheritdoc cref=\"CreateEntity{T0}(int, T0)\"/>");
+        sb.AppendLine($"    public Entity[] CreateEntity<{tp}>(int count, {parameters}) {where}");
+        sb.AppendLine("    {");
+        sb.AppendLine("        if (count == 0) return Array.Empty<Entity>();");
+        sb.AppendLine("        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), count, \"count must be non-negative.\");");
+        sb.AppendLine();
+        sb.AppendLine("        var entities = new Entity[count];");
+        sb.AppendLine("        _world.ReserveEntityRange(entities);");
+        sb.AppendLine();
+        sb.AppendLine($"        lock (_gate) Enqueue(new QueuedCommand(default, BatchCreateEntityOp<{tp}>.Apply, (entities, {componentArgs}), 0));");
+        sb.AppendLine("        return entities;");
         sb.AppendLine("    }");
         return sb.ToString();
     }
