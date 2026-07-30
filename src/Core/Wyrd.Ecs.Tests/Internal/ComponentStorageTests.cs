@@ -160,4 +160,45 @@ public class ComponentStorageTests
 
         storage.RawLastMarkedTick[0].Should().Be(6);
     }
+
+    [Fact]
+    public void Fill_WritesTheSameValueToEveryRowInTheRange()
+    {
+        var storage = new ComponentStorage<Value>();
+        storage.EnsureCapacity(5);
+
+        storage.Fill(startRow: 1, count: 3, new Value { Number = 7 });
+
+        storage[0].Number.Should().Be(0);
+        storage[1].Number.Should().Be(7);
+        storage[2].Number.Should().Be(7);
+        storage[3].Number.Should().Be(7);
+        storage[4].Number.Should().Be(0);
+    }
+
+    [Fact]
+    public void Fill_WritesIndependentCopiesNotASharedReference()
+    {
+        var storage = new ComponentStorage<Value>();
+        storage.EnsureCapacity(2);
+
+        storage.Fill(startRow: 0, count: 2, new Value { Number = 1 });
+        storage[0].Number = 99;
+
+        storage[1].Number.Should().Be(1); // mutating one row's copy must not affect the other
+    }
+
+    [Fact]
+    public void MarkDirtyRange_StampsEveryRowInTheRangeWithTheGivenTick()
+    {
+        var storage = new ComponentStorage<Value>();
+        storage.EnsureCapacity(4);
+
+        storage.MarkDirtyRange(startRow: 1, count: 2, tick: 42);
+
+        storage.RawLastMarkedTick[0].Should().Be(0);
+        storage.RawLastMarkedTick[1].Should().Be(42);
+        storage.RawLastMarkedTick[2].Should().Be(42);
+        storage.RawLastMarkedTick[3].Should().Be(0);
+    }
 }

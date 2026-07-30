@@ -56,4 +56,17 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
     /// there is no log entry to avoid duplicating.
     /// </summary>
     internal void MarkDirty(int row, int tick) => _lastMarkedTick[row] = tick;
+
+    /// <summary>
+    /// Writes <paramref name="value"/> to every row in <c>[startRow, startRow + count)</c>
+    /// in one <see cref="Span{T}.Fill"/> call — the actual "blitting" batch entity
+    /// creation exists for, replacing what would otherwise be <paramref name="count"/>
+    /// individual indexer writes. Caller (<see cref="World.PlaceReservedEntities{T0}"/>
+    /// and its higher-arity siblings) guarantees capacity already covers the range via
+    /// <see cref="Archetype.AddRows"/>'s own <see cref="EnsureCapacity"/> call.
+    /// </summary>
+    internal void Fill(int startRow, int count, T value) => _items.AsSpan(startRow, count).Fill(value);
+
+    /// <summary>Bulk counterpart to <see cref="MarkDirty"/>: stamps every row in <c>[startRow, startRow + count)</c> with <paramref name="tick"/> in one <see cref="Span{T}.Fill"/> call.</summary>
+    internal void MarkDirtyRange(int startRow, int count, int tick) => _lastMarkedTick.AsSpan(startRow, count).Fill(tick);
 }
