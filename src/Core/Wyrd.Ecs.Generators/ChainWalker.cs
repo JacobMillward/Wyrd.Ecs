@@ -149,6 +149,41 @@ internal static class ChainWalker
     }
 
     /// <summary>
+    /// Walks <paramref name="queryType"/>'s nested tuple shape the same way
+    /// <see cref="TryExtractShapeFromQueryType"/> does, purely to find a `file`-scoped
+    /// component type, if any -- these can never work with the query-chain generator: its
+    /// emitted `.ForEach`/`.ParallelForEach` terminals and `QuerySystem` glue live in a
+    /// *separate* generated source file, which cannot reference a `file`-scoped type
+    /// declared in the consumer's own file, regardless of whether some other type happens
+    /// to share its simple name (the actual way this was found -- see WYRD004). Returns the
+    /// first offending type's simple name, or <c>null</c> if none (including when
+    /// <paramref name="queryType"/> isn't a <c>Query&lt;TShape&gt;</c>, or its shape is
+    /// malformed -- either of those is <see cref="TryExtractShapeFromQueryType"/>'s own
+    /// concern, not this method's). Kept as its own pass rather than folded into
+    /// <see cref="TryExtractShapeFromQueryType"/> itself, so that method's existing,
+    /// well-tested walk stays untouched -- this only ever adds a diagnostic on top of it.
+    /// </summary>
+    internal static string? TryFindFileLocalComponentType(INamedTypeSymbol queryType, CancellationToken ct)
+    {
+        if (!IsQueryOfShape(queryType)) return null;
+        if (queryType.TypeArguments is not [var shapeType]) return null;
+
+        var current = shapeType;
+        while (current is INamedTypeSymbol named && !IsNil(named))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!named.IsTupleType || named.TupleElements.Length != 2) return null;
+            if (named.TupleElements[0].Type is INamedTypeSymbol { IsFileLocal: true } fileLocal)
+                return fileLocal.Name;
+
+            current = named.TupleElements[1].Type;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass whose
     /// <c>Execute</c> override directly contains <paramref name="terminal"/>, or
     /// <c>null</c> if it isn't inside one — walks the override chain, not just the

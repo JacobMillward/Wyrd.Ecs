@@ -19,10 +19,17 @@ internal static class GeneratorTestHost
             .Append(MetadataReference.CreateFromFile(typeof(IComponent).Assembly.Location))
             .ToArray();
 
-    public static CSharpCompilation Compile(string source) =>
+    public static CSharpCompilation Compile(string source) => Compile([source]);
+
+    /// <summary>
+    /// Same as <see cref="Compile(string)"/>, but each string becomes its own syntax tree with
+    /// a distinct <c>path</c> -- without one, <c>IsFileLocal</c> can't tell same-named `file`-scoped
+    /// types apart across trees, since they'd otherwise share the same blank path.
+    /// </summary>
+    public static CSharpCompilation Compile(params string[] sources) =>
         CSharpCompilation.Create(
             assemblyName: "GeneratorsTestAssembly",
-            syntaxTrees: [CSharpSyntaxTree.ParseText(source)],
+            syntaxTrees: sources.Select((s, i) => CSharpSyntaxTree.ParseText(s, path: $"File{i}.cs")),
             references: References,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

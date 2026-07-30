@@ -35,22 +35,14 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                         Name: IdentifierNameSyntax { Identifier.ValueText: "ForEach" or "ParallelForEach" }
                     }
                 },
-                transform: static (ctx, ct) =>
-                {
-                    var invocation = (InvocationExpressionSyntax)ctx.Node;
-                    var shape = ChainWalker.TryExtractShape(invocation, ctx.SemanticModel, ct);
-                    var systemTypeName = shape is null ? null : ChainWalker.TryFindEnclosingSystemType(invocation, ctx.SemanticModel, ct);
-                    return (Shape: shape, SystemTypeName: systemTypeName);
-                })
-            .Where(static c => c.Shape is not null)
-            .Select(static (c, _) => (Shape: c.Shape!, c.SystemTypeName))
+                transform: static (ctx, ct) => ExtractChainCandidate((InvocationExpressionSyntax)ctx.Node, ctx.SemanticModel, ct))
+            .Where(static c => c.Shape is not null || c.Diagnostic is not null)
             .WithTrackingName("QueryChainShape");
 
         var querySystemCandidates = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax { BaseList.Types.Count: > 0 },
                 transform: static (ctx, ct) => TryExtractQuerySystem((ClassDeclarationSyntax)ctx.Node, ctx.SemanticModel, ct))
-            .Where(static c => c is not null)
-            .Select(static (c, _) => c!)
+            .Where(static c => c.Candidate is not null || c.Diagnostic is not null)
             .WithTrackingName("QuerySystemCandidate");
 
         var collectedChains = chainCandidates.Collect();
@@ -59,7 +51,21 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var (chains, querySystems) = input;
+            var (chainResults, querySystemResults) = input;
+
+            foreach (var result in chainResults)
+                if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
+            foreach (var result in querySystemResults)
+                if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
+
+            var chains = chainResults
+                .Where(c => c.Shape is not null)
+                .Select(c => (Shape: c.Shape!, c.SystemTypeName))
+                .ToImmutableArray();
+            var querySystems = querySystemResults
+                .Where(s => s.Candidate is not null)
+                .Select(s => s.Candidate!)
+                .ToImmutableArray();
 
             var (byExactShape, byDedupKey) = DeduplicateShapes(spc, chains, querySystems);
 
@@ -68,6 +74,28 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             EmitQuerySystemGlue(spc, querySystems);
             EmitSystemAccessRegistry(spc, chains, querySystems);
         });
+    }
+
+    /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, same as before this was added, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
+    private readonly record struct ChainCandidateResult(QueryShape? Shape, string? SystemTypeName, Diagnostic? Diagnostic);
+
+    private static ChainCandidateResult ExtractChainCandidate(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
+    {
+        // Checked before ChainWalker.TryExtractShape, not after: a file-local component
+        // type must never reach the exact-shape/dedup pipeline at all, since that is
+        // exactly what let it silently collide with an unrelated, ordinarily-scoped type
+        // of the same simple name elsewhere in the compilation (see WYRD004's own doc
+        // comment, and the design's Task 6 finding).
+        if (invocation.Expression is MemberAccessExpressionSyntax { Expression: var receiverExpr }
+            && semanticModel.GetTypeInfo(receiverExpr, ct).Type is INamedTypeSymbol receiverType
+            && ChainWalker.TryFindFileLocalComponentType(receiverType, ct) is { } fileLocalTypeName)
+        {
+            return new ChainCandidateResult(null, null, Diagnostic.Create(WyrdDiagnostics.FileLocalComponentType, invocation.GetLocation(), fileLocalTypeName));
+        }
+
+        var shape = ChainWalker.TryExtractShape(invocation, semanticModel, ct);
+        var systemTypeName = shape is null ? null : ChainWalker.TryFindEnclosingSystemType(invocation, semanticModel, ct);
+        return new ChainCandidateResult(shape, systemTypeName, null);
     }
 
     /// <summary>
@@ -157,23 +185,26 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         spc.AddSource("GeneratedSystemAccess.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
     }
 
-    private static QuerySystemCandidate? TryExtractQuerySystem(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
+    /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/> -- only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent, same as before this was added.</summary>
+    private readonly record struct QuerySystemResult(QuerySystemCandidate? Candidate, Diagnostic? Diagnostic);
+
+    private static QuerySystemResult TryExtractQuerySystem(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
     {
-        if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return null;
-        if (classSymbol.ContainingType is not null) return null; // nested classes not supported -- see Task 11's context note.
-        if (classSymbol.BaseType is not { Name: "QuerySystem" } baseType) return null;
-        if (baseType.ContainingNamespace?.ToDisplayString() != "Wyrd.Ecs") return null;
+        if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return default;
+        if (classSymbol.ContainingType is not null) return default; // nested classes not supported -- see Task 11's context note.
+        if (classSymbol.BaseType is not { Name: "QuerySystem" } baseType) return default;
+        if (baseType.ContainingNamespace?.ToDisplayString() != "Wyrd.Ecs") return default;
 
         // Find the real override of QuerySystem.DefineQuery -- a genuine abstract member,
         // so this is a symbol comparison against the one specific member, not a
         // name/static/parameter-shape guess that could false-positive on an unrelated
         // method.
         var defineQueryOnBase = baseType.GetMembers("DefineQuery").OfType<IMethodSymbol>().FirstOrDefault();
-        if (defineQueryOnBase is null) return null;
+        if (defineQueryOnBase is null) return default;
 
         var defineQueryMethod = classSymbol.GetMembers("DefineQuery").OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.IsOverride && SymbolEqualityComparer.Default.Equals(m.OverriddenMethod?.OriginalDefinition, defineQueryOnBase));
-        if (defineQueryMethod is null) return null;
+        if (defineQueryMethod is null) return default;
 
         // Read the shape from DefineQuery's return *expression*, not its declared return
         // type -- lets DefineQuery declare the non-generic IQuery instead of restating
@@ -181,54 +212,60 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         // block-with-one-return) is recognized; anything else falls through to the
         // ordinary "does not implement abstract member Execute" compiler error the same
         // as a missing DefineQuery would.
-        if (defineQueryMethod.DeclaringSyntaxReferences is not [var defineQuerySyntaxRef, ..]) return null;
-        if (defineQuerySyntaxRef.GetSyntax(ct) is not MethodDeclarationSyntax { ExpressionBody.Expression: var returnExpr }) return null;
+        if (defineQueryMethod.DeclaringSyntaxReferences is not [var defineQuerySyntaxRef, ..]) return default;
+        if (defineQuerySyntaxRef.GetSyntax(ct) is not MethodDeclarationSyntax { ExpressionBody.Expression: var returnExpr }) return default;
 
         var defineQuerySemanticModel = semanticModel.Compilation.GetSemanticModel(defineQuerySyntaxRef.SyntaxTree);
-        if (defineQuerySemanticModel.GetTypeInfo(returnExpr, ct).Type is not INamedTypeSymbol returnType) return null;
+        if (defineQuerySemanticModel.GetTypeInfo(returnExpr, ct).Type is not INamedTypeSymbol returnType) return default;
+
+        // Same reasoning and same diagnostic as ExtractChainCandidate: checked before shape
+        // extraction, so a file-local component type never reaches the exact-shape/dedup
+        // pipeline at all.
+        if (ChainWalker.TryFindFileLocalComponentType(returnType, ct) is { } fileLocalTypeName)
+            return new QuerySystemResult(null, Diagnostic.Create(WyrdDiagnostics.FileLocalComponentType, returnExpr.GetLocation(), fileLocalTypeName));
 
         var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, ct);
-        if (shape is null) return null;
+        if (shape is null) return default;
 
         var namespaceName = classSymbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
 
         // Update is name-convention-recognized, not a real override -- its parameter list
         // depends on unpacking an arbitrary TShape tuple, which isn't expressible as a
         // fixed C# signature (see QuerySystem.cs's doc comment). A missing/malformed
-        // Update falls through to WYRD002, not this method returning null for a reason a
-        // developer can't see -- so this only returns null here for "no method named
-        // Update exists at all" (the true "nothing to resolve against" case, for both the
+        // Update falls through to WYRD002, not this method returning nothing for a reason a
+        // developer can't see -- so this only bails out here for "no method named Update
+        // exists at all" (the true "nothing to resolve against" case, for both the
         // filter-only and data-bearing shapes below); count/type/order mismatches against
         // an Update that *does* exist are WYRD002's job, checked separately by its
         // analyzer, not blocked here.
         var updateMethod = classSymbol.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
-        if (updateMethod is null) return null;
+        if (updateMethod is null) return default;
 
         if (shape.PendingDataElements.IsEmpty)
         {
-            if (updateMethod.Parameters.Length != 1) return null; // just Time, no data parameters
+            if (updateMethod.Parameters.Length != 1) return default; // just Time, no data parameters
 
-            return new QuerySystemCandidate
+            return new QuerySystemResult(new QuerySystemCandidate
             {
                 Namespace = namespaceName,
                 ClassName = classSymbol.Name,
                 Shape = shape,
-            };
+            }, null);
         }
 
         // Skip Update's leading Time parameter, same convention as the lambda case.
         var dataParameters = updateMethod.Parameters.Skip(1).ToImmutableArray();
-        if (dataParameters.Length != shape.PendingDataElements.Length) return null;
+        if (dataParameters.Length != shape.PendingDataElements.Length) return default;
 
         var refKinds = dataParameters.Select(p => p.RefKind).ToImmutableArray();
         var resolvedShape = ChainWalker.ResolveAccessKinds(shape, refKinds);
-        if (resolvedShape is null) return null;
+        if (resolvedShape is null) return default;
 
-        return new QuerySystemCandidate
+        return new QuerySystemResult(new QuerySystemCandidate
         {
             Namespace = namespaceName,
             ClassName = classSymbol.Name,
             Shape = resolvedShape,
-        };
+        }, null);
     }
 }
