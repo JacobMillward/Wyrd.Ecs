@@ -89,6 +89,23 @@ internal sealed class Archetype
         return movedEntity;
     }
 
+    /// <summary>
+    /// Bulk counterpart to <see cref="AddRow"/>: grows capacity once for the whole
+    /// batch (instead of once per entity) and appends every entity in
+    /// <paramref name="entities"/> starting at the current <see cref="Count"/>. Used by
+    /// batch entity creation (<see cref="World.PlaceReservedEntities{T0}"/> and its
+    /// higher-arity siblings) so a batch of N entities pays one capacity check and one
+    /// contiguous copy, not N incremental ones.
+    /// </summary>
+    internal int AddRows(ReadOnlySpan<Entity> entities)
+    {
+        EnsureCapacity(Count + entities.Length);
+        var startRow = Count;
+        entities.CopyTo(Entities.AsSpan(startRow));
+        Count += entities.Length;
+        return startRow;
+    }
+
     internal ComponentStorage<T> GetOrCreateStorage<T>() where T : struct, IComponent
     {
         var typeIndex = TypeIndex<T>.Value;
