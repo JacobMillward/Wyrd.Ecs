@@ -28,6 +28,19 @@ public class CommandsTests
     }
 
     [Fact]
+    public void ConcurrentCreateEntityWithComponent_FromMultipleThreads_EveryQueuedCommandSurvives()
+    {
+        var world = new World();
+
+        var entities = new Entity[500];
+        Parallel.For(0, 500, i => entities[i] = world.Commands.CreateEntity(new Position { X = i }));
+        world.ApplyCommands();
+
+        entities.Distinct().Should().HaveCount(500); // every reservation produced a unique entity, none clobbered by a race
+        entities.Should().OnlyContain(e => world.IsAlive(e) && world.HasComponent<Position>(e));
+    }
+
+    [Fact]
     public void ConcurrentAddComponent_FromMultipleThreads_QueuesEveryCommandSafely()
     {
         var world = new World();

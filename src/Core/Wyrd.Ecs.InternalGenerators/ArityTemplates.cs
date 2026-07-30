@@ -160,7 +160,7 @@ internal static class ArityTemplates
         sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");
         sb.AppendLine("    {");
         sb.AppendLine("        var entity = _world.ReserveEntity();");
-        sb.AppendLine($"        Enqueue(new QueuedCommand(entity, CreateEntityOp<{tp}>.Apply, {value}, 0));");
+        sb.AppendLine($"        lock (_gate) Enqueue(new QueuedCommand(entity, CreateEntityOp<{tp}>.Apply, {value}, 0));");
         sb.AppendLine("        return entity;");
         sb.AppendLine("    }");
         return sb.ToString();

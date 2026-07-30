@@ -153,11 +153,10 @@ internal struct EntityTable
     /// <summary>
     /// The id-table bookkeeping half of <see cref="Place"/>: grows backing array capacity
     /// for <paramref name="entity"/>'s id, assigns its permanent id, and clears
-    /// <see cref="_reserved"/>'s bit for it — everything <see cref="Place"/> used to do
-    /// except reserving the row itself, which the caller already did (via
-    /// <see cref="Archetype.AddRow"/> for a single entity, or <see cref="Archetype.AddRows"/>
-    /// for a batch). Only ever runs single-threaded, from <see cref="CommandBuffer.Apply"/>'s
-    /// command loop — same as <see cref="Place"/> always has.
+    /// <see cref="_reserved"/>'s bit for it. The row itself is reserved separately, by
+    /// the caller (via <see cref="Archetype.AddRow"/> for a single entity, or
+    /// <see cref="Archetype.AddRows"/> for a batch). Only ever runs single-threaded, from
+    /// <see cref="CommandBuffer.Apply"/>'s command loop.
     ///
     /// <para>
     /// Clearing <see cref="_reserved"/>'s bit for this id is what actually makes it
