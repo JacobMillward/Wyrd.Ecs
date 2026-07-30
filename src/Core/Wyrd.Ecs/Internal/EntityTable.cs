@@ -101,12 +101,63 @@ internal struct EntityTable
     }
 
     /// <summary>
+    /// Bulk counterpart to <see cref="Reserve"/>: claims a contiguous range of
+    /// <see cref="_freeCursor"/> cursor slots in one <see cref="Interlocked.Add(ref int, int)"/>
+    /// instead of <c>destination.Length</c> separate <see cref="Interlocked.Decrement(ref int)"/> calls —
+    /// the same lock-free, no-CAS-retry, order-independent scheme <see cref="Reserve"/>
+    /// already documents for a single id, just claiming many slots at once. Produces
+    /// exactly the id sequence <c>destination.Length</c> sequential <see cref="Reserve"/>
+    /// calls would (verified directly against that arithmetic in
+    /// <c>EntityTableTests.ReserveRange_ProducesTheSameIdsAsSequentialReserveCalls</c>).
+    /// Used by batch entity creation so reserving a batch of N ids costs one atomic op,
+    /// not N of them, keeping the whole batch-creation path O(1) per call regardless of N.
+    /// </summary>
+    internal void ReserveRange(Span<Entity> destination)
+    {
+        var count = destination.Length;
+        var startCursor = Interlocked.Add(ref _freeCursor, -count); // == the cursor value after `count` sequential Decrements
+        for (var i = 0; i < count; i++)
+        {
+            var cursor = startCursor + (count - 1 - i);
+            if (cursor >= 0)
+            {
+                var id = _pending[cursor];
+                _reserved[id] = true;
+                destination[i] = new Entity(id, _generations[id]);
+            }
+            else
+            {
+                var id = _nextId - cursor - 1;
+                destination[i] = new Entity(id, 0);
+            }
+        }
+    }
+
+    /// <summary>
     /// Places a previously-<see cref="Reserve"/>d entity into <paramref name="archetype"/>,
-    /// making it <see cref="IsAlive"/> from this point on. Grows backing array capacity
-    /// for <paramref name="entity"/>'s id here (not in <see cref="Reserve"/>), and
-    /// assigns its permanent id here too — safe because <see cref="Place"/>, unlike
-    /// <see cref="Reserve"/>, only ever runs single-threaded, from
-    /// <see cref="CommandBuffer.Apply"/>'s command loop.
+    /// making it <see cref="IsAlive"/> from this point on. Implemented as
+    /// <see cref="Archetype.AddRow"/> (reserves this entity's row) followed by
+    /// <see cref="PlaceAt"/> (the id-table bookkeeping) — split out so batch placement
+    /// (<see cref="PlaceBatch"/>) can reuse the bookkeeping half against rows already
+    /// bulk-reserved via <see cref="Archetype.AddRows"/>, without a second per-entity
+    /// <c>AddRow</c> call. See <see cref="PlaceAt"/>'s own doc for the concurrency and
+    /// liveness invariants this relies on.
+    /// </summary>
+    internal int Place(Entity entity, Archetype archetype)
+    {
+        var row = archetype.AddRow(entity);
+        PlaceAt(entity, archetype, row);
+        return row;
+    }
+
+    /// <summary>
+    /// The id-table bookkeeping half of <see cref="Place"/>: grows backing array capacity
+    /// for <paramref name="entity"/>'s id, assigns its permanent id, and clears
+    /// <see cref="_reserved"/>'s bit for it — everything <see cref="Place"/> used to do
+    /// except reserving the row itself, which the caller already did (via
+    /// <see cref="Archetype.AddRow"/> for a single entity, or <see cref="Archetype.AddRows"/>
+    /// for a batch). Only ever runs single-threaded, from <see cref="CommandBuffer.Apply"/>'s
+    /// command loop — same as <see cref="Place"/> always has.
     ///
     /// <para>
     /// Clearing <see cref="_reserved"/>'s bit for this id is what actually makes it
@@ -118,24 +169,38 @@ internal struct EntityTable
     /// still advances here too, for <see cref="Reserve"/>'s own bookkeeping (so the next
     /// batch never mints an id this one already used) — but that bump plays no part in
     /// this id's own liveness, or any other id's, unlike the scheme this replaced. Two
-    /// concurrently-reserved new ids in the same batch can have their <see cref="Place"/>
-    /// calls run in either order (a race in which thread's <see cref="CommandBuffer.Enqueue"/>
-    /// call wins the queue position first) — order-independent by construction: whichever
-    /// runs first only ever clears its own id's bit, never a sibling's, so a lower,
-    /// not-yet-placed sibling that happens to share newly-grown capacity (because
-    /// <see cref="EnsureCapacity"/> just grew arrays to cover this higher id) still reads
-    /// <c>true</c> — reserved, not alive — until its own <see cref="Place"/> call runs.
+    /// concurrently-reserved new ids in the same batch can have their <see cref="Place"/>/
+    /// <see cref="PlaceAt"/> calls run in either order (a race in which thread's
+    /// <see cref="CommandBuffer.Enqueue"/> call wins the queue position first) —
+    /// order-independent by construction: whichever runs first only ever clears its own
+    /// id's bit, never a sibling's, so a lower, not-yet-placed sibling that happens to
+    /// share newly-grown capacity (because <see cref="EnsureCapacity"/> just grew arrays
+    /// to cover this higher id) still reads <c>true</c> — reserved, not alive — until its
+    /// own <see cref="PlaceAt"/> call runs.
     /// </para>
     /// </summary>
-    internal int Place(Entity entity, Archetype archetype)
+    internal void PlaceAt(Entity entity, Archetype archetype, int row)
     {
         EnsureCapacity(entity.Id);
         if (entity.Id >= _nextId) _nextId = entity.Id + 1;
         _permanentIds[entity.Id] = EntityId.NewId();
         _reserved[entity.Id] = false;
-        var row = archetype.AddRow(entity);
         this[entity.Id] = new EntityLocation(archetype, row);
-        return row;
+    }
+
+    /// <summary>
+    /// Bulk counterpart to <see cref="Place"/>: runs <see cref="PlaceAt"/>'s bookkeeping
+    /// for every entity in <paramref name="entities"/> against the rows
+    /// <see cref="Archetype.AddRows"/> already bulk-reserved for them, starting at
+    /// <paramref name="startRow"/>. This loop is unavoidable — each id has its own
+    /// generation/permanent-id/reserved-bit slot to update — but it's int/struct
+    /// bookkeeping, not field-by-field component copying, so it doesn't undercut the
+    /// point of batching.
+    /// </summary>
+    internal void PlaceBatch(ReadOnlySpan<Entity> entities, Archetype archetype, int startRow)
+    {
+        for (var i = 0; i < entities.Length; i++)
+            PlaceAt(entities[i], archetype, startRow + i);
     }
 
     /// <summary>
