@@ -151,12 +151,18 @@ public sealed partial class World : IWorld
     private void CascadeRemoveRelations(Entity entity)
     {
         var initialLocation = _entityTable[entity.Id];
-        var relationTypeIndices = new List<int>();
+
+        // Lazily allocated: stays null (zero allocation) for the common case of an entity
+        // with no relation components at all -- this runs on every single entity destroy,
+        // not just ones involving relations, so it must not cost anything for the ones that
+        // don't.
+        List<int>? relationTypeIndices = null;
         foreach (var (typeIndex, _) in initialLocation.Archetype.Storages)
         {
             if (RelationRegistry.Get(typeIndex) is not null)
-                relationTypeIndices.Add(typeIndex);
+                (relationTypeIndices ??= new List<int>()).Add(typeIndex);
         }
+        if (relationTypeIndices is null) return;
 
         foreach (var typeIndex in relationTypeIndices)
         {
@@ -465,12 +471,22 @@ public sealed partial class World : IWorld
     /// <typeparamref name="T"/> target from <paramref name="source"/> other than
     /// <paramref name="target"/> itself (a no-op re-add), before
     /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s apply-time op adds
-    /// the new edge — see <see cref="IExclusiveRelation"/>'s own doc. Uses the same
-    /// <see cref="RemoveRelationLink{T}"/>/<see cref="RemoveRelationBacklink{T}"/> helpers
-    /// <see cref="CommandBuffer.RemoveRelation{T}"/> itself uses, each of which
-    /// re-resolves its own location fresh, so this stays correct even if
-    /// <paramref name="source"/> is its own existing target and removing that backlink
-    /// causes an archetype move partway through the loop.
+    /// the new edge — see <see cref="IExclusiveRelation"/>'s own doc.
+    ///
+    /// <para>
+    /// The common case for an exclusive relation is exactly one existing target, handled
+    /// by mutating <see cref="RelationLinks{T}.Targets"/> directly rather than going
+    /// through <see cref="RemoveRelationLink{T}"/> — that would remove
+    /// <see cref="RelationLinks{T}"/> entirely once its dictionary empties (an archetype
+    /// move), immediately followed by <see cref="GetOrCreateRelationLinks{T}"/> re-adding
+    /// it (a second one) back in the caller. Holding the plain <c>Dictionary&lt;Entity,T&gt;</c>
+    /// reference (not a <c>ref RelationLinks{T}</c>) across
+    /// <see cref="RemoveRelationBacklink{T}"/> is safe regardless of any archetype move
+    /// that call triggers — a struct value being relocated between archetypes copies the
+    /// reference field, never the dictionary object it points to, so the object identity
+    /// this method already captured stays valid even if <paramref name="source"/> is its
+    /// own existing target and removing that backlink moves it.
+    /// </para>
     /// </summary>
     internal void ReplaceExclusiveRelationTarget<T>(Entity source, Entity target) where T : struct, IRelation
     {
@@ -478,13 +494,28 @@ public sealed partial class World : IWorld
         var typeIndex = TypeIndex<RelationLinks<T>>.Value;
         if (!location.Archetype.Signature.Contains(typeIndex)) return;
 
-        var links = GetComponent<RelationLinks<T>>(source, location);
-        var existingTargets = links.Targets!.Keys.ToArray(); // snapshot -- RemoveRelationLink below mutates this same dictionary
-        foreach (var existingTarget in existingTargets)
+        var targets = GetComponent<RelationLinks<T>>(source, location).Targets!;
+        if (targets.Count == 0) return;
+
+        if (targets.Count == 1)
         {
-            if (existingTarget == target) continue; // re-adding the same target: nothing to replace
-            RemoveRelationLink<T>(source, existingTarget);
+            foreach (var existingTarget in targets.Keys)
+            {
+                if (existingTarget == target) return; // re-adding the same target: nothing to replace
+                RemoveRelationBacklink<T>(existingTarget, source);
+                targets.Remove(existingTarget);
+                return;
+            }
+        }
+
+        // General path: more than one existing target -- shouldn't happen for a type that's
+        // always been exclusive, but could if T was only just marked IExclusiveRelation
+        // after edges already existed. ToArray snapshots before mutating the same dictionary.
+        foreach (var existingTarget in targets.Keys.ToArray())
+        {
+            if (existingTarget == target) continue;
             RemoveRelationBacklink<T>(existingTarget, source);
+            targets.Remove(existingTarget);
         }
     }
 
