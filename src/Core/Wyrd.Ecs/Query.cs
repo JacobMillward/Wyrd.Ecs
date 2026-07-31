@@ -61,6 +61,18 @@ public readonly partial struct Query<TShape> : IQuery where TShape : struct
 
     /// <summary>Requires the archetype to contain at least one of <typeparamref name="T0"/>/<typeparamref name="T1"/>. Does not change the shape — applies immediately to <see cref="Filter"/>, so it can be called conditionally. Calling this more than once ANDs each call's own group together.</summary>
     public Query<TShape> Any<T0, T1>() where T0 : struct where T1 : struct => new(World, Filter.Any<T0, T1>());
+
+    /// <summary>
+    /// Sugar for <c>With&lt;RelationLinks&lt;TRelation&gt;&gt;()</c>: matches entities with
+    /// at least one <typeparamref name="TRelation"/> edge, target unspecified — the
+    /// wildcard presence filter, not a match against a specific target (see
+    /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s doc for why matching
+    /// a specific target stays off the query chain).
+    /// </summary>
+    public Query<(RelationLinks<TRelation>, TShape)> WithRelation<TRelation>() where TRelation : struct, IRelation => With<RelationLinks<TRelation>>();
+
+    /// <summary>Sugar for <c>Without&lt;RelationLinks&lt;TRelation&gt;&gt;()</c>: excludes entities with any <typeparamref name="TRelation"/> edge.</summary>
+    public Query<TShape> WithoutRelation<TRelation>() where TRelation : struct, IRelation => Without<RelationLinks<TRelation>>();
 }
 
 /// <summary>The chain's entry point.</summary>
