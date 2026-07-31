@@ -64,22 +64,49 @@ internal static class StableTopologicalSort
         return order;
     }
 
+    /// <summary>
+    /// Finds one concrete cycle among <paramref name="stuck"/> (the nodes Kahn's
+    /// algorithm couldn't fully order). A stuck node isn't necessarily itself a cycle
+    /// member — it may only depend, directly or transitively, on one — so a single
+    /// forward walk from an arbitrary stuck node can reach a dead end (a node with no
+    /// outgoing edge back into the stuck set) before ever finding a repeat. This tries
+    /// each unexplored stuck node as a fresh starting point, marking every node a dead
+    /// end walk passed through as visited so it's never re-walked from a later start.
+    /// </summary>
     private static List<SchedulableSystem> FindCyclePath(
         List<SchedulableSystem> stuck,
         Dictionary<SchedulableSystem, List<SchedulableSystem>> successors)
     {
         var stuckSet = new HashSet<SchedulableSystem>(stuck);
-        var path = new List<SchedulableSystem>();
         var visited = new HashSet<SchedulableSystem>();
-        var current = stuck[0];
 
-        while (visited.Add(current))
+        foreach (var start in stuck)
         {
-            path.Add(current);
-            current = successors[current].First(stuckSet.Contains);
+            if (visited.Contains(start)) continue;
+
+            var path = new List<SchedulableSystem>();
+            var onPath = new HashSet<SchedulableSystem>();
+            var current = start;
+
+            while (onPath.Add(current))
+            {
+                visited.Add(current);
+                path.Add(current);
+
+                var next = successors[current].FirstOrDefault(stuckSet.Contains);
+                if (next is null) goto NextStart; // dead end -- this walk found no cycle
+
+                current = next;
+            }
+
+            var cycleStart = path.IndexOf(current);
+            return [.. path.Skip(cycleStart), current];
+
+            NextStart: ;
         }
 
-        var cycleStart = path.IndexOf(current);
-        return [.. path.Skip(cycleStart), current];
+        // Unreachable: Sort() only calls this when order.Count < nodes.Count, which
+        // guarantees at least one genuine cycle exists among `stuck`.
+        throw new InvalidOperationException("System ordering forms a cycle, but the cycle could not be reconstructed.");
     }
 }
