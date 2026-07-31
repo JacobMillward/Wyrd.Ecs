@@ -108,14 +108,14 @@ public readonly ref struct EntityView
         return this;
     }
 
-    /// <summary>Queues this entity's <see cref="Parent"/> edge to <paramref name="parent"/> — replaces any existing parent, since <see cref="Parent"/> is exclusive.</summary>
+    /// <summary>Queues this entity's <see cref="Parent"/> edge to <paramref name="parent"/> — replaces any existing parent in place, since <see cref="Parent"/> is exclusive. To reparent, call this alone; a preceding <see cref="ClearParent"/> costs an extra, avoidable archetype move.</summary>
     public EntityView SetParent(Entity parent)
     {
         _commands.AddRelation<Parent>(_entity, parent);
         return this;
     }
 
-    /// <summary>Queues removing this entity's current <see cref="Parent"/> edge, if it has one. A no-op if it doesn't.</summary>
+    /// <summary>Queues removing this entity's current <see cref="Parent"/> edge, if it has one. A no-op if it doesn't. To reparent, use <see cref="SetParent"/> alone rather than this followed by it.</summary>
     public EntityView ClearParent()
     {
         if (_world.TryGetParent(_entity, out var parent))
