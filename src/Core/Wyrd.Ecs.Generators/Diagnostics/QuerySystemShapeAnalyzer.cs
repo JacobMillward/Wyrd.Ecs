@@ -50,15 +50,19 @@ public sealed class QuerySystemShapeAnalyzer : DiagnosticAnalyzer
 
         var declaredComponents = shape.PendingDataElements; // already declaration order -- see ChainWalker.TryExtractShapeFromQueryType
         var update = type.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
+        var classification = update is null ? QuerySystemUpdateShape.Invalid : QuerySystemUpdateShape.Classify(update.Parameters);
 
-        var mismatch = update switch
+        bool mismatch;
+        if (update is null || !classification.IsValid)
         {
-            null => true,
-            _ when update.Parameters.Length != declaredComponents.Length + 1 => true,
-            _ => update.Parameters.Skip(1)
-                .Select((p, i) => p.Type.ToDisplayString() != declaredComponents[i])
-                .Any(different => different),
-        };
+            mismatch = true;
+        }
+        else
+        {
+            var componentParameters = update.Parameters.Skip(classification.ComponentStartIndex).ToImmutableArray();
+            mismatch = componentParameters.Length != declaredComponents.Length
+                || componentParameters.Select((p, i) => p.Type.ToDisplayString() != declaredComponents[i]).Any(different => different);
+        }
         if (!mismatch) return;
 
         var expected = string.Join(", ", declaredComponents);

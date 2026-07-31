@@ -241,20 +241,24 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var updateMethod = classSymbol.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
         if (updateMethod is null) return default;
 
+        var classification = QuerySystemUpdateShape.Classify(updateMethod.Parameters);
+        if (!classification.IsValid) return default;
+
         if (shape.PendingDataElements.IsEmpty)
         {
-            if (updateMethod.Parameters.Length != 1) return default; // just Time, no data parameters
+            if (updateMethod.Parameters.Length != classification.ComponentStartIndex) return default; // no data parameters beyond Time/World/EntityView
 
             return new QuerySystemResult(new QuerySystemCandidate
             {
                 Namespace = namespaceName,
                 ClassName = classSymbol.Name,
                 Shape = shape,
+                HasWorldParameter = classification.HasWorld,
+                HasEntityViewParameter = classification.HasEntityView,
             }, null);
         }
 
-        // Skip Update's leading Time parameter, same convention as the lambda case.
-        var dataParameters = updateMethod.Parameters.Skip(1).ToImmutableArray();
+        var dataParameters = updateMethod.Parameters.Skip(classification.ComponentStartIndex).ToImmutableArray();
         if (dataParameters.Length != shape.PendingDataElements.Length) return default;
 
         var refKinds = dataParameters.Select(p => p.RefKind).ToImmutableArray();
@@ -266,6 +270,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             Namespace = namespaceName,
             ClassName = classSymbol.Name,
             Shape = resolvedShape,
+            HasWorldParameter = classification.HasWorld,
+            HasEntityViewParameter = classification.HasEntityView,
         }, null);
     }
 }

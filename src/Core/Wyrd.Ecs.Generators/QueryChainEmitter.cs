@@ -316,7 +316,9 @@ internal static class QueryChainEmitter
     /// `EcsSystem.Execute` implementation, calling the developer-written `Update` method
     /// (an ordinary method, not `partial` — its own `ref`/`in` modifiers are the source of
     /// truth for access mode, read by <c>QueryChainGenerator.TryExtractQuerySystem</c>, so
-    /// there is nothing left for this class to pre-declare).
+    /// there is nothing left for this class to pre-declare). See
+    /// <see cref="AppendStateExecute"/>/<see cref="AppendEntityViewExecute"/> for the two
+    /// possible emission shapes.
     /// </summary>
     internal static string RenderQuerySystemGlue(QuerySystemCandidate candidate)
     {
@@ -328,17 +330,6 @@ internal static class QueryChainEmitter
         // have alphabetical-by-type-name order match declaration order, which is why
         // this went uncaught until a three-component shape where they diverge.
         var dataElements = candidate.Shape.OwnDataElements();
-        // Calling a ref/in parameter requires the same modifier at the call site, not
-        // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
-        // Built by prepending "in Time t" into the same list before joining (matching
-        // RenderBackend's actionParams pattern), not by joining dataElements alone and
-        // string-concatenating a separator afterward -- the latter produces a trailing
-        // comma ("(in Time t, )") when dataElements is empty (a filter-only shape with no
-        // Writes/Reads at all), which doesn't compile. The lambda's own first parameter
-        // needs "in" to match ForEach<TState>'s now-`in TState state` delegate parameter
-        // (QueryChainActionOwn_<hash><TState>).
-        var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
-        var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
 
         var sb = new StringBuilder();
         sb.AppendLine("using Wyrd.Ecs;");
@@ -353,10 +344,82 @@ internal static class QueryChainEmitter
 
         sb.AppendLine($"partial class {candidate.ClassName}");
         sb.AppendLine("{");
-        sb.AppendLine("    protected override void Execute(World world, Time time) =>");
-        sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
+
+        if (candidate.HasEntityViewParameter)
+            AppendEntityViewExecute(sb, candidate, dataElements);
+        else
+            AppendStateExecute(sb, candidate, dataElements);
+
         sb.AppendLine("}");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits `Execute` for a shape whose `Update` does not declare `EntityView` — routed
+    /// through the shape's already-emitted `.ForEach&lt;TState&gt;()` extension exactly as
+    /// before this feature existed. When `World` alone is declared, widens `TState` from
+    /// bare `Time` to `(Time Time, World World)` — an ordinary value tuple, since
+    /// `ForEach&lt;TState&gt;` has no constraint on `TState` — so this still shares the same
+    /// `Process`/backend codegen (<see cref="AppendMethod"/>) unchanged; only what's passed
+    /// as state differs.
+    /// </summary>
+    private static void AppendStateExecute(StringBuilder sb, QuerySystemCandidate candidate, ImmutableArray<MarkerElement> dataElements)
+    {
+        // Calling a ref/in parameter requires the same modifier at the call site, not
+        // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
+        // Built by prepending the state parameter into the same list before joining
+        // (matching RenderBackend's actionParams pattern), not by joining dataElements
+        // alone and string-concatenating a separator afterward -- the latter produces a
+        // trailing comma when dataElements is empty (a filter-only shape with no
+        // Writes/Reads at all), which doesn't compile.
+        sb.AppendLine("    protected override void Execute(World world, Time time) =>");
+
+        if (candidate.HasWorldParameter)
+        {
+            var lambdaParams = string.Join(", ", new[] { "in (Time Time, World World) s" }.Concat(dataElements.Select(ParamDecl)));
+            var updateCallArgs = string.Join(", ", new[] { "s.Time", "s.World" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
+            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}));");
+        }
+        else
+        {
+            var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
+            var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
+            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
+        }
+    }
+
+    /// <summary>
+    /// Emits `Execute` for a shape whose `Update` declares `EntityView`. The per-row
+    /// `Entity` its construction needs is never threaded through the shared `Process` loop
+    /// (adding it there would cost every `.ForEach()` call site for the shape, not just this
+    /// one — see this feature's design doc, section B), so this bypasses the shape's
+    /// `.ForEach()` extension entirely and walks `QueryChainBackend_&lt;hash&gt;` directly,
+    /// mirroring (not reusing) <see cref="AppendMethod"/>'s own chunk-iteration shape.
+    /// `world[entities[i]]` — never `new EntityView(...)` — since `EntityView`'s constructor
+    /// is `internal` to `Wyrd.Ecs.dll`; this generated code compiles into the *consumer's*
+    /// assembly, where only `World`'s public indexer can reach it.
+    /// </summary>
+    private static void AppendEntityViewExecute(StringBuilder sb, QuerySystemCandidate candidate, ImmutableArray<MarkerElement> dataElements)
+    {
+        var hash = candidate.Shape.HashName();
+
+        var updateArgs = new List<string> { "time" };
+        if (candidate.HasWorldParameter) updateArgs.Add("world");
+        updateArgs.Add("world[entities[i]]");
+        updateArgs.AddRange(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]"));
+
+        sb.AppendLine("    protected override void Execute(World world, Time time)");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world);");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(world))");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var entities = chunk.Entities;");
+        foreach (var e in dataElements)
+            sb.AppendLine($"            var {ParamName(e)} = chunk.Access<{AccessorType(e)}>();");
+        sb.AppendLine("            for (var i = 0; i < chunk.Count; i++)");
+        sb.AppendLine($"                Update({string.Join(", ", updateArgs)});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
     }
 
     /// <summary>

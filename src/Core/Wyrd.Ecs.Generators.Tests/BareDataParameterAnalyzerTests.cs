@@ -124,4 +124,42 @@ public class BareDataParameterAnalyzerTests
 
         diagnostics.Should().NotContain(d => d.Id == "WYRD001");
     }
+
+    [Fact]
+    public void QuerySystemUpdate_WorldAndEntityViewParameters_ReportNothing()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class WorkingSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, World world, EntityView entity, ref Position p) { }
+            }
+            """);
+
+        diagnostics.Should().NotContain(d => d.Id == "WYRD001");
+    }
+
+    [Fact]
+    public void QuerySystemUpdate_BareComponentAfterWorldAndEntityView_ReportsWYRD001()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class BrokenSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, World world, EntityView entity, Position p) { }
+            }
+            """);
+
+        diagnostics.Should().ContainSingle(d => d.Id == "WYRD001");
+    }
 }

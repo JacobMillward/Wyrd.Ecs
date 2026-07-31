@@ -91,4 +91,80 @@ public class QuerySystemShapeAnalyzerTests
 
         diagnostics.Should().ContainSingle(d => d.Id == "WYRD002");
     }
+
+    [Fact]
+    public void UpdateWithWorldParameter_ReportsNothing()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class MovementSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, World world, ref Position p) { }
+            }
+            """);
+
+        diagnostics.Should().NotContain(d => d.Id == "WYRD002");
+    }
+
+    [Fact]
+    public void UpdateWithEntityViewParameter_ReportsNothing()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class MovementSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, EntityView entity, ref Position p) { }
+            }
+            """);
+
+        diagnostics.Should().NotContain(d => d.Id == "WYRD002");
+    }
+
+    [Fact]
+    public void UpdateWithWorldAndEntityViewParameters_ReportsNothing()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class MovementSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, World world, EntityView entity, ref Position p) { }
+            }
+            """);
+
+        diagnostics.Should().NotContain(d => d.Id == "WYRD002");
+    }
+
+    [Fact]
+    public void WorldDeclaredAfterEntityView_ReportsWYRD002()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public sealed class BrokenSystem : QuerySystem
+            {
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+
+                public void Update(Time time, EntityView entity, World world, ref Position p) { }
+            }
+            """);
+
+        diagnostics.Should().ContainSingle(d => d.Id == "WYRD002");
+    }
 }

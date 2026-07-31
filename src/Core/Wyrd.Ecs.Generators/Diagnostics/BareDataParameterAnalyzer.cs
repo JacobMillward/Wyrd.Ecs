@@ -65,7 +65,10 @@ public sealed class BareDataParameterAnalyzer : DiagnosticAnalyzer
         var update = type.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
         if (update is null) return;
 
-        foreach (var parameter in update.Parameters.Skip(1)) // skip the Time parameter
+        var classification = QuerySystemUpdateShape.Classify(update.Parameters);
+        if (!classification.IsValid) return; // malformed leading parameters are WYRD002's job, not this analyzer's
+
+        foreach (var parameter in update.Parameters.Skip(classification.ComponentStartIndex))
         {
             if (parameter.RefKind is RefKind.Ref or RefKind.In) continue;
             if (parameter.DeclaringSyntaxReferences is not [var syntaxRef, ..]) continue;
