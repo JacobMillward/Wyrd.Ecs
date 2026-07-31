@@ -1,17 +1,19 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The forward side of a data-carrying relationship: every target entity the owning
-/// entity has a <typeparamref name="T"/> edge to, and that edge's payload. An ordinary
-/// component — it occupies one archetype signature bit regardless of how many targets
-/// it holds; adding or removing a specific target mutates <see cref="Targets"/> in
-/// place and never moves an archetype row on its own. Only ever constructed through
-/// <see cref="CommandBuffer.AddRelation{T}"/> (via <see cref="World"/>'s internal
-/// get-or-create helper), which always initializes the backing dictionary — a
+/// The forward side of a relationship: every target entity the owning entity has a
+/// <typeparamref name="T"/> edge to, and that edge's payload (an empty
+/// <typeparamref name="T"/> struct, for a marker-only relation — see <see cref="IRelation"/>'s
+/// own doc for why there's no separate tag-relation type). An ordinary component — it
+/// occupies one archetype signature bit regardless of how many targets it holds; adding
+/// or removing a specific target mutates <see cref="Targets"/> in place and never moves
+/// an archetype row on its own. Only ever constructed through
+/// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/> (via <see cref="World"/>'s
+/// internal get-or-create helper), which always initializes the backing dictionary — a
 /// default-constructed instance has a null backing store and exists only to satisfy
 /// <see cref="Internal.ComponentStorage{T}"/>'s zero-init on grow, not for direct use.
 /// </summary>
-public readonly struct RelationLinks<T> : IComponent where T : struct, IComponent
+public readonly struct RelationLinks<T> : IComponent where T : struct, IRelation
 {
     private readonly Dictionary<Entity, T>? _targets;
 

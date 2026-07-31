@@ -406,7 +406,7 @@ public sealed partial class World : IWorld
     /// can observe it. Called only via <see cref="CommandBuffer"/>'s relation ops and this
     /// class's own <see cref="RemoveRelationLink{T}"/>/destroy-cascade path.
     /// </summary>
-    internal ref RelationLinks<T> GetOrCreateRelationLinks<T>(Entity source, EntityLocation location) where T : struct, IComponent
+    internal ref RelationLinks<T> GetOrCreateRelationLinks<T>(Entity source, EntityLocation location) where T : struct, IRelation
     {
         var typeIndex = TypeIndex<RelationLinks<T>>.Value;
         ref var links = ref location.Archetype.Signature.Contains(typeIndex)
@@ -417,7 +417,7 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>Same as <see cref="GetOrCreateRelationLinks{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>) side.</summary>
-    internal ref RelationBacklinks<T> GetOrCreateRelationBacklinks<T>(Entity target, EntityLocation location) where T : struct, IComponent
+    internal ref RelationBacklinks<T> GetOrCreateRelationBacklinks<T>(Entity target, EntityLocation location) where T : struct, IRelation
     {
         var typeIndex = TypeIndex<RelationBacklinks<T>>.Value;
         ref var backlinks = ref location.Archetype.Signature.Contains(typeIndex)
@@ -437,7 +437,7 @@ public sealed partial class World : IWorld
     /// safe to call with a location resolved before some other write that might have moved
     /// it (see <see cref="CommandBuffer.RemoveRelation{T}"/>'s self-relation handling).
     /// </summary>
-    internal void RemoveRelationLink<T>(Entity source, Entity target) where T : struct, IComponent
+    internal void RemoveRelationLink<T>(Entity source, Entity target) where T : struct, IRelation
     {
         if (!TryResolve(source, out var location)) return;
         var typeIndex = TypeIndex<RelationLinks<T>>.Value;
@@ -449,7 +449,7 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>Same as <see cref="RemoveRelationLink{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>) side.</summary>
-    internal void RemoveRelationBacklink<T>(Entity target, Entity source) where T : struct, IComponent
+    internal void RemoveRelationBacklink<T>(Entity target, Entity source) where T : struct, IRelation
     {
         if (!TryResolve(target, out var location)) return;
         var typeIndex = TypeIndex<RelationBacklinks<T>>.Value;
@@ -460,50 +460,32 @@ public sealed partial class World : IWorld
         if (backlinks.Sources.Count == 0) RemoveComponent(target, location, typeIndex);
     }
 
-    /// <summary>Tag-relation counterpart to <see cref="GetOrCreateRelationLinks{T}"/> — see its doc.</summary>
-    internal ref RelationTagLinks<T> GetOrCreateRelationTagLinks<T>(Entity source, EntityLocation location) where T : struct, ITag
-    {
-        var typeIndex = TypeIndex<RelationTagLinks<T>>.Value;
-        ref var links = ref location.Archetype.Signature.Contains(typeIndex)
-            ? ref GetComponent<RelationTagLinks<T>>(source, location)
-            : ref AddComponent<RelationTagLinks<T>>(source, location);
-        if (links.Targets is null) links = new RelationTagLinks<T>(new HashSet<Entity>());
-        return ref links;
-    }
-
-    /// <summary>Tag-relation counterpart to <see cref="GetOrCreateRelationBacklinks{T}"/> — see its doc.</summary>
-    internal ref RelationTagBacklinks<T> GetOrCreateRelationTagBacklinks<T>(Entity target, EntityLocation location) where T : struct, ITag
-    {
-        var typeIndex = TypeIndex<RelationTagBacklinks<T>>.Value;
-        ref var backlinks = ref location.Archetype.Signature.Contains(typeIndex)
-            ? ref GetComponent<RelationTagBacklinks<T>>(target, location)
-            : ref AddComponent<RelationTagBacklinks<T>>(target, location);
-        if (backlinks.Sources is null) backlinks = new RelationTagBacklinks<T>(new HashSet<Entity>());
-        return ref backlinks;
-    }
-
-    /// <summary>Tag-relation counterpart to <see cref="RemoveRelationLink{T}"/> — see its doc.</summary>
-    internal void RemoveRelationTagLink<T>(Entity source, Entity target) where T : struct, ITag
+    /// <summary>
+    /// For an <see cref="IExclusiveRelation"/> type, removes every existing
+    /// <typeparamref name="T"/> target from <paramref name="source"/> other than
+    /// <paramref name="target"/> itself (a no-op re-add), before
+    /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s apply-time op adds
+    /// the new edge — see <see cref="IExclusiveRelation"/>'s own doc. Uses the same
+    /// <see cref="RemoveRelationLink{T}"/>/<see cref="RemoveRelationBacklink{T}"/> helpers
+    /// <see cref="CommandBuffer.RemoveRelation{T}"/> itself uses, each of which
+    /// re-resolves its own location fresh, so this stays correct even if
+    /// <paramref name="source"/> is its own existing target and removing that backlink
+    /// causes an archetype move partway through the loop.
+    /// </summary>
+    internal void ReplaceExclusiveRelationTarget<T>(Entity source, Entity target) where T : struct, IRelation
     {
         if (!TryResolve(source, out var location)) return;
-        var typeIndex = TypeIndex<RelationTagLinks<T>>.Value;
+        var typeIndex = TypeIndex<RelationLinks<T>>.Value;
         if (!location.Archetype.Signature.Contains(typeIndex)) return;
 
-        var links = GetComponent<RelationTagLinks<T>>(source, location);
-        if (!links.Targets!.Remove(target)) return;
-        if (links.Targets.Count == 0) RemoveComponent(source, location, typeIndex);
-    }
-
-    /// <summary>Tag-relation counterpart to <see cref="RemoveRelationBacklink{T}"/> — see its doc.</summary>
-    internal void RemoveRelationTagBacklink<T>(Entity target, Entity source) where T : struct, ITag
-    {
-        if (!TryResolve(target, out var location)) return;
-        var typeIndex = TypeIndex<RelationTagBacklinks<T>>.Value;
-        if (!location.Archetype.Signature.Contains(typeIndex)) return;
-
-        var backlinks = GetComponent<RelationTagBacklinks<T>>(target, location);
-        if (!backlinks.Sources!.Remove(source)) return;
-        if (backlinks.Sources.Count == 0) RemoveComponent(target, location, typeIndex);
+        var links = GetComponent<RelationLinks<T>>(source, location);
+        var existingTargets = links.Targets!.Keys.ToArray(); // snapshot -- RemoveRelationLink below mutates this same dictionary
+        foreach (var existingTarget in existingTargets)
+        {
+            if (existingTarget == target) continue; // re-adding the same target: nothing to replace
+            RemoveRelationLink<T>(source, existingTarget);
+            RemoveRelationBacklink<T>(existingTarget, source);
+        }
     }
 
     /// <summary>
@@ -548,7 +530,7 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
-    public bool HasRelation<T>(Entity source, Entity target) where T : struct, IComponent
+    public bool HasRelation<T>(Entity source, Entity target) where T : struct, IRelation
     {
         RequireAlive(source);
         var (archetype, row) = _entityTable[source.Id];
@@ -557,7 +539,7 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
-    public bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IComponent
+    public bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IRelation
     {
         RequireAlive(source);
         var (archetype, row) = _entityTable[source.Id];
@@ -576,7 +558,7 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IComponent
+    public IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IRelation
     {
         RequireAlive(source);
         var (archetype, row) = _entityTable[source.Id];
@@ -586,47 +568,13 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
-    public IReadOnlyCollection<Entity> Sources<T>(Entity target) where T : struct, IComponent
+    public IReadOnlyCollection<Entity> Sources<T>(Entity target) where T : struct, IRelation
     {
         RequireAlive(target);
         var (archetype, row) = _entityTable[target.Id];
         return archetype.Storages.TryGetValue(TypeIndex<RelationBacklinks<T>>.Value, out var storage)
             ? ((ComponentStorage<RelationBacklinks<T>>)storage)[row].Values
             : EmptyRelation<T>.Entities;
-    }
-
-    /// <inheritdoc/>
-    public bool HasRelationTag<T>(Entity source, Entity target) where T : struct, ITag
-    {
-        RequireAlive(source);
-        var (archetype, row) = _entityTable[source.Id];
-        if (!archetype.Storages.TryGetValue(TypeIndex<RelationTagLinks<T>>.Value, out var storage)) return false;
-        return ((ComponentStorage<RelationTagLinks<T>>)storage)[row].Targets!.Contains(target);
-    }
-
-    private static class EmptyRelationTag<T>
-    {
-        internal static readonly IReadOnlyCollection<Entity> Entities = Array.Empty<Entity>();
-    }
-
-    /// <inheritdoc/>
-    public IReadOnlyCollection<Entity> TargetsTag<T>(Entity source) where T : struct, ITag
-    {
-        RequireAlive(source);
-        var (archetype, row) = _entityTable[source.Id];
-        return archetype.Storages.TryGetValue(TypeIndex<RelationTagLinks<T>>.Value, out var storage)
-            ? ((ComponentStorage<RelationTagLinks<T>>)storage)[row].Values
-            : EmptyRelationTag<T>.Entities;
-    }
-
-    /// <inheritdoc/>
-    public IReadOnlyCollection<Entity> SourcesTag<T>(Entity target) where T : struct, ITag
-    {
-        RequireAlive(target);
-        var (archetype, row) = _entityTable[target.Id];
-        return archetype.Storages.TryGetValue(TypeIndex<RelationTagBacklinks<T>>.Value, out var storage)
-            ? ((ComponentStorage<RelationTagBacklinks<T>>)storage)[row].Values
-            : EmptyRelationTag<T>.Entities;
     }
 
     /// <inheritdoc/>

@@ -78,25 +78,16 @@ public partial interface IWorld
     bool HasTag<T>(Entity entity) where T : struct, ITag;
 
     /// <summary>True if <paramref name="source"/> has a <typeparamref name="T"/> edge to <paramref name="target"/>.</summary>
-    bool HasRelation<T>(Entity source, Entity target) where T : struct, IComponent;
+    bool HasRelation<T>(Entity source, Entity target) where T : struct, IRelation;
 
     /// <summary>Copies the payload of <paramref name="source"/>'s <typeparamref name="T"/> edge to <paramref name="target"/>, if it exists.</summary>
-    bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IComponent;
+    bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IRelation;
 
-    /// <summary>Every target <paramref name="source"/> has a <typeparamref name="T"/> edge to, and each edge's payload. Empty, not throwing, if <paramref name="source"/> has none. O(fan-out) to enumerate, not O(1) — see <see cref="CommandBuffer.AddRelation{T}"/>'s doc for what is O(1).</summary>
-    IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IComponent;
+    /// <summary>Every target <paramref name="source"/> has a <typeparamref name="T"/> edge to, and each edge's payload. Empty, not throwing, if <paramref name="source"/> has none. O(fan-out) to enumerate, not O(1) — see <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s doc for what is O(1).</summary>
+    IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IRelation;
 
     /// <summary>Every source entity with a <typeparamref name="T"/> edge pointing at <paramref name="target"/>. Empty, not throwing, if none. O(fan-out) to enumerate.</summary>
-    IReadOnlyCollection<Entity> Sources<T>(Entity target) where T : struct, IComponent;
-
-    /// <summary>True if <paramref name="source"/> has a <typeparamref name="T"/> tag edge to <paramref name="target"/>.</summary>
-    bool HasRelationTag<T>(Entity source, Entity target) where T : struct, ITag;
-
-    /// <summary>Every target <paramref name="source"/> has a <typeparamref name="T"/> tag edge to. Empty, not throwing, if none.</summary>
-    IReadOnlyCollection<Entity> TargetsTag<T>(Entity source) where T : struct, ITag;
-
-    /// <summary>Every source entity with a <typeparamref name="T"/> tag edge pointing at <paramref name="target"/>. Empty, not throwing, if none.</summary>
-    IReadOnlyCollection<Entity> SourcesTag<T>(Entity target) where T : struct, ITag;
+    IReadOnlyCollection<Entity> Sources<T>(Entity target) where T : struct, IRelation;
 
     /// <summary>
     /// Hot-path query: invokes <paramref name="action"/> once per matching archetype

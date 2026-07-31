@@ -126,11 +126,11 @@ public sealed partial class CommandBuffer
     private object?[] _addComponentBuffers = new object?[4];
 
     /// <summary>
-    /// One relation type's queued <see cref="AddRelation{T}"/> values — a
-    /// <c>(Entity Target, T Value)[]</c>, the same reasoning as <see cref="AddComponentBuffer{T}"/>:
+    /// One relation type's queued <see cref="AddRelation{T}(Entity, Entity, T)"/> values —
+    /// a <c>(Entity Target, T Value)[]</c>, the same reasoning as <see cref="AddComponentBuffer{T}"/>:
     /// the value payload is never boxed, only the container reference is type-erased.
     /// </summary>
-    private sealed class AddRelationBuffer<T> : IResettableBuffer where T : struct, IComponent
+    private sealed class AddRelationBuffer<T> : IResettableBuffer where T : struct, IRelation
     {
         internal (Entity Target, T Value)[] Items = new (Entity, T)[4];
         internal int Count;
@@ -141,7 +141,7 @@ public sealed partial class CommandBuffer
     private object?[] _addRelationBuffers = new object?[4];
 
     /// <summary>Caller must already hold <see cref="_gate"/> — see <see cref="GetAddComponentBuffer{T}"/>'s own doc for why.</summary>
-    private AddRelationBuffer<T> GetAddRelationBuffer<T>() where T : struct, IComponent
+    private AddRelationBuffer<T> GetAddRelationBuffer<T>() where T : struct, IRelation
     {
         var typeIndex = Internal.TypeIndex<T>.Value;
         Internal.ArrayGrowth.EnsureCapacity(ref _addRelationBuffers, typeIndex + 1);
@@ -153,14 +153,13 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// One shared queued-target buffer for every <see cref="RemoveRelation{T}"/>,
-    /// <see cref="AddRelationTag{T}"/>, and <see cref="RemoveRelationTag{T}"/> call,
-    /// regardless of relation type — none of these carry a per-edge payload, only a
-    /// target <see cref="Entity"/>, so unlike <see cref="AddRelationBuffer{T}"/> there's
-    /// no value to keep un-boxed per closed generic; every queued command still captures
-    /// its own <c>(buffer, slot)</c> pair at enqueue time, so sharing the backing array
-    /// across different relation types and op kinds is exactly as safe as <see cref="_queue"/>
-    /// itself already being shared across every command kind.
+    /// The queued-target buffer for every <see cref="RemoveRelation{T}"/> call, shared
+    /// across every relation type — removal carries no per-edge payload, only a target
+    /// <see cref="Entity"/>, so unlike <see cref="AddRelationBuffer{T}"/> there's no value
+    /// to keep un-boxed per closed generic; every queued command still captures its own
+    /// <c>(buffer, slot)</c> pair at enqueue time, so sharing the backing array across
+    /// different relation types is exactly as safe as <see cref="_queue"/> itself already
+    /// being shared across every command kind.
     /// </summary>
     private sealed class RelationTargetBuffer : IResettableBuffer
     {
@@ -244,14 +243,19 @@ public sealed partial class CommandBuffer
         };
     }
 
-    private static class AddRelationOp<T> where T : struct, IComponent
+    private static class AddRelationOp<T> where T : struct, IRelation
     {
         internal static readonly Action<World, Entity, object?, int> Apply = (w, source, buffer, slot) =>
         {
             var (target, value) = ((AddRelationBuffer<T>)buffer!).Items[slot];
-            if (!w.TryResolve(source, out var sourceLocation)) return;
-            if (!w.TryResolve(target, out _)) return; // target must be alive too, checked before mutating source
+            if (!w.TryResolve(source, out _)) return;
+            if (!w.TryResolve(target, out _)) return; // target must be alive too, checked before mutating anything
 
+            if (Internal.RelationTraits<T>.IsExclusive)
+                w.ReplaceExclusiveRelationTarget<T>(source, target);
+
+            // Fresh resolve: ReplaceExclusiveRelationTarget, if it ran, may have moved source.
+            if (!w.TryResolve(source, out var sourceLocation)) return;
             ref var links = ref w.GetOrCreateRelationLinks<T>(source, sourceLocation);
             links.Targets![target] = value;
 
@@ -263,40 +267,13 @@ public sealed partial class CommandBuffer
         };
     }
 
-    private static class RemoveRelationOp<T> where T : struct, IComponent
+    private static class RemoveRelationOp<T> where T : struct, IRelation
     {
         internal static readonly Action<World, Entity, object?, int> Apply = (w, source, buffer, slot) =>
         {
             var target = ((RelationTargetBuffer)buffer!).Items[slot];
             w.RemoveRelationLink<T>(source, target);
             w.RemoveRelationBacklink<T>(target, source);
-        };
-    }
-
-    private static class AddRelationTagOp<T> where T : struct, ITag
-    {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, source, buffer, slot) =>
-        {
-            var target = ((RelationTargetBuffer)buffer!).Items[slot];
-            if (!w.TryResolve(source, out var sourceLocation)) return;
-            if (!w.TryResolve(target, out _)) return;
-
-            ref var links = ref w.GetOrCreateRelationTagLinks<T>(source, sourceLocation);
-            links.Targets!.Add(target);
-
-            if (!w.TryResolve(target, out var targetLocation)) return;
-            ref var backlinks = ref w.GetOrCreateRelationTagBacklinks<T>(target, targetLocation);
-            backlinks.Sources!.Add(source);
-        };
-    }
-
-    private static class RemoveRelationTagOp<T> where T : struct, ITag
-    {
-        internal static readonly Action<World, Entity, object?, int> Apply = (w, source, buffer, slot) =>
-        {
-            var target = ((RelationTargetBuffer)buffer!).Items[slot];
-            w.RemoveRelationTagLink<T>(source, target);
-            w.RemoveRelationTagBacklink<T>(target, source);
         };
     }
 
@@ -390,10 +367,12 @@ public sealed partial class CommandBuffer
     /// last-queued value wins, same as <see cref="AddComponent{T}(Entity, T)"/>. Adding a
     /// relation type's first edge (or removing its last, via <see cref="RemoveRelation{T}"/>)
     /// moves the owning entity to a different archetype; every edge in between is an O(1)
-    /// dictionary write, no archetype move. Safe to call concurrently from several threads
-    /// at once.
+    /// dictionary write, no archetype move. If <typeparamref name="T"/> implements
+    /// <see cref="IExclusiveRelation"/>, any other existing target is replaced rather than
+    /// added alongside — see that interface's own doc. Safe to call concurrently from
+    /// several threads at once.
     /// </summary>
-    public void AddRelation<T>(Entity source, Entity target, T value) where T : struct, IComponent
+    public void AddRelation<T>(Entity source, Entity target, T value) where T : struct, IRelation
     {
         lock (_gate)
         {
@@ -405,8 +384,11 @@ public sealed partial class CommandBuffer
         }
     }
 
+    /// <summary>Same as <see cref="AddRelation{T}(Entity, Entity, T)"/>, with the edge's payload defaulted — convenience for a marker-only relation type (no fields), so a caller doesn't have to spell out <c>default(T)</c> explicitly.</summary>
+    public void AddRelation<T>(Entity source, Entity target) where T : struct, IRelation => AddRelation(source, target, default(T));
+
     /// <summary>Queues removing the <typeparamref name="T"/> edge from <paramref name="source"/> to <paramref name="target"/>, if it exists. A no-op at apply time otherwise. Safe to call concurrently from several threads at once.</summary>
-    public void RemoveRelation<T>(Entity source, Entity target) where T : struct, IComponent
+    public void RemoveRelation<T>(Entity source, Entity target) where T : struct, IRelation
     {
         lock (_gate)
         {
@@ -415,32 +397,6 @@ public sealed partial class CommandBuffer
             var slot = buffer.Count++;
             buffer.Items[slot] = target;
             Enqueue(new QueuedCommand(source, RemoveRelationOp<T>.Apply, buffer, slot));
-        }
-    }
-
-    /// <summary>Tag-relation counterpart to <see cref="AddRelation{T}"/> — see its doc; no payload, so no value to overwrite on re-add.</summary>
-    public void AddRelationTag<T>(Entity source, Entity target) where T : struct, ITag
-    {
-        lock (_gate)
-        {
-            var buffer = GetRelationTargetBuffer();
-            Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
-            var slot = buffer.Count++;
-            buffer.Items[slot] = target;
-            Enqueue(new QueuedCommand(source, AddRelationTagOp<T>.Apply, buffer, slot));
-        }
-    }
-
-    /// <summary>Tag-relation counterpart to <see cref="RemoveRelation{T}"/> — see its doc.</summary>
-    public void RemoveRelationTag<T>(Entity source, Entity target) where T : struct, ITag
-    {
-        lock (_gate)
-        {
-            var buffer = GetRelationTargetBuffer();
-            Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
-            var slot = buffer.Count++;
-            buffer.Items[slot] = target;
-            Enqueue(new QueuedCommand(source, RemoveRelationTagOp<T>.Apply, buffer, slot));
         }
     }
 

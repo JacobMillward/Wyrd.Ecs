@@ -1,14 +1,14 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The reverse side of a data-carrying relationship: every source entity pointing a
+/// The reverse side of a relationship: every source entity pointing a
 /// <typeparamref name="T"/> edge at the owning entity. Carries no payload — only
 /// <see cref="RelationLinks{T}"/>, on the source side, does — this type exists purely
 /// so entity-destroy cascade cleanup (see the design doc's "Destroy cascade" section)
 /// can find "who points at me" in O(1) instead of scanning every entity in the world.
 /// Same construction/mutation discipline as <see cref="RelationLinks{T}"/> — see its doc.
 /// </summary>
-public readonly struct RelationBacklinks<T> : IComponent where T : struct, IComponent
+public readonly struct RelationBacklinks<T> : IComponent where T : struct, IRelation
 {
     private readonly HashSet<Entity>? _sources;
 
