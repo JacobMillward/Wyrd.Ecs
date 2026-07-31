@@ -73,4 +73,93 @@ public class ParentHierarchyTests
         world.IsAlive(childB).Should().BeFalse();
         world.IsAlive(grandchildOfA).Should().BeFalse();
     }
+
+    [Fact]
+    public void TryGetParent_HasParent_ReturnsTrueAndTheParent()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(child, parent);
+        world.ApplyCommands();
+
+        world.TryGetParent(child, out var found).Should().BeTrue();
+        found.Should().Be(parent);
+    }
+
+    [Fact]
+    public void TryGetParent_NoParent_ReturnsFalse()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world.TryGetParent(child, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetParent_HasParent_ReturnsIt()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(child, parent);
+        world.ApplyCommands();
+
+        world.GetParent(child).Should().Be(parent);
+    }
+
+    [Fact]
+    public void GetParent_NoParent_Throws()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var act = () => world.GetParent(child);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Children_ReturnsEveryDirectChild()
+    {
+        var world = new World();
+        var parent = world.Commands.CreateEntity();
+        var childA = world.Commands.CreateEntity();
+        var childB = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(childA, parent);
+        world.Commands.AddRelation<Parent>(childB, parent);
+        world.ApplyCommands();
+
+        world.Children(parent).Should().BeEquivalentTo([childA, childB]);
+    }
+
+    [Fact]
+    public void Ancestors_YieldsClosestParentFirstUpToTheRoot()
+    {
+        var world = new World();
+        var root = world.Commands.CreateEntity();
+        var arm = world.Commands.CreateEntity();
+        var hand = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(arm, root);
+        world.Commands.AddRelation<Parent>(hand, arm);
+        world.ApplyCommands();
+
+        world.Ancestors(hand).Should().Equal([arm, root]);
+    }
+
+    [Fact]
+    public void Descendants_YieldsDepthFirstPreOrder()
+    {
+        var world = new World();
+        var root = world.Commands.CreateEntity();
+        var arm = world.Commands.CreateEntity();
+        var hand = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(arm, root);
+        world.Commands.AddRelation<Parent>(hand, arm);
+        world.ApplyCommands();
+
+        world.Descendants(root).Should().Equal([arm, hand]);
+    }
 }
