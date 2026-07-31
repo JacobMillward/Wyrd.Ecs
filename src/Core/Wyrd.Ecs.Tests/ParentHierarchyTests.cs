@@ -30,4 +30,47 @@ public class ParentHierarchyTests
         world.Targets<Parent>(child).Should().ContainKey(momTwo);
         world.HasRelation<Parent>(child, momOne).Should().BeFalse();
     }
+
+    [Fact]
+    public void DestroyingAParent_RecursivelyDestroysTheWholeSubtree()
+    {
+        var world = new World();
+        var root = world.Commands.CreateEntity();
+        var arm = world.Commands.CreateEntity();
+        var hand = world.Commands.CreateEntity();
+        var sword = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(arm, root);
+        world.Commands.AddRelation<Parent>(hand, arm);
+        world.Commands.AddRelation<Parent>(sword, hand);
+        world.ApplyCommands();
+
+        world.Commands.DestroyEntity(arm);
+        world.ApplyCommands();
+
+        world.IsAlive(arm).Should().BeFalse();
+        world.IsAlive(hand).Should().BeFalse();
+        world.IsAlive(sword).Should().BeFalse();
+        world.IsAlive(root).Should().BeTrue();
+    }
+
+    [Fact]
+    public void DestroyingAParent_WithMultipleChildren_DestroysEveryChildsSubtree()
+    {
+        var world = new World();
+        var parent = world.Commands.CreateEntity();
+        var childA = world.Commands.CreateEntity();
+        var childB = world.Commands.CreateEntity();
+        var grandchildOfA = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(childA, parent);
+        world.Commands.AddRelation<Parent>(childB, parent);
+        world.Commands.AddRelation<Parent>(grandchildOfA, childA);
+        world.ApplyCommands();
+
+        world.Commands.DestroyEntity(parent);
+        world.ApplyCommands();
+
+        world.IsAlive(childA).Should().BeFalse();
+        world.IsAlive(childB).Should().BeFalse();
+        world.IsAlive(grandchildOfA).Should().BeFalse();
+    }
 }

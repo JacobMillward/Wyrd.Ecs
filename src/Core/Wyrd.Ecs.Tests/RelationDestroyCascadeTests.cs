@@ -135,4 +135,20 @@ public class RelationDestroyCascadeTests
 
         world.Targets<Follows>(a).Should().BeEmpty();
     }
+
+    [Fact]
+    public void DestroyingTheTarget_OfANonDependentRelation_OnlyUnlinks_DoesNotDestroySources()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        world.Commands.DestroyEntity(b);
+        world.ApplyCommands();
+
+        world.IsAlive(a).Should().BeTrue(); // Likes is not IDependent -- a survives, just unlinked
+        world.HasRelation<Likes>(a, b).Should().BeFalse();
+    }
 }

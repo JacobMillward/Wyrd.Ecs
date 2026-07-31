@@ -22,11 +22,29 @@ public readonly struct RelationBacklinks<T> : IComponent where T : struct, IRela
 
     static RelationBacklinks() => Internal.RelationRegistry.Register(Internal.TypeIndex<RelationBacklinks<T>>.Value, CascadeRemove);
 
-    /// <summary>Removes this entity from every one of its sources' <see cref="RelationLinks{T}"/> — the mirror of <see cref="RelationLinks{T}"/>'s own cascade.</summary>
+    /// <summary>
+    /// For a non-<see cref="IDependent"/> relation: removes this entity from every one of
+    /// its sources' <see cref="RelationLinks{T}"/> — the mirror of
+    /// <see cref="RelationLinks{T}"/>'s own cascade. For an <see cref="IDependent"/>
+    /// relation (e.g. <see cref="Parent"/>): recursively destroys every source instead,
+    /// so destroying the target of a hierarchy edge despawns the whole subtree. Sources
+    /// are snapshotted to an array first — destroying a source re-enters via
+    /// <see cref="RelationLinks{T}"/>'s own cascade, which removes that source from this
+    /// same live backlink set, so iterating the set directly while destroying its members
+    /// would mutate a collection mid-enumeration.
+    /// </summary>
     private static void CascadeRemove(World world, Entity self, Internal.IComponentStorage storage, int row)
     {
         var backlinks = ((Internal.ComponentStorage<RelationBacklinks<T>>)storage)[row];
-        foreach (var source in backlinks.Sources!)
-            world.RemoveRelationLink<T>(source, self);
+        if (Internal.RelationTraits<T>.IsDependent)
+        {
+            foreach (var source in backlinks.Sources!.ToArray())
+                if (world.IsAlive(source)) world.DestroyEntity(source);
+        }
+        else
+        {
+            foreach (var source in backlinks.Sources!)
+                world.RemoveRelationLink<T>(source, self);
+        }
     }
 }
