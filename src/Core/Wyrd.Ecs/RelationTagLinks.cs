@@ -17,4 +17,13 @@ public readonly struct RelationTagLinks<T> : IComponent where T : struct, ITag
 
     /// <summary>Every target this entity has a <typeparamref name="T"/> edge to. Read-only.</summary>
     public IReadOnlyCollection<Entity> Values => _targets!;
+
+    static RelationTagLinks() => Internal.RelationRegistry.Register(Internal.TypeIndex<RelationTagLinks<T>>.Value, CascadeRemove);
+
+    private static void CascadeRemove(World world, Entity self, Internal.IComponentStorage storage, int row)
+    {
+        var links = ((Internal.ComponentStorage<RelationTagLinks<T>>)storage)[row];
+        foreach (var target in links.Targets!)
+            world.RemoveRelationTagBacklink<T>(target, self);
+    }
 }

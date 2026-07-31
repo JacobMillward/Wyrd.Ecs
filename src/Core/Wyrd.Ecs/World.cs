@@ -132,7 +132,43 @@ public sealed partial class World : IWorld
     {
         RequireAlive(entity);
         NotifyEntityDestroyed(entity);
+        CascadeRemoveRelations(entity);
         _entityTable.Destroy(entity.Id);
+    }
+
+    /// <summary>
+    /// Cleans up every relation edge touching <paramref name="entity"/>, in both
+    /// directions, before its row is removed. Snapshots which of its current component
+    /// type indices are relation storages once upfront, but re-resolves
+    /// <paramref name="entity"/>'s location fresh before processing each one — a
+    /// self-relation (<c>source == target == entity</c>) can have one relation type's
+    /// cascade step remove a *different* relation component of <paramref name="entity"/>'s
+    /// own as a side effect (its backlink set emptying out), which would move
+    /// <paramref name="entity"/> to a different archetype/row and invalidate any location
+    /// captured before that happened. The <c>Contains</c> check below skips a type index
+    /// already cleaned up that way, rather than re-processing or reading stale storage.
+    /// </summary>
+    private void CascadeRemoveRelations(Entity entity)
+    {
+        var initialLocation = _entityTable[entity.Id];
+        var relationTypeIndices = new List<int>();
+        foreach (var (typeIndex, _) in initialLocation.Archetype.Storages)
+        {
+            if (RelationRegistry.Get(typeIndex) is not null)
+                relationTypeIndices.Add(typeIndex);
+        }
+
+        foreach (var typeIndex in relationTypeIndices)
+        {
+            var handler = RelationRegistry.Get(typeIndex);
+            if (handler is null) continue;
+
+            var current = _entityTable[entity.Id];
+            if (!current.Archetype.Signature.Contains(typeIndex)) continue;
+
+            current.Archetype.Storages.TryGetValue(typeIndex, out var storage);
+            handler(this, entity, storage, current.Row);
+        }
     }
 
     /// <inheritdoc/>

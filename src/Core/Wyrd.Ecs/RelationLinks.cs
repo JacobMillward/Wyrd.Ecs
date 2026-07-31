@@ -22,4 +22,14 @@ public readonly struct RelationLinks<T> : IComponent where T : struct, IComponen
 
     /// <summary>Every target this entity has a <typeparamref name="T"/> edge to, and that edge's payload. Read-only — see this type's own doc for why.</summary>
     public IReadOnlyDictionary<Entity, T> Values => _targets!;
+
+    static RelationLinks() => Internal.RelationRegistry.Register(Internal.TypeIndex<RelationLinks<T>>.Value, CascadeRemove);
+
+    /// <summary>Removes this entity from every one of its targets' <see cref="RelationBacklinks{T}"/> — this component's own row is about to be deleted wholesale as part of the same destroy, so only the mirror needs cleaning here.</summary>
+    private static void CascadeRemove(World world, Entity self, Internal.IComponentStorage storage, int row)
+    {
+        var links = ((Internal.ComponentStorage<RelationLinks<T>>)storage)[row];
+        foreach (var target in links.Targets!.Keys)
+            world.RemoveRelationBacklink<T>(target, self);
+    }
 }

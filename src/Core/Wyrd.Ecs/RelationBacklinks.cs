@@ -19,4 +19,14 @@ public readonly struct RelationBacklinks<T> : IComponent where T : struct, IComp
 
     /// <summary>Every source entity with a <typeparamref name="T"/> edge pointing at this entity. Read-only.</summary>
     public IReadOnlyCollection<Entity> Values => _sources!;
+
+    static RelationBacklinks() => Internal.RelationRegistry.Register(Internal.TypeIndex<RelationBacklinks<T>>.Value, CascadeRemove);
+
+    /// <summary>Removes this entity from every one of its sources' <see cref="RelationLinks{T}"/> — the mirror of <see cref="RelationLinks{T}"/>'s own cascade.</summary>
+    private static void CascadeRemove(World world, Entity self, Internal.IComponentStorage storage, int row)
+    {
+        var backlinks = ((Internal.ComponentStorage<RelationBacklinks<T>>)storage)[row];
+        foreach (var source in backlinks.Sources!)
+            world.RemoveRelationLink<T>(source, self);
+    }
 }

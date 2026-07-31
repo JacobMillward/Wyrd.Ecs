@@ -15,4 +15,13 @@ public readonly struct RelationTagBacklinks<T> : IComponent where T : struct, IT
 
     /// <summary>Every source entity with a <typeparamref name="T"/> edge pointing at this entity. Read-only.</summary>
     public IReadOnlyCollection<Entity> Values => _sources!;
+
+    static RelationTagBacklinks() => Internal.RelationRegistry.Register(Internal.TypeIndex<RelationTagBacklinks<T>>.Value, CascadeRemove);
+
+    private static void CascadeRemove(World world, Entity self, Internal.IComponentStorage storage, int row)
+    {
+        var backlinks = ((Internal.ComponentStorage<RelationTagBacklinks<T>>)storage)[row];
+        foreach (var source in backlinks.Sources!)
+            world.RemoveRelationTagLink<T>(source, self);
+    }
 }
