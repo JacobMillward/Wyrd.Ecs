@@ -15,13 +15,13 @@ internal static class StableTopologicalSort
     /// <see cref="InvalidOperationException"/>, naming the cycle, if the edges are
     /// unsatisfiable.
     /// </summary>
-    internal static List<SchedulableSystem> Sort(
-        IReadOnlyList<SchedulableSystem> nodes,
+    internal static List<OrderNode> Sort(
+        IReadOnlyList<OrderNode> nodes,
         IReadOnlyList<SystemOrderGraph.Edge> edges,
-        IReadOnlyDictionary<SchedulableSystem, int> tieBreak)
+        IReadOnlyDictionary<OrderNode, int> tieBreak)
     {
-        var successors = new Dictionary<SchedulableSystem, List<SchedulableSystem>>();
-        var inDegree = new Dictionary<SchedulableSystem, int>();
+        var successors = new Dictionary<OrderNode, List<OrderNode>>();
+        var inDegree = new Dictionary<OrderNode, int>();
         foreach (var node in nodes)
         {
             successors[node] = [];
@@ -37,7 +37,7 @@ internal static class StableTopologicalSort
         var ready = nodes.Where(n => inDegree[n] == 0).ToList();
         ready.Sort((x, y) => tieBreak[x].CompareTo(tieBreak[y]));
 
-        var order = new List<SchedulableSystem>();
+        var order = new List<OrderNode>();
         while (ready.Count > 0)
         {
             var next = ready[0];
@@ -58,7 +58,7 @@ internal static class StableTopologicalSort
             var stuck = nodes.Where(n => !order.Contains(n)).ToList();
             var cyclePath = FindCyclePath(stuck, successors);
             throw new InvalidOperationException(
-                $"System ordering forms a cycle: {string.Join(" -> ", cyclePath.Select(n => n.GetType().Name))}.");
+                $"System ordering forms a cycle: {string.Join(" -> ", cyclePath.Select(n => n.DisplayName))}.");
         }
 
         return order;
@@ -73,19 +73,19 @@ internal static class StableTopologicalSort
     /// each unexplored stuck node as a fresh starting point, marking every node a dead
     /// end walk passed through as visited so it's never re-walked from a later start.
     /// </summary>
-    private static List<SchedulableSystem> FindCyclePath(
-        List<SchedulableSystem> stuck,
-        Dictionary<SchedulableSystem, List<SchedulableSystem>> successors)
+    private static List<OrderNode> FindCyclePath(
+        List<OrderNode> stuck,
+        Dictionary<OrderNode, List<OrderNode>> successors)
     {
-        var stuckSet = new HashSet<SchedulableSystem>(stuck);
-        var visited = new HashSet<SchedulableSystem>();
+        var stuckSet = new HashSet<OrderNode>(stuck);
+        var visited = new HashSet<OrderNode>();
 
         foreach (var start in stuck)
         {
             if (visited.Contains(start)) continue;
 
-            var path = new List<SchedulableSystem>();
-            var onPath = new HashSet<SchedulableSystem>();
+            var path = new List<OrderNode>();
+            var onPath = new HashSet<OrderNode>();
             var current = start;
 
             while (onPath.Add(current))
@@ -93,8 +93,16 @@ internal static class StableTopologicalSort
                 visited.Add(current);
                 path.Add(current);
 
-                var next = successors[current].FirstOrDefault(stuckSet.Contains);
-                if (next is null) goto NextStart; // dead end -- this walk found no cycle
+                var foundNext = false;
+                var next = default(OrderNode);
+                foreach (var candidate in successors[current])
+                {
+                    if (!stuckSet.Contains(candidate)) continue;
+                    next = candidate;
+                    foundNext = true;
+                    break;
+                }
+                if (!foundNext) goto NextStart; // dead end -- this walk found no cycle
 
                 current = next;
             }

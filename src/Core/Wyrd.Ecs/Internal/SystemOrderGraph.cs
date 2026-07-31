@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Wyrd.Ecs.Internal;
@@ -6,17 +5,18 @@ namespace Wyrd.Ecs.Internal;
 /// <summary>
 /// Resolves every Before/After edge declared across a system list — via
 /// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> and
-/// <see cref="OrderedSystem"/>'s fluent wrapper — into a graph over concrete
-/// <see cref="SchedulableSystem"/> nodes: every registered <see cref="EcsSystem"/>
-/// instance, plus one synthesized <see cref="MarkerSystem"/> instance per marker type
-/// an edge actually references. Consumed by <see cref="SystemScheduler.BuildStages"/>
-/// to seed each node's minimum-allowed stage index before conflict-based packing runs.
+/// <see cref="OrderedSystem"/>'s fluent wrapper — into a graph over
+/// <see cref="OrderNode"/>s: every registered <see cref="EcsSystem"/> instance, plus
+/// one node per distinct <see cref="MarkerSystem"/> type an edge actually references
+/// (never an instance of it — see <see cref="OrderNode"/>). Consumed by
+/// <see cref="SystemScheduler.BuildStages"/> to seed each node's minimum-allowed stage
+/// index before conflict-based packing runs.
 /// </summary>
 internal static class SystemOrderGraph
 {
-    internal readonly record struct Edge(SchedulableSystem Before, SchedulableSystem After);
+    internal readonly record struct Edge(OrderNode Before, OrderNode After);
 
-    internal readonly record struct Result(IReadOnlyList<SchedulableSystem> Nodes, IReadOnlyList<Edge> Edges);
+    internal readonly record struct Result(IReadOnlyList<OrderNode> Nodes, IReadOnlyList<Edge> Edges);
 
     internal static Result Resolve(IReadOnlyList<OrderedSystem> orderedSystems)
     {
@@ -29,38 +29,16 @@ internal static class SystemOrderGraph
             list.Add(ordered.System);
         }
 
-        var markersByType = new Dictionary<Type, MarkerSystem>();
+        var markerNodes = new HashSet<OrderNode>();
         var edges = new List<Edge>();
 
-        [UnconditionalSuppressMessage("Trimming", "IL2067",
-            Justification = "Known limitation, not a false positive: nothing else in the compiled " +
-                "graph ever constructs a MarkerSystem subtype directly -- Activator.CreateInstance " +
-                "here is the only call site -- so a trimmed/AOT publish can legitimately strip a " +
-                "marker's constructor before this ever runs. The precondition checks below turn " +
-                "that into a clear InvalidOperationException instead of a raw MissingMethodException, " +
-                "but do not prevent the trimming itself; see MarkerSystem's doc comment for the " +
-                "consumer-facing guidance this implies.")]
-        [UnconditionalSuppressMessage("Trimming", "IL2070",
-            Justification = "Same root cause and same known limitation as the IL2067 suppression " +
-                "above: GetConstructor here is a precondition check for the same reflection-only " +
-                "marker-construction path, not a new risk.")]
-        SchedulableSystem ResolveTarget(Type target)
+        OrderNode ResolveTarget(Type target)
         {
             if (typeof(MarkerSystem).IsAssignableFrom(target))
             {
-                if (!markersByType.TryGetValue(target, out var marker))
-                {
-                    if (target.IsAbstract)
-                        throw new InvalidOperationException(
-                            $"'{target}' is used as a marker-ordering target but is abstract and cannot be instantiated.");
-                    if (target.GetConstructor(Type.EmptyTypes) is null)
-                        throw new InvalidOperationException(
-                            $"'{target}' is used as a marker-ordering target but has no public parameterless constructor.");
-
-                    markersByType[target] = marker = (MarkerSystem)Activator.CreateInstance(target)!;
-                }
-
-                return marker;
+                var node = OrderNode.ForMarker(target);
+                markerNodes.Add(node);
+                return node;
             }
 
             if (!typeof(EcsSystem).IsAssignableFrom(target))
@@ -74,26 +52,28 @@ internal static class SystemOrderGraph
                 throw new InvalidOperationException(
                     $"A system-ordering edge targets '{target}', but {matches.Count} instances of that type are registered — which one is meant is ambiguous.");
 
-            return matches[0];
+            return OrderNode.ForSystem(matches[0]);
         }
 
         foreach (var ordered in orderedSystems)
         {
+            var self = OrderNode.ForSystem(ordered.System);
+
             foreach (var beforeTarget in ordered.BeforeTargets)
-                edges.Add(new Edge(ordered.System, ResolveTarget(beforeTarget)));
+                edges.Add(new Edge(self, ResolveTarget(beforeTarget)));
             foreach (var afterTarget in ordered.AfterTargets)
-                edges.Add(new Edge(ResolveTarget(afterTarget), ordered.System));
+                edges.Add(new Edge(ResolveTarget(afterTarget), self));
 
             foreach (var attribute in ordered.System.GetType().GetCustomAttributes<RunBeforeAttribute>())
-                edges.Add(new Edge(ordered.System, ResolveTarget(attribute.Target)));
+                edges.Add(new Edge(self, ResolveTarget(attribute.Target)));
             foreach (var attribute in ordered.System.GetType().GetCustomAttributes<RunAfterAttribute>())
-                edges.Add(new Edge(ResolveTarget(attribute.Target), ordered.System));
+                edges.Add(new Edge(ResolveTarget(attribute.Target), self));
         }
 
-        IReadOnlyList<SchedulableSystem> nodes =
+        IReadOnlyList<OrderNode> nodes =
         [
-            .. orderedSystems.Select(o => (SchedulableSystem)o.System),
-            .. markersByType.Values,
+            .. orderedSystems.Select(o => OrderNode.ForSystem(o.System)),
+            .. markerNodes,
         ];
 
         return new Result(nodes, edges);

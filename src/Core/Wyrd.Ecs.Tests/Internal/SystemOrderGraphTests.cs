@@ -14,11 +14,6 @@ file sealed class GraphMarker : MarkerSystem { }
 
 file sealed class NoEdgeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
 
-file sealed class NoCtorMarker : MarkerSystem
-{
-    public NoCtorMarker(int value) { }
-}
-
 [RunBefore(typeof(GraphSystemA))]
 file class BaseWithEdge : EcsSystem { protected override void Execute(World world, Time time) { } }
 
@@ -40,7 +35,7 @@ public class SystemOrderGraphTests
 
         var result = SystemOrderGraph.Resolve(systems);
 
-        result.Edges.Should().ContainSingle(e => e.Before == b && e.After == a);
+        result.Edges.Should().ContainSingle(e => e.Before == OrderNode.ForSystem(b) && e.After == OrderNode.ForSystem(a));
     }
 
     [Fact]
@@ -52,7 +47,7 @@ public class SystemOrderGraphTests
 
         var result = SystemOrderGraph.Resolve(systems);
 
-        result.Edges.Should().ContainSingle(e => e.Before == a && e.After == c);
+        result.Edges.Should().ContainSingle(e => e.Before == OrderNode.ForSystem(a) && e.After == OrderNode.ForSystem(c));
     }
 
     [Fact]
@@ -64,7 +59,7 @@ public class SystemOrderGraphTests
 
         var result = SystemOrderGraph.Resolve(systems);
 
-        result.Edges.Should().ContainSingle(e => e.Before == a && e.After == noEdge);
+        result.Edges.Should().ContainSingle(e => e.Before == OrderNode.ForSystem(a) && e.After == OrderNode.ForSystem(noEdge));
     }
 
     [Fact]
@@ -80,10 +75,10 @@ public class SystemOrderGraphTests
 
         var result = SystemOrderGraph.Resolve(systems);
 
-        var markers = result.Nodes.OfType<GraphMarker>().ToList();
-        markers.Should().ContainSingle();
-        result.Edges.Should().Contain(e => e.Before == markers[0] && e.After == noEdge1);
-        result.Edges.Should().Contain(e => e.Before == markers[0] && e.After == noEdge2);
+        var markerNode = OrderNode.ForMarker(typeof(GraphMarker));
+        result.Nodes.Should().ContainSingle(n => n == markerNode);
+        result.Edges.Should().Contain(e => e.Before == markerNode && e.After == OrderNode.ForSystem(noEdge1));
+        result.Edges.Should().Contain(e => e.Before == markerNode && e.After == OrderNode.ForSystem(noEdge2));
     }
 
     [Fact]
@@ -120,26 +115,6 @@ public class SystemOrderGraphTests
     }
 
     [Fact]
-    public void EdgeTargetingTheAbstractMarkerSystemBaseType_ThrowsInvalidOperationException()
-    {
-        OrderedSystem[] systems = [Order.For(new NoEdgeSystem()).After<MarkerSystem>()];
-
-        var act = () => SystemOrderGraph.Resolve(systems);
-
-        act.Should().Throw<InvalidOperationException>().WithMessage("*abstract*");
-    }
-
-    [Fact]
-    public void EdgeTargetingAMarkerWithNoParameterlessConstructor_ThrowsInvalidOperationException()
-    {
-        OrderedSystem[] systems = [Order.For(new NoEdgeSystem()).After<NoCtorMarker>()];
-
-        var act = () => SystemOrderGraph.Resolve(systems);
-
-        act.Should().Throw<InvalidOperationException>().WithMessage("*parameterless constructor*");
-    }
-
-    [Fact]
     public void RunBeforeAttribute_IsNotInheritedByASubclassWithNoOwnAttribute()
     {
         var a = new GraphSystemA();
@@ -148,6 +123,6 @@ public class SystemOrderGraphTests
 
         var result = SystemOrderGraph.Resolve(systems);
 
-        result.Edges.Should().NotContain(e => e.After == a);
+        result.Edges.Should().NotContain(e => e.After == OrderNode.ForSystem(a));
     }
 }

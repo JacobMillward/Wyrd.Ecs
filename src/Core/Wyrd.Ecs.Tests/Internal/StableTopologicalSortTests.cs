@@ -12,9 +12,9 @@ public class StableTopologicalSortTests
     [Fact]
     public void NoEdges_OrderMatchesTieBreakExactly()
     {
-        var a = new NodeA();
-        var b = new NodeB();
-        var tieBreak = new Dictionary<SchedulableSystem, int> { [b] = 0, [a] = 1 };
+        var a = OrderNode.ForSystem(new NodeA());
+        var b = OrderNode.ForSystem(new NodeB());
+        var tieBreak = new Dictionary<OrderNode, int> { [b] = 0, [a] = 1 };
 
         var order = StableTopologicalSort.Sort([b, a], [], tieBreak);
 
@@ -24,10 +24,10 @@ public class StableTopologicalSortTests
     [Fact]
     public void OneEdge_BeforeNodePrecedesAfterNodeRegardlessOfTieBreak()
     {
-        var a = new NodeA();
-        var b = new NodeB();
+        var a = OrderNode.ForSystem(new NodeA());
+        var b = OrderNode.ForSystem(new NodeB());
         // Tie-break alone would put b first; the edge must override that.
-        var tieBreak = new Dictionary<SchedulableSystem, int> { [b] = 0, [a] = 1 };
+        var tieBreak = new Dictionary<OrderNode, int> { [b] = 0, [a] = 1 };
         SystemOrderGraph.Edge[] edges = [new(a, b)];
 
         var order = StableTopologicalSort.Sort([b, a], edges, tieBreak);
@@ -38,9 +38,9 @@ public class StableTopologicalSortTests
     [Fact]
     public void DirectCycle_ThrowsNamingBothNodes()
     {
-        var a = new NodeA();
-        var b = new NodeB();
-        var tieBreak = new Dictionary<SchedulableSystem, int> { [a] = 0, [b] = 1 };
+        var a = OrderNode.ForSystem(new NodeA());
+        var b = OrderNode.ForSystem(new NodeB());
+        var tieBreak = new Dictionary<OrderNode, int> { [a] = 0, [b] = 1 };
         SystemOrderGraph.Edge[] edges = [new(a, b), new(b, a)];
 
         var act = () => StableTopologicalSort.Sort([a, b], edges, tieBreak);
@@ -51,10 +51,10 @@ public class StableTopologicalSortTests
     [Fact]
     public void LongerCycle_Throws()
     {
-        var a = new NodeA();
-        var b = new NodeB();
-        var c = new NodeC();
-        var tieBreak = new Dictionary<SchedulableSystem, int> { [a] = 0, [b] = 1, [c] = 2 };
+        var a = OrderNode.ForSystem(new NodeA());
+        var b = OrderNode.ForSystem(new NodeB());
+        var c = OrderNode.ForSystem(new NodeC());
+        var tieBreak = new Dictionary<OrderNode, int> { [a] = 0, [b] = 1, [c] = 2 };
         SystemOrderGraph.Edge[] edges = [new(a, b), new(b, c), new(c, a)];
 
         var act = () => StableTopologicalSort.Sort([a, b, c], edges, tieBreak);
@@ -70,10 +70,10 @@ public class StableTopologicalSortTests
         // so cycle-path reconstruction's arbitrary starting choice reaches it before
         // any actual cycle member, and must recover by trying another start instead
         // of crashing on D's empty successor list.
-        var a = new NodeA();
-        var b = new NodeB();
-        var d = new NodeD();
-        var tieBreak = new Dictionary<SchedulableSystem, int> { [d] = 0, [a] = 1, [b] = 2 };
+        var a = OrderNode.ForSystem(new NodeA());
+        var b = OrderNode.ForSystem(new NodeB());
+        var d = OrderNode.ForSystem(new NodeD());
+        var tieBreak = new Dictionary<OrderNode, int> { [d] = 0, [a] = 1, [b] = 2 };
         SystemOrderGraph.Edge[] edges = [new(a, b), new(b, a), new(a, d)];
 
         var act = () => StableTopologicalSort.Sort([d, a, b], edges, tieBreak);

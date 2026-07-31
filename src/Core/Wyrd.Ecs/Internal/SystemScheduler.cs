@@ -15,12 +15,13 @@ internal static class SystemScheduler
     /// Resolves every ordering edge across <paramref name="orderedSystems"/>
     /// (<see cref="SystemOrderGraph.Resolve"/>), stably topologically sorts the
     /// combined node set (<see cref="StableTopologicalSort.Sort"/>, tie-broken by
-    /// registration order), then packs each node — real systems and any synthesized
-    /// marker together — into the first stage at-or-after its minimum-allowed index
-    /// whose contents don't conflict with it, the same conflict rule this scheduler
-    /// has always used. Finally drops every marker node from the result (they were
-    /// never anything but a scheduling placeholder) and collapses any stage index
-    /// left with zero real systems.
+    /// registration order), then packs each node — real systems and any marker
+    /// together — into the first stage at-or-after its minimum-allowed index whose
+    /// contents don't conflict with it, the same conflict rule this scheduler has
+    /// always used. Finally drops every marker node from the result (a marker is a
+    /// bare <see cref="Type"/>, never a real system — see <see cref="OrderNode"/> —
+    /// so it was never anything but a scheduling placeholder) and collapses any stage
+    /// index left with zero real systems.
     /// </summary>
     internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(
         IReadOnlyList<OrderedSystem> orderedSystems,
@@ -28,9 +29,9 @@ internal static class SystemScheduler
     {
         var graph = SystemOrderGraph.Resolve(orderedSystems);
 
-        var tieBreak = new Dictionary<SchedulableSystem, int>();
+        var tieBreak = new Dictionary<OrderNode, int>();
         for (var i = 0; i < orderedSystems.Count; i++)
-            tieBreak[orderedSystems[i].System] = i;
+            tieBreak[OrderNode.ForSystem(orderedSystems[i].System)] = i;
         var syntheticIndex = orderedSystems.Count;
         foreach (var node in graph.Nodes)
             if (!tieBreak.ContainsKey(node))
@@ -38,14 +39,14 @@ internal static class SystemScheduler
 
         var order = StableTopologicalSort.Sort(graph.Nodes, graph.Edges, tieBreak);
 
-        var predecessors = new Dictionary<SchedulableSystem, List<SchedulableSystem>>();
+        var predecessors = new Dictionary<OrderNode, List<OrderNode>>();
         foreach (var node in graph.Nodes) predecessors[node] = [];
         foreach (var edge in graph.Edges) predecessors[edge.After].Add(edge.Before);
 
-        var stages = new List<List<SchedulableSystem>>();
+        var stages = new List<List<OrderNode>>();
         var stageAccess = new List<(HashSet<Type> Reads, HashSet<Type> Writes)>();
         var stageExclusive = new List<bool>();
-        var assignedStage = new Dictionary<SchedulableSystem, int>();
+        var assignedStage = new Dictionary<OrderNode, int>();
 
         foreach (var node in order)
         {
@@ -58,9 +59,9 @@ internal static class SystemScheduler
                 ? 0
                 : predecessors[node].Max(p => assignedStage[p]) + 1;
 
-            var (reads, writes, exclusive) = node is MarkerSystem
+            var (reads, writes, exclusive) = node.System is null
                 ? ([], [], false)
-                : ResolveAccess((EcsSystem)node, generatedAccess);
+                : ResolveAccess(node.System, generatedAccess);
 
             var placedAt = -1;
             if (!exclusive)
@@ -93,7 +94,7 @@ internal static class SystemScheduler
         }
 
         return stages
-            .Select(stage => (IReadOnlyList<EcsSystem>)stage.OfType<EcsSystem>().ToList())
+            .Select(stage => (IReadOnlyList<EcsSystem>)stage.Where(n => n.System is not null).Select(n => n.System!).ToList())
             .Where(stage => stage.Count > 0)
             .ToList();
     }

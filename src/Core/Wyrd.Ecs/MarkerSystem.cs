@@ -6,22 +6,17 @@ namespace Wyrd.Ecs;
 /// without naming every member of that group. A concrete marker is a one-line
 /// declaration (<c>public sealed class EndOfPhysics : MarkerSystem { }</c>) with
 /// nothing to implement, since <see cref="MarkerSystem"/> declares no <c>Execute</c>.
-/// It is never registered directly — it isn't an <see cref="EcsSystem"/>, so it can't
-/// be passed to <c>WorldBuilder.WithSystems</c> — an instance is synthesized
-/// automatically the first time an edge references its type, via its required public
-/// parameterless constructor. It never appears in the schedule
-/// <see cref="ScheduledExecutor"/> runs; it only ever shapes stage boundaries.
-///
-/// <para>
-/// <b>Trimming/AOT caveat:</b> that synthesis happens via reflection
-/// (<see cref="Activator.CreateInstance(Type)"/>), and no other code path ever
-/// constructs a marker directly. A trimmed or Native AOT publish that never sees an
-/// explicit reference to a marker type's constructor may legitimately strip it before
-/// this ever runs, surfacing as a clear error at <c>WorldBuilder.Build()</c> rather
-/// than silently — but if you use this feature under trimming/AOT, root each marker
-/// type explicitly (e.g. a <c>[DynamicDependency]</c> naming its constructor, or any
-/// reachable code that references it) so the constructor survives.
-/// </para>
+/// It is never registered — it isn't an <see cref="EcsSystem"/>, so it can't be passed
+/// to <c>WorldBuilder.WithSystems</c> — and, unlike a system, it is never
+/// <em>instantiated</em> either: the ordering graph tracks a marker purely by its
+/// <see cref="Type"/> (see <c>Internal.OrderNode</c>), since a marker has no state or
+/// behavior for an instance to hold in the first place. No constructor of any kind is
+/// required. This is also what makes referencing a marker declared in a different
+/// assembly (e.g. an addon package's own extension point) work with zero extra
+/// machinery — a <see cref="Type"/> already resolves across assembly boundaries on its
+/// own; there is nothing to construct, generate, or reflect over. A marker never
+/// appears in the schedule <see cref="ScheduledExecutor"/> runs; it only ever shapes
+/// stage boundaries.
 /// </summary>
 public abstract class MarkerSystem : SchedulableSystem
 {

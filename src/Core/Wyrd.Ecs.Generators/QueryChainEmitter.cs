@@ -283,6 +283,8 @@ internal static class QueryChainEmitter
     internal static string RenderWithSystemsExtensions()
     {
         var sb = new StringBuilder();
+        sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
         sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
