@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
@@ -59,24 +60,41 @@ public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
             if (shape is null) continue;
             var declaredComponents = shape.PendingDataElements; // already declaration order -- see ChainWalker.TryExtractShapeFromQueryType
 
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Generate Update method",
-                    ct => GenerateStubAsync(context.Document, classDecl, declaredComponents, ct),
-                    equivalenceKey: "GenerateUpdateStub"),
-                diagnostic);
+            foreach (var (title, key, includeWorld, includeEntityView) in Variants)
+            {
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        title,
+                        ct => GenerateStubAsync(context.Document, classDecl, declaredComponents, includeWorld, includeEntityView, ct),
+                        equivalenceKey: key),
+                    diagnostic);
+            }
         }
     }
 
-    private static async Task<Document> GenerateStubAsync(Document document, ClassDeclarationSyntax classDecl, ImmutableArray<string> declaredComponents, CancellationToken ct)
+    /// <summary>The four valid leading-parameter combinations, canonical order (Time -> World -> EntityView) -- see this feature's design doc.</summary>
+    private static readonly (string Title, string Key, bool IncludeWorld, bool IncludeEntityView)[] Variants =
+    [
+        ("Generate Update method", "GenerateUpdateStub", false, false),
+        ("Generate Update method (with World)", "GenerateUpdateStubWithWorld", true, false),
+        ("Generate Update method (with EntityView)", "GenerateUpdateStubWithEntityView", false, true),
+        ("Generate Update method (with World, EntityView)", "GenerateUpdateStubWithWorldAndEntityView", true, true),
+    ];
+
+    private static async Task<Document> GenerateStubAsync(
+        Document document, ClassDeclarationSyntax classDecl, ImmutableArray<string> declaredComponents,
+        bool includeWorld, bool includeEntityView, CancellationToken ct)
     {
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);
         var generator = editor.Generator;
 
-        var parameters = new[] { (ParameterSyntax)generator.ParameterDeclaration("time", generator.IdentifierName("Time")) }
-            .Concat(declaredComponents.Select((typeName, i) =>
-                ((ParameterSyntax)generator.ParameterDeclaration($"p{i}", generator.IdentifierName(typeName)))
-                    .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.RefKeyword)))));
+        var leading = new List<ParameterSyntax> { (ParameterSyntax)generator.ParameterDeclaration("time", generator.IdentifierName("Time")) };
+        if (includeWorld) leading.Add((ParameterSyntax)generator.ParameterDeclaration("world", generator.IdentifierName("World")));
+        if (includeEntityView) leading.Add((ParameterSyntax)generator.ParameterDeclaration("entity", generator.IdentifierName("EntityView")));
+
+        var parameters = leading.Concat(declaredComponents.Select((typeName, i) =>
+            ((ParameterSyntax)generator.ParameterDeclaration($"p{i}", generator.IdentifierName(typeName)))
+                .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.RefKeyword)))));
 
         var method = SyntaxFactory.MethodDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)), "Update")
             .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))

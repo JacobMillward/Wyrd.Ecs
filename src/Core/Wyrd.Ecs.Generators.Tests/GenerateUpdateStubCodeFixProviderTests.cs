@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -10,17 +12,16 @@ namespace Wyrd.Ecs.Generators.Tests;
 public class GenerateUpdateStubCodeFixProviderTests
 {
     [Fact]
-    public async Task MissingUpdate_GeneratesAMatchingStub()
+    public async Task MissingUpdate_GeneratesFourVariantStubs()
     {
         const string source = """
             using Wyrd.Ecs;
 
             public struct Position : IComponent { public float X; }
-            public struct Velocity : IComponent { public float X; }
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>().With<Velocity>();
+                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
             }
             """;
 
@@ -39,22 +40,32 @@ public class GenerateUpdateStubCodeFixProviderTests
         var relocatedDiagnostic = Diagnostic.Create(
             wyrd002.Descriptor, Location.Create(documentTree, wyrd002.Location.SourceSpan));
 
-        CodeAction? registeredAction = null;
+        var registeredActions = new List<CodeAction>();
         var context = new CodeFixContext(
             document,
             relocatedDiagnostic,
-            (action, _) => registeredAction ??= action,
+            (action, _) => registeredActions.Add(action),
             CancellationToken.None);
 
         await new GenerateUpdateStubCodeFixProvider().RegisterCodeFixesAsync(context);
 
-        registeredAction.Should().NotBeNull();
-        var operations = await registeredAction!.GetOperationsAsync(CancellationToken.None);
-        var applyOperation = operations.OfType<ApplyChangesOperation>().Should().ContainSingle().Subject;
+        registeredActions.Should().HaveCount(4);
 
-        var changedDocument = applyOperation.ChangedSolution.GetDocument(document.Id)!;
-        var changedText = (await changedDocument.GetTextAsync()).ToString();
+        async Task<string> ApplyAsync(CodeAction action)
+        {
+            var operations = await action.GetOperationsAsync(CancellationToken.None);
+            var applyOperation = operations.OfType<ApplyChangesOperation>().Should().ContainSingle().Subject;
+            var changedDocument = applyOperation.ChangedSolution.GetDocument(document.Id)!;
+            return (await changedDocument.GetTextAsync()).ToString();
+        }
 
-        changedText.Should().Contain("public void Update(Time time, ref Position p0, ref Velocity p1)");
+        (await ApplyAsync(registeredActions.Single(a => a.EquivalenceKey == "GenerateUpdateStub")))
+            .Should().Contain("public void Update(Time time, ref Position p0)");
+        (await ApplyAsync(registeredActions.Single(a => a.EquivalenceKey == "GenerateUpdateStubWithWorld")))
+            .Should().Contain("public void Update(Time time, World world, ref Position p0)");
+        (await ApplyAsync(registeredActions.Single(a => a.EquivalenceKey == "GenerateUpdateStubWithEntityView")))
+            .Should().Contain("public void Update(Time time, EntityView entity, ref Position p0)");
+        (await ApplyAsync(registeredActions.Single(a => a.EquivalenceKey == "GenerateUpdateStubWithWorldAndEntityView")))
+            .Should().Contain("public void Update(Time time, World world, EntityView entity, ref Position p0)");
     }
 }
