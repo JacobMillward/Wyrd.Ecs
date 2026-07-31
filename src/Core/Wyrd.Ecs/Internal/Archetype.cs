@@ -2,10 +2,10 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// One archetype: every entity sharing this exact component/tag <see cref="Signature"/>,
-/// stored as parallel dense arrays — one <see cref="ComponentStorage{T}"/> per component
+/// stored as parallel dense arrays, one <see cref="ComponentStorage{T}"/> per component
 /// type (tags contribute only to <see cref="Signature"/>, never get a storage entry) plus
-/// <see cref="Entities"/> mapping row → the entity occupying it. A query's "chunk" is one
-/// archetype's full row range — there is no finer-grained chunking within an archetype.
+/// <see cref="Entities"/> mapping row to the entity occupying it. A query's "chunk" is one
+/// archetype's full row range; there is no finer-grained chunking within an archetype.
 /// </summary>
 internal sealed class Archetype
 {
@@ -14,7 +14,7 @@ internal sealed class Archetype
     /// <summary>
     /// Cached archetype-transition targets, indexed directly by type index (the same
     /// dense-small-int space <see cref="ArchetypeStorages"/> already indexes by) rather
-    /// than hashed through a <c>Dictionary</c> — every lookup here is on the
+    /// than hashed through a <c>Dictionary</c>, since every lookup here is on the
     /// structural-change hot path. One shared array for both add- and remove-edges: for
     /// a given type index, this archetype's <see cref="Signature"/> either contains it
     /// or doesn't, permanently, so <see cref="TryGetAddEdge"/> (only ever queried when
@@ -121,7 +121,7 @@ internal sealed class Archetype
     /// Grows <see cref="Entities"/> and every storage together, keeping storages sized
     /// to at least <see cref="Entities"/>'s length (the invariant <see cref="GetOrCreateStorage{T}"/>
     /// relies on). Skips the storages loop entirely when <see cref="Entities"/> is
-    /// already large enough — otherwise every <see cref="AddRow"/> call would pay one
+    /// already large enough. Otherwise every <see cref="AddRow"/> call would pay one
     /// virtual <see cref="IComponentStorage.EnsureCapacity"/> dispatch per component
     /// type even in the steady state where nothing actually grows.
     /// </summary>

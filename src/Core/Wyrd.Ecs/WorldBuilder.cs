@@ -32,7 +32,7 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Raised once, immediately after <see cref="Build"/> constructs the
-    /// <see cref="World"/> — the extensibility hook a package (such as
+    /// <see cref="World"/>: the extensibility hook a package (such as
     /// Wyrd.Ecs.Persistence) uses to associate configuration made on this builder
     /// with the resulting World, since neither WorldBuilder nor World can gain new
     /// fields from another assembly.
@@ -42,7 +42,7 @@ public sealed class WorldBuilder
     /// <summary>
     /// Builds a new <see cref="World"/> with the configured options, including whatever
     /// <see cref="WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>
-    /// registered — the returned <see cref="World"/> already owns a static parallel
+    /// registered. The returned <see cref="World"/> already owns a static parallel
     /// schedule (empty if no systems were registered) and drives it itself via
     /// <see cref="World.Tick"/>.
     /// </summary>
@@ -57,7 +57,7 @@ public sealed class WorldBuilder
     /// <summary>
     /// Registers the systems <see cref="Build"/> will schedule, along with
     /// the generated <c>Type → SystemAccess</c> registry the query-chain generator
-    /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>) —
+    /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>),
     /// passed explicitly by the caller, since <see cref="WorldBuilder"/> lives in
     /// <c>Wyrd.Ecs</c> itself and can't reference a type generated into a consumer's
     /// own compilation. Each <paramref name="systems"/> element converts implicitly from
@@ -76,7 +76,7 @@ public sealed class WorldBuilder
     /// <summary>
     /// Overload for a caller that already has an assembled <see cref="EcsSystem"/>
     /// collection (e.g. built programmatically, then <c>.ToArray()</c>'d) rather than
-    /// naming each system as its own call-site argument — the implicit
+    /// naming each system as its own call-site argument: the implicit
     /// <see cref="OrderedSystem"/> conversion that keeps <c>WithSystems(a, b, c)</c>
     /// compiling only applies per-argument, not across an entire array's element type,
     /// so a plain <see cref="EcsSystem"/> collection needs this explicit overload
@@ -92,7 +92,7 @@ public sealed class WorldBuilder
     /// <summary>
     /// Sets the minimum <see cref="World.TotalEntityCount"/> a stage needs before
     /// <see cref="ScheduledExecutor"/> dispatches it to the thread pool instead of
-    /// running it inline — a stage below this threshold runs sequentially even if it
+    /// running it inline. A stage below this threshold runs sequentially even if it
     /// has more than one system, since thread-pool dispatch overhead can outweigh the
     /// parallelism gain at small world sizes. Defaults to 1000, a starting point, not
     /// a benchmarked value.

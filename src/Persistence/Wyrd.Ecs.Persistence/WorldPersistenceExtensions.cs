@@ -16,10 +16,10 @@ public static class WorldPersistenceExtensions
     {
         /// <summary>
         /// The <see cref="IPersistenceStore"/> <c>Save</c>/<c>Load</c> fall back to when
-        /// called without an explicit store. Null until set — either directly, or via
+        /// called without an explicit store. Null until set, either directly, or via
         /// <c>WorldBuilder.SetDefaultPersistenceStore</c>/<c>WorldBuilder.AddBinaryPersistence</c>
         /// at construction time. Assigning <c>null</c> clears it back to unset. (Extension
-        /// members can't be referenced via <c>cref</c> yet — CS1574 — so these are plain
+        /// members can't be referenced via <c>cref</c> yet, CS1574, so these are plain
         /// text, not links.)
         /// </summary>
         public IPersistenceStore? DefaultPersistenceStore
@@ -32,7 +32,7 @@ public static class WorldPersistenceExtensions
         /// The <see cref="ComponentCodecRegistry"/> <c>Save</c>/<c>Load</c> and a
         /// background persistence behavior (continuous persistence's capture step, for
         /// one) fall back to when they have no registry of their own to use. Null until
-        /// set — either directly, or via <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>
+        /// set, either directly, or via <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>
         /// at construction time. Assigning <c>null</c> clears it back to unset.
         /// </summary>
         public ComponentCodecRegistry? DefaultComponentCodecRegistry
@@ -80,7 +80,7 @@ public static class WorldPersistenceExtensions
         }
 
         /// <summary>
-        /// Shorthand for <c>Save(new FileStore(path))</c> — targets a specific save file
+        /// Shorthand for <c>Save(new FileStore(path))</c>: targets a specific save file
         /// directly, for a game with more than one save slot, without touching
         /// <c>World.DefaultPersistenceStore</c>.
         /// </summary>
@@ -96,7 +96,7 @@ public static class WorldPersistenceExtensions
         /// replay cleanly at the last complete, valid record rather than throwing or
         /// misreading garbage. A record whose stored schema hash doesn't match the
         /// currently-registered type's hash is migrated via
-        /// <see cref="ComponentCodecRegistry.Migrate"/> before decoding — this check is
+        /// <see cref="ComponentCodecRegistry.Migrate"/> before decoding. This check is
         /// skipped entirely when either side has no schema hash registered (a record or a
         /// currently-registered type with a <c>null</c> hash). A foreign or corrupt file
         /// (bad header) throws immediately, before any record is read.
@@ -132,7 +132,7 @@ public static class WorldPersistenceExtensions
         }
 
         /// <summary>
-        /// Shorthand for <c>Load(new FileStore(path))</c> — reads a specific save file
+        /// Shorthand for <c>Load(new FileStore(path))</c>: reads a specific save file
         /// directly, for a game with more than one save slot, without touching
         /// <c>World.DefaultPersistenceStore</c>.
         /// </summary>

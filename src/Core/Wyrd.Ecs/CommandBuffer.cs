@@ -1,35 +1,23 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The only way to perform structural mutation: creating or destroying an entity,
-/// adding or removing a component or tag. Queued operations are not visible until
-/// <see cref="World.ApplyCommands()"/> runs: <c>HasComponent</c>/<c>GetComponent</c>
-/// called against a queued-but-not-yet-applied change still reflect pre-apply state,
-/// and an entity created here is not <see cref="World.IsAlive"/> until then either. This
-/// exists for two reasons: performing a structural change on an entity while a
-/// <see cref="World"/> query is iterating the same archetype mutates the same backing
-/// arrays the enumerator is mid-walk over, with no guard. Queuing through here and
-/// applying afterward avoids that; and a structural change touches world-level shared
-/// state (the archetype graph, the entity table) that no future per-component
-/// parallel-scheduling access-conflict graph can reason about, so deferring to one
-/// single-threaded apply point is a hard prerequisite for running systems concurrently.
-/// There is deliberately no direct, immediate alternative on <see cref="World"/>: with
-/// one only reachable through discipline, not the type system, a caller could still
-/// trigger the exact hazard this exists to prevent by picking the wrong one. Reading and
-/// mutating an already-placed entity's existing component values
+/// The only way to perform structural mutation: creating or destroying an entity, adding
+/// or removing a component or tag. Queued operations are not visible until
+/// <see cref="World.ApplyCommands()"/> runs. Deferred rather than immediate for two
+/// reasons: mutating an archetype's backing arrays while a query is mid-walk over the
+/// same archetype has no guard against corruption, and structural mutation touches
+/// world-level shared state that a per-component parallel scheduler can't reason about,
+/// so a single-threaded apply point is required for running systems concurrently at all.
+/// Reading and mutating an already-placed entity's existing values
 /// (<see cref="World.GetComponent{T}(Entity)"/> and friends) never touches archetype row
-/// layout, carries no such hazard, and stays direct on <see cref="World"/>. This class
-/// is only ever about changing an entity's shape, never about its values.
+/// layout, so it stays direct on <see cref="World"/> instead.
 ///
 /// <para>
-/// Nothing on this class is synchronized. Every field below is private, per-instance
-/// state. That's deliberate: a <see cref="CommandBuffer"/> instance is meant to have
-/// exactly one writer. Concurrent structural mutation from several sources doesn't need
-/// this class to gain locks; it needs each source to hold its own buffer, obtained via
-/// <see cref="World.CreateCommands"/>, and to have all of them applied, in whatever
-/// order the caller chooses, via <see cref="World.ApplyCommands(CommandBuffer)"/>. See
-/// that method's docs for why a caller-chosen apply order, not an internally-synchronized
-/// shared queue, is the mechanism this engine uses for safe concurrent command queuing.
+/// Nothing here is synchronized: every field is private, per-instance state, since a
+/// <see cref="CommandBuffer"/> is meant to have exactly one writer. Several concurrent
+/// sources queue safely by each holding their own buffer (<see cref="World.CreateCommands"/>),
+/// then applying them all, in whatever order the caller chooses, via
+/// <see cref="World.ApplyCommands(CommandBuffer)"/>.
 /// </para>
 /// </summary>
 public sealed partial class CommandBuffer
@@ -40,32 +28,25 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Guards every enqueue-side mutation (<see cref="_queue"/>/<see cref="_count"/>,
-    /// <see cref="_addComponentBuffers"/>, and each <see cref="AddComponentBuffer{T}"/>'s
-    /// own <c>Items</c>/<c>Count</c>) so several systems in the same
-    /// <c>ScheduledExecutor</c> stage can call <see cref="World.AddComponent{T}(Entity)"/>/
-    /// <see cref="RemoveComponent{T}"/>/etc. against this same shared <c>world.Commands</c>
-    /// buffer concurrently. Every public method below takes this lock for its entire
-    /// body in one shot, rather than <see cref="Enqueue"/>/<see cref="GetAddComponentBuffer{T}"/>
-    /// locking themselves — those two are plain unlocked helpers, always called with
-    /// <see cref="_gate"/> already held, so a method needing both (<see cref="World.AddComponent{T}(Entity)"/>)
-    /// never has to acquire it twice.
+    /// <see cref="_addComponentBuffers"/>, and each buffer's own <c>Items</c>/<c>Count</c>)
+    /// so several systems in the same stage can queue against this shared buffer
+    /// concurrently. Every public method locks once for its whole body; <see cref="Enqueue"/>
+    /// and the buffer getters are unlocked helpers always called with this already held, so
+    /// a method needing both never acquires it twice.
     /// </summary>
     private readonly Lock _gate = new();
 
     internal CommandBuffer(World world) => _world = world;
 
-    /// <summary>The <see cref="World"/> this buffer was created for — checked by <see cref="Wyrd.Ecs.World.ApplyCommands(CommandBuffer)"/> before replaying it.</summary>
+    /// <summary>The <see cref="World"/> this buffer was created for. Checked by <see cref="Wyrd.Ecs.World.ApplyCommands(CommandBuffer)"/> before replaying it.</summary>
     internal World World => _world;
 
     /// <summary>
-    /// A raw growable array with a manual count, not <c>List&lt;QueuedCommand&gt;</c> —
-    /// matches every other hot-path collection in this engine (<c>Archetype</c>'s rows,
-    /// <c>ComponentStorage&lt;T&gt;</c>'s columns, <c>EntityTable</c>'s parallel arrays),
-    /// none of which use <c>List&lt;T&gt;</c>. <c>List&lt;T&gt;</c> bumps a version counter
-    /// on every <c>Add</c>/<c>Clear</c> and checks it on every enumerator <c>MoveNext</c>,
-    /// to detect mutation during enumeration — a safety check this queue never needs,
-    /// since nothing ever enumerates it while it's still being built. Caller must
-    /// already hold <see cref="_gate"/> — see the field's own doc.
+    /// Appends to a raw growable array with a manual count, not <c>List&lt;QueuedCommand&gt;</c>,
+    /// matching every other hot-path collection in this engine. <c>List&lt;T&gt;</c> bumps a
+    /// version counter on every <c>Add</c>/<c>Clear</c> to detect mutation during enumeration,
+    /// a check this queue never needs since nothing enumerates it while still being built.
+    /// Caller must already hold <see cref="_gate"/>.
     /// </summary>
     private void Enqueue(QueuedCommand command)
     {
@@ -74,16 +55,13 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// One queued operation: the target entity, a cached non-capturing dispatcher
-    /// delegate (one static instance per closed generic operation, shared across every
-    /// call rather than allocated per call), and — for <see cref="World.AddComponent{T}(Entity)"/>
-    /// only — a reference to that component type's <see cref="AddComponentBuffer{T}"/>
-    /// plus the slot within it. Every other operation leaves <see cref="Buffer"/> null
-    /// and <see cref="Slot"/> 0; their dispatcher delegates ignore both. Passing a
-    /// buffer reference costs nothing (it's already a heap object), unlike the value
-    /// this used to carry directly, which required boxing <c>T</c>
-    /// fresh on every single call — see <see cref="AddComponentBuffer{T}"/>'s docs for
-    /// why storing the value there instead removes that allocation entirely.
+    /// One queued operation: the target entity, a cached non-capturing dispatcher delegate
+    /// (one static instance per closed generic operation, shared across every call), and,
+    /// only for <see cref="World.AddComponent{T}(Entity)"/>, a reference to that component
+    /// type's <see cref="AddComponentBuffer{T}"/> plus the slot within it. Every other
+    /// operation leaves <see cref="Buffer"/> null and <see cref="Slot"/> 0. Passing a buffer
+    /// reference costs nothing, since it's already a heap object; see
+    /// <see cref="AddComponentBuffer{T}"/> for why the value itself is never boxed.
     /// </summary>
     private readonly struct QueuedCommand(Entity entity, Action<World, Entity, object?, int> apply, object? buffer, int slot)
     {
@@ -100,20 +78,15 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// One component type's queued <see cref="World.AddComponent{T}(Entity)"/> values, stored as a
-    /// real <typeparamref name="T"/>[] — the same struct-of-arrays shape
-    /// <c>ComponentStorage&lt;T&gt;</c> already uses for archetype columns, and for the
-    /// same reason: the *container* reference is type-erased (indexed by
-    /// <see cref="Internal.TypeIndex{T}"/> in <see cref="_addComponentBuffers"/>, held as
-    /// <c>object</c>), but the *payload* is never boxed, because it lives in a genuinely
-    /// generic array. A pooling scheme was measured and rejected here (see the pooling
-    /// benchmarks) — every thread-safe pool tried cost more, in the access pattern
-    /// <see cref="CommandBuffer"/> actually has, than the box it was meant to avoid. This
-    /// sidesteps that whole tradeoff: nothing is pooled, so nothing needs its own
-    /// synchronization beyond <see cref="_gate"/>, which every caller reaching this
-    /// type already holds (see <see cref="World.AddComponent{T}(Entity)"/>).
-    /// Reset to empty at the end of every <see cref="Apply"/> (its backing array is kept,
-    /// not reallocated, same as <see cref="_queue"/>'s own <c>Array.Clear</c> pattern).
+    /// One component type's queued <see cref="World.AddComponent{T}(Entity)"/> values, stored
+    /// as a real <typeparamref name="T"/>[]: the container reference is type-erased (indexed
+    /// by <see cref="Internal.TypeIndex{T}"/> in <see cref="_addComponentBuffers"/>, held as
+    /// <c>object</c>), but the payload is never boxed, since it lives in a genuinely generic
+    /// array. A pooling scheme was measured and rejected: every thread-safe pool tried cost
+    /// more, in this access pattern, than the box it was meant to avoid. Needs no
+    /// synchronization beyond <see cref="_gate"/>, which every caller already holds. Reset to
+    /// empty at the end of every <see cref="Apply"/>; its backing array is kept, not
+    /// reallocated.
     /// </summary>
     private sealed class AddComponentBuffer<T> : IResettableBuffer where T : struct, IComponent
     {
@@ -125,11 +98,7 @@ public sealed partial class CommandBuffer
 
     private object?[] _addComponentBuffers = new object?[4];
 
-    /// <summary>
-    /// One relation type's queued <see cref="AddRelation{T}(Entity, Entity, T)"/> values —
-    /// a <c>(Entity Target, T Value)[]</c>, the same reasoning as <see cref="AddComponentBuffer{T}"/>:
-    /// the value payload is never boxed, only the container reference is type-erased.
-    /// </summary>
+    /// <summary>One relation type's queued <see cref="AddRelation{T}(Entity, Entity, T)"/> values, as a <c>(Entity Target, T Value)[]</c>: same reasoning as <see cref="AddComponentBuffer{T}"/>, the value payload is never boxed, only the container reference is type-erased.</summary>
     private sealed class AddRelationBuffer<T> : IResettableBuffer where T : struct, IRelation
     {
         internal (Entity Target, T Value)[] Items = new (Entity, T)[4];
@@ -140,7 +109,7 @@ public sealed partial class CommandBuffer
 
     private object?[] _addRelationBuffers = new object?[4];
 
-    /// <summary>Caller must already hold <see cref="_gate"/> — see <see cref="GetAddComponentBuffer{T}"/>'s own doc for why.</summary>
+    /// <summary>Caller must already hold <see cref="_gate"/>; see <see cref="GetAddComponentBuffer{T}"/> for why.</summary>
     private AddRelationBuffer<T> GetAddRelationBuffer<T>() where T : struct, IRelation
     {
         var typeIndex = Internal.TypeIndex<T>.Value;
@@ -153,13 +122,12 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// The queued-target buffer for every <see cref="RemoveRelation{T}"/> call, shared
-    /// across every relation type — removal carries no per-edge payload, only a target
-    /// <see cref="Entity"/>, so unlike <see cref="AddRelationBuffer{T}"/> there's no value
-    /// to keep un-boxed per closed generic; every queued command still captures its own
-    /// <c>(buffer, slot)</c> pair at enqueue time, so sharing the backing array across
-    /// different relation types is exactly as safe as <see cref="_queue"/> itself already
-    /// being shared across every command kind.
+    /// The queued-target buffer for every <see cref="RemoveRelation{T}"/> call, shared across
+    /// every relation type: removal carries no per-edge payload, only a target
+    /// <see cref="Entity"/>, so unlike <see cref="AddRelationBuffer{T}"/> there's no value to
+    /// keep unboxed per closed generic. Each queued command still captures its own
+    /// <c>(buffer, slot)</c> pair at enqueue time, so sharing this array across relation
+    /// types is as safe as <see cref="_queue"/> being shared across every command kind.
     /// </summary>
     private sealed class RelationTargetBuffer : IResettableBuffer
     {
@@ -174,7 +142,7 @@ public sealed partial class CommandBuffer
     /// <summary>Caller must already hold <see cref="_gate"/>.</summary>
     private RelationTargetBuffer GetRelationTargetBuffer() => _relationTargetBuffer ??= new RelationTargetBuffer();
 
-    /// <summary>Caller must already hold <see cref="_gate"/> — see the field's own doc.</summary>
+    /// <summary>Caller must already hold <see cref="_gate"/>; see the field's own doc.</summary>
     private AddComponentBuffer<T> GetAddComponentBuffer<T>() where T : struct, IComponent
     {
         var typeIndex = Internal.TypeIndex<T>.Value;
@@ -203,10 +171,10 @@ public sealed partial class CommandBuffer
 
     private static class AddComponentOp<T> where T : struct, IComponent
     {
-        // TODO: once logging exists, warn here when the overwrite branch runs -
-        // it's valid (last-queued value wins, matching every other op's
-        // already-in-that-state-is-fine stance) but usually signals two systems
-        // queuing AddComponent for the same entity without coordinating.
+        // TODO: once logging exists, warn here when the overwrite branch runs. It's valid
+        // (last-queued value wins, matching every other op's already-in-that-state-is-fine
+        // stance) but usually signals two systems queuing AddComponent for the same entity
+        // without coordinating.
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, slot) =>
         {
             if (!w.TryResolve(e, out var location)) return;
@@ -326,7 +294,7 @@ public sealed partial class CommandBuffer
     /// <paramref name="entity"/> already has a <typeparamref name="T"/> by the time this
     /// command runs (an earlier queued <see cref="World.AddComponent{T}(Entity)"/> for the same entity,
     /// or one from a previous batch that was never removed), this overwrites it instead
-    /// of adding a second one — last-queued value wins, the same
+    /// of adding a second one. Last-queued value wins, the same
     /// already-in-that-state-is-fine stance every other queued operation on this class
     /// takes. Safe to call concurrently from several threads at once.
     /// </summary>
@@ -363,13 +331,13 @@ public sealed partial class CommandBuffer
     /// <summary>
     /// Queues a <typeparamref name="T"/> edge from <paramref name="source"/> to
     /// <paramref name="target"/> carrying <paramref name="value"/>. A no-op at apply time
-    /// if either entity is dead. If this edge already exists, its value is overwritten —
+    /// if either entity is dead. If this edge already exists, its value is overwritten;
     /// last-queued value wins, same as <see cref="AddComponent{T}(Entity, T)"/>. Adding a
     /// relation type's first edge (or removing its last, via <see cref="RemoveRelation{T}"/>)
     /// moves the owning entity to a different archetype; every edge in between is an O(1)
     /// dictionary write, no archetype move. If <typeparamref name="T"/> implements
     /// <see cref="IExclusiveRelation"/>, any other existing target is replaced rather than
-    /// added alongside — see that interface's own doc. Safe to call concurrently from
+    /// added alongside; see that interface's own doc. Safe to call concurrently from
     /// several threads at once.
     /// </summary>
     public void AddRelation<T>(Entity source, Entity target, T value) where T : struct, IRelation
@@ -384,7 +352,7 @@ public sealed partial class CommandBuffer
         }
     }
 
-    /// <summary>Same as <see cref="AddRelation{T}(Entity, Entity, T)"/>, with the edge's payload defaulted — convenience for a marker-only relation type (no fields), so a caller doesn't have to spell out <c>default(T)</c> explicitly.</summary>
+    /// <summary>Same as <see cref="AddRelation{T}(Entity, Entity, T)"/>, with the edge's payload defaulted. Convenience for a marker-only relation type (no fields), so a caller doesn't have to spell out <c>default(T)</c> explicitly.</summary>
     public void AddRelation<T>(Entity source, Entity target) where T : struct, IRelation => AddRelation(source, target, default(T));
 
     /// <summary>Queues removing the <typeparamref name="T"/> edge from <paramref name="source"/> to <paramref name="target"/>, if it exists. A no-op at apply time otherwise. Safe to call concurrently from several threads at once.</summary>
@@ -401,25 +369,16 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// Applies every queued command, in the order it was queued, then clears the queue.
-    /// Each command re-checks <see cref="World.IsAlive"/> at its own point in the
-    /// sequence (a just-created entity's placement always runs before any command
-    /// queued after it, so chaining is safe), so an earlier command that destroys an
-    /// entity silently invalidates any later command in the same batch still targeting
-    /// it, rather than throwing — every queued operation on this class takes that same
-    /// already-in-that-state-is-fine stance, so nothing on this class's own logic throws
-    /// here in normal use. What can still throw is arbitrary consumer code reached
-    /// through a structural-change notification (an <see cref="IStructuralChangeObserver"/>
-    /// implementation this library doesn't control). The cleanup (clearing the queue,
-    /// resetting the per-type add-component buffers) runs in a <c>finally</c> regardless,
-    /// so a misbehaving observer never leaves the batch half-applied to be silently
-    /// replayed by the next call to <see cref="Apply"/>. Only ever called single-threaded,
-    /// from a stage's join point after every enqueueing thread has already returned —
-    /// neither the replay loop nor the cleanup below takes <see cref="_gate"/>, since both
-    /// already rely on that same single-threaded-at-the-join-point contract. Calling this
-    /// concurrently with an in-flight <c>Commands.*</c> call from another thread is a
-    /// documented misuse with no defined behavior, not a scenario this class defends
-    /// against.
+    /// Applies every queued command, in queued order, then clears the queue. Each command
+    /// re-checks <see cref="World.IsAlive"/> at its own point in the sequence, so an earlier
+    /// command that destroys an entity silently invalidates any later command in the same
+    /// batch still targeting it rather than throwing. What can still throw is consumer code
+    /// reached through a structural-change notification. Cleanup (clearing the queue,
+    /// resetting the per-type buffers) runs in a <c>finally</c> regardless, so a misbehaving
+    /// observer never leaves the batch half-applied for the next <see cref="Apply"/> call to
+    /// silently replay. Only ever called single-threaded, from a stage's join point after
+    /// every enqueueing thread has already returned, so neither the replay loop nor the
+    /// cleanup needs <see cref="_gate"/>.
     /// </summary>
     internal void Apply()
     {

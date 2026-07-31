@@ -5,7 +5,7 @@ namespace Wyrd.Ecs;
 /// internally by <see cref="World"/> and driven via <see cref="World.Tick"/>): per
 /// stage, dispatch inline or to the thread pool depending on
 /// <see cref="World.TotalEntityCount"/> against <see cref="WorldBuilder.WithParallelThreshold"/>,
-/// then flush <see cref="World.Commands"/> once at the stage boundary — after every
+/// then flush <see cref="World.Commands"/> once at the stage boundary, after every
 /// system in that stage has returned, never while one is still running. See the
 /// design's "Deviation from the design spec" note (this session's plan refresh) for
 /// why structural mutation still flows through the single shared <c>world.Commands</c>
