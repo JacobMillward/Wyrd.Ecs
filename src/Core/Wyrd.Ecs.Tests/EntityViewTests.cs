@@ -328,4 +328,65 @@ public class EntityViewTests
 
         world[target].Sources<Likes>().Should().BeEquivalentTo([a, b]);
     }
+
+    [Fact]
+    public void IsAlive_LiveEntity_ReturnsTrue()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].IsAlive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsAlive_AfterDestroyEntity_ReturnsFalse()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].DestroyEntity();
+        world.ApplyCommands();
+
+        world[entity].IsAlive.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PermanentId_MatchesWorldGetPermanentId()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].PermanentId.Should().Be(world.GetPermanentId(entity));
+    }
+
+    [Fact]
+    public void DestroyEntity_QueuesTheDestroy_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].DestroyEntity();
+        world.IsAlive(entity).Should().BeTrue(); // still deferred
+        world.ApplyCommands();
+
+        world.IsAlive(entity).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Chaining_MultipleMutationsAcrossComponentsAndTags_AllLandAfterApplyCommands()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].AddComponent(new Position { X = 1f }).AddTag<Flag>();
+        world.ApplyCommands();
+
+        world.GetComponent<Position>(entity).X.Should().Be(1f);
+        world.HasTag<Flag>(entity).Should().BeTrue();
+    }
 }

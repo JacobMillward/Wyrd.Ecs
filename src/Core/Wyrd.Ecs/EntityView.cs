@@ -109,4 +109,13 @@ public readonly ref struct EntityView
 
     /// <summary>Every source entity with a <typeparamref name="T"/> edge pointing at this entity — see <see cref="World.Sources{T}(Entity)"/>.</summary>
     public IReadOnlyCollection<Entity> Sources<T>() where T : struct, IRelation => _world.Sources<T>(_entity);
+
+    /// <summary>True if this entity is still alive.</summary>
+    public bool IsAlive => _world.IsAlive(_entity);
+
+    /// <summary>This entity's permanent, opaque identity — see <see cref="EntityId"/>.</summary>
+    public EntityId PermanentId => _world.GetPermanentId(_entity);
+
+    /// <summary>Queues destroying this entity — see <see cref="CommandBuffer.DestroyEntity(Entity)"/>.</summary>
+    public void DestroyEntity() => _world.Commands.DestroyEntity(_entity);
 }
