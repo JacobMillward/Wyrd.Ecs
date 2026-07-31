@@ -267,14 +267,18 @@ internal static class QueryChainEmitter
 
     /// <summary>
     /// Emits `WithSystems` sugar so a consumer never has to spell out
-    /// `Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries` by hand: a `params EcsSystem[]`
-    /// overload for constructor-arg systems, plus `WithSystems&lt;T0..T{ArityCap.Max}&gt;()`
-    /// for the parameterless case. Emitted into namespace `Wyrd.Ecs` itself, not
-    /// `Wyrd.Ecs.Generated` — every consumer already has `using Wyrd.Ecs;` in scope for
-    /// `WorldBuilder`/`EcsSystem`, so the extension methods are visible without a second
-    /// `using` just for them. Unconditional — this doesn't depend on any discovered
-    /// `QuerySystem`/chain candidate, so it's the same fixed output regardless of what a
-    /// consumer's own compilation contains.
+    /// `Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries` by hand: a `params
+    /// OrderedSystem[]` overload for call-site systems (each argument converts
+    /// implicitly from a bare `EcsSystem`), an `IReadOnlyList&lt;EcsSystem&gt;` overload
+    /// for a caller that already assembled a system collection programmatically (the
+    /// implicit conversion applies per-argument, not across an entire array's element
+    /// type, so a pre-built `EcsSystem[]` needs this explicit overload), plus
+    /// `WithSystems&lt;T0..T{ArityCap.Max}&gt;()` for the parameterless case. Emitted into
+    /// namespace `Wyrd.Ecs` itself, not `Wyrd.Ecs.Generated` — every consumer already
+    /// has `using Wyrd.Ecs;` in scope for `WorldBuilder`/`EcsSystem`, so the extension
+    /// methods are visible without a second `using` just for them. Unconditional —
+    /// this doesn't depend on any discovered `QuerySystem`/chain candidate, so it's the
+    /// same fixed output regardless of what a consumer's own compilation contains.
     /// </summary>
     internal static string RenderWithSystemsExtensions()
     {
@@ -284,6 +288,9 @@ internal static class QueryChainEmitter
         sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
         sb.AppendLine("{");
         sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params OrderedSystem[] systems) =>");
+        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, systems);");
+        sb.AppendLine();
+        sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, IReadOnlyList<EcsSystem> systems) =>");
         sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, systems);");
         sb.AppendLine();
 
