@@ -14,6 +14,11 @@ file sealed class GraphMarker : MarkerSystem { }
 
 file sealed class NoEdgeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
 
+file sealed class NoCtorMarker : MarkerSystem
+{
+    public NoCtorMarker(int value) { }
+}
+
 file sealed class NotASystem { }
 
 [RunBefore(typeof(NotASystem))]
@@ -107,5 +112,25 @@ public class SystemOrderGraphTests
         var act = () => SystemOrderGraph.Resolve(systems);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*NotASystem*");
+    }
+
+    [Fact]
+    public void EdgeTargetingTheAbstractMarkerSystemBaseType_ThrowsInvalidOperationException()
+    {
+        OrderedSystem[] systems = [Order.For(new NoEdgeSystem()).After<MarkerSystem>()];
+
+        var act = () => SystemOrderGraph.Resolve(systems);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*abstract*");
+    }
+
+    [Fact]
+    public void EdgeTargetingAMarkerWithNoParameterlessConstructor_ThrowsInvalidOperationException()
+    {
+        OrderedSystem[] systems = [Order.For(new NoEdgeSystem()).After<NoCtorMarker>()];
+
+        var act = () => SystemOrderGraph.Resolve(systems);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*parameterless constructor*");
     }
 }

@@ -33,13 +33,33 @@ internal static class SystemOrderGraph
         var edges = new List<Edge>();
 
         [UnconditionalSuppressMessage("Trimming", "IL2067",
-            Justification = "A MarkerSystem subtype is, by construction (see MarkerSystem's own doc comment), a one-line declaration with no members to trim away, including its constructor -- there is nothing for the trimmer to have removed.")]
+            Justification = "Known limitation, not a false positive: nothing else in the compiled " +
+                "graph ever constructs a MarkerSystem subtype directly -- Activator.CreateInstance " +
+                "here is the only call site -- so a trimmed/AOT publish can legitimately strip a " +
+                "marker's constructor before this ever runs. The precondition checks below turn " +
+                "that into a clear InvalidOperationException instead of a raw MissingMethodException, " +
+                "but do not prevent the trimming itself; see MarkerSystem's doc comment for the " +
+                "consumer-facing guidance this implies.")]
+        [UnconditionalSuppressMessage("Trimming", "IL2070",
+            Justification = "Same root cause and same known limitation as the IL2067 suppression " +
+                "above: GetConstructor here is a precondition check for the same reflection-only " +
+                "marker-construction path, not a new risk.")]
         SchedulableSystem ResolveTarget(Type target)
         {
             if (typeof(MarkerSystem).IsAssignableFrom(target))
             {
                 if (!markersByType.TryGetValue(target, out var marker))
+                {
+                    if (target.IsAbstract)
+                        throw new InvalidOperationException(
+                            $"'{target}' is used as a marker-ordering target but is abstract and cannot be instantiated.");
+                    if (target.GetConstructor(Type.EmptyTypes) is null)
+                        throw new InvalidOperationException(
+                            $"'{target}' is used as a marker-ordering target but has no public parameterless constructor.");
+
                     markersByType[target] = marker = (MarkerSystem)Activator.CreateInstance(target)!;
+                }
+
                 return marker;
             }
 
