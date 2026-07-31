@@ -512,6 +512,88 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
+    public bool HasRelation<T>(Entity source, Entity target) where T : struct, IComponent
+    {
+        RequireAlive(source);
+        var (archetype, row) = _entityTable[source.Id];
+        if (!archetype.Storages.TryGetValue(TypeIndex<RelationLinks<T>>.Value, out var storage)) return false;
+        return ((ComponentStorage<RelationLinks<T>>)storage)[row].Targets!.ContainsKey(target);
+    }
+
+    /// <inheritdoc/>
+    public bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IComponent
+    {
+        RequireAlive(source);
+        var (archetype, row) = _entityTable[source.Id];
+        if (archetype.Storages.TryGetValue(TypeIndex<RelationLinks<T>>.Value, out var storage) &&
+            ((ComponentStorage<RelationLinks<T>>)storage)[row].Targets!.TryGetValue(target, out value))
+            return true;
+
+        value = default;
+        return false;
+    }
+
+    private static class EmptyRelation<T>
+    {
+        internal static readonly IReadOnlyDictionary<Entity, T> Targets = new Dictionary<Entity, T>();
+        internal static readonly IReadOnlyCollection<Entity> Entities = Array.Empty<Entity>();
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IComponent
+    {
+        RequireAlive(source);
+        var (archetype, row) = _entityTable[source.Id];
+        return archetype.Storages.TryGetValue(TypeIndex<RelationLinks<T>>.Value, out var storage)
+            ? ((ComponentStorage<RelationLinks<T>>)storage)[row].Values
+            : EmptyRelation<T>.Targets;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyCollection<Entity> Sources<T>(Entity target) where T : struct, IComponent
+    {
+        RequireAlive(target);
+        var (archetype, row) = _entityTable[target.Id];
+        return archetype.Storages.TryGetValue(TypeIndex<RelationBacklinks<T>>.Value, out var storage)
+            ? ((ComponentStorage<RelationBacklinks<T>>)storage)[row].Values
+            : EmptyRelation<T>.Entities;
+    }
+
+    /// <inheritdoc/>
+    public bool HasRelationTag<T>(Entity source, Entity target) where T : struct, ITag
+    {
+        RequireAlive(source);
+        var (archetype, row) = _entityTable[source.Id];
+        if (!archetype.Storages.TryGetValue(TypeIndex<RelationTagLinks<T>>.Value, out var storage)) return false;
+        return ((ComponentStorage<RelationTagLinks<T>>)storage)[row].Targets!.Contains(target);
+    }
+
+    private static class EmptyRelationTag<T>
+    {
+        internal static readonly IReadOnlyCollection<Entity> Entities = Array.Empty<Entity>();
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyCollection<Entity> TargetsTag<T>(Entity source) where T : struct, ITag
+    {
+        RequireAlive(source);
+        var (archetype, row) = _entityTable[source.Id];
+        return archetype.Storages.TryGetValue(TypeIndex<RelationTagLinks<T>>.Value, out var storage)
+            ? ((ComponentStorage<RelationTagLinks<T>>)storage)[row].Values
+            : EmptyRelationTag<T>.Entities;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyCollection<Entity> SourcesTag<T>(Entity target) where T : struct, ITag
+    {
+        RequireAlive(target);
+        var (archetype, row) = _entityTable[target.Id];
+        return archetype.Storages.TryGetValue(TypeIndex<RelationTagBacklinks<T>>.Value, out var storage)
+            ? ((ComponentStorage<RelationTagBacklinks<T>>)storage)[row].Values
+            : EmptyRelationTag<T>.Entities;
+    }
+
+    /// <inheritdoc/>
     public IEnumerable<EncodedComponent> EnumerateAll(ComponentCodecRegistry registry)
     {
         foreach (var archetype in _archetypes.Values)
