@@ -5,21 +5,16 @@ using Wyrd.Ecs.Internal;
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The concrete, real archetype-storage implementation of <see cref="IWorld"/>. See the
-/// design's Core engine section — entities with identical component/tag sets share one
-/// <see cref="Archetype"/>; adding/removing a component or tag moves the entity between
-/// archetypes.
+/// Archetype-storage engine: entities with identical component/tag sets share one
+/// <see cref="Archetype"/>; adding or removing a component/tag moves the entity to a
+/// different archetype.
 /// </summary>
-public sealed partial class World : IWorld
+public sealed partial class World
 {
     /// <summary>
-    /// Default floor every archetype's dense arrays start at and never shrink below,
-    /// when a <see cref="World"/> is constructed without going through
-    /// <see cref="WorldBuilder.WithArchetypeCapacity"/>. The right number depends on a
-    /// game's actual entity/archetype-count distribution, so this is a moderate,
-    /// workload-agnostic default: big enough to skip several of the earliest doubling
-    /// steps for a typical archetype, without assuming the large-few-archetypes shape a
-    /// much bigger floor would.
+    /// Default floor for a new archetype's dense arrays when <see cref="WorldBuilder.WithArchetypeCapacity"/>
+    /// wasn't used. Moderate and workload-agnostic: big enough to skip early doubling
+    /// steps without assuming a large-few-archetypes shape.
     /// </summary>
     internal const int DefaultArchetypeCapacity = 64;
 
@@ -49,15 +44,20 @@ public sealed partial class World : IWorld
         _executor = executor;
     }
 
-    /// <inheritdoc/>
+    /// <summary>The built-in deferred-mutation buffer for structural changes. See <see cref="CommandBuffer"/>.</summary>
     public CommandBuffer Commands => _commands;
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Creates an additional <see cref="CommandBuffer"/> bound to this world, independent of
+    /// <see cref="Commands"/>. Each buffer is single-writer, so several concurrent sources can
+    /// queue structural changes lock-free by using their own buffer, then applying them via
+    /// <see cref="ApplyCommands(CommandBuffer)"/> in whatever order the caller chooses.
+    /// </summary>
     public CommandBuffer CreateCommands() => new(this);
 
     private readonly List<IStructuralChangeObserver> _structuralObservers = new();
 
-    /// <inheritdoc/>
+    /// <summary>Registers <paramref name="observer"/> for every structural change from this point on. Dispose the returned handle to unregister.</summary>
     public IDisposable ObserveStructuralChanges(IStructuralChangeObserver observer)
     {
         _structuralObservers.Add(observer);
@@ -123,12 +123,11 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// Destroys an entity and all of its components. Called only via <see cref="CommandBuffer"/>.
-    /// Notifies observers before the entity table retires the id, not after — unlike
-    /// every other structural notification, which fires once the change has already
-    /// landed, destruction leaves nothing queryable afterward, so this is the one
-    /// callback where "before" is the only point an observer can still read anything
-    /// about the entity (its permanent id, whether it's alive, its components) at all.
+    /// Destroys an entity and all its components. Called only via <see cref="CommandBuffer"/>.
+    /// Notifies observers before removing the entity. Unlike every other structural
+    /// notification (which fires after the change lands), destruction leaves nothing
+    /// queryable afterward, so "before" is the only point an observer can still read
+    /// anything about the entity.
     /// </summary>
     internal void DestroyEntity(Entity entity)
     {
@@ -139,25 +138,17 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// Cleans up every relation edge touching <paramref name="entity"/>, in both
-    /// directions, before its row is removed. Snapshots which of its current component
-    /// type indices are relation storages once upfront, but re-resolves
-    /// <paramref name="entity"/>'s location fresh before processing each one — a
-    /// self-relation (<c>source == target == entity</c>) can have one relation type's
-    /// cascade step remove a *different* relation component of <paramref name="entity"/>'s
-    /// own as a side effect (its backlink set emptying out), which would move
-    /// <paramref name="entity"/> to a different archetype/row and invalidate any location
-    /// captured before that happened. The <c>Contains</c> check below skips a type index
-    /// already cleaned up that way, rather than re-processing or reading stale storage.
+    /// Cleans up every relation edge touching <paramref name="entity"/>, in both directions,
+    /// before its row is removed. Re-resolves <paramref name="entity"/>'s location before each
+    /// type's cascade step rather than just once upfront, since a self-relation can have one step's
+    /// cleanup remove a different relation component of the same entity as a side effect (an
+    /// archetype move), which would invalidate a location captured earlier.
     /// </summary>
     private void CascadeRemoveRelations(Entity entity)
     {
         var initialLocation = _entityTable[entity.Id];
 
-        // Lazily allocated: stays null (zero allocation) for the common case of an entity
-        // with no relation components at all -- this runs on every single entity destroy,
-        // not just ones involving relations, so it must not cost anything for the ones that
-        // don't.
+        // Lazily allocated: zero-cost for the common case of no relation components. Runs on every destroy.
         List<int>? relationTypeIndices = null;
         foreach (var (typeIndex, _) in initialLocation.Archetype.Storages)
         {
@@ -172,49 +163,37 @@ public sealed partial class World : IWorld
             if (handler is null) continue;
 
             var current = _entityTable[entity.Id];
-            if (!current.Archetype.Signature.Contains(typeIndex)) continue;
+            if (!current.Archetype.Signature.Contains(typeIndex)) continue; // already cleaned up as a side effect above
 
             current.Archetype.Storages.TryGetValue(typeIndex, out var storage);
             handler(this, entity, storage, current.Row);
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>True if <paramref name="entity"/> refers to a live entity in this world.</summary>
     public bool IsAlive(Entity entity) => _entityTable.IsAlive(entity.Id, entity.Generation);
 
-    /// <inheritdoc/>
+    /// <summary>The permanent, opaque identity of <paramref name="entity"/>. See <see cref="EntityId"/>.</summary>
     public EntityId GetPermanentId(Entity entity)
     {
         RequireAlive(entity);
         return _entityTable.PermanentId(entity.Id);
     }
 
-    /// <inheritdoc/>
+    /// <summary>The current tick, starting at 1. Every tracked write stamps the row it touches with this value.</summary>
     public int CurrentTick => _currentTick;
 
-    /// <summary>
-    /// Raised at the end of <see cref="AdvanceTick"/> with the new tick value — the
-    /// extensibility hook a per-tick background behavior (continuous persistence's
-    /// capture step, for one) subscribes to, so its one-time setup is the only code a
-    /// consumer needs beyond their existing tick loop. A caller with no subscribers
-    /// pays nothing extra.
-    /// </summary>
+    /// <summary>Raised at the end of <see cref="AdvanceTick"/> with the new tick value, letting a per-tick background behavior (continuous persistence's capture step) hook in without the caller's tick loop needing to know about it.</summary>
     public event Action<int>? OnTickAdvanced;
 
-    /// <inheritdoc/>
+    /// <summary>Advances to the next tick.</summary>
     public void AdvanceTick()
     {
         _currentTick++;
         OnTickAdvanced?.Invoke(_currentTick);
     }
 
-    /// <summary>
-    /// Runs one iteration of every system registered via <see cref="WorldBuilder.WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>,
-    /// staged by the static parallel schedule computed once at <see cref="WorldBuilder.Build"/>
-    /// time. Advances <see cref="CurrentTick"/> and accumulates <paramref name="delta"/> into
-    /// a running total before handing both down as a single <see cref="Time"/> value — the
-    /// only tick concept a system ever sees.
-    /// </summary>
+    /// <summary>Runs one iteration of every registered system (see <see cref="WorldBuilder.WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
     public void Tick(TimeSpan delta)
     {
         AdvanceTick();
@@ -222,13 +201,7 @@ public sealed partial class World : IWorld
         _executor.RunTick(this, new Time(delta, _totalElapsed));
     }
 
-    /// <summary>
-    /// Runs <paramref name="system"/> once, without going through the scheduled stages —
-    /// a harness/test convenience, or for a system deliberately run outside the normal
-    /// schedule. Advances <see cref="CurrentTick"/> and the running elapsed-time total the
-    /// same way <see cref="Tick"/> does, so the two stay consistent regardless of which one
-    /// a caller mixes in.
-    /// </summary>
+    /// <summary>Runs <paramref name="system"/> once, outside the normal schedule (a harness/test convenience). Advances <see cref="CurrentTick"/> the same way <see cref="Tick"/> does.</summary>
     public void RunOnce(EcsSystem system, TimeSpan delta)
     {
         AdvanceTick();
@@ -236,10 +209,10 @@ public sealed partial class World : IWorld
         system.InvokeExecute(this, new Time(delta, _totalElapsed));
     }
 
-    /// <inheritdoc/>
+    /// <summary>Applies every command queued on <see cref="Commands"/>, in queued order, then clears the queue.</summary>
     public void ApplyCommands() => ApplyCommands(_commands);
 
-    /// <inheritdoc/>
+    /// <summary>Applies every command queued on <paramref name="commands"/>, in queued order, then clears its queue. <paramref name="commands"/> may be <see cref="Commands"/> or any buffer from <see cref="CreateCommands"/>. Throws if it was created for a different <see cref="World"/>.</summary>
     public void ApplyCommands(CommandBuffer commands)
     {
         if (commands.World != this)
@@ -249,10 +222,10 @@ public sealed partial class World : IWorld
         _entityTable.FlushReservations();
     }
 
-    /// <summary>Reserves a fresh entity id without placing it — see <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="CommandBuffer.CreateEntity()"/>.</summary>
+    /// <summary>Reserves a fresh entity id without placing it. See <see cref="Internal.EntityTable.Reserve"/>. Used only by <see cref="CommandBuffer.CreateEntity()"/>.</summary>
     internal Entity ReserveEntity() => _entityTable.Reserve();
 
-    /// <summary>Bulk counterpart to <see cref="ReserveEntity"/> — see <see cref="Internal.EntityTable.ReserveRange"/>. Used by <see cref="CommandBuffer.CreateEntity(int)"/> and its component-carrying siblings.</summary>
+    /// <summary>Bulk counterpart to <see cref="ReserveEntity"/>. Used by <see cref="CommandBuffer.CreateEntity(int)"/> and its component-carrying siblings.</summary>
     internal void ReserveEntityRange(Span<Entity> destination) => _entityTable.ReserveRange(destination);
 
     /// <summary>Places a previously-reserved entity into the empty archetype, making it alive, and notifies observers. Used only by <see cref="CommandBuffer.CreateEntity()"/>'s queued placement.</summary>
@@ -262,12 +235,7 @@ public sealed partial class World : IWorld
         NotifyEntityCreated(entity);
     }
 
-    /// <summary>
-    /// Bulk counterpart to <see cref="PlaceReservedEntity(Entity)"/>: places every entity
-    /// in <paramref name="entities"/> into the empty archetype in one
-    /// <see cref="Internal.Archetype.AddRows"/> call. Used only by
-    /// <see cref="CommandBuffer.CreateEntity(int)"/>'s queued placement.
-    /// </summary>
+    /// <summary>Bulk counterpart to <see cref="PlaceReservedEntity(Entity)"/>: places every entity in one <see cref="Internal.Archetype.AddRows"/> call. Used only by <see cref="CommandBuffer.CreateEntity(int)"/>'s queued placement.</summary>
     internal void PlaceReservedEntities(Entity[] entities)
     {
         var startRow = _emptyArchetype.AddRows(entities);
@@ -275,22 +243,14 @@ public sealed partial class World : IWorld
         foreach (var entity in entities) NotifyEntityCreated(entity);
     }
 
-    /// <summary>
-    /// Adds <typeparamref name="T"/> to <paramref name="entity"/> and returns a
-    /// tracked mutable reference to it. Throws if the entity already has the
-    /// component. Called only via <see cref="CommandBuffer"/>.
-    /// </summary>
+    /// <summary>Adds <typeparamref name="T"/> to <paramref name="entity"/> and returns a tracked mutable reference to it. Throws if the entity already has the component. Called only via <see cref="CommandBuffer"/>.</summary>
     internal ref T AddComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
         return ref AddComponent<T>(entity, _entityTable[entity.Id]);
     }
 
-    /// <summary>
-    /// Same as <see cref="AddComponent{T}(Entity)"/>, for a caller (<see cref="CommandBuffer"/>'s
-    /// apply-time delegates) that already resolved <paramref name="source"/> via
-    /// <see cref="TryResolve"/> and shouldn't pay for a second entity-table read to get it again.
-    /// </summary>
+    /// <summary>Same as <see cref="AddComponent{T}(Entity)"/>, for a caller that already resolved <paramref name="source"/> and shouldn't pay for a second entity-table read.</summary>
     internal ref T AddComponent<T>(Entity entity, EntityLocation source) where T : struct, IComponent
     {
         var typeIndex = TypeIndex<T>.Value;
@@ -306,14 +266,19 @@ public sealed partial class World : IWorld
         return ref storage[target.Row];
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns a tracked mutable reference to <paramref name="entity"/>'s <typeparamref name="T"/>.
+    /// Throws if the entity doesn't have it. Do not hold the returned reference across a call to
+    /// <see cref="ApplyCommands()"/>: a structural change applied afterward can silently
+    /// invalidate it (a swap-remove can make it alias a different entity's data).
+    /// </summary>
     public ref T GetComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
         return ref GetComponent<T>(entity, _entityTable[entity.Id]);
     }
 
-    /// <summary>Same as <see cref="GetComponent{T}(Entity)"/>, for an already-resolved <paramref name="location"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    /// <summary>Same as <see cref="GetComponent{T}(Entity)"/>, for a caller that already resolved <paramref name="location"/> (avoids a second entity-table lookup).</summary>
     internal ref T GetComponent<T>(Entity entity, EntityLocation location) where T : struct, IComponent
     {
         if (!location.Archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
@@ -325,10 +290,14 @@ public sealed partial class World : IWorld
         return ref typed[location.Row];
     }
 
-    /// <inheritdoc/>
+    /// <summary>A non-storable, world-scoped bound view over <paramref name="entity"/>. See <see cref="EntityView"/>.</summary>
     public EntityView this[Entity entity] => new(this, entity);
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Same tracked-ref contract as <see cref="GetComponent{T}(Entity)"/>, with <paramref name="found"/>
+    /// instead of a throw. When <paramref name="found"/> is false, the returned reference must not
+    /// be dereferenced.
+    /// </summary>
     public ref T TryGetComponent<T>(Entity entity, out bool found) where T : struct, IComponent
     {
         RequireAlive(entity);
@@ -346,28 +315,21 @@ public sealed partial class World : IWorld
         return ref typed[row];
     }
 
-    /// <inheritdoc/>
+    /// <summary>True if <paramref name="entity"/> has a <typeparamref name="T"/> component.</summary>
     public bool HasComponent<T>(Entity entity) where T : struct, IComponent
     {
         RequireAlive(entity);
         return _entityTable[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
-    /// <summary>
-    /// Removes the component at <paramref name="typeIndex"/> from <paramref name="entity"/>,
-    /// if present. Called only via <see cref="CommandBuffer"/>, which already has the caller's
-    /// compile-time component type at its own call site and resolves it to a
-    /// <see cref="Internal.TypeIndex{T}"/> there — the move itself (like every archetype
-    /// transition) only ever needs the type index, never the type, so there is nothing
-    /// for this method itself to be generic over.
-    /// </summary>
+    /// <summary>Removes the component at <paramref name="typeIndex"/> from <paramref name="entity"/>, if present. Called only via <see cref="CommandBuffer"/>, which already resolved the type index at its own call site: an archetype move only ever needs the index, not the type.</summary>
     internal void RemoveComponent(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
         RemoveComponent(entity, _entityTable[entity.Id], typeIndex);
     }
 
-    /// <summary>Same as <see cref="RemoveComponent(Entity, int)"/>, for an already-resolved <paramref name="source"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    /// <summary>Same as <see cref="RemoveComponent(Entity, int)"/>, for a caller that already resolved <paramref name="source"/> (avoids a second entity-table lookup).</summary>
     internal void RemoveComponent(Entity entity, EntityLocation source, int typeIndex)
     {
         if (!source.Archetype.Signature.Contains(typeIndex)) return;
@@ -376,14 +338,14 @@ public sealed partial class World : IWorld
         NotifyComponentRemoved(entity, typeIndex);
     }
 
-    /// <summary>Adds the tag at <paramref name="typeIndex"/> to <paramref name="entity"/>. Called only via <see cref="CommandBuffer"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
+    /// <summary>Adds the tag at <paramref name="typeIndex"/> to <paramref name="entity"/>. Called only via <see cref="CommandBuffer"/>.</summary>
     internal void AddTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
         AddTag(entity, _entityTable[entity.Id], typeIndex);
     }
 
-    /// <summary>Same as <see cref="AddTag(Entity, int)"/>, for an already-resolved <paramref name="source"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    /// <summary>Same as <see cref="AddTag(Entity, int)"/>, for a caller that already resolved <paramref name="source"/> (avoids a second entity-table lookup).</summary>
     internal void AddTag(Entity entity, EntityLocation source, int typeIndex)
     {
         if (source.Archetype.Signature.Contains(typeIndex)) return;
@@ -392,14 +354,14 @@ public sealed partial class World : IWorld
         NotifyTagAdded(entity, typeIndex);
     }
 
-    /// <summary>Removes the tag at <paramref name="typeIndex"/> from <paramref name="entity"/>, if present. Called only via <see cref="CommandBuffer"/> — see <see cref="RemoveComponent(Entity, int)"/> for why this takes a type index, not a type parameter.</summary>
+    /// <summary>Removes the tag at <paramref name="typeIndex"/> from <paramref name="entity"/>, if present. Called only via <see cref="CommandBuffer"/>.</summary>
     internal void RemoveTag(Entity entity, int typeIndex)
     {
         RequireAlive(entity);
         RemoveTag(entity, _entityTable[entity.Id], typeIndex);
     }
 
-    /// <summary>Same as <see cref="RemoveTag(Entity, int)"/>, for an already-resolved <paramref name="source"/> — see <see cref="AddComponent{T}(Entity, EntityLocation)"/>'s docs for why.</summary>
+    /// <summary>Same as <see cref="RemoveTag(Entity, int)"/>, for a caller that already resolved <paramref name="source"/> (avoids a second entity-table lookup).</summary>
     internal void RemoveTag(Entity entity, EntityLocation source, int typeIndex)
     {
         if (!source.Archetype.Signature.Contains(typeIndex)) return;
@@ -409,13 +371,10 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// Returns a mutable reference to <paramref name="source"/>'s <see cref="RelationLinks{T}"/>
-    /// for relation type <typeparamref name="T"/>, creating it (and moving <paramref name="source"/>
-    /// onto the archetype that includes it) if this is its first edge of this relation type.
-    /// The backing dictionary is always non-null on return — a freshly created component's
-    /// default value has a null one, initialized here in the same call before anything else
-    /// can observe it. Called only via <see cref="CommandBuffer"/>'s relation ops and this
-    /// class's own <see cref="RemoveRelationLink{T}"/>/destroy-cascade path.
+    /// Returns a mutable reference to <paramref name="source"/>'s <see cref="RelationLinks{T}"/>,
+    /// creating it (and moving <paramref name="source"/> onto the archetype that includes it) on
+    /// first use. Called only via <see cref="CommandBuffer"/>'s relation ops and this class's own
+    /// destroy-cascade path.
     /// </summary>
     internal ref RelationLinks<T> GetOrCreateRelationLinks<T>(Entity source, EntityLocation location) where T : struct, IRelation
     {
@@ -438,16 +397,7 @@ public sealed partial class World : IWorld
         return ref backlinks;
     }
 
-    /// <summary>
-    /// Removes <paramref name="target"/> from <paramref name="source"/>'s <see cref="RelationLinks{T}"/>,
-    /// if present, removing the component entirely if that was its last edge — the same
-    /// archetype-move-only-when-the-set-empties rule <see cref="GetOrCreateRelationLinks{T}"/>
-    /// has for adding. A no-op if <paramref name="source"/> is dead, doesn't have any
-    /// <typeparamref name="T"/> edges, or never had this specific one. Resolves
-    /// <paramref name="source"/>'s location itself rather than taking one, so it's always
-    /// safe to call with a location resolved before some other write that might have moved
-    /// it (see <see cref="CommandBuffer.RemoveRelation{T}"/>'s self-relation handling).
-    /// </summary>
+    /// <summary>Removes <paramref name="target"/> from <paramref name="source"/>'s <see cref="RelationLinks{T}"/>, if present, removing the component entirely if that was its last edge. Resolves <paramref name="source"/>'s location itself, so it's always safe to call with a stale location.</summary>
     internal void RemoveRelationLink<T>(Entity source, Entity target) where T : struct, IRelation
     {
         if (!TryResolve(source, out var location)) return;
@@ -472,26 +422,11 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// For an <see cref="IExclusiveRelation"/> type, removes every existing
-    /// <typeparamref name="T"/> target from <paramref name="source"/> other than
-    /// <paramref name="target"/> itself (a no-op re-add), before
-    /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s apply-time op adds
-    /// the new edge — see <see cref="IExclusiveRelation"/>'s own doc.
-    ///
-    /// <para>
-    /// The common case for an exclusive relation is exactly one existing target, handled
-    /// by mutating <see cref="RelationLinks{T}.Targets"/> directly rather than going
-    /// through <see cref="RemoveRelationLink{T}"/> — that would remove
-    /// <see cref="RelationLinks{T}"/> entirely once its dictionary empties (an archetype
-    /// move), immediately followed by <see cref="GetOrCreateRelationLinks{T}"/> re-adding
-    /// it (a second one) back in the caller. Holding the plain <c>Dictionary&lt;Entity,T&gt;</c>
-    /// reference (not a <c>ref RelationLinks{T}</c>) across
-    /// <see cref="RemoveRelationBacklink{T}"/> is safe regardless of any archetype move
-    /// that call triggers — a struct value being relocated between archetypes copies the
-    /// reference field, never the dictionary object it points to, so the object identity
-    /// this method already captured stays valid even if <paramref name="source"/> is its
-    /// own existing target and removing that backlink moves it.
-    /// </para>
+    /// For an <see cref="IExclusiveRelation"/> type, removes every existing target other than
+    /// <paramref name="target"/> before <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s
+    /// apply-time op adds the new edge. Mutates <see cref="RelationLinks{T}.Targets"/> directly
+    /// rather than going through <see cref="RemoveRelationLink{T}"/>, to avoid an archetype move
+    /// followed immediately by another one re-adding it.
     /// </summary>
     internal void ReplaceExclusiveRelationTarget<T>(Entity source, Entity target) where T : struct, IRelation
     {
@@ -513,9 +448,9 @@ public sealed partial class World : IWorld
             }
         }
 
-        // General path: more than one existing target -- shouldn't happen for a type that's
-        // always been exclusive, but could if T was only just marked IExclusiveRelation
-        // after edges already existed. ToArray snapshots before mutating the same dictionary.
+        // More than one existing target shouldn't happen for a type that's always been exclusive,
+        // but could if T was only just marked IExclusiveRelation after edges already existed.
+        // ToArray snapshots before mutating the same dictionary.
         foreach (var existingTarget in targets.Keys.ToArray())
         {
             if (existingTarget == target) continue;
@@ -524,11 +459,7 @@ public sealed partial class World : IWorld
         }
     }
 
-    /// <summary>
-    /// Shared by every add path (<see cref="AddComponent{T}(Entity)"/>, <see cref="AddTag(Entity, int)"/>):
-    /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
-    /// and moves the entity onto it.
-    /// </summary>
+    /// <summary>Shared by every add path: looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/> and moves the entity onto it.</summary>
     private EntityLocation MoveViaAddEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
     {
         if (!source.TryGetAddEdge(typeIndex, out var target))
@@ -541,11 +472,7 @@ public sealed partial class World : IWorld
         return new EntityLocation(target, targetRow);
     }
 
-    /// <summary>
-    /// Shared by every remove path (<see cref="RemoveComponent(Entity, int)"/>, <see cref="RemoveTag(Entity, int)"/>):
-    /// looks up (or creates and caches) the archetype-remove edge for <paramref name="typeIndex"/>
-    /// and moves the entity onto it.
-    /// </summary>
+    /// <summary>Shared by every remove path: looks up (or creates and caches) the archetype-remove edge for <paramref name="typeIndex"/> and moves the entity onto it.</summary>
     private EntityLocation MoveViaRemoveEdge(Entity entity, Archetype source, int sourceRow, int typeIndex)
     {
         if (!source.TryGetRemoveEdge(typeIndex, out var target))
@@ -558,14 +485,14 @@ public sealed partial class World : IWorld
         return new EntityLocation(target, targetRow);
     }
 
-    /// <inheritdoc/>
+    /// <summary>True if <paramref name="entity"/> has tag <typeparamref name="T"/>.</summary>
     public bool HasTag<T>(Entity entity) where T : struct, ITag
     {
         RequireAlive(entity);
         return _entityTable[entity.Id].Archetype.Signature.Contains(TypeIndex<T>.Value);
     }
 
-    /// <inheritdoc/>
+    /// <summary>True if <paramref name="source"/> has a <typeparamref name="T"/> edge to <paramref name="target"/>.</summary>
     public bool HasRelation<T>(Entity source, Entity target) where T : struct, IRelation
     {
         RequireAlive(source);
@@ -574,7 +501,12 @@ public sealed partial class World : IWorld
         return ((ComponentStorage<RelationLinks<T>>)storage)[row].Targets!.ContainsKey(target);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Tracked mutable reference to the payload of <paramref name="source"/>'s <typeparamref name="T"/>
+    /// edge to <paramref name="target"/>, with <paramref name="found"/> reporting whether it exists.
+    /// Same ref-lifetime caveat as <see cref="GetComponent{T}(Entity)"/>: a later <c>AddRelation</c>
+    /// for a different target of the same source/relation can silently detach this reference.
+    /// </summary>
     public ref T TryGetRelation<T>(Entity source, Entity target, out bool found) where T : struct, IRelation
     {
         RequireAlive(source);
@@ -593,7 +525,13 @@ public sealed partial class World : IWorld
         return ref edgeValue;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Tracked mutable reference to the payload of <paramref name="source"/>'s existing
+    /// <typeparamref name="T"/> edge to <paramref name="target"/>. Throws if no such edge exists.
+    /// Never creates or removes an edge. Use <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>/
+    /// <see cref="CommandBuffer.RemoveRelation{T}(Entity, Entity)"/> for that. Same ref-lifetime
+    /// caveat as <see cref="TryGetRelation{T}"/>.
+    /// </summary>
     public ref T GetRelation<T>(Entity source, Entity target) where T : struct, IRelation
     {
         RequireAlive(source);
@@ -617,7 +555,7 @@ public sealed partial class World : IWorld
         internal static readonly IReadOnlyCollection<Entity> Entities = Array.Empty<Entity>();
     }
 
-    /// <inheritdoc/>
+    /// <summary>Every target <paramref name="source"/> has a <typeparamref name="T"/> edge to, and each edge's payload. Empty, not throwing, if none.</summary>
     public IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IRelation
     {
         RequireAlive(source);
@@ -627,7 +565,7 @@ public sealed partial class World : IWorld
             : EmptyRelation<T>.Targets;
     }
 
-    /// <inheritdoc/>
+    /// <summary>Every source entity with a <typeparamref name="T"/> edge to <paramref name="target"/>. Empty, not throwing, if none.</summary>
     public IReadOnlyCollection<Entity> Sources<T>(Entity target) where T : struct, IRelation
     {
         RequireAlive(target);
@@ -637,7 +575,7 @@ public sealed partial class World : IWorld
             : EmptyRelation<T>.Entities;
     }
 
-    /// <inheritdoc/>
+    /// <summary>Yields one <see cref="EncodedComponent"/> per (entity, registered component type) pair for every live entity. Unregistered types and tags are skipped. A full-world walk, for a save/checkpoint, not a per-tick path.</summary>
     public IEnumerable<EncodedComponent> EnumerateAll(ComponentCodecRegistry registry)
     {
         foreach (var archetype in _archetypes.Values)
@@ -654,14 +592,14 @@ public sealed partial class World : IWorld
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>Hot-path query: invokes <paramref name="action"/> once per matching archetype chunk with a <typeparamref name="TAccess0"/> accessor.</summary>
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {
         foreach (var chunk in Internal.ChunkQuery<TAccess0>.Value.Resolve(this))
             action(chunk.Access<TAccess0>());
     }
 
-    /// <inheritdoc/>
+    /// <summary>Two-component overload, using <see cref="ChunkAction{TAccess0, TAccess1}"/>.</summary>
     public void Query<TAccess0, TAccess1>(ChunkAction<TAccess0, TAccess1> action)
         where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
         where TAccess1 : struct, IComponentAccessor<TAccess1>, allows ref struct
@@ -670,10 +608,10 @@ public sealed partial class World : IWorld
             action(chunk.Access<TAccess0>(), chunk.Access<TAccess1>());
     }
 
-    // Query<T0..T{QueryArity.Max-1}>() implementations are generated — see
+    // Query<T0..T{QueryArity.Max-1}>() implementations are generated. See
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
-    /// <inheritdoc/>
+    /// <summary>Turns change tracking on for <typeparamref name="T"/>. Dispose the returned handle to turn it back off once nothing else needs it. The only way to make <see cref="ReadChanges{T}"/> observe anything.</summary>
     public IDisposable TrackChanges<T>() where T : struct, IComponent
     {
         var typeIndex = TypeIndex<T>.Value;
@@ -681,7 +619,7 @@ public sealed partial class World : IWorld
         return new TrackingHandle(this, typeIndex);
     }
 
-    /// <inheritdoc/>
+    /// <summary>Every row of <typeparamref name="T"/> touched since <paramref name="sinceTick"/>, across every archetype containing it. Only observes writes made while <see cref="TrackChanges{T}"/> was registered.</summary>
     public ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent =>
         new(GetMatchingArchetypes(Internal.QuerySignature<Ref<T>>.Value), sinceTick);
 
@@ -716,13 +654,7 @@ public sealed partial class World : IWorld
             throw new InvalidOperationException($"Entity {entity} is not alive.");
     }
 
-    /// <summary>
-    /// Resolves <paramref name="entity"/>'s current location in one entity-table read, or
-    /// <c>false</c> if it isn't alive. The single-lookup counterpart to calling
-    /// <see cref="IsAlive"/> and then indexing <c>_entityTable</c> separately — used by
-    /// <see cref="CommandBuffer"/>'s apply-time delegates, each of which used to do both
-    /// independently (and often a third lookup after that) for one queued operation.
-    /// </summary>
+    /// <summary>Resolves <paramref name="entity"/>'s current location in one entity-table read, or false if it isn't alive.</summary>
     internal bool TryResolve(Entity entity, out EntityLocation location)
     {
         if (!IsAlive(entity)) { location = default; return false; }
@@ -730,15 +662,7 @@ public sealed partial class World : IWorld
         return true;
     }
 
-    /// <summary>
-    /// Only copies a storage when <paramref name="signature"/> still contains its type —
-    /// naturally excludes a just-removed component's storage without a caller needing to
-    /// name it, since <paramref name="signature"/> already reflects the removal. Each
-    /// clone is created sized to the new archetype's own entity capacity directly, or it
-    /// could end up smaller than the archetype's <see cref="Archetype.Entities"/> array,
-    /// breaking the invariant <see cref="Archetype.EnsureCapacity"/> relies on the
-    /// moment more than a handful of entities land in this archetype.
-    /// </summary>
+    /// <summary>Only copies a storage when <paramref name="signature"/> still contains its type, so a just-removed component's storage is naturally excluded. Each clone is sized to the new archetype's capacity directly, matching the invariant <see cref="Archetype.EnsureCapacity"/> relies on.</summary>
     private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource)
     {
         if (_archetypes.TryGetValue(signature, out var existing)) return existing;
@@ -753,13 +677,7 @@ public sealed partial class World : IWorld
         return created;
     }
 
-    /// <summary>
-    /// Registers a brand-new, storage-less archetype under <paramref name="signature"/>
-    /// and invalidates every archetype-set cache. Callers populate the returned
-    /// archetype's storages themselves, either by copying a template archetype's
-    /// (<see cref="GetOrCreateArchetype"/>) or by creating them directly for a known
-    /// set of component types (the generated <c>PlaceReservedEntity{T...}</c> overloads).
-    /// </summary>
+    /// <summary>Registers a brand-new, storage-less archetype and invalidates every archetype-set cache. Callers populate the returned archetype's storages themselves.</summary>
     private Archetype CreateArchetype(ArchetypeSignature signature)
     {
         var created = new Archetype(signature, _archetypeCapacity);
@@ -769,19 +687,10 @@ public sealed partial class World : IWorld
         return created;
     }
 
-    /// <summary>
-    /// The total number of live entities across every archetype — O(archetype count),
-    /// not O(entity count), since it just sums each archetype's own cached row count.
-    /// A cheap, deliberately coarse size proxy the static parallel scheduler's executor
-    /// uses to decide whether a stage is worth dispatching to the thread pool at all.
-    /// </summary>
+    /// <summary>Total live entities across every archetype: O(archetype count), not O(entity count). A cheap, deliberately coarse size proxy the scheduler uses to decide whether a stage is worth dispatching to the thread pool.</summary>
     internal int TotalEntityCount => _archetypes.Values.Sum(a => a.Count);
 
-    /// <summary>
-    /// Every archetype whose signature contains all of <paramref name="required"/>'s bits,
-    /// cached per required set and invalidated whenever a new archetype is created. A
-    /// query only needs to walk this array, not every archetype in the world.
-    /// </summary>
+    /// <summary>Every archetype whose signature contains all of <paramref name="required"/>'s bits, cached per required set and invalidated whenever a new archetype is created.</summary>
     internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required)
     {
         if (_queryCache.TryGetValue(required, out var cached)) return cached;
@@ -798,13 +707,7 @@ public sealed partial class World : IWorld
         return result;
     }
 
-    /// <summary>
-    /// Same as <see cref="GetMatchingArchetypes(ArchetypeSignature)"/>, plus
-    /// <paramref name="filter"/>'s <c>Without</c>/<c>Any</c> checks — kept as a separate
-    /// overload/cache rather than folding <paramref name="filter"/> into the existing
-    /// one, so the chunk-callback queries and <see cref="ReadChanges{T}"/> (which never
-    /// filter) don't pay for a cache key that's always empty for them.
-    /// </summary>
+    /// <summary>Same as <see cref="GetMatchingArchetypes(ArchetypeSignature)"/>, plus <paramref name="filter"/>'s Without/Any checks. A separate cache so callers that never filter (chunk queries, <see cref="ReadChanges{T}"/>) don't pay for an always-empty cache key.</summary>
     internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required, ArchetypeFilter filter)
     {
         var key = (required, filter);
@@ -822,12 +725,7 @@ public sealed partial class World : IWorld
         return result;
     }
 
-    /// <summary>
-    /// Moves an entity from <paramref name="source"/> to <paramref name="target"/>,
-    /// copying every one of <paramref name="source"/>'s components that
-    /// <paramref name="target"/> also has (a removed component has no storage to
-    /// copy into).
-    /// </summary>
+    /// <summary>Moves an entity from <paramref name="source"/> to <paramref name="target"/>, copying every component <paramref name="target"/> also has.</summary>
     private int MoveEntity(Entity entity, Archetype source, int sourceRow, Archetype target)
     {
         var targetRow = target.AddRow(entity);

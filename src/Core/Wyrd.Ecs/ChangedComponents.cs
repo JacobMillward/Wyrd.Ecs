@@ -5,9 +5,9 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// A stateless scan over every archetype containing <typeparamref name="T"/>, yielding
 /// every row whose tick-stamp is past <c>sinceTick</c>. Obtained from
-/// <see cref="IWorld.ReadChanges{T}"/>. Any number of independent callers can scan with
-/// their own watermark at any time — reading never mutates anything, so there's no
-/// coordination needed between them.
+/// <see cref="World.ReadChanges{T}"/>. Any number of independent callers can scan with
+/// their own watermark at any time, since reading never mutates anything, so there's
+/// no coordination needed between them.
 /// </summary>
 public readonly ref struct ChangedComponents<T> where T : struct, IComponent
 {

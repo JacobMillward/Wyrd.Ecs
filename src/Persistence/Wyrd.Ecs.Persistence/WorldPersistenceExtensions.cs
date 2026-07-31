@@ -57,7 +57,7 @@ public static class WorldPersistenceExtensions
         /// Writes a full checkpoint of every entity and every component registered in
         /// <c>World.DefaultComponentCodecRegistry</c> to <paramref name="store"/>. A
         /// component type on a live entity but absent from the registry is silently
-        /// skipped — the same behavior <see cref="IWorld.EnumerateAll"/> already has, not
+        /// skipped, the same behavior <see cref="World.EnumerateAll"/> already has, not
         /// an error. <paramref name="store"/> defaults to <c>World.DefaultPersistenceStore</c>
         /// when omitted. If <paramref name="store"/> returns an
         /// <see cref="ITransactionalWriteStream"/> (<see cref="FileStore"/> does) and

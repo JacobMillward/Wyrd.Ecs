@@ -1,12 +1,12 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// Observes structural changes — entity creation/destruction, component/tag add/remove
-/// on an existing entity — as they actually happen, whether applied immediately via a
-/// direct <see cref="IWorld"/> call or deferred through <see cref="CommandBuffer"/> and
-/// applied later. Register via <see cref="IWorld.ObserveStructuralChanges"/>.
+/// Observes structural changes (entity creation/destruction, component/tag add/remove
+/// on an existing entity) as they actually happen, whether applied immediately via a
+/// direct <see cref="World"/> call or deferred through <see cref="CommandBuffer"/> and
+/// applied later. Register via <see cref="World.ObserveStructuralChanges"/>.
 /// <c>typeIndex</c> parameters are <see cref="Internal.TypeIndex{T}"/> values, the same
-/// runtime-only, per-process index the engine itself uses — not a value safe to persist
+/// runtime-only, per-process index the engine itself uses, not a value safe to persist
 /// across a restart.
 /// </summary>
 public interface IStructuralChangeObserver

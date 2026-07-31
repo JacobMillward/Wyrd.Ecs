@@ -5,7 +5,7 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// The <see cref="Tracked"/> (<see cref="IWorld.TrackChanges{T}"/>) dimension and the
+/// The <see cref="Tracked"/> (<see cref="World.TrackChanges{T}"/>) dimension and the
 /// one-at-a-time component-add variants — both Wyrd.Ecs-only, with no Friflo or fennecs
 /// equivalent, so they don't belong on the shared
 /// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/> comparison class.

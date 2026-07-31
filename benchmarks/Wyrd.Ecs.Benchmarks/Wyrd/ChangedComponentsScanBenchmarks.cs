@@ -5,9 +5,9 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Measures <see cref="IWorld.ReadChanges{T}"/>'s full-archetype scan cost at the
+/// Measures <see cref="World.ReadChanges{T}"/>'s full-archetype scan cost at the
 /// ~20,000-entity scale validated in
-/// <c>docs/superpowers/specs/2026-07-19-persistence-primitives-design.md</c> — the
+/// <c>docs/superpowers/specs/2026-07-19-persistence-primitives-design.md</c>: the
 /// number that decided tick-stamp-and-scan over an append log for this project's actual
 /// consumer shape (one background persistence reader, not many independently-lagging
 /// ones). Kept in the suite as the direct replacement for the retention-cost benchmark

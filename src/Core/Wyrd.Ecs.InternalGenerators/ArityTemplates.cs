@@ -11,7 +11,7 @@ namespace Wyrd.Ecs.InternalGenerators;
 /// Each arity N (component count) is a mechanical, additive extension of arity N-1, so
 /// these builders are parameterized by N rather than duplicated per arity. Previously
 /// also emitted the fluent <c>Query&lt;T0..TN-1&gt;</c>/<c>QueryRow&lt;T0..TN-1&gt;</c>
-/// family and <c>IWorld</c>/<c>World</c>'s matching <c>Query&lt;T0..TN-1&gt;()</c>
+/// family and <c>World</c>'s matching <c>Query&lt;T0..TN-1&gt;()</c>
 /// members; that family was removed when queries moved to the generator-backed
 /// unbounded query-shape design, which has no arity cap.
 /// </summary>

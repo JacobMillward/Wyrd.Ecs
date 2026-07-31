@@ -1,33 +1,33 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The only way to perform structural mutation — creating or destroying an entity,
+/// The only way to perform structural mutation: creating or destroying an entity,
 /// adding or removing a component or tag. Queued operations are not visible until
 /// <see cref="World.ApplyCommands()"/> runs: <c>HasComponent</c>/<c>GetComponent</c>
 /// called against a queued-but-not-yet-applied change still reflect pre-apply state,
 /// and an entity created here is not <see cref="World.IsAlive"/> until then either. This
 /// exists for two reasons: performing a structural change on an entity while a
-/// <see cref="IWorld"/> query is iterating the same archetype mutates the same backing
-/// arrays the enumerator is mid-walk over, with no guard — queuing through here and
+/// <see cref="World"/> query is iterating the same archetype mutates the same backing
+/// arrays the enumerator is mid-walk over, with no guard. Queuing through here and
 /// applying afterward avoids that; and a structural change touches world-level shared
 /// state (the archetype graph, the entity table) that no future per-component
 /// parallel-scheduling access-conflict graph can reason about, so deferring to one
 /// single-threaded apply point is a hard prerequisite for running systems concurrently.
-/// There is deliberately no direct, immediate alternative on <see cref="IWorld"/> — with
+/// There is deliberately no direct, immediate alternative on <see cref="World"/>: with
 /// one only reachable through discipline, not the type system, a caller could still
 /// trigger the exact hazard this exists to prevent by picking the wrong one. Reading and
 /// mutating an already-placed entity's existing component values
 /// (<see cref="World.GetComponent{T}(Entity)"/> and friends) never touches archetype row
-/// layout, carries no such hazard, and stays direct on <see cref="IWorld"/> — this class
+/// layout, carries no such hazard, and stays direct on <see cref="World"/>. This class
 /// is only ever about changing an entity's shape, never about its values.
 ///
 /// <para>
-/// Nothing on this class is synchronized — every field below is private, per-instance
+/// Nothing on this class is synchronized. Every field below is private, per-instance
 /// state. That's deliberate: a <see cref="CommandBuffer"/> instance is meant to have
 /// exactly one writer. Concurrent structural mutation from several sources doesn't need
 /// this class to gain locks; it needs each source to hold its own buffer, obtained via
-/// <see cref="IWorld.CreateCommands"/>, and to have all of them applied — in whatever
-/// order the caller chooses — via <see cref="IWorld.ApplyCommands(CommandBuffer)"/>. See
+/// <see cref="World.CreateCommands"/>, and to have all of them applied, in whatever
+/// order the caller chooses, via <see cref="World.ApplyCommands(CommandBuffer)"/>. See
 /// that method's docs for why a caller-chosen apply order, not an internally-synchronized
 /// shared queue, is the mechanism this engine uses for safe concurrent command queuing.
 /// </para>
