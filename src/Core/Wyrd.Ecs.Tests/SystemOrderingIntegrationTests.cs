@@ -50,7 +50,7 @@ public class SystemOrderingIntegrationTests
 
         var world = new WorldBuilder().WithSystems(access, physics, renderPrep, network).Build();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         IntegrationExecutionLog.Entries.Should().Contain(nameof(IntegrationPhysicsSystem));
         IntegrationExecutionLog.Entries.Should().Contain(nameof(IntegrationRenderPrepSystem));

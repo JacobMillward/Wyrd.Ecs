@@ -44,7 +44,7 @@ public sealed class WorldBuilder
     /// <see cref="WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>
     /// registered. The returned <see cref="World"/> already owns a static parallel
     /// schedule (empty if no systems were registered) and drives it itself via
-    /// <see cref="World.Tick"/>.
+    /// <see cref="World.Update"/>.
     /// </summary>
     public World Build()
     {

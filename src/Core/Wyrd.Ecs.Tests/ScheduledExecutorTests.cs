@@ -64,14 +64,14 @@ public class ScheduledExecutorTests
         world.Commands.AddComponent(e, new ScheduledHealth { Value = 5 });
         world.ApplyCommands();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         world.GetComponent<ScheduledPosition>(e).X.Should().Be(1f); // MoveSystem ran exactly once
         world.GetComponent<ScheduledHealth>(e).Value.Should().Be(4); // DamageSystem ran exactly once
     }
 
     [Fact]
-    public void StructuralChangesFromASystem_AreVisibleAfterRunTick()
+    public void StructuralChangesFromASystem_AreVisibleAfterUpdate()
     {
         var access = new Dictionary<Type, SystemAccess>
         {
@@ -79,12 +79,12 @@ public class ScheduledExecutorTests
         };
         var world = new WorldBuilder().WithSystems(access, new SpawnerSystem()).Build();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         var count = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledHealth>>().Resolve(world))
             count += chunk.Count;
-        count.Should().Be(1); // SpawnerSystem's CreateEntity/AddComponent must be applied by RunTick, not left pending
+        count.Should().Be(1); // SpawnerSystem's CreateEntity/AddComponent must be applied by RunStages, not left pending
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class ScheduledExecutorTests
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f); // both MoveSystem instances ran, one per stage
     }
@@ -107,7 +107,7 @@ public class ScheduledExecutorTests
     [Fact]
     public void TwoSystemsInTheSameParallelStage_BothCreatingEntitiesConcurrently_AllEntitiesSurvive()
     {
-        // WithParallelThreshold(0) forces RunTick's `stage.Count > 1 && world.TotalEntityCount
+        // WithParallelThreshold(0) forces RunStages's `stage.Count > 1 && world.TotalEntityCount
         // >= _parallelThreshold` check to take the Parallel.ForEach branch (both spawner
         // systems have disjoint writes, so the scheduler places them in one stage) -- unlike
         // this file's other tests, which never clear the default threshold and so only ever
@@ -124,7 +124,7 @@ public class ScheduledExecutorTests
             .WithParallelThreshold(0)
             .Build();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         var positionCount = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledPosition>>().Resolve(world))
@@ -138,7 +138,7 @@ public class ScheduledExecutorTests
     }
 
     [Fact]
-    public void Tick_AdvancesCurrentTickEachCall()
+    public void Update_AdvancesCurrentTickEachCall()
     {
         var access = new Dictionary<Type, SystemAccess>
         {
@@ -146,9 +146,9 @@ public class ScheduledExecutorTests
         };
         var world = new WorldBuilder().WithSystems(access, new MoveSystem()).Build();
 
-        world.Tick(TimeSpan.FromSeconds(1));
-        world.Tick(TimeSpan.FromSeconds(2));
+        world.Update(TimeSpan.FromSeconds(1));
+        world.Update(TimeSpan.FromSeconds(2));
 
-        world.CurrentTick.Should().Be(3); // starts at 1 (World's own default), advanced once per Tick call
+        world.CurrentTick.Should().Be(3); // starts at 1 (World's own default), advanced once per Update call
     }
 }

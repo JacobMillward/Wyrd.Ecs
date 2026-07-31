@@ -194,14 +194,14 @@ public sealed partial class World
     }
 
     /// <summary>Runs one iteration of every registered system (see <see cref="WorldBuilder.WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
-    public void Tick(TimeSpan delta)
+    public void Update(TimeSpan delta)
     {
         AdvanceTick();
         _totalElapsed += delta;
-        _executor.RunTick(this, new Time(delta, _totalElapsed));
+        _executor.RunStages(this, new Time(delta, _totalElapsed));
     }
 
-    /// <summary>Runs <paramref name="system"/> once, outside the normal schedule (a harness/test convenience). Advances <see cref="CurrentTick"/> the same way <see cref="Tick"/> does.</summary>
+    /// <summary>Runs <paramref name="system"/> once, outside the normal schedule (a harness/test convenience). Advances <see cref="CurrentTick"/> the same way <see cref="Update"/> does.</summary>
     public void RunOnce(EcsSystem system, TimeSpan delta)
     {
         AdvanceTick();

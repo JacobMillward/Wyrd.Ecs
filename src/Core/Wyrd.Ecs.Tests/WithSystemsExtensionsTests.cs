@@ -41,7 +41,7 @@ public class WithSystemsExtensionsTests
         var entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         world.GetComponent<SugarPosition>(entity).X.Should().Be(1f);
     }
@@ -53,7 +53,7 @@ public class WithSystemsExtensionsTests
         var entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         world.GetComponent<SugarPosition>(entity).X.Should().Be(5f);
     }
@@ -71,7 +71,7 @@ public class WithSystemsExtensionsTests
         var entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         world.GetComponent<SugarPosition>(entity).X.Should().Be(5f);
     }
@@ -90,7 +90,7 @@ public class WithSystemsExtensionsTests
         world.Commands.AddComponent(entity, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         world.GetComponent<ScheduledPosition>(entity).X.Should().Be(1f);
     }
@@ -105,7 +105,7 @@ public class WithSystemsExtensionsTests
             .WithSystems(Order.For(new SugarBeforeAnchorSystem()).Before<SugarMarkerAnchor>(), new SugarAfterAnchorSystem())
             .Build();
 
-        world.Tick(TimeSpan.Zero);
+        world.Update(TimeSpan.Zero);
 
         SugarBeforeAnchorSystem.Ran.Should().BeTrue();
         SugarAfterAnchorSystem.Ran.Should().BeTrue();

@@ -2,7 +2,7 @@ namespace Wyrd.Ecs;
 
 /// <summary>
 /// Runs the static parallel schedule <see cref="WorldBuilder.Build"/> built (held
-/// internally by <see cref="World"/> and driven via <see cref="World.Tick"/>): per
+/// internally by <see cref="World"/> and driven via <see cref="World.Update"/>): per
 /// stage, dispatch inline or to the thread pool depending on
 /// <see cref="World.TotalEntityCount"/> against <see cref="WorldBuilder.WithParallelThreshold"/>,
 /// then flush <see cref="World.Commands"/> once at the stage boundary, after every
@@ -22,8 +22,8 @@ public sealed class ScheduledExecutor
         _parallelThreshold = parallelThreshold;
     }
 
-    /// <summary>Runs every stage once, in order, applying <see cref="World.Commands"/> at each stage's boundary. Called only by <see cref="World.Tick"/>.</summary>
-    internal void RunTick(World world, Time time)
+    /// <summary>Runs every stage once, in order, applying <see cref="World.Commands"/> at each stage's boundary. Called only by <see cref="World.Update"/>.</summary>
+    internal void RunStages(World world, Time time)
     {
         foreach (var stage in _stages)
         {
