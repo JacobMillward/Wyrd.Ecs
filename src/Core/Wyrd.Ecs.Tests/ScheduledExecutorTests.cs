@@ -19,7 +19,7 @@ sealed class SpawnerSystem : EcsSystem
 {
     protected override void Execute(World world, Time time)
     {
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new ScheduledHealth { Value = 10 });
     }
 }
@@ -30,7 +30,7 @@ sealed class SpawnerASystem : EcsSystem
     {
         for (var i = 0; i < 200; i++)
         {
-            var entity = world.Commands.CreateEntity().Entity;
+            Entity entity = world.Commands.CreateEntity();
             world.Commands.AddComponent(entity, new ScheduledPosition { X = 1f });
         }
     }
@@ -42,7 +42,7 @@ sealed class SpawnerBSystem : EcsSystem
     {
         for (var i = 0; i < 200; i++)
         {
-            var entity = world.Commands.CreateEntity().Entity;
+            Entity entity = world.Commands.CreateEntity();
             world.Commands.AddComponent(entity, new ScheduledHealth { Value = 1 });
         }
     }
@@ -59,7 +59,7 @@ public class ScheduledExecutorTests
             [typeof(DamageSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
         var world = new WorldBuilder().WithSystems(access, new MoveSystem(), new DamageSystem()).Build();
-        var e = world.Commands.CreateEntity().Entity;
+        Entity e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.Commands.AddComponent(e, new ScheduledHealth { Value = 5 });
         world.ApplyCommands();
@@ -95,7 +95,7 @@ public class ScheduledExecutorTests
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
         };
         var world = new WorldBuilder().WithSystems(access, new MoveSystem(), new MoveSystem()).Build();
-        var e = world.Commands.CreateEntity().Entity;
+        Entity e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
 

@@ -165,7 +165,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         world.StopContinuousPersistence(mergeFinalCheckpoint: false);
         var segmentTickAtStop = walStore.ListSegmentStartTicks().Single();
 
-        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
         world.AdvanceTick();
         Thread.Sleep(100); // give a hypothetical still-running thread a chance to misbehave
@@ -190,8 +190,8 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
             .EnableContinuousPersistence(walStore, options: new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(10), CheckpointInterval = TimeSpan.FromMinutes(10) })
             .Build();
 
-        var surviving = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
-        var destroyed = world.Commands.CreateEntity(new Position { X = 2f }).Entity;
+        Entity surviving = world.Commands.CreateEntity(new Position { X = 1f });
+        Entity destroyed = world.Commands.CreateEntity(new Position { X = 2f });
         world.ApplyCommands();
         world.AdvanceTick();
 

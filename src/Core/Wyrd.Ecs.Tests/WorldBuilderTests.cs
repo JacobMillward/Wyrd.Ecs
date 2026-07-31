@@ -11,7 +11,7 @@ public class WorldBuilderTests
     public void Build_ProducesAWorkingWorld()
     {
         var world = new WorldBuilder().Build();
-        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(5f);
@@ -21,7 +21,7 @@ public class WorldBuilderTests
     public void Build_TracksNothingByDefault_SameAsPlainWorld()
     {
         var world = new WorldBuilder().Build();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -36,7 +36,7 @@ public class WorldBuilderTests
     public void WithArchetypeCapacity_SizesEveryArchetypesEntityArray()
     {
         var world = new WorldBuilder().WithArchetypeCapacity(16).Build();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
 
         var (archetype, _) = TestReflection.GetLocation(world, entity);

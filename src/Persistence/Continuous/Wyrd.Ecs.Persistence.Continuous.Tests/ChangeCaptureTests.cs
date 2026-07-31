@@ -26,7 +26,7 @@ public class ChangeCaptureTests
         var registry = BuildRegistry(schemaHash: 7u);
         using var capture = new ChangeCapture(world, registry);
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -45,7 +45,7 @@ public class ChangeCaptureTests
     {
         var world = new World();
         var registry = BuildRegistry();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
         using var capture = new ChangeCapture(world, registry);
         var permanentId = world.GetPermanentId(entity);
@@ -63,7 +63,7 @@ public class ChangeCaptureTests
     {
         var world = new World();
         var registry = BuildRegistry();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         using var capture = new ChangeCapture(world, registry);
 

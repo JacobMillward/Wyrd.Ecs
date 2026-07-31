@@ -33,8 +33,8 @@ public class EnumerateAllTests
     {
         var world = new World();
         var registry = BuildRegistry();
-        var onlyPosition = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
-        var both = world.Commands.CreateEntity(new Position { X = 2f }, new Velocity { X = 3f }).Entity;
+        Entity onlyPosition = world.Commands.CreateEntity(new Position { X = 1f });
+        Entity both = world.Commands.CreateEntity(new Position { X = 2f }, new Velocity { X = 3f });
         world.ApplyCommands();
 
         var results = world.EnumerateAll(registry).ToList();
@@ -67,7 +67,7 @@ public class EnumerateAllTests
     {
         var world = new World();
         var registry = BuildRegistry();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.Commands.AddTag<Marker>(entity);
         world.ApplyCommands();
 
@@ -88,7 +88,7 @@ public class EnumerateAllTests
         var snapshot = source.EnumerateAll(registry).ToList();
 
         var target = new World();
-        var rebuilt = target.Commands.CreateEntity().Entity;
+        Entity rebuilt = target.Commands.CreateEntity();
         target.ApplyCommands();
         foreach (var component in snapshot)
         {

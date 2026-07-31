@@ -29,11 +29,11 @@ public partial class QueryIterationBenchmarks
         {
             for (var i = 0; i < entityCount; i++)
             {
-                var e1 = World1.Commands.CreateEntity(new Position()).Entity;
-                var e2 = World2.Commands.CreateEntity(new Position(), new Velocity()).Entity;
-                var e3 = World3.Commands.CreateEntity(new Position(), new Velocity(), new Health()).Entity;
-                var e4 = World4.Commands.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload()).Entity;
-                var e5 = World5.Commands.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload(), new Padding1()).Entity;
+                Entity e1 = World1.Commands.CreateEntity(new Position());
+                Entity e2 = World2.Commands.CreateEntity(new Position(), new Velocity());
+                Entity e3 = World3.Commands.CreateEntity(new Position(), new Velocity(), new Health());
+                Entity e4 = World4.Commands.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload());
+                Entity e5 = World5.Commands.CreateEntity(new Position(), new Velocity(), new Health(), new BulkPayload(), new Padding1());
 
                 if (fragmented)
                 {

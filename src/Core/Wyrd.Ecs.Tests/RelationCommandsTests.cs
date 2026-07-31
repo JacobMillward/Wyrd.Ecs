@@ -15,8 +15,8 @@ public class RelationCommandsTests
     public void AddRelation_CreatesForwardAndBackwardLinks()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
@@ -32,9 +32,9 @@ public class RelationCommandsTests
     public void AddRelation_TwoDifferentTargets_BothPresentOnTheSameEntity()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
@@ -51,8 +51,8 @@ public class RelationCommandsTests
     public void AddRelation_SameEdgeTwice_LastValueWins()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
@@ -67,7 +67,7 @@ public class RelationCommandsTests
     public void AddRelation_SelfRelation_WorksWithoutSpecialCasing()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation(a, a, new Likes { Weight = 5f });
@@ -81,8 +81,8 @@ public class RelationCommandsTests
     public void AddRelation_TargetNotAlive_IsANoOp()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
         world.Commands.DestroyEntity(b);
         world.ApplyCommands();
@@ -98,8 +98,8 @@ public class RelationCommandsTests
     public void RemoveRelation_RemovesForwardAndBackwardLinks()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -114,9 +114,9 @@ public class RelationCommandsTests
     public void RemoveRelation_OneOfManyTargets_LeavesTheOthersIntact()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -136,8 +136,8 @@ public class RelationCommandsTests
     public void RemoveRelation_EdgeThatNeverExisted_IsANoOp()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.RemoveRelation<Likes>(a, b);
@@ -150,8 +150,8 @@ public class RelationCommandsTests
     public void AddRelation_IsNotVisibleUntilApplied()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
@@ -163,8 +163,8 @@ public class RelationCommandsTests
     public void AddRelation_ZeroSizedPayload_StillTracksTheEdge()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation(a, b, new Owns());
@@ -177,8 +177,8 @@ public class RelationCommandsTests
     public void AddRelation_NoValueOverload_DefaultsThePayload()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation<Follows>(a, b); // no value argument -- convenience for a marker-only relation type
@@ -193,9 +193,9 @@ public class RelationCommandsTests
     public void AddRelation_NoValueOverload_TwoDifferentTargets_BothPresentOnTheSameEntity()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddRelation<Follows>(a, b);
@@ -213,9 +213,9 @@ public class RelationCommandsTests
         // batch here for two different relation types -- each queued command's own
         // captured (buffer, slot) must still resolve to its own, correct target.
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
         world.Commands.AddRelation<Follows>(a, b);
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();

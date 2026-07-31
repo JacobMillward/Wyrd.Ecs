@@ -38,6 +38,9 @@ public readonly ref struct EntityView
     /// <summary>The <see cref="Wyrd.Ecs.Entity"/> this view is bound to.</summary>
     public Entity Entity => _entity;
 
+    /// <summary>Unwraps to the bound <see cref="Wyrd.Ecs.Entity"/>, same value as <see cref="Entity"/>. Lets a storable id fall out of an assignment like <c>Entity e = commands.CreateEntity();</c> without naming the property.</summary>
+    public static implicit operator Entity(EntityView view) => view._entity;
+
     /// <summary>Returns a tracked mutable reference to this entity's <typeparamref name="T"/>. Throws if the entity does not have the component.</summary>
     public ref T GetComponent<T>() where T : struct, IComponent => ref _world.GetComponent<T>(_entity);
 
@@ -123,7 +126,7 @@ public readonly ref struct EntityView
         return this;
     }
 
-    /// <summary>Queues a <see cref="Parent"/> edge from <paramref name="child"/> to this entity — same edge as <c>child.SetParent(this.Entity)</c>, called from the parent's side. A parent may have any number of children, so unlike <see cref="SetParent"/> this never replaces an existing edge other than <paramref name="child"/>'s own.</summary>
+    /// <summary>Queues a <see cref="Parent"/> edge from <paramref name="child"/> to this entity, same edge as <c>child.SetParent(this)</c>, called from the parent's side. A parent may have any number of children, so unlike <see cref="SetParent"/> this never replaces an existing edge other than <paramref name="child"/>'s own.</summary>
     public EntityView AddChild(Entity child)
     {
         _commands.AddRelation<Parent>(child, _entity);

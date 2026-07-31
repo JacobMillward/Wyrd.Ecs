@@ -81,10 +81,10 @@ public class QueryChainTests
     public void FilterAppliedBeforeALaterWith_SurvivesIntoTheNewShape()
     {
         var world = new World();
-        var alive = world.Commands.CreateEntity().Entity;
+        Entity alive = world.Commands.CreateEntity();
         world.Commands.AddComponent(alive, new ChainPosition { X = 1f });
         world.Commands.AddComponent(alive, new ChainVelocity { X = 2f });
-        var dead = world.Commands.CreateEntity().Entity;
+        Entity dead = world.Commands.CreateEntity();
         world.Commands.AddComponent(dead, new ChainPosition { X = 3f });
         world.Commands.AddComponent(dead, new ChainVelocity { X = 4f });
         world.Commands.AddTag<ChainDead>(dead);

@@ -13,16 +13,16 @@ public class ArchetypeQueryTests
     private static World BuildWorld(out Entity alive, out Entity dead, out Entity buffed)
     {
         var world = new World();
-        alive = world.Commands.CreateEntity().Entity;
+        alive = world.Commands.CreateEntity();
         world.Commands.AddComponent(alive, new Position { X = 1f });
         world.Commands.AddComponent(alive, new Velocity { X = 1f });
 
-        dead = world.Commands.CreateEntity().Entity;
+        dead = world.Commands.CreateEntity();
         world.Commands.AddComponent(dead, new Position { X = 2f });
         world.Commands.AddComponent(dead, new Velocity { X = 1f });
         world.Commands.AddTag<Dead>(dead);
 
-        buffed = world.Commands.CreateEntity().Entity;
+        buffed = world.Commands.CreateEntity();
         world.Commands.AddComponent(buffed, new Position { X = 3f });
         world.Commands.AddComponent(buffed, new Velocity { X = 1f });
         world.Commands.AddTag<BuffA>(buffed);
@@ -107,12 +107,12 @@ public class ArchetypeQueryTests
         // (BuffA or BuffB). A "last call wins" bug would incorrectly include this entity,
         // since it only checks the second group; correct AND-of-both-groups semantics
         // must exclude it.
-        var onlySecondGroup = world.Commands.CreateEntity().Entity;
+        Entity onlySecondGroup = world.Commands.CreateEntity();
         world.Commands.AddComponent(onlySecondGroup, new Position { X = 1f });
         world.Commands.AddTag<BuffC>(onlySecondGroup);
 
         // BuffA and BuffC -- satisfies both groups.
-        var bothGroups = world.Commands.CreateEntity().Entity;
+        Entity bothGroups = world.Commands.CreateEntity();
         world.Commands.AddComponent(bothGroups, new Position { X = 2f });
         world.Commands.AddTag<BuffA>(bothGroups);
         world.Commands.AddTag<BuffC>(bothGroups);

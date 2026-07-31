@@ -50,7 +50,7 @@ public class ContinuousWalWorkerTests : IDisposable
         var walStore = new FileWalStore(WalBasePath);
         var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), walStore, WalOptions.Default);
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -207,7 +207,7 @@ public class ContinuousWalWorkerTests : IDisposable
         using var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), walStore, options);
         worker.Start();
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -276,7 +276,7 @@ public class ContinuousWalWorkerTests : IDisposable
         var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), walStore, options);
         worker.Start();
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
         world.AdvanceTick();
 

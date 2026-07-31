@@ -19,7 +19,7 @@ public class QueryArityBoundaryTests
     public void TwelveComponentShape_CompilesAndExecutesCorrectly_WellPastTheOldArityCapOfEight()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new C0 { Value = 0 });
         world.Commands.AddComponent(entity, new C1 { Value = 1 });
         world.Commands.AddComponent(entity, new C2 { Value = 2 });
@@ -56,7 +56,7 @@ public class QueryArityBoundaryTests
     public void TwelveComponentShape_MissingOneComponent_DoesNotMatch()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new C0());
         world.Commands.AddComponent(entity, new C1());
         world.Commands.AddComponent(entity, new C2());

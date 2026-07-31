@@ -191,8 +191,8 @@ public class QuerySystemGeneratorTests
             public static float Run()
             {
                 var world = new World();
-                var alive = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
-                var dead = world.Commands.CreateEntity(new Position { X = 100f }).Entity;
+                Entity alive = world.Commands.CreateEntity(new Position { X = 1f });
+                Entity dead = world.Commands.CreateEntity(new Position { X = 100f });
                 world.Commands.AddTag<Dead>(dead);
                 world.ApplyCommands();
 

@@ -25,10 +25,10 @@ public class RelationQueryIntegrationTests
     public void WithRelationLinks_MatchesEntitiesWithAtLeastOneEdge_RegardlessOfTarget()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
-        var untouched = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
+        Entity untouched = world.Commands.CreateEntity();
         world.Commands.AddRelation(a, c, new Likes { Weight = 1f }); // a -> c
         world.Commands.AddRelation(b, c, new Likes { Weight = 2f }); // b -> c, a different target than a's edge
         world.ApplyCommands();
@@ -44,9 +44,9 @@ public class RelationQueryIntegrationTests
     public void AddRelation_MultipleEdgesOnTheSameEntity_NotifiesComponentAddedOnlyOnce()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -63,8 +63,8 @@ public class RelationQueryIntegrationTests
     public void RemoveRelation_LastEdge_NotifiesComponentRemoved()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
         var observer = new RecordingObserver();
@@ -80,9 +80,9 @@ public class RelationQueryIntegrationTests
     public void RemoveRelation_OneOfTwoEdges_DoesNotNotifyComponentRemoved()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity().Entity;
-        var b = world.Commands.CreateEntity().Entity;
-        var c = world.Commands.CreateEntity().Entity;
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        Entity c = world.Commands.CreateEntity();
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();

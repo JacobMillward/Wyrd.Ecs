@@ -38,7 +38,7 @@ public class WithSystemsExtensionsTests
     public void WithSystemsGeneric_RegistersAParameterlessSystemWithoutTheGeneratedDictionary()
     {
         var world = new WorldBuilder().WithSystems<SugarMoveSystem>().Build();
-        var entity = world.Commands.CreateEntity(new SugarPosition { X = 0f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
         world.Update(TimeSpan.Zero);
@@ -50,7 +50,7 @@ public class WithSystemsExtensionsTests
     public void WithSystemsInstances_RegistersAConstructorArgSystemWithoutTheGeneratedDictionary()
     {
         var world = new WorldBuilder().WithSystems(new SugarConstructedSystem(5f)).Build();
-        var entity = world.Commands.CreateEntity(new SugarPosition { X = 0f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
         world.Update(TimeSpan.Zero);
@@ -68,7 +68,7 @@ public class WithSystemsExtensionsTests
         EcsSystem[] preBuilt = [new SugarConstructedSystem(5f)];
 
         var world = new WorldBuilder().WithSystems(preBuilt).Build();
-        var entity = world.Commands.CreateEntity(new SugarPosition { X = 0f }).Entity;
+        Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
         world.Update(TimeSpan.Zero);
@@ -86,7 +86,7 @@ public class WithSystemsExtensionsTests
         EcsSystem[] preBuilt = [new MoveSystem()];
 
         var world = new WorldBuilder().WithSystems(access, preBuilt).Build();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
 

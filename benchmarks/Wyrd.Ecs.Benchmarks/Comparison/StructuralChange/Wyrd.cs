@@ -13,7 +13,7 @@ public partial class StructuralChangeBenchmarks
 
         public WyrdContext()
         {
-            Entity = World.Commands.CreateEntity(new Position(), new Velocity()).Entity;
+            Entity = World.Commands.CreateEntity(new Position(), new Velocity());
             World.ApplyCommands();
         }
     }

@@ -31,7 +31,7 @@ public class StructuralChangeObserverTests
     public void DestroyEntity_NotifiesWhileTheEntityIsStillAliveAndQueryable()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
         var permanentId = world.GetPermanentId(entity);
         var observedAlive = false;
@@ -57,7 +57,7 @@ public class StructuralChangeObserverTests
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
 
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         observer.Events.Should().Equal($"Created:{entity.Id}");
@@ -67,7 +67,7 @@ public class StructuralChangeObserverTests
     public void DestroyEntity_NotifiesEntityDestroyed()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -82,7 +82,7 @@ public class StructuralChangeObserverTests
     public void AddComponent_NotifiesComponentAdded()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -97,7 +97,7 @@ public class StructuralChangeObserverTests
     public void RemoveComponent_NotifiesComponentRemoved()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -112,7 +112,7 @@ public class StructuralChangeObserverTests
     public void RemoveComponent_WhenTheEntityDoesNotHaveIt_DoesNotNotify()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -127,7 +127,7 @@ public class StructuralChangeObserverTests
     public void AddTag_NotifiesTagAdded()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -142,7 +142,7 @@ public class StructuralChangeObserverTests
     public void RemoveTag_NotifiesTagRemoved()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddTag<Marker>(entity);
         world.ApplyCommands();
         var observer = new RecordingObserver();
@@ -161,7 +161,7 @@ public class StructuralChangeObserverTests
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
 
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
 
         observer.Events.Should().Equal($"Created:{entity.Id}");
@@ -185,7 +185,7 @@ public class StructuralChangeObserverTests
     public void QueuedAddComponent_NotifiesOnlyWhenApplied_NotWhenQueued()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -202,7 +202,7 @@ public class StructuralChangeObserverTests
     public void QueuedCommand_InvalidatedByAnEarlierCommand_NeverNotifies()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
@@ -221,7 +221,7 @@ public class StructuralChangeObserverTests
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
 
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         observer.Events.Should().BeEmpty();
 
         world.ApplyCommands();

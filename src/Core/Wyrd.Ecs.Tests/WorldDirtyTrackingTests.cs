@@ -10,7 +10,7 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new Position());
         world.ApplyCommands();
         world.AdvanceTick();
@@ -27,7 +27,7 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.ApplyCommands();
 
         world.Commands.AddComponent(entity, new Position());
@@ -43,7 +43,7 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity().Entity;
+        Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new Position()); // tick 1
         world.ApplyCommands();
 
@@ -61,7 +61,7 @@ public class WorldDirtyTrackingTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -76,7 +76,7 @@ public class WorldDirtyTrackingTests
     public void GetComponent_WithTrackingOff_NeverMarksDirty()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position()).Entity;
+        Entity entity = world.Commands.CreateEntity(new Position());
         world.ApplyCommands();
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
