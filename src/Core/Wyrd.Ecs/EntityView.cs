@@ -108,6 +108,35 @@ public readonly ref struct EntityView
         return this;
     }
 
+    /// <summary>Queues this entity's <see cref="Parent"/> edge to <paramref name="parent"/> — replaces any existing parent, since <see cref="Parent"/> is exclusive.</summary>
+    public EntityView SetParent(Entity parent)
+    {
+        _commands.AddRelation<Parent>(_entity, parent);
+        return this;
+    }
+
+    /// <summary>Queues removing this entity's current <see cref="Parent"/> edge, if it has one. A no-op if it doesn't.</summary>
+    public EntityView ClearParent()
+    {
+        if (_world.TryGetParent(_entity, out var parent))
+            _commands.RemoveRelation<Parent>(_entity, parent);
+        return this;
+    }
+
+    /// <summary>Queues a <see cref="Parent"/> edge from <paramref name="child"/> to this entity — same edge as <c>child.SetParent(this.Entity)</c>, called from the parent's side. A parent may have any number of children, so unlike <see cref="SetParent"/> this never replaces an existing edge other than <paramref name="child"/>'s own.</summary>
+    public EntityView AddChild(Entity child)
+    {
+        _commands.AddRelation<Parent>(child, _entity);
+        return this;
+    }
+
+    /// <summary>Queues removing <paramref name="child"/>'s <see cref="Parent"/> edge to this entity, if it exists — same edge as <c>child.ClearParent()</c>, called from the parent's side.</summary>
+    public EntityView RemoveChild(Entity child)
+    {
+        _commands.RemoveRelation<Parent>(child, _entity);
+        return this;
+    }
+
     /// <summary>Every target this entity has a <typeparamref name="T"/> edge to, and each edge's payload — see <see cref="World.Targets{T}(Entity)"/>.</summary>
     public IReadOnlyDictionary<Entity, T> Targets<T>() where T : struct, IRelation => _world.Targets<T>(_entity);
 

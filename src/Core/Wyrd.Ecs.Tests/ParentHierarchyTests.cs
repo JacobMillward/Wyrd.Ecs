@@ -162,4 +162,77 @@ public class ParentHierarchyTests
 
         world.Descendants(root).Should().Equal([arm, hand]);
     }
+
+    [Fact]
+    public void SetParent_QueuesTheEdge_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[child].SetParent(parent);
+        world.ApplyCommands();
+
+        world.GetParent(child).Should().Be(parent);
+    }
+
+    [Fact]
+    public void ClearParent_WithAParent_RemovesTheEdge()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(child, parent);
+        world.ApplyCommands();
+
+        world[child].ClearParent();
+        world.ApplyCommands();
+
+        world.TryGetParent(child, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ClearParent_WithNoParent_IsANoOp()
+    {
+        var world = new World();
+        var child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var act = () => { world[child].ClearParent(); world.ApplyCommands(); };
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void AddChild_QueuesTheEdgeFromTheParentsSide()
+    {
+        var world = new World();
+        var parent = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[parent].AddChild(child);
+        world.ApplyCommands();
+
+        world.GetParent(child).Should().Be(parent);
+    }
+
+    [Fact]
+    public void RemoveChild_RemovesOnlyThatChildsEdge()
+    {
+        var world = new World();
+        var parent = world.Commands.CreateEntity();
+        var childA = world.Commands.CreateEntity();
+        var childB = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(childA, parent);
+        world.Commands.AddRelation<Parent>(childB, parent);
+        world.ApplyCommands();
+
+        world[parent].RemoveChild(childA);
+        world.ApplyCommands();
+
+        world.TryGetParent(childA, out _).Should().BeFalse();
+        world.GetParent(childB).Should().Be(parent);
+    }
 }
