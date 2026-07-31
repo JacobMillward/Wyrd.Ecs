@@ -76,6 +76,80 @@ public class RelationReadsTests
     }
 
     [Fact]
+    public void GetRelation_EdgePresent_ReturnsATrackedReferenceToThePayload()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 4f });
+        world.ApplyCommands();
+
+        world.GetRelation<Likes>(a, b).Weight.Should().Be(4f);
+    }
+
+    [Fact]
+    public void GetRelation_EdgePresent_ReturnedRefWritesThrough()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 4f });
+        world.ApplyCommands();
+
+        world.GetRelation<Likes>(a, b).Weight = 7f;
+
+        world.TryGetRelation<Likes>(a, b, out _).Weight.Should().Be(7f);
+    }
+
+    [Fact]
+    public void GetRelation_SourceHasNoEdgesOfThisType_Throws()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var act = () => world.GetRelation<Likes>(a, b);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void GetRelation_SourceHasOtherEdgesButNotToThisTarget_Throws()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        var c = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        var act = () => world.GetRelation<Likes>(a, c);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void GetRelation_TargetNotFound_DoesNotMarkTheRowDirty()
+    {
+        var world = new World();
+        using var tracking = world.TrackChanges<RelationLinks<Likes>>();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        var c = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f }); // gives a a RelationLinks<Likes> row
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        var act = () => world.GetRelation<Likes>(a, c); // b exists, c doesn't -- must throw, not mark dirty
+        act.Should().Throw<InvalidOperationException>();
+
+        var (archetype, row) = TestReflection.GetLocation(world, a);
+        var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<RelationLinks<Likes>>.Value];
+        storage.RawLastMarkedTick[row].Should().NotBe(world.CurrentTick);
+    }
+
+    [Fact]
     public void Targets_NoEdges_ReturnsEmpty()
     {
         var world = new World();

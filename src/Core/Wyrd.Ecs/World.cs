@@ -593,6 +593,24 @@ public sealed partial class World : IWorld
         return ref edgeValue;
     }
 
+    /// <inheritdoc/>
+    public ref T GetRelation<T>(Entity source, Entity target) where T : struct, IRelation
+    {
+        RequireAlive(source);
+        var (archetype, row) = _entityTable[source.Id];
+        if (!archetype.Storages.TryGetValue(TypeIndex<RelationLinks<T>>.Value, out var storage))
+            throw new InvalidOperationException($"Entity {source} has no {typeof(T)} edges.");
+
+        var typed = (ComponentStorage<RelationLinks<T>>)storage;
+        ref var edgeValue = ref CollectionsMarshal.GetValueRefOrNullRef(typed[row].Targets!, target);
+        if (Unsafe.IsNullRef(ref edgeValue))
+            throw new InvalidOperationException($"Entity {source} has no {typeof(T)} edge to {target}.");
+
+        if (IsTracked(TypeIndex<RelationLinks<T>>.Value))
+            typed.MarkDirty(row, _currentTick);
+        return ref edgeValue;
+    }
+
     private static class EmptyRelation<T>
     {
         internal static readonly IReadOnlyDictionary<Entity, T> Targets = new Dictionary<Entity, T>();
