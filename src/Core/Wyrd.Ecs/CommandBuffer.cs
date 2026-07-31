@@ -273,6 +273,33 @@ public sealed partial class CommandBuffer
         };
     }
 
+    private static class AddRelationTagOp<T> where T : struct, ITag
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, source, buffer, slot) =>
+        {
+            var target = ((RelationTargetBuffer)buffer!).Items[slot];
+            if (!w.TryResolve(source, out var sourceLocation)) return;
+            if (!w.TryResolve(target, out _)) return;
+
+            ref var links = ref w.GetOrCreateRelationTagLinks<T>(source, sourceLocation);
+            links.Targets!.Add(target);
+
+            if (!w.TryResolve(target, out var targetLocation)) return;
+            ref var backlinks = ref w.GetOrCreateRelationTagBacklinks<T>(target, targetLocation);
+            backlinks.Sources!.Add(source);
+        };
+    }
+
+    private static class RemoveRelationTagOp<T> where T : struct, ITag
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, source, buffer, slot) =>
+        {
+            var target = ((RelationTargetBuffer)buffer!).Items[slot];
+            w.RemoveRelationTagLink<T>(source, target);
+            w.RemoveRelationTagBacklink<T>(target, source);
+        };
+    }
+
     /// <summary>
     /// Reserves a real <see cref="Entity"/> immediately (so it can be used to chain
     /// further commands in the same batch) and queues its placement into the world.
@@ -388,6 +415,32 @@ public sealed partial class CommandBuffer
             var slot = buffer.Count++;
             buffer.Items[slot] = target;
             Enqueue(new QueuedCommand(source, RemoveRelationOp<T>.Apply, buffer, slot));
+        }
+    }
+
+    /// <summary>Tag-relation counterpart to <see cref="AddRelation{T}"/> — see its doc; no payload, so no value to overwrite on re-add.</summary>
+    public void AddRelationTag<T>(Entity source, Entity target) where T : struct, ITag
+    {
+        lock (_gate)
+        {
+            var buffer = GetRelationTargetBuffer();
+            Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
+            var slot = buffer.Count++;
+            buffer.Items[slot] = target;
+            Enqueue(new QueuedCommand(source, AddRelationTagOp<T>.Apply, buffer, slot));
+        }
+    }
+
+    /// <summary>Tag-relation counterpart to <see cref="RemoveRelation{T}"/> — see its doc.</summary>
+    public void RemoveRelationTag<T>(Entity source, Entity target) where T : struct, ITag
+    {
+        lock (_gate)
+        {
+            var buffer = GetRelationTargetBuffer();
+            Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
+            var slot = buffer.Count++;
+            buffer.Items[slot] = target;
+            Enqueue(new QueuedCommand(source, RemoveRelationTagOp<T>.Apply, buffer, slot));
         }
     }
 

@@ -424,6 +424,52 @@ public sealed partial class World : IWorld
         if (backlinks.Sources.Count == 0) RemoveComponent(target, location, typeIndex);
     }
 
+    /// <summary>Tag-relation counterpart to <see cref="GetOrCreateRelationLinks{T}"/> — see its doc.</summary>
+    internal ref RelationTagLinks<T> GetOrCreateRelationTagLinks<T>(Entity source, EntityLocation location) where T : struct, ITag
+    {
+        var typeIndex = TypeIndex<RelationTagLinks<T>>.Value;
+        ref var links = ref location.Archetype.Signature.Contains(typeIndex)
+            ? ref GetComponent<RelationTagLinks<T>>(source, location)
+            : ref AddComponent<RelationTagLinks<T>>(source, location);
+        if (links.Targets is null) links = new RelationTagLinks<T>(new HashSet<Entity>());
+        return ref links;
+    }
+
+    /// <summary>Tag-relation counterpart to <see cref="GetOrCreateRelationBacklinks{T}"/> — see its doc.</summary>
+    internal ref RelationTagBacklinks<T> GetOrCreateRelationTagBacklinks<T>(Entity target, EntityLocation location) where T : struct, ITag
+    {
+        var typeIndex = TypeIndex<RelationTagBacklinks<T>>.Value;
+        ref var backlinks = ref location.Archetype.Signature.Contains(typeIndex)
+            ? ref GetComponent<RelationTagBacklinks<T>>(target, location)
+            : ref AddComponent<RelationTagBacklinks<T>>(target, location);
+        if (backlinks.Sources is null) backlinks = new RelationTagBacklinks<T>(new HashSet<Entity>());
+        return ref backlinks;
+    }
+
+    /// <summary>Tag-relation counterpart to <see cref="RemoveRelationLink{T}"/> — see its doc.</summary>
+    internal void RemoveRelationTagLink<T>(Entity source, Entity target) where T : struct, ITag
+    {
+        if (!TryResolve(source, out var location)) return;
+        var typeIndex = TypeIndex<RelationTagLinks<T>>.Value;
+        if (!location.Archetype.Signature.Contains(typeIndex)) return;
+
+        var links = GetComponent<RelationTagLinks<T>>(source, location);
+        if (!links.Targets!.Remove(target)) return;
+        if (links.Targets.Count == 0) RemoveComponent(source, location, typeIndex);
+    }
+
+    /// <summary>Tag-relation counterpart to <see cref="RemoveRelationBacklink{T}"/> — see its doc.</summary>
+    internal void RemoveRelationTagBacklink<T>(Entity target, Entity source) where T : struct, ITag
+    {
+        if (!TryResolve(target, out var location)) return;
+        var typeIndex = TypeIndex<RelationTagBacklinks<T>>.Value;
+        if (!location.Archetype.Signature.Contains(typeIndex)) return;
+
+        var backlinks = GetComponent<RelationTagBacklinks<T>>(target, location);
+        if (!backlinks.Sources!.Remove(source)) return;
+        if (backlinks.Sources.Count == 0) RemoveComponent(target, location, typeIndex);
+    }
+
     /// <summary>
     /// Shared by every add path (<see cref="AddComponent{T}(Entity)"/>, <see cref="AddTag(Entity, int)"/>):
     /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
