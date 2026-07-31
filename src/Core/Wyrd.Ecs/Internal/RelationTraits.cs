@@ -11,4 +11,7 @@ internal static class RelationTraits<T> where T : struct, IRelation
 {
     /// <summary>True if <typeparamref name="T"/> implements <see cref="IExclusiveRelation"/> — see that interface's own doc for what this changes about <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>.</summary>
     internal static readonly bool IsExclusive = typeof(IExclusiveRelation).IsAssignableFrom(typeof(T));
+
+    /// <summary>True if <typeparamref name="T"/> implements <see cref="IDependent"/> — see that interface's own doc for what this changes about <see cref="RelationBacklinks{T}"/>'s destroy cascade.</summary>
+    internal static readonly bool IsDependent = typeof(IDependent).IsAssignableFrom(typeof(T));
 }
