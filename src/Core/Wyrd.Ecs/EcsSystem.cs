@@ -9,7 +9,7 @@ namespace Wyrd.Ecs;
 /// consumer's own <c>using Wyrd.Ecs;</c> never collides with the <c>System</c>
 /// namespace.
 /// </summary>
-public abstract class EcsSystem
+public abstract class EcsSystem : SchedulableSystem
 {
     /// <summary>
     /// Runs one iteration. <paramref name="time"/> is built by <see cref="World.Tick"/>/
