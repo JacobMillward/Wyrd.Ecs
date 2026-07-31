@@ -291,7 +291,7 @@ public sealed partial class World
     }
 
     /// <summary>A non-storable, world-scoped bound view over <paramref name="entity"/>. See <see cref="EntityView"/>.</summary>
-    public EntityView this[Entity entity] => new(this, entity);
+    public EntityView this[Entity entity] => new(this, Commands, entity);
 
     /// <summary>
     /// Same tracked-ref contract as <see cref="GetComponent{T}(Entity)"/>, with <paramref name="found"/>

@@ -7,11 +7,13 @@ namespace Wyrd.Ecs;
 /// the entity at every call. Reads (<c>Get</c>/<c>TryGet</c>/<c>Has</c>) are immediate,
 /// forwarding straight to the matching <see cref="World"/> method — the same tracked
 /// path, no new tracking logic. Mutations (<c>Add</c>/<c>Remove</c>/<c>Destroy</c>)
-/// forward to <see cref="World.Commands"/> and so share its deferred,
-/// apply-on-<see cref="World.ApplyCommands()"/> semantics — nothing here is a new
-/// mutation path. Mutation methods return this view so calls can chain:
-/// <c>world[e].AddComponent(pos).AddComponent(vel).AddTag&lt;Enemy&gt;()</c>. Direct
-/// <see cref="World"/>/<see cref="CommandBuffer"/> calls remain the right tool for
+/// forward to whichever <see cref="CommandBuffer"/> this view was constructed with (the
+/// world's default <see cref="World.Commands"/> via <see cref="World.this[Entity]"/>, or
+/// a specific buffer via <see cref="CommandBuffer.CreateEntity()"/>) — never hardcoded to
+/// the default buffer, so a view built from a <see cref="World.CreateCommands"/> buffer
+/// keeps its mutations on that same buffer. Mutation methods return this view so calls
+/// can chain: <c>world[e].AddComponent(pos).AddComponent(vel).AddTag&lt;Enemy&gt;()</c>.
+/// Direct <see cref="World"/>/<see cref="CommandBuffer"/> calls remain the right tool for
 /// iterating many different entities without holding a view per-entity, and for hot-path
 /// code that already has a <see cref="ChunkAction{TAccess0}"/> accessor. A
 /// <c>ref struct</c> so it can never be smuggled into a field or held past the current
@@ -23,11 +25,13 @@ namespace Wyrd.Ecs;
 public readonly ref struct EntityView
 {
     private readonly World _world;
+    private readonly CommandBuffer _commands;
     private readonly Entity _entity;
 
-    internal EntityView(World world, Entity entity)
+    internal EntityView(World world, CommandBuffer commands, Entity entity)
     {
         _world = world;
+        _commands = commands;
         _entity = entity;
     }
 
@@ -46,14 +50,14 @@ public readonly ref struct EntityView
     /// <summary>Queues adding <paramref name="value"/> to this entity — see <see cref="CommandBuffer.AddComponent{T}(Entity, T)"/>.</summary>
     public EntityView AddComponent<T>(T value) where T : struct, IComponent
     {
-        _world.Commands.AddComponent(_entity, value);
+        _commands.AddComponent(_entity, value);
         return this;
     }
 
     /// <summary>Queues removing <typeparamref name="T"/> from this entity — see <see cref="CommandBuffer.RemoveComponent{T}(Entity)"/>.</summary>
     public EntityView RemoveComponent<T>() where T : struct, IComponent
     {
-        _world.Commands.RemoveComponent<T>(_entity);
+        _commands.RemoveComponent<T>(_entity);
         return this;
     }
 
@@ -63,14 +67,14 @@ public readonly ref struct EntityView
     /// <summary>Queues adding tag <typeparamref name="T"/> to this entity — see <see cref="CommandBuffer.AddTag{T}(Entity)"/>.</summary>
     public EntityView AddTag<T>() where T : struct, ITag
     {
-        _world.Commands.AddTag<T>(_entity);
+        _commands.AddTag<T>(_entity);
         return this;
     }
 
     /// <summary>Queues removing tag <typeparamref name="T"/> from this entity — see <see cref="CommandBuffer.RemoveTag{T}(Entity)"/>.</summary>
     public EntityView RemoveTag<T>() where T : struct, ITag
     {
-        _world.Commands.RemoveTag<T>(_entity);
+        _commands.RemoveTag<T>(_entity);
         return this;
     }
 
@@ -86,21 +90,21 @@ public readonly ref struct EntityView
     /// <summary>Queues a <typeparamref name="T"/> edge from this entity to <paramref name="target"/> carrying <paramref name="value"/> — see <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>.</summary>
     public EntityView AddRelation<T>(Entity target, T value) where T : struct, IRelation
     {
-        _world.Commands.AddRelation(_entity, target, value);
+        _commands.AddRelation(_entity, target, value);
         return this;
     }
 
     /// <summary>Same as <see cref="AddRelation{T}(Entity, T)"/>, with the edge's payload defaulted — see <see cref="CommandBuffer.AddRelation{T}(Entity, Entity)"/>.</summary>
     public EntityView AddRelation<T>(Entity target) where T : struct, IRelation
     {
-        _world.Commands.AddRelation<T>(_entity, target);
+        _commands.AddRelation<T>(_entity, target);
         return this;
     }
 
     /// <summary>Queues removing the <typeparamref name="T"/> edge from this entity to <paramref name="target"/>, if it exists — see <see cref="CommandBuffer.RemoveRelation{T}(Entity, Entity)"/>.</summary>
     public EntityView RemoveRelation<T>(Entity target) where T : struct, IRelation
     {
-        _world.Commands.RemoveRelation<T>(_entity, target);
+        _commands.RemoveRelation<T>(_entity, target);
         return this;
     }
 
@@ -117,5 +121,5 @@ public readonly ref struct EntityView
     public EntityId PermanentId => _world.GetPermanentId(_entity);
 
     /// <summary>Queues destroying this entity — see <see cref="CommandBuffer.DestroyEntity(Entity)"/>.</summary>
-    public void DestroyEntity() => _world.Commands.DestroyEntity(_entity);
+    public void DestroyEntity() => _commands.DestroyEntity(_entity);
 }

@@ -86,4 +86,32 @@ public class MultipleCommandBuffersTests
 
         world.GetComponent<Position>(entity).X.Should().Be(2f);
     }
+
+    [Fact]
+    public void EntityView_ConstructedFromWorldIndexer_RoutesMutationsThroughTheDefaultBuffer()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].AddComponent(new Position { X = 1f });
+        world.ApplyCommands(); // applying only the default buffer must be enough
+
+        world.GetComponent<Position>(entity).X.Should().Be(1f);
+    }
+
+    [Fact]
+    public void EntityView_ConstructedFromACustomBuffer_RoutesMutationsThroughThatBuffer()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var customBuffer = world.CreateCommands();
+        var viewOnCustomBuffer = new EntityView(world, customBuffer, entity);
+        viewOnCustomBuffer.AddComponent(new Position { X = 9f });
+
+        world.ApplyCommands(customBuffer); // only the custom buffer is applied
+        world.GetComponent<Position>(entity).X.Should().Be(9f);
+    }
 }

@@ -3,8 +3,8 @@ namespace Wyrd.Ecs;
 public sealed partial class World
 {
     /// <summary>
-    /// <paramref name="child"/>'s parent, with <paramref name="found"/> reporting whether
-    /// it has one. Thin wrapper over <see cref="Targets{T}"/> for <see cref="Parent"/> —
+    /// <paramref name="child"/>'s parent, in <paramref name="parent"/>; returns whether it
+    /// has one. Thin wrapper over <see cref="Targets{T}"/> for <see cref="Parent"/> —
     /// exclusive, so there's at most one to return.
     /// </summary>
     public bool TryGetParent(Entity child, out Entity parent)
