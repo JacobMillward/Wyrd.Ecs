@@ -362,6 +362,69 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
+    /// Returns a mutable reference to <paramref name="source"/>'s <see cref="RelationLinks{T}"/>
+    /// for relation type <typeparamref name="T"/>, creating it (and moving <paramref name="source"/>
+    /// onto the archetype that includes it) if this is its first edge of this relation type.
+    /// The backing dictionary is always non-null on return — a freshly created component's
+    /// default value has a null one, initialized here in the same call before anything else
+    /// can observe it. Called only via <see cref="CommandBuffer"/>'s relation ops and this
+    /// class's own <see cref="RemoveRelationLink{T}"/>/destroy-cascade path.
+    /// </summary>
+    internal ref RelationLinks<T> GetOrCreateRelationLinks<T>(Entity source, EntityLocation location) where T : struct, IComponent
+    {
+        var typeIndex = TypeIndex<RelationLinks<T>>.Value;
+        ref var links = ref location.Archetype.Signature.Contains(typeIndex)
+            ? ref GetComponent<RelationLinks<T>>(source, location)
+            : ref AddComponent<RelationLinks<T>>(source, location);
+        if (links.Targets is null) links = new RelationLinks<T>(new Dictionary<Entity, T>());
+        return ref links;
+    }
+
+    /// <summary>Same as <see cref="GetOrCreateRelationLinks{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>) side.</summary>
+    internal ref RelationBacklinks<T> GetOrCreateRelationBacklinks<T>(Entity target, EntityLocation location) where T : struct, IComponent
+    {
+        var typeIndex = TypeIndex<RelationBacklinks<T>>.Value;
+        ref var backlinks = ref location.Archetype.Signature.Contains(typeIndex)
+            ? ref GetComponent<RelationBacklinks<T>>(target, location)
+            : ref AddComponent<RelationBacklinks<T>>(target, location);
+        if (backlinks.Sources is null) backlinks = new RelationBacklinks<T>(new HashSet<Entity>());
+        return ref backlinks;
+    }
+
+    /// <summary>
+    /// Removes <paramref name="target"/> from <paramref name="source"/>'s <see cref="RelationLinks{T}"/>,
+    /// if present, removing the component entirely if that was its last edge — the same
+    /// archetype-move-only-when-the-set-empties rule <see cref="GetOrCreateRelationLinks{T}"/>
+    /// has for adding. A no-op if <paramref name="source"/> is dead, doesn't have any
+    /// <typeparamref name="T"/> edges, or never had this specific one. Resolves
+    /// <paramref name="source"/>'s location itself rather than taking one, so it's always
+    /// safe to call with a location resolved before some other write that might have moved
+    /// it (see <see cref="CommandBuffer.RemoveRelation{T}"/>'s self-relation handling).
+    /// </summary>
+    internal void RemoveRelationLink<T>(Entity source, Entity target) where T : struct, IComponent
+    {
+        if (!TryResolve(source, out var location)) return;
+        var typeIndex = TypeIndex<RelationLinks<T>>.Value;
+        if (!location.Archetype.Signature.Contains(typeIndex)) return;
+
+        var links = GetComponent<RelationLinks<T>>(source, location);
+        if (!links.Targets!.Remove(target)) return;
+        if (links.Targets.Count == 0) RemoveComponent(source, location, typeIndex);
+    }
+
+    /// <summary>Same as <see cref="RemoveRelationLink{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>) side.</summary>
+    internal void RemoveRelationBacklink<T>(Entity target, Entity source) where T : struct, IComponent
+    {
+        if (!TryResolve(target, out var location)) return;
+        var typeIndex = TypeIndex<RelationBacklinks<T>>.Value;
+        if (!location.Archetype.Signature.Contains(typeIndex)) return;
+
+        var backlinks = GetComponent<RelationBacklinks<T>>(target, location);
+        if (!backlinks.Sources!.Remove(source)) return;
+        if (backlinks.Sources.Count == 0) RemoveComponent(target, location, typeIndex);
+    }
+
+    /// <summary>
     /// Shared by every add path (<see cref="AddComponent{T}(Entity)"/>, <see cref="AddTag(Entity, int)"/>):
     /// looks up (or creates and caches) the archetype-add edge for <paramref name="typeIndex"/>
     /// and moves the entity onto it.
