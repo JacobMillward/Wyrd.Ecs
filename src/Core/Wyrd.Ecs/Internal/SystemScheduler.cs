@@ -1,42 +1,71 @@
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Builds the static parallel schedule: greedily partitions a fixed system list into
-/// stages where no two systems in the same stage conflict (share a component type
-/// where at least one side writes it) — <c>Has</c>/<c>Without</c>/<c>Any</c> elements
-/// never contribute, since they're filter-only. Computed once, not re-evaluated per
-/// tick; the caller (<c>WorldBuilder.Build</c>) is responsible for that.
+/// Builds the static parallel schedule: partitions the registered system list into
+/// stages honoring two independent constraints — the conflict rule (no two systems in
+/// the same stage share a component type where at least one side writes it) and any
+/// Before/After edges declared via <see cref="RunBeforeAttribute"/>/
+/// <see cref="RunAfterAttribute"/>/<see cref="OrderedSystem"/>. Computed once, not
+/// re-evaluated per tick; the caller (<c>WorldBuilder.Build</c>) is responsible for
+/// that.
 /// </summary>
 internal static class SystemScheduler
 {
     /// <summary>
-    /// Partitions <paramref name="systems"/> into stages, processed in the given order
-    /// (the caller's responsibility to pass a stable one). Each system's access comes
-    /// from <paramref name="generatedAccess"/> first, then <see cref="IQueryAccessDescriptor"/>
-    /// if it implements that, then a conservative "give it its own exclusive stage" if
-    /// neither applies — tracked as an actual exclusivity flag
-    /// (<c>ResolveAccess</c>'s <c>Exclusive</c> result), not as synthetic Reads/Writes
-    /// data: a plain set-overlap check can only ever make an unknown system conflict
-    /// with something that <em>also</em> happens to touch the same synthetic marker, never
-    /// with an arbitrary other system's real (and otherwise disjoint) access — confirmed
-    /// wrong the hard way, by a failing test, before landing on this instead.
+    /// Resolves every ordering edge across <paramref name="orderedSystems"/>
+    /// (<see cref="SystemOrderGraph.Resolve"/>), stably topologically sorts the
+    /// combined node set (<see cref="StableTopologicalSort.Sort"/>, tie-broken by
+    /// registration order), then packs each node — real systems and any synthesized
+    /// marker together — into the first stage at-or-after its minimum-allowed index
+    /// whose contents don't conflict with it, the same conflict rule this scheduler
+    /// has always used. Finally drops every marker node from the result (they were
+    /// never anything but a scheduling placeholder) and collapses any stage index
+    /// left with zero real systems.
     /// </summary>
     internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(
-        IReadOnlyList<EcsSystem> systems,
+        IReadOnlyList<OrderedSystem> orderedSystems,
         IReadOnlyDictionary<Type, SystemAccess> generatedAccess)
     {
-        var stages = new List<List<EcsSystem>>();
+        var graph = SystemOrderGraph.Resolve(orderedSystems);
+
+        var tieBreak = new Dictionary<SchedulableSystem, int>();
+        for (var i = 0; i < orderedSystems.Count; i++)
+            tieBreak[orderedSystems[i].System] = i;
+        var syntheticIndex = orderedSystems.Count;
+        foreach (var node in graph.Nodes)
+            if (!tieBreak.ContainsKey(node))
+                tieBreak[node] = syntheticIndex++;
+
+        var order = StableTopologicalSort.Sort(graph.Nodes, graph.Edges, tieBreak);
+
+        var predecessors = new Dictionary<SchedulableSystem, List<SchedulableSystem>>();
+        foreach (var node in graph.Nodes) predecessors[node] = [];
+        foreach (var edge in graph.Edges) predecessors[edge.After].Add(edge.Before);
+
+        var stages = new List<List<SchedulableSystem>>();
         var stageAccess = new List<(HashSet<Type> Reads, HashSet<Type> Writes)>();
         var stageExclusive = new List<bool>();
+        var assignedStage = new Dictionary<SchedulableSystem, int>();
 
-        for (var i = 0; i < systems.Count; i++)
+        foreach (var node in order)
         {
-            var (reads, writes, exclusive) = ResolveAccess(systems[i], generatedAccess);
+            // A node's predecessors are always assigned before it (StableTopologicalSort
+            // guarantees this), and each predecessor's assigned index was always a valid
+            // index into `stages` at the time it was assigned -- so `minAllowed` here can
+            // never exceed the current `stages.Count`, and the "open a new stage" branch
+            // below never needs to pad with empty placeholder stages to reach it.
+            var minAllowed = predecessors[node].Count == 0
+                ? 0
+                : predecessors[node].Max(p => assignedStage[p]) + 1;
 
-            var placed = false;
+            var (reads, writes, exclusive) = node is MarkerSystem
+                ? ([], [], false)
+                : ResolveAccess((EcsSystem)node, generatedAccess);
+
+            var placedAt = -1;
             if (!exclusive)
             {
-                for (var stageIndex = 0; stageIndex < stages.Count; stageIndex++)
+                for (var stageIndex = minAllowed; stageIndex < stages.Count; stageIndex++)
                 {
                     if (stageExclusive[stageIndex]) continue; // an exclusive stage never accepts a second system
 
@@ -44,23 +73,29 @@ internal static class SystemScheduler
                     var conflicts = writes.Overlaps(stageReads) || writes.Overlaps(stageWrites) || reads.Overlaps(stageWrites);
                     if (conflicts) continue;
 
-                    stages[stageIndex].Add(systems[i]);
+                    stages[stageIndex].Add(node);
                     stageReads.UnionWith(reads);
                     stageWrites.UnionWith(writes);
-                    placed = true;
+                    placedAt = stageIndex;
                     break;
                 }
             }
 
-            if (!placed)
+            if (placedAt < 0)
             {
-                stages.Add([systems[i]]);
+                stages.Add([node]);
                 stageAccess.Add(([.. reads], [.. writes]));
                 stageExclusive.Add(exclusive);
+                placedAt = stages.Count - 1;
             }
+
+            assignedStage[node] = placedAt;
         }
 
-        return stages;
+        return stages
+            .Select(stage => (IReadOnlyList<EcsSystem>)stage.OfType<EcsSystem>().ToList())
+            .Where(stage => stage.Count > 0)
+            .ToList();
     }
 
     private static (HashSet<Type> Reads, HashSet<Type> Writes, bool Exclusive) ResolveAccess(EcsSystem system, IReadOnlyDictionary<Type, SystemAccess> generatedAccess)
