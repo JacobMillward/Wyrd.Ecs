@@ -89,24 +89,41 @@ public class WorldComponentTests
     }
 
     [Fact]
-    public void TryGetComponent_Missing_ReturnsFalse()
+    public void TryGetComponent_Missing_ReturnsNotFound()
     {
         var world = new World();
         var entity = world.Commands.CreateEntity();
         world.ApplyCommands();
 
-        world.TryGetComponent<Position>(entity, out _).Should().BeFalse();
+        world.TryGetComponent<Position>(entity, out var found);
+
+        found.Should().BeFalse();
     }
 
     [Fact]
-    public void TryGetComponent_Present_ReturnsTrueAndValue()
+    public void TryGetComponent_Present_ReturnsFoundAndTheTrackedValue()
     {
         var world = new World();
         var entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
 
-        world.TryGetComponent<Position>(entity, out var value).Should().BeTrue();
+        ref var value = ref world.TryGetComponent<Position>(entity, out var found);
+
+        found.Should().BeTrue();
         value.X.Should().Be(5f);
+    }
+
+    [Fact]
+    public void TryGetComponent_Present_ReturnedRefWritesThrough()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        world.ApplyCommands();
+
+        ref var value = ref world.TryGetComponent<Position>(entity, out _);
+        value.X = 9f;
+
+        world.GetComponent<Position>(entity).X.Should().Be(9f);
     }
 
     [Fact]

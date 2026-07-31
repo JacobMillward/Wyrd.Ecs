@@ -57,7 +57,7 @@ public class WorldDirtyTrackingTests
     }
 
     [Fact]
-    public void TryGetComponent_NeverMarksDirty()
+    public void TryGetComponent_Found_MarksDirtyAtTheCurrentTick()
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
@@ -69,7 +69,7 @@ public class WorldDirtyTrackingTests
 
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
-        storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
+        storage.RawLastMarkedTick[0].Should().Be(world.CurrentTick);
     }
 
     [Fact]

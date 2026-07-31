@@ -59,6 +59,14 @@ public partial interface IWorld
     /// <summary>
     /// Returns a tracked mutable reference to <paramref name="entity"/>'s
     /// <typeparamref name="T"/>. Throws if the entity does not have the component.
+    /// <para>
+    /// <b>Ref lifetime:</b> do not hold the returned reference across a call to
+    /// <see cref="ApplyCommands()"/> (or the <see cref="ApplyCommands(CommandBuffer)"/>
+    /// overload). A structural change applied afterward can silently invalidate it — a
+    /// component ref can end up aliasing a different entity's data after a swap-remove.
+    /// This is not detectable at the point of misuse. Read or write the reference
+    /// immediately, then let it go out of scope.
+    /// </para>
     /// </summary>
     ref T GetComponent<T>(Entity entity) where T : struct, IComponent;
 
@@ -68,8 +76,17 @@ public partial interface IWorld
     /// </summary>
     EntityView this[Entity entity] { get; }
 
-    /// <summary>Copies <paramref name="entity"/>'s <typeparamref name="T"/> without marking it dirty.</summary>
-    bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent;
+    /// <summary>
+    /// Returns a tracked mutable reference to <paramref name="entity"/>'s
+    /// <typeparamref name="T"/>, with <paramref name="found"/> <see langword="true"/>, if
+    /// the entity has the component; otherwise <paramref name="found"/> is
+    /// <see langword="false"/> and the returned reference must not be dereferenced (doing
+    /// so throws <see cref="NullReferenceException"/>). Same tracked-ref contract as
+    /// <see cref="GetComponent{T}(Entity)"/> — a <paramref name="found"/> flag instead of
+    /// a throw, nothing else different, including the same ref-lifetime caveat: do not
+    /// hold the returned reference across a call to <see cref="ApplyCommands()"/>.
+    /// </summary>
+    ref T TryGetComponent<T>(Entity entity, out bool found) where T : struct, IComponent;
 
     /// <summary>True if <paramref name="entity"/> has a <typeparamref name="T"/> component.</summary>
     bool HasComponent<T>(Entity entity) where T : struct, IComponent;

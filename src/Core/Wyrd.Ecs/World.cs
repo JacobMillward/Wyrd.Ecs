@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Wyrd.Ecs.Internal;
 
 namespace Wyrd.Ecs;
@@ -327,18 +328,21 @@ public sealed partial class World : IWorld
     public EntityView this[Entity entity] => new(this, entity);
 
     /// <inheritdoc/>
-    public bool TryGetComponent<T>(Entity entity, out T value) where T : struct, IComponent
+    public ref T TryGetComponent<T>(Entity entity, out bool found) where T : struct, IComponent
     {
         RequireAlive(entity);
         var (archetype, row) = _entityTable[entity.Id];
-        if (archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
+        if (!archetype.Storages.TryGetValue(TypeIndex<T>.Value, out var storage))
         {
-            value = ((ComponentStorage<T>)storage)[row];
-            return true;
+            found = false;
+            return ref Unsafe.NullRef<T>();
         }
 
-        value = default;
-        return false;
+        found = true;
+        var typed = (ComponentStorage<T>)storage;
+        if (IsTracked(TypeIndex<T>.Value))
+            typed.MarkDirty(row, _currentTick);
+        return ref typed[row];
     }
 
     /// <inheritdoc/>
