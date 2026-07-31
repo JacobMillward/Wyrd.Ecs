@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Wyrd.Ecs.Internal;
 
 namespace Wyrd.Ecs;
@@ -574,16 +575,22 @@ public sealed partial class World : IWorld
     }
 
     /// <inheritdoc/>
-    public bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IRelation
+    public ref T TryGetRelation<T>(Entity source, Entity target, out bool found) where T : struct, IRelation
     {
         RequireAlive(source);
         var (archetype, row) = _entityTable[source.Id];
-        if (archetype.Storages.TryGetValue(TypeIndex<RelationLinks<T>>.Value, out var storage) &&
-            ((ComponentStorage<RelationLinks<T>>)storage)[row].Targets!.TryGetValue(target, out value))
-            return true;
+        if (!archetype.Storages.TryGetValue(TypeIndex<RelationLinks<T>>.Value, out var storage))
+        {
+            found = false;
+            return ref Unsafe.NullRef<T>();
+        }
 
-        value = default;
-        return false;
+        var typed = (ComponentStorage<RelationLinks<T>>)storage;
+        ref var edgeValue = ref CollectionsMarshal.GetValueRefOrNullRef(typed[row].Targets!, target);
+        found = !Unsafe.IsNullRef(ref edgeValue);
+        if (found && IsTracked(TypeIndex<RelationLinks<T>>.Value))
+            typed.MarkDirty(row, _currentTick);
+        return ref edgeValue;
     }
 
     private static class EmptyRelation<T>

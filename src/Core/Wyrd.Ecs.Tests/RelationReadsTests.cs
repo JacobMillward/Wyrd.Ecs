@@ -33,7 +33,7 @@ public class RelationReadsTests
     }
 
     [Fact]
-    public void TryGetRelation_EdgePresent_ReturnsTrueAndTheValue()
+    public void TryGetRelation_EdgePresent_ReturnsFoundAndTheTrackedValue()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
@@ -41,21 +41,36 @@ public class RelationReadsTests
         world.Commands.AddRelation(a, b, new Likes { Weight = 3f });
         world.ApplyCommands();
 
-        var found = world.TryGetRelation<Likes>(a, b, out var value);
+        ref var value = ref world.TryGetRelation<Likes>(a, b, out var found);
 
         found.Should().BeTrue();
         value.Weight.Should().Be(3f);
     }
 
     [Fact]
-    public void TryGetRelation_EdgeAbsent_ReturnsFalse()
+    public void TryGetRelation_EdgePresent_ReturnedRefWritesThrough()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 3f });
+        world.ApplyCommands();
+
+        ref var value = ref world.TryGetRelation<Likes>(a, b, out _);
+        value.Weight = 8f;
+
+        world.TryGetRelation<Likes>(a, b, out _).Weight.Should().Be(8f);
+    }
+
+    [Fact]
+    public void TryGetRelation_EdgeAbsent_ReturnsNotFound()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
         var b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
-        var found = world.TryGetRelation<Likes>(a, b, out _);
+        world.TryGetRelation<Likes>(a, b, out var found);
 
         found.Should().BeFalse();
     }

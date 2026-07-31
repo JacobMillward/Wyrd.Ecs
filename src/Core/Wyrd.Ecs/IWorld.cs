@@ -97,8 +97,22 @@ public partial interface IWorld
     /// <summary>True if <paramref name="source"/> has a <typeparamref name="T"/> edge to <paramref name="target"/>.</summary>
     bool HasRelation<T>(Entity source, Entity target) where T : struct, IRelation;
 
-    /// <summary>Copies the payload of <paramref name="source"/>'s <typeparamref name="T"/> edge to <paramref name="target"/>, if it exists.</summary>
-    bool TryGetRelation<T>(Entity source, Entity target, out T value) where T : struct, IRelation;
+    /// <summary>
+    /// Returns a tracked mutable reference to the payload of <paramref name="source"/>'s
+    /// <typeparamref name="T"/> edge to <paramref name="target"/>, with
+    /// <paramref name="found"/> <see langword="true"/>, if that edge exists; otherwise
+    /// <paramref name="found"/> is <see langword="false"/> and the returned reference
+    /// must not be dereferenced (doing so throws <see cref="NullReferenceException"/>).
+    /// <para>
+    /// <b>Ref lifetime:</b> do not hold the returned reference across a call to
+    /// <see cref="ApplyCommands()"/>. A later <c>AddRelation</c> for a different target
+    /// of the same <paramref name="source"/> and relation type, once applied, can
+    /// silently detach this reference from the live dictionary it pointed into. This is
+    /// not detectable at the point of misuse. Read or write the reference immediately,
+    /// then let it go out of scope.
+    /// </para>
+    /// </summary>
+    ref T TryGetRelation<T>(Entity source, Entity target, out bool found) where T : struct, IRelation;
 
     /// <summary>Every target <paramref name="source"/> has a <typeparamref name="T"/> edge to, and each edge's payload. Empty, not throwing, if <paramref name="source"/> has none. O(fan-out) to enumerate, not O(1) — see <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>'s doc for what is O(1).</summary>
     IReadOnlyDictionary<Entity, T> Targets<T>(Entity source) where T : struct, IRelation;
