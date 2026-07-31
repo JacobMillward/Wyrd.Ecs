@@ -19,6 +19,11 @@ file sealed class NoCtorMarker : MarkerSystem
     public NoCtorMarker(int value) { }
 }
 
+[RunBefore(typeof(GraphSystemA))]
+file class BaseWithEdge : EcsSystem { protected override void Execute(World world, Time time) { } }
+
+file sealed class DerivedWithNoOwnEdge : BaseWithEdge { }
+
 file sealed class NotASystem { }
 
 [RunBefore(typeof(NotASystem))]
@@ -132,5 +137,17 @@ public class SystemOrderGraphTests
         var act = () => SystemOrderGraph.Resolve(systems);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*parameterless constructor*");
+    }
+
+    [Fact]
+    public void RunBeforeAttribute_IsNotInheritedByASubclassWithNoOwnAttribute()
+    {
+        var a = new GraphSystemA();
+        var derived = new DerivedWithNoOwnEdge();
+        OrderedSystem[] systems = [a, derived];
+
+        var result = SystemOrderGraph.Resolve(systems);
+
+        result.Edges.Should().NotContain(e => e.After == a);
     }
 }
