@@ -7,6 +7,8 @@ public struct Velocity : IComponent { public float X, Y, Z; }
 public struct Health : IComponent { public float Current, Max; }
 public struct BulkPayload : IComponent { public long A, B, C, D; }
 
+public struct Link : IRelation { public float Weight; }
+
 public struct Padding1 : IComponent { public int Value; }
 public struct Padding2 : IComponent { public int Value; }
 public struct Padding3 : IComponent { public int Value; }

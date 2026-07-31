@@ -3,10 +3,12 @@ using BenchmarkDotNet.Attributes;
 namespace Comparison.RelationChurn;
 
 /// <summary>
-/// No <c>Wyrd.cs</c> in this folder — <see cref="Wyrd.Ecs.IWorld"/> has no relation API, so
-/// there's nothing on the Wyrd.Ecs side to benchmark yet. This stays a Friflo/fennecs-only
-/// informational baseline, same as it was before the Comparison/Wyrd restructure — see
-/// docs/superpowers/specs/2026-07-16-wyrd-ecs-synthetic-benchmark-suite-design.md's category 6.
+/// Head-to-head add/remove churn for one relation edge between the same two entities.
+/// Friflo/fennecs bake the target into the relation's archetype identity (see
+/// <c>Fennecs.cs</c>/<c>Friflo.cs</c> in this folder), so every edge add/remove there is an
+/// archetype move; Wyrd's <c>Wyrd_AddRemoveRelation</c> (see <c>Wyrd.cs</c>) stores edges in
+/// a dictionary/set-backed component instead — see
+/// docs/superpowers/specs/2026-07-30-entity-relationships-design.md for the full rationale.
 /// </summary>
 [MemoryDiagnoser]
 public partial class RelationChurnBenchmarks
