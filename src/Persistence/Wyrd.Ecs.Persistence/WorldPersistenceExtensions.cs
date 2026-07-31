@@ -1,20 +1,16 @@
-using System.Runtime.CompilerServices;
-
 namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
 /// Extension members attaching persistence configuration and manual save/load to a
 /// <see cref="World"/> or <see cref="WorldBuilder"/>, neither of which can gain new fields
-/// from another assembly. Backed by one <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on
-/// the <see cref="World"/> instance so a configured store doesn't outlive the World
-/// that used it — a plain <c>Dictionary</c> would hold every World this has ever seen
-/// alive for the rest of the process, which matters given how routinely Worlds are
-/// created and discarded (this codebase's own test suite does so in nearly every test).
+/// from another assembly. Backed by <see cref="Internal.WorldAttachedProperty{T}"/>, keyed
+/// on the <see cref="World"/> instance so a configured store doesn't outlive the World
+/// that used it.
 /// </summary>
 public static class WorldPersistenceExtensions
 {
-    private static readonly ConditionalWeakTable<World, IPersistenceStore> DefaultStores = new();
-    private static readonly ConditionalWeakTable<World, ComponentCodecRegistry> DefaultRegistries = new();
+    private static readonly Internal.WorldAttachedProperty<IPersistenceStore> DefaultStores = new();
+    private static readonly Internal.WorldAttachedProperty<ComponentCodecRegistry> DefaultRegistries = new();
 
     extension(World world)
     {
@@ -28,12 +24,8 @@ public static class WorldPersistenceExtensions
         /// </summary>
         public IPersistenceStore? DefaultPersistenceStore
         {
-            get => DefaultStores.TryGetValue(world, out var store) ? store : null;
-            set
-            {
-                if (value is not null) DefaultStores.AddOrUpdate(world, value);
-                else DefaultStores.Remove(world);
-            }
+            get => DefaultStores.Get(world);
+            set => DefaultStores.Set(world, value);
         }
 
         /// <summary>
@@ -45,12 +37,8 @@ public static class WorldPersistenceExtensions
         /// </summary>
         public ComponentCodecRegistry? DefaultComponentCodecRegistry
         {
-            get => DefaultRegistries.TryGetValue(world, out var registry) ? registry : null;
-            set
-            {
-                if (value is not null) DefaultRegistries.AddOrUpdate(world, value);
-                else DefaultRegistries.Remove(world);
-            }
+            get => DefaultRegistries.Get(world);
+            set => DefaultRegistries.Set(world, value);
         }
 
         /// <summary>

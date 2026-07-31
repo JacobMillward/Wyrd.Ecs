@@ -1,17 +1,15 @@
-using System.Runtime.CompilerServices;
-
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
 /// Extension members wiring continuous persistence to a <see cref="WorldBuilder"/>/
 /// <see cref="World"/>, neither of which can gain new fields from another assembly.
-/// Backed by a <see cref="ConditionalWeakTable{TKey,TValue}"/> keyed on the
-/// <see cref="World"/> instance, matching <c>WorldPersistenceExtensions</c>'s own
-/// pattern, so a running session doesn't outlive the World that started it.
+/// Backed by <see cref="Wyrd.Ecs.Persistence.Internal.WorldAttachedProperty{T}"/>, keyed
+/// on the <see cref="World"/> instance, so a running session doesn't outlive the World
+/// that started it.
 /// </summary>
 public static class WorldContinuousPersistenceExtensions
 {
-    private static readonly ConditionalWeakTable<World, ContinuousSession> Sessions = new();
+    private static readonly Wyrd.Ecs.Persistence.Internal.WorldAttachedProperty<ContinuousSession> Sessions = new();
 
     extension(WorldBuilder builder)
     {
@@ -46,7 +44,7 @@ public static class WorldContinuousPersistenceExtensions
         {
             builder.OnBuilt += world =>
             {
-                if (Sessions.TryGetValue(world, out _))
+                if (Sessions.Get(world) is not null)
                     throw new InvalidOperationException(
                         "Continuous persistence is already enabled for this World. " +
                         "Call StopContinuousPersistence before enabling it again.");
@@ -90,7 +88,7 @@ public static class WorldContinuousPersistenceExtensions
                 var walWorker = new Internal.ContinuousWalWorker(world, capture, checkpointStore, resolvedWalStore, options ?? WalOptions.Default, onError);
                 walWorker.Start();
 
-                Sessions.Add(world, new ContinuousSession(capture, walWorker));
+                Sessions.Set(world, new ContinuousSession(capture, walWorker));
                 if (registerProcessExitSafetyNet)
                     Internal.ProcessExitSafetyNet.Register(world, world.StopContinuousPersistence);
             };
@@ -114,7 +112,7 @@ public static class WorldContinuousPersistenceExtensions
         /// </summary>
         public void StopContinuousPersistence(bool mergeFinalCheckpoint = true)
         {
-            if (!Sessions.TryGetValue(world, out var session))
+            if (Sessions.Get(world) is not { } session)
                 throw new InvalidOperationException(
                     "Continuous persistence was never enabled for this World " +
                     "(WorldBuilder.EnableContinuousPersistence was never called).");
@@ -123,7 +121,7 @@ public static class WorldContinuousPersistenceExtensions
             session.WalWorker.Dispose();
             if (mergeFinalCheckpoint) session.WalWorker.MergeFinalCheckpoint();
             session.Capture.Dispose();
-            Sessions.Remove(world);
+            Sessions.Set(world, null);
         }
     }
 
