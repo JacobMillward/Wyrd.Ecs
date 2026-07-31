@@ -283,7 +283,7 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
         sb.AppendLine("{");
-        sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params EcsSystem[] systems) =>");
+        sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params OrderedSystem[] systems) =>");
         sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, systems);");
         sb.AppendLine();
 

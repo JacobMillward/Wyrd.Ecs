@@ -9,7 +9,7 @@ public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
     private IReadOnlyDictionary<Type, SystemAccess>? _generatedAccess;
-    private EcsSystem[] _systems = [];
+    private OrderedSystem[] _systems = [];
     private int _parallelThreshold = 1000;
 
     /// <summary>
@@ -59,11 +59,13 @@ public sealed class WorldBuilder
     /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>) —
     /// passed explicitly by the caller, since <see cref="WorldBuilder"/> lives in
     /// <c>Wyrd.Ecs</c> itself and can't reference a type generated into a consumer's
-    /// own compilation. <paramref name="systems"/>' order is preserved into
-    /// <see cref="Internal.SystemScheduler.BuildStages"/>, which processes systems in
-    /// the order given.
+    /// own compilation. Each <paramref name="systems"/> element converts implicitly from
+    /// a bare <see cref="EcsSystem"/> (see <see cref="OrderedSystem"/>) when it declares
+    /// no Before/After edges, or from <see cref="Order.For"/> when it does. Registration
+    /// order is the tiebreak among systems with no ordering relationship to each other;
+    /// declared edges take precedence over it.
     /// </summary>
-    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params EcsSystem[] systems)
+    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params OrderedSystem[] systems)
     {
         _generatedAccess = generatedAccess;
         _systems = systems;
