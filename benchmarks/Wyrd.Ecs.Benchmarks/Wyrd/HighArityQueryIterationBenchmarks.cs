@@ -43,7 +43,7 @@ public class HighArityQueryIterationBenchmarks
 
         for (var i = 0; i < EntityCount; i++)
         {
-            var e8 = _world8.Commands.CreateEntity();
+            var e8 = _world8.Commands.CreateEntity().Entity;
             _world8.Commands.AddComponent(e8, new Position());
             _world8.Commands.AddComponent(e8, new Velocity());
             _world8.Commands.AddComponent(e8, new Health());
@@ -53,7 +53,7 @@ public class HighArityQueryIterationBenchmarks
             _world8.Commands.AddComponent(e8, new Padding3());
             _world8.Commands.AddComponent(e8, new Padding4());
 
-            var e12 = _world12.Commands.CreateEntity();
+            var e12 = _world12.Commands.CreateEntity().Entity;
             _world12.Commands.AddComponent(e12, new Position());
             _world12.Commands.AddComponent(e12, new Velocity());
             _world12.Commands.AddComponent(e12, new Health());

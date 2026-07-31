@@ -17,7 +17,7 @@ public class EndToEndTests
 
         var entities = new Entity[10];
         for (var i = 0; i < entities.Length; i++)
-            entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
+            entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f }).Entity;
         world.ApplyCommands();
 
         // Simulate one tick, reading and writing Energy directly through the chunk

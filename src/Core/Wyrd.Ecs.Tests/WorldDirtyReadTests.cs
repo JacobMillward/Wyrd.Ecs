@@ -13,7 +13,7 @@ public class WorldDirtyReadTests
     public void ReadChanges_SinceTheCurrentTick_DoesNotSeeAnEarlierWrite()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -32,7 +32,7 @@ public class WorldDirtyReadTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity(new Position()); // tick 1
+        var entity = world.Commands.CreateEntity(new Position()).Entity; // tick 1
         world.ApplyCommands();
         var afterFirstWrite = world.CurrentTick;
 
@@ -54,8 +54,8 @@ public class WorldDirtyReadTests
         var sinceTick = world.CurrentTick;
         world.AdvanceTick(); // entries recorded at or before sinceTick are never visible
 
-        var onlyPosition = world.Commands.CreateEntity(new Position());
-        var withVelocity = world.Commands.CreateEntity(new Position(), new Velocity());
+        var onlyPosition = world.Commands.CreateEntity(new Position()).Entity;
+        var withVelocity = world.Commands.CreateEntity(new Position(), new Velocity()).Entity;
         world.ApplyCommands();
 
         var seen = new List<Entity>();
@@ -70,7 +70,7 @@ public class WorldDirtyReadTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
@@ -89,7 +89,7 @@ public class WorldDirtyReadTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
@@ -112,7 +112,7 @@ public class WorldDirtyReadTests
     public void TwoIndependentWatermarks_BothSeeTheSameChangeWithoutInterference()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         using var tracking = world.TrackChanges<Position>();
@@ -137,7 +137,7 @@ public class WorldDirtyReadTests
     public void ReadChanges_AtDifferentWatermarks_BothSeeTheRowsCurrentTickAndValue()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         using var tracking = world.TrackChanges<Position>();
@@ -174,7 +174,7 @@ public class WorldDirtyReadTests
         using var tracking = world.TrackChanges<Position>();
         var sinceTick = world.CurrentTick;
         world.AdvanceTick();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
 
         var first = new List<Entity>();

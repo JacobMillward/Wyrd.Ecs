@@ -21,7 +21,7 @@ public class TrackedStructuralChangeBenchmarks
     public void GlobalSetup()
     {
         _world = new World();
-        _entity = _world.Commands.CreateEntity(new Position(), new Velocity());
+        _entity = _world.Commands.CreateEntity(new Position(), new Velocity()).Entity;
         _world.ApplyCommands();
 
         if (Tracked)

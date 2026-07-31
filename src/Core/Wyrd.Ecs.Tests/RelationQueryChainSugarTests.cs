@@ -14,10 +14,10 @@ public class RelationQueryChainSugarTests
     public void WithRelation_MatchesEntitiesWithAtLeastOneEdge_RegardlessOfTarget()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
-        var untouched = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
+        var untouched = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, c, new Likes { Weight = 1f });
         world.Commands.AddRelation(b, c, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -33,9 +33,9 @@ public class RelationQueryChainSugarTests
     public void WithoutRelation_ExcludesEntitiesWithAnEdge()
     {
         var world = new World();
-        var withEdge = world.Commands.CreateEntity();
-        var withoutEdge = world.Commands.CreateEntity();
-        var target = world.Commands.CreateEntity();
+        var withEdge = world.Commands.CreateEntity().Entity;
+        var withoutEdge = world.Commands.CreateEntity().Entity;
+        var target = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(withEdge, new RelationQueryChainSugarPosition { X = 1f });
         world.Commands.AddComponent(withoutEdge, new RelationQueryChainSugarPosition { X = 2f });
         world.Commands.AddRelation(withEdge, target, new Likes { Weight = 1f });

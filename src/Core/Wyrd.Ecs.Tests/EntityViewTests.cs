@@ -20,7 +20,7 @@ public class EntityViewTests
     public void Entity_ReturnsTheBoundEntity()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].Entity.Should().Be(entity);
@@ -30,7 +30,7 @@ public class EntityViewTests
     public void GetComponent_ReturnsATrackedReferenceToTheValue()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
         world.ApplyCommands();
 
         world[entity].GetComponent<Position>().X.Should().Be(5f);
@@ -40,7 +40,7 @@ public class EntityViewTests
     public void TryGetComponent_Missing_ReturnsNotFound()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].TryGetComponent<Position>(out var found);
@@ -52,7 +52,7 @@ public class EntityViewTests
     public void TryGetComponent_Present_ReturnsFoundAndTheTrackedValue()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
         world.ApplyCommands();
 
         ref var value = ref world[entity].TryGetComponent<Position>(out var found);
@@ -65,7 +65,7 @@ public class EntityViewTests
     public void HasComponent_Present_ReturnsTrue()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
 
         world[entity].HasComponent<Position>().Should().BeTrue();
@@ -75,7 +75,7 @@ public class EntityViewTests
     public void HasComponent_Missing_ReturnsFalse()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].HasComponent<Position>().Should().BeFalse();
@@ -85,7 +85,7 @@ public class EntityViewTests
     public void AddComponent_QueuesTheAdd_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].AddComponent(new Position { X = 3f });
@@ -99,7 +99,7 @@ public class EntityViewTests
     public void RemoveComponent_QueuesTheRemove_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
 
         world[entity].RemoveComponent<Position>();
@@ -112,7 +112,7 @@ public class EntityViewTests
     public void AddComponent_ReturnsTheSameViewForChaining()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var view = world[entity].AddComponent(new Position { X = 1f });
@@ -124,7 +124,7 @@ public class EntityViewTests
     public void HasTag_Present_ReturnsTrue()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.Commands.AddTag<Flag>(entity);
         world.ApplyCommands();
 
@@ -135,7 +135,7 @@ public class EntityViewTests
     public void HasTag_Missing_ReturnsFalse()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].HasTag<Flag>().Should().BeFalse();
@@ -145,7 +145,7 @@ public class EntityViewTests
     public void AddTag_QueuesTheAdd_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].AddTag<Flag>();
@@ -158,7 +158,7 @@ public class EntityViewTests
     public void RemoveTag_QueuesTheRemove_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.Commands.AddTag<Flag>(entity);
         world.ApplyCommands();
 
@@ -172,8 +172,8 @@ public class EntityViewTests
     public void HasRelation_EdgePresent_ReturnsTrue()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -184,8 +184,8 @@ public class EntityViewTests
     public void HasRelation_EdgeAbsent_ReturnsFalse()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[a].HasRelation<Likes>(b).Should().BeFalse();
@@ -195,8 +195,8 @@ public class EntityViewTests
     public void GetRelation_EdgePresent_ReturnsATrackedReferenceToThePayload()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -207,8 +207,8 @@ public class EntityViewTests
     public void GetRelation_EdgePresent_ReturnedRefWritesThrough()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -221,8 +221,8 @@ public class EntityViewTests
     public void GetRelation_SourceHasNoEdgesOfThisType_Throws()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var act = () => world[a].GetRelation<Likes>(b);
@@ -234,8 +234,8 @@ public class EntityViewTests
     public void TryGetRelation_EdgePresent_ReturnsFoundAndTheTrackedValue()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -249,8 +249,8 @@ public class EntityViewTests
     public void TryGetRelation_EdgeAbsent_ReturnsNotFound()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[a].TryGetRelation<Likes>(b, out var found);
@@ -262,8 +262,8 @@ public class EntityViewTests
     public void AddRelation_WithValue_QueuesTheEdge_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[a].AddRelation(b, new Likes { Weight = 4f });
@@ -276,8 +276,8 @@ public class EntityViewTests
     public void AddRelation_MarkerOnly_QueuesTheEdge_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[a].AddRelation<Follows>(b);
@@ -290,8 +290,8 @@ public class EntityViewTests
     public void RemoveRelation_QueuesTheRemove_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -305,9 +305,9 @@ public class EntityViewTests
     public void Targets_ReturnsEveryEdgeAndItsPayload()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -319,9 +319,9 @@ public class EntityViewTests
     public void Sources_ReturnsEverySourcePointingAtThisEntity()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var target = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var target = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, target, new Likes { Weight = 1f });
         world.Commands.AddRelation(b, target, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -333,7 +333,7 @@ public class EntityViewTests
     public void IsAlive_LiveEntity_ReturnsTrue()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].IsAlive.Should().BeTrue();
@@ -343,7 +343,7 @@ public class EntityViewTests
     public void IsAlive_AfterDestroyEntity_ReturnsFalse()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].DestroyEntity();
@@ -356,7 +356,7 @@ public class EntityViewTests
     public void PermanentId_MatchesWorldGetPermanentId()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].PermanentId.Should().Be(world.GetPermanentId(entity));
@@ -366,7 +366,7 @@ public class EntityViewTests
     public void DestroyEntity_QueuesTheDestroy_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].DestroyEntity();
@@ -380,7 +380,7 @@ public class EntityViewTests
     public void Chaining_MultipleMutationsAcrossComponentsAndTags_AllLandAfterApplyCommands()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].AddComponent(new Position { X = 1f }).AddTag<Flag>();
@@ -388,5 +388,27 @@ public class EntityViewTests
 
         world.GetComponent<Position>(entity).X.Should().Be(1f);
         world.HasTag<Flag>(entity).Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateEntity_Bare_ReturnsAnEntityViewThatCanBeChainedImmediately()
+    {
+        var world = new World();
+
+        var view = world.Commands.CreateEntity().AddComponent(new Position { X = 4f });
+        world.ApplyCommands();
+
+        world.GetComponent<Position>(view.Entity).X.Should().Be(4f);
+    }
+
+    [Fact]
+    public void CreateEntity_WithInitialComponent_ReturnsAnEntityViewThatCanBeChainedImmediately()
+    {
+        var world = new World();
+
+        var view = world.Commands.CreateEntity(new Position { X = 1f }).AddTag<Flag>();
+        world.ApplyCommands();
+
+        world.HasTag<Flag>(view.Entity).Should().BeTrue();
     }
 }

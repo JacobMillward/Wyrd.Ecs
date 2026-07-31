@@ -89,7 +89,7 @@ public class ComponentCodecRegistryTests
 
         registry.TryGetByDiscriminator("Position", out var forDeserialize);
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
         forDeserialize.DecodeInto(world, entity, data);
         world.ApplyCommands();

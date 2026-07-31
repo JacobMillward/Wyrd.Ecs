@@ -14,16 +14,16 @@ public class QueryFluentBuilderTests
     private static World BuildWorld(out Entity alive, out Entity dead, out Entity buffed)
     {
         var world = new World();
-        alive = world.Commands.CreateEntity();
+        alive = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(alive, new Position { X = 1f });
         world.Commands.AddComponent(alive, new Velocity { X = 1f });
 
-        dead = world.Commands.CreateEntity();
+        dead = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(dead, new Position { X = 2f });
         world.Commands.AddComponent(dead, new Velocity { X = 1f });
         world.Commands.AddTag<Dead>(dead);
 
-        buffed = world.Commands.CreateEntity();
+        buffed = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(buffed, new Position { X = 3f });
         world.Commands.AddComponent(buffed, new Velocity { X = 1f });
         world.Commands.AddTag<BuffA>(buffed);
@@ -144,11 +144,11 @@ public class QueryFluentBuilderTests
     public void TwoIndependentAnyGroupsThroughTheSugaredChain_BothMustBeSatisfied()
     {
         var world = new World();
-        var onlyFirstGroup = world.Commands.CreateEntity();
+        var onlyFirstGroup = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(onlyFirstGroup, new Position { X = 1f });
         world.Commands.AddTag<BuffA>(onlyFirstGroup);
 
-        var bothGroups = world.Commands.CreateEntity();
+        var bothGroups = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(bothGroups, new Position { X = 2f });
         world.Commands.AddTag<BuffA>(bothGroups);
         world.Commands.AddTag<Frozen>(bothGroups);

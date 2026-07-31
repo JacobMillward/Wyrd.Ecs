@@ -29,9 +29,9 @@ public class RelationExclusivityTests
     public void AddRelation_ExclusiveType_SecondTarget_ReplacesTheFirst()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var momOne = world.Commands.CreateEntity();
-        var momTwo = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var momOne = world.Commands.CreateEntity().Entity;
+        var momTwo = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(child, momOne, new Parent { Weight = 1f });
         world.ApplyCommands();
 
@@ -47,9 +47,9 @@ public class RelationExclusivityTests
     public void AddRelation_ExclusiveType_ReplacingTarget_RemovesTheOldTargetsBacklink()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var momOne = world.Commands.CreateEntity();
-        var momTwo = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var momOne = world.Commands.CreateEntity().Entity;
+        var momTwo = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(child, momOne, new Parent { Weight = 1f });
         world.ApplyCommands();
 
@@ -64,8 +64,8 @@ public class RelationExclusivityTests
     public void AddRelation_ExclusiveType_SameTargetAgain_OverwritesTheValueWithoutTouchingTheBacklink()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var mom = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var mom = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(child, mom, new Parent { Weight = 1f });
         world.ApplyCommands();
 
@@ -81,8 +81,8 @@ public class RelationExclusivityTests
     public void AddRelation_ExclusiveType_FirstEverEdge_WorksLikeAnyOtherRelation()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var mom = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var mom = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.Commands.AddRelation(child, mom, new Parent { Weight = 1f });
@@ -95,8 +95,8 @@ public class RelationExclusivityTests
     public void AddRelation_ExclusiveType_ReplacingASelfTarget_WorksWithoutCorruption()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, a, new Parent { Weight = 1f }); // a is initially its own parent
         world.ApplyCommands();
 
@@ -117,9 +117,9 @@ public class RelationExclusivityTests
         // notification fires for `child` at all during the replace (removing momOne's own
         // RelationBacklinks<Parent> component, a different type, still notifies once).
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var momOne = world.Commands.CreateEntity();
-        var momTwo = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var momOne = world.Commands.CreateEntity().Entity;
+        var momTwo = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(child, momOne, new Parent { Weight = 1f });
         world.ApplyCommands();
         var observer = new ComponentChangeCountingObserver();
@@ -140,9 +140,9 @@ public class RelationExclusivityTests
     public void AddRelation_NonExclusiveType_SecondTarget_IsAddedAlongsideTheFirst()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 

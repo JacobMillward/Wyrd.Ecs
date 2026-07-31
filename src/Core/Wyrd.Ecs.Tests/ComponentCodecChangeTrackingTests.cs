@@ -41,7 +41,7 @@ public class ComponentCodecChangeTrackingTests
         registry.TryGetByDiscriminator("Position", out var codec);
         using var tracking = codec.EnableChangeTracking(world);
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
         world.ApplyCommands();
 
         var changes = codec.EncodeChanges(world, sinceTick: 0);
@@ -67,7 +67,7 @@ public class ComponentCodecChangeTrackingTests
         var watermark = world.CurrentTick;
         world.AdvanceTick();
 
-        var second = world.Commands.CreateEntity(new Position { X = 2f });
+        var second = world.Commands.CreateEntity(new Position { X = 2f }).Entity;
         world.ApplyCommands();
 
         var changes = codec.EncodeChanges(world, sinceTick: watermark);
@@ -115,7 +115,7 @@ public class ComponentCodecChangeTrackingTests
         registry.TryGetByDiscriminator("Position", out var codec);
         using var tracking = codec.EnableChangeTracking(world);
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
         world.ApplyCommands();
 
         var changes = codec.ReadRawChanges(world, sinceTick: 0);

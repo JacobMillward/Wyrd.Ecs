@@ -246,18 +246,19 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// Reserves a real <see cref="Entity"/> immediately (so it can be used to chain
-    /// further commands in the same batch) and queues its placement into the world.
-    /// The returned entity is not <see cref="World.IsAlive"/> until
-    /// <see cref="World.ApplyCommands()"/> runs. Safe to call concurrently from several
-    /// threads at once (<see cref="World.ReserveEntity"/> is itself lock-free; only the
-    /// queueing that follows needs <see cref="_gate"/>).
+    /// Reserves a real <see cref="Entity"/> immediately and queues its placement into the
+    /// world, returning an <see cref="EntityView"/> bound to this buffer so further calls
+    /// can chain immediately: <c>commands.CreateEntity().AddComponent(pos).SetParent(p)</c>.
+    /// Use <see cref="EntityView.Entity"/> if you need the raw, storable id. The entity is
+    /// not <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs. Safe
+    /// to call concurrently from several threads at once (<see cref="World.ReserveEntity"/>
+    /// is itself lock-free; only the queueing that follows needs <see cref="_gate"/>).
     /// </summary>
-    public Entity CreateEntity()
+    public EntityView CreateEntity()
     {
         var entity = _world.ReserveEntity();
         lock (_gate) Enqueue(new QueuedCommand(entity, PlaceReservedOp.Apply, null, 0));
-        return entity;
+        return new EntityView(_world, this, entity);
     }
 
     /// <summary>

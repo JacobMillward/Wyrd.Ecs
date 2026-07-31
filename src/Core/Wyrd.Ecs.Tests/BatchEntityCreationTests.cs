@@ -204,7 +204,7 @@ public class BatchEntityCreationTests
     {
         var world = new World();
 
-        var single = world.Commands.CreateEntity(new Position { X = 1f });
+        var single = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
         var batch = world.Commands.CreateEntity(3, new Position { X = 2f });
         world.ApplyCommands();
 

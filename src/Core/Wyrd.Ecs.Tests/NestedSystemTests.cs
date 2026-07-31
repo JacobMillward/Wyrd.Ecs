@@ -27,7 +27,7 @@ public partial class NestedSystemTests
     public void TwoDeclaredSystems_RunInSequence_EachSeesThePreviousOnesEffect()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new NestedPosition { X = 8f }, new NestedVelocity { X = 5f });
+        var entity = world.Commands.CreateEntity(new NestedPosition { X = 8f }, new NestedVelocity { X = 5f }).Entity;
         world.ApplyCommands();
 
         var movement = new MovementSystem();

@@ -48,7 +48,7 @@ public class WorldChunkQueryTests
     public void OneComponentQuery_MutatesTheRealStorage()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
         world.ApplyCommands();
 
         world.Query<Mut<Position>>(chunk =>
@@ -65,7 +65,7 @@ public class WorldChunkQueryTests
     {
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -87,7 +87,7 @@ public class WorldChunkQueryTests
         using var consumer = world.TrackChanges<Position>();
         var entities = new Entity[3];
         for (var i = 0; i < 3; i++)
-            entities[i] = world.Commands.CreateEntity(new Position());
+            entities[i] = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -104,7 +104,7 @@ public class WorldChunkQueryTests
     public void MutQuery_WithTrackingOff_NeverMarksAnythingDirty()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
         world.ApplyCommands();
         world.AdvanceTick();
 
@@ -123,7 +123,7 @@ public class WorldChunkQueryTests
     public void TwoComponentQuery_RequiresBothComponents()
     {
         var world = new World();
-        var both = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        var both = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }).Entity;
         world.Commands.CreateEntity(new Position()); // position only
         world.ApplyCommands();
 
@@ -158,7 +158,7 @@ public class WorldChunkQueryTests
     public void Query_EmptyArchetype_NeverInvokesTheCallback()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.Commands.DestroyEntity(entity);
         world.ApplyCommands();
 

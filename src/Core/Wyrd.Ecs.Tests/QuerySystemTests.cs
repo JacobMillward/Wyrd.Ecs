@@ -55,7 +55,7 @@ public class QuerySystemTests
     public void DeclaredSystem_RunOnce_MutatesThroughToRealStorage()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
+        var entity = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f }).Entity;
         world.ApplyCommands();
 
         world.RunOnce(new DrainSystem(), TimeSpan.Zero);
@@ -69,7 +69,7 @@ public class QuerySystemTests
         var world = new World();
         var entities = new Entity[5];
         for (var i = 0; i < entities.Length; i++)
-            entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 1f });
+            entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 1f }).Entity;
         world.ApplyCommands();
 
         world.RunOnce(new DrainSystem(), TimeSpan.Zero);
@@ -106,8 +106,8 @@ public class QuerySystemTests
     public void DeclaredSystem_UpdateWithEntityViewParameter_CanTagItsOwnRow()
     {
         var world = new World();
-        var triggered = world.Commands.CreateEntity(new Attacked { Triggered = true });
-        var untouched = world.Commands.CreateEntity(new Attacked { Triggered = false });
+        var triggered = world.Commands.CreateEntity(new Attacked { Triggered = true }).Entity;
+        var untouched = world.Commands.CreateEntity(new Attacked { Triggered = false }).Entity;
         world.ApplyCommands();
 
         world.RunOnce(new PoisonSystem(), TimeSpan.Zero);
@@ -121,7 +121,7 @@ public class QuerySystemTests
     public void DeclaredSystem_UpdateWithWorldAndEntityViewParameters_CanUseBoth()
     {
         var world = new World();
-        var triggered = world.Commands.CreateEntity(new Attacked { Triggered = true });
+        var triggered = world.Commands.CreateEntity(new Attacked { Triggered = true }).Entity;
         world.ApplyCommands();
 
         world.RunOnce(new SpawnAndTagSystem(), TimeSpan.Zero);

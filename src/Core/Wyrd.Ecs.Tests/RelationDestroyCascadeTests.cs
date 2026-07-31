@@ -13,8 +13,8 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheSource_RemovesTheEdgeFromTheTargetsBacklinks()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -28,8 +28,8 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheTarget_RemovesTheEdgeFromTheSourcesLinks()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -44,9 +44,9 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheSource_WithManyTargets_CleansEveryOne()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -62,9 +62,9 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheTarget_WithManySources_CleansEveryOne()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var target = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var target = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, target, new Likes { Weight = 1f });
         world.Commands.AddRelation(b, target, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -80,7 +80,7 @@ public class RelationDestroyCascadeTests
     public void DestroyingASelfRelatedEntity_CleansUpWithoutCorruptingItsOtherComponents()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, a, new Likes { Weight = 1f }); // both RelationLinks<Likes> and RelationBacklinks<Likes> land on `a`
         world.ApplyCommands();
 
@@ -94,9 +94,9 @@ public class RelationDestroyCascadeTests
     public void DestroyingAnUnrelatedEntity_DoesNotTouchSomeoneElsesEdges()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var bystander = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var bystander = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -110,8 +110,8 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheSource_OfAMarkerOnlyRelation_RemovesTheBacklink()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
@@ -125,8 +125,8 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheTarget_OfAMarkerOnlyRelation_RemovesTheLink()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
@@ -140,8 +140,8 @@ public class RelationDestroyCascadeTests
     public void DestroyingTheTarget_OfANonDependentRelation_OnlyUnlinks_DoesNotDestroySources()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 

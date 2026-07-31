@@ -17,7 +17,7 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity(new Position { X = 5f });
+        var entity = world.Commands.CreateEntity(new Position { X = 5f }).Entity;
         world.ApplyCommands();
 
         world.HasComponent<Position>(entity).Should().BeTrue();
@@ -29,7 +29,7 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        var entity = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }).Entity;
         world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(1f);
@@ -41,7 +41,7 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
 
         world.IsAlive(entity).Should().BeTrue();
@@ -52,8 +52,8 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var a = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
-        var b = world.Commands.CreateEntity(new Position { X = 3f }, new Velocity { X = 4f });
+        var a = world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f }).Entity;
+        var b = world.Commands.CreateEntity(new Position { X = 3f }, new Velocity { X = 4f }).Entity;
         world.ApplyCommands();
 
         var visited = new List<Entity>();
@@ -68,7 +68,7 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
 
         var (archetype, row) = TestReflection.GetLocation(world, entity);
@@ -82,7 +82,7 @@ public class WorldEntityLifecycleTests
         var world = new World();
         using var consumer = world.TrackChanges<Position>();
 
-        var entity = world.Commands.CreateEntity(new Position());
+        var entity = world.Commands.CreateEntity(new Position()).Entity;
         world.ApplyCommands();
 
         var (archetype, row) = TestReflection.GetLocation(world, entity);
@@ -95,7 +95,7 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         entity.IsNull.Should().BeFalse();
@@ -106,7 +106,7 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.IsAlive(entity).Should().BeTrue();
@@ -117,8 +117,8 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         a.Should().NotBe(b);
@@ -129,8 +129,8 @@ public class WorldEntityLifecycleTests
     {
         var world = new World();
 
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.GetPermanentId(a).Should().NotBe(world.GetPermanentId(b));
@@ -140,7 +140,7 @@ public class WorldEntityLifecycleTests
     public void DestroyEntity_IsNoLongerAlive()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.Commands.DestroyEntity(entity);
@@ -153,12 +153,12 @@ public class WorldEntityLifecycleTests
     public void DestroyEntity_ReusedIdGetsANewGeneration_OldHandleStaysDead()
     {
         var world = new World();
-        var first = world.Commands.CreateEntity();
+        var first = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
         world.Commands.DestroyEntity(first);
         world.ApplyCommands();
 
-        var second = world.Commands.CreateEntity();
+        var second = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         second.Id.Should().Be(first.Id);
@@ -171,9 +171,9 @@ public class WorldEntityLifecycleTests
     public void DestroyEntity_MiddleOfMany_KeepsOthersAlive()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.Commands.DestroyEntity(b);
@@ -229,7 +229,7 @@ public class WorldEntityLifecycleTests
             }
             else
             {
-                var created = world.Commands.CreateEntity();
+                var created = world.Commands.CreateEntity().Entity;
                 world.ApplyCommands();
                 live.Add(created).Should().BeTrue();
             }
@@ -243,7 +243,7 @@ public class WorldEntityLifecycleTests
     public void TotalEntityCount_SumsAcrossArchetypes()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
         world.Commands.AddComponent(a, new Position { X = 1f });
         world.Commands.CreateEntity(); // stays in the empty archetype
         world.ApplyCommands();

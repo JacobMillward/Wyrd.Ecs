@@ -14,8 +14,8 @@ public partial class RelationChurnBenchmarks
 
         public WyrdContext()
         {
-            A = World.Commands.CreateEntity();
-            B = World.Commands.CreateEntity();
+            A = World.Commands.CreateEntity().Entity;
+            B = World.Commands.CreateEntity().Entity;
             World.ApplyCommands();
         }
     }

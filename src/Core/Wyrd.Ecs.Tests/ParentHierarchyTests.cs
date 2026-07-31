@@ -17,9 +17,9 @@ public class ParentHierarchyTests
     public void SecondParent_ReplacesTheFirst()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var momOne = world.Commands.CreateEntity();
-        var momTwo = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var momOne = world.Commands.CreateEntity().Entity;
+        var momTwo = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(child, momOne);
         world.ApplyCommands();
 
@@ -35,10 +35,10 @@ public class ParentHierarchyTests
     public void DestroyingAParent_RecursivelyDestroysTheWholeSubtree()
     {
         var world = new World();
-        var root = world.Commands.CreateEntity();
-        var arm = world.Commands.CreateEntity();
-        var hand = world.Commands.CreateEntity();
-        var sword = world.Commands.CreateEntity();
+        var root = world.Commands.CreateEntity().Entity;
+        var arm = world.Commands.CreateEntity().Entity;
+        var hand = world.Commands.CreateEntity().Entity;
+        var sword = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(arm, root);
         world.Commands.AddRelation<Parent>(hand, arm);
         world.Commands.AddRelation<Parent>(sword, hand);
@@ -57,10 +57,10 @@ public class ParentHierarchyTests
     public void DestroyingAParent_WithMultipleChildren_DestroysEveryChildsSubtree()
     {
         var world = new World();
-        var parent = world.Commands.CreateEntity();
-        var childA = world.Commands.CreateEntity();
-        var childB = world.Commands.CreateEntity();
-        var grandchildOfA = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity().Entity;
+        var childA = world.Commands.CreateEntity().Entity;
+        var childB = world.Commands.CreateEntity().Entity;
+        var grandchildOfA = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(childA, parent);
         world.Commands.AddRelation<Parent>(childB, parent);
         world.Commands.AddRelation<Parent>(grandchildOfA, childA);
@@ -78,8 +78,8 @@ public class ParentHierarchyTests
     public void TryGetParent_HasParent_ReturnsTrueAndTheParent()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var parent = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var parent = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(child, parent);
         world.ApplyCommands();
 
@@ -91,7 +91,7 @@ public class ParentHierarchyTests
     public void TryGetParent_NoParent_ReturnsFalse()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.TryGetParent(child, out _).Should().BeFalse();
@@ -101,8 +101,8 @@ public class ParentHierarchyTests
     public void GetParent_HasParent_ReturnsIt()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var parent = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var parent = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(child, parent);
         world.ApplyCommands();
 
@@ -113,7 +113,7 @@ public class ParentHierarchyTests
     public void GetParent_NoParent_Throws()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var act = () => world.GetParent(child);
@@ -125,9 +125,9 @@ public class ParentHierarchyTests
     public void Children_ReturnsEveryDirectChild()
     {
         var world = new World();
-        var parent = world.Commands.CreateEntity();
-        var childA = world.Commands.CreateEntity();
-        var childB = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity().Entity;
+        var childA = world.Commands.CreateEntity().Entity;
+        var childB = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(childA, parent);
         world.Commands.AddRelation<Parent>(childB, parent);
         world.ApplyCommands();
@@ -139,9 +139,9 @@ public class ParentHierarchyTests
     public void Ancestors_YieldsClosestParentFirstUpToTheRoot()
     {
         var world = new World();
-        var root = world.Commands.CreateEntity();
-        var arm = world.Commands.CreateEntity();
-        var hand = world.Commands.CreateEntity();
+        var root = world.Commands.CreateEntity().Entity;
+        var arm = world.Commands.CreateEntity().Entity;
+        var hand = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(arm, root);
         world.Commands.AddRelation<Parent>(hand, arm);
         world.ApplyCommands();
@@ -153,9 +153,9 @@ public class ParentHierarchyTests
     public void Descendants_YieldsDepthFirstPreOrder()
     {
         var world = new World();
-        var root = world.Commands.CreateEntity();
-        var arm = world.Commands.CreateEntity();
-        var hand = world.Commands.CreateEntity();
+        var root = world.Commands.CreateEntity().Entity;
+        var arm = world.Commands.CreateEntity().Entity;
+        var hand = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(arm, root);
         world.Commands.AddRelation<Parent>(hand, arm);
         world.ApplyCommands();
@@ -167,8 +167,8 @@ public class ParentHierarchyTests
     public void SetParent_QueuesTheEdge_VisibleAfterApplyCommands()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var parent = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var parent = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[child].SetParent(parent);
@@ -181,8 +181,8 @@ public class ParentHierarchyTests
     public void ClearParent_WithAParent_RemovesTheEdge()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
-        var parent = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
+        var parent = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(child, parent);
         world.ApplyCommands();
 
@@ -196,7 +196,7 @@ public class ParentHierarchyTests
     public void ClearParent_WithNoParent_IsANoOp()
     {
         var world = new World();
-        var child = world.Commands.CreateEntity();
+        var child = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var act = () => { world[child].ClearParent(); world.ApplyCommands(); };
@@ -208,8 +208,8 @@ public class ParentHierarchyTests
     public void AddChild_QueuesTheEdgeFromTheParentsSide()
     {
         var world = new World();
-        var parent = world.Commands.CreateEntity();
-        var child = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity().Entity;
+        var child = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[parent].AddChild(child);
@@ -222,9 +222,9 @@ public class ParentHierarchyTests
     public void RemoveChild_RemovesOnlyThatChildsEdge()
     {
         var world = new World();
-        var parent = world.Commands.CreateEntity();
-        var childA = world.Commands.CreateEntity();
-        var childB = world.Commands.CreateEntity();
+        var parent = world.Commands.CreateEntity().Entity;
+        var childA = world.Commands.CreateEntity().Entity;
+        var childB = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Parent>(childA, parent);
         world.Commands.AddRelation<Parent>(childB, parent);
         world.ApplyCommands();

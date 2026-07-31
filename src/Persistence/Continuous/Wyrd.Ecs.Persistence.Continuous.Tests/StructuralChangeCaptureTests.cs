@@ -29,7 +29,7 @@ public class StructuralChangeCaptureTests
         var observer = new StructuralChangeCapture(world, registry, captured.Add);
         using var subscription = world.ObserveStructuralChanges(observer);
 
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         captured.Should().ContainSingle();
@@ -43,7 +43,7 @@ public class StructuralChangeCaptureTests
     {
         var world = new World();
         var registry = BuildRegistry();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
         var permanentId = world.GetPermanentId(entity);
         var captured = new List<CapturedWalEntry>();
@@ -63,7 +63,7 @@ public class StructuralChangeCaptureTests
     {
         var world = new World();
         var registry = BuildRegistry(schemaHash: 7u);
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
         world.ApplyCommands();
         var captured = new List<CapturedWalEntry>();
         var observer = new StructuralChangeCapture(world, registry, captured.Add);
@@ -83,7 +83,7 @@ public class StructuralChangeCaptureTests
     {
         var world = new World();
         var registry = new ComponentCodecRegistry();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity(new Position { X = 1f }).Entity;
         world.ApplyCommands();
         var captured = new List<CapturedWalEntry>();
         var observer = new StructuralChangeCapture(world, registry, captured.Add);
@@ -100,7 +100,7 @@ public class StructuralChangeCaptureTests
     {
         var world = new World();
         var registry = BuildRegistry();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
         var captured = new List<CapturedWalEntry>();
         var observer = new StructuralChangeCapture(world, registry, captured.Add);

@@ -11,7 +11,7 @@ public class MultipleCommandBuffersTests
     public void CreateCommands_ReturnsABufferIndependentOfTheBuiltInOne()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var extra = world.CreateCommands();
@@ -26,8 +26,8 @@ public class MultipleCommandBuffersTests
     public void ApplyCommands_WithASpecificBuffer_AppliesOnlyThatBuffersQueuedCommands()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var bufferForA = world.CreateCommands();
@@ -48,7 +48,7 @@ public class MultipleCommandBuffersTests
         var world = new World();
         var buffer = world.CreateCommands();
 
-        var entity = buffer.CreateEntity();
+        var entity = buffer.CreateEntity().Entity;
         buffer.AddComponent(entity, new Position { X = 9f });
 
         world.ApplyCommands(buffer);
@@ -73,7 +73,7 @@ public class MultipleCommandBuffersTests
     public void MultipleBuffers_CanBeAppliedInAnyCallerChosenOrder_NotCreationOrder()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var setsToOne = world.CreateCommands();
@@ -91,7 +91,7 @@ public class MultipleCommandBuffersTests
     public void EntityView_ConstructedFromWorldIndexer_RoutesMutationsThroughTheDefaultBuffer()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world[entity].AddComponent(new Position { X = 1f });
@@ -104,7 +104,7 @@ public class MultipleCommandBuffersTests
     public void EntityView_ConstructedFromACustomBuffer_RoutesMutationsThroughThatBuffer()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity();
+        var entity = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var customBuffer = world.CreateCommands();

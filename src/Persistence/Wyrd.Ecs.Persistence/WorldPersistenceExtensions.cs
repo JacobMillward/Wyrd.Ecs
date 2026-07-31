@@ -115,7 +115,7 @@ public static class WorldPersistenceExtensions
             {
                 if (!entities.TryGetValue(entityId, out var entity))
                 {
-                    entity = world.Commands.CreateEntity();
+                    entity = world.Commands.CreateEntity().Entity;
                     entities[entityId] = entity;
                 }
 

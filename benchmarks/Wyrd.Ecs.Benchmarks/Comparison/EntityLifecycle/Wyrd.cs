@@ -93,7 +93,7 @@ public partial class EntityLifecycleBenchmarks
     public void Wyrd_DisposeEntity()
     {
         for (var i = 0; i < EntityCount; i++)
-            _wyrd.DisposeScratch[i] = _wyrd.World.Commands.CreateEntity();
+            _wyrd.DisposeScratch[i] = _wyrd.World.Commands.CreateEntity().Entity;
         _wyrd.World.ApplyCommands();
 
         for (var i = 0; i < EntityCount; i++)

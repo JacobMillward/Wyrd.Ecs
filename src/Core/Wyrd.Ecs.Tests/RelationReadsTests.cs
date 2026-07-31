@@ -13,8 +13,8 @@ public class RelationReadsTests
     public void HasRelation_EdgePresent_ReturnsTrue()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -25,8 +25,8 @@ public class RelationReadsTests
     public void HasRelation_EdgeAbsent_ReturnsFalse()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.HasRelation<Likes>(a, b).Should().BeFalse();
@@ -36,8 +36,8 @@ public class RelationReadsTests
     public void TryGetRelation_EdgePresent_ReturnsFoundAndTheTrackedValue()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 3f });
         world.ApplyCommands();
 
@@ -51,8 +51,8 @@ public class RelationReadsTests
     public void TryGetRelation_EdgePresent_ReturnedRefWritesThrough()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 3f });
         world.ApplyCommands();
 
@@ -66,8 +66,8 @@ public class RelationReadsTests
     public void TryGetRelation_EdgeAbsent_ReturnsNotFound()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.TryGetRelation<Likes>(a, b, out var found);
@@ -79,8 +79,8 @@ public class RelationReadsTests
     public void GetRelation_EdgePresent_ReturnsATrackedReferenceToThePayload()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 4f });
         world.ApplyCommands();
 
@@ -91,8 +91,8 @@ public class RelationReadsTests
     public void GetRelation_EdgePresent_ReturnedRefWritesThrough()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 4f });
         world.ApplyCommands();
 
@@ -105,8 +105,8 @@ public class RelationReadsTests
     public void GetRelation_SourceHasNoEdgesOfThisType_Throws()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var act = () => world.GetRelation<Likes>(a, b);
@@ -118,9 +118,9 @@ public class RelationReadsTests
     public void GetRelation_SourceHasOtherEdgesButNotToThisTarget_Throws()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
@@ -134,9 +134,9 @@ public class RelationReadsTests
     {
         var world = new World();
         using var tracking = world.TrackChanges<RelationLinks<Likes>>();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f }); // gives a a RelationLinks<Likes> row
         world.ApplyCommands();
         world.AdvanceTick();
@@ -153,7 +153,7 @@ public class RelationReadsTests
     public void Targets_NoEdges_ReturnsEmpty()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.Targets<Likes>(a).Should().BeEmpty();
@@ -163,9 +163,9 @@ public class RelationReadsTests
     public void Targets_ManyEdges_ReturnsAllOfThem()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var c = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var c = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -177,9 +177,9 @@ public class RelationReadsTests
     public void Sources_ManySources_ReturnsAllOfThem()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var target = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var target = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation(a, target, new Likes { Weight = 1f });
         world.Commands.AddRelation(b, target, new Likes { Weight = 2f });
         world.ApplyCommands();
@@ -191,8 +191,8 @@ public class RelationReadsTests
     public void HasRelation_MarkerOnlyRelationType_EdgePresent_ReturnsTrue()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
@@ -203,7 +203,7 @@ public class RelationReadsTests
     public void Targets_MarkerOnlyRelationType_NoEdges_ReturnsEmpty()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         world.Targets<Follows>(a).Should().BeEmpty();
@@ -213,9 +213,9 @@ public class RelationReadsTests
     public void Sources_MarkerOnlyRelationType_ManySources_ReturnsAllOfThem()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity();
-        var b = world.Commands.CreateEntity();
-        var target = world.Commands.CreateEntity();
+        var a = world.Commands.CreateEntity().Entity;
+        var b = world.Commands.CreateEntity().Entity;
+        var target = world.Commands.CreateEntity().Entity;
         world.Commands.AddRelation<Follows>(a, target);
         world.Commands.AddRelation<Follows>(b, target);
         world.ApplyCommands();

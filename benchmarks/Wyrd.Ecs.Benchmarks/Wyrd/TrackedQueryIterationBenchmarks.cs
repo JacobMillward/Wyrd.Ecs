@@ -44,8 +44,8 @@ public class TrackedQueryIterationBenchmarks
 
         for (var i = 0; i < EntityCount; i++)
         {
-            var e1 = _world1.Commands.CreateEntity(new Position());
-            var e2 = _world2.Commands.CreateEntity(new Position(), new Velocity());
+            var e1 = _world1.Commands.CreateEntity(new Position()).Entity;
+            var e2 = _world2.Commands.CreateEntity(new Position(), new Velocity()).Entity;
 
             if (Fragmented)
             {

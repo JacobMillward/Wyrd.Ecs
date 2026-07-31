@@ -73,9 +73,9 @@ public class QueryArityOverloadTests
     public void Any_ThreeTypes_MatchesArchetypesWithAnyOneOfThem()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity(new ArityPosition { X = 1f });
+        var a = world.Commands.CreateEntity(new ArityPosition { X = 1f }).Entity;
         world.Commands.AddTag<ArityBuffA>(a);
-        var b = world.Commands.CreateEntity(new ArityPosition { X = 10f });
+        var b = world.Commands.CreateEntity(new ArityPosition { X = 10f }).Entity;
         world.Commands.AddTag<ArityBuffB>(b);
         world.Commands.CreateEntity(new ArityPosition { X = 100f }); // none of ArityBuffA/B/C
         world.ApplyCommands();

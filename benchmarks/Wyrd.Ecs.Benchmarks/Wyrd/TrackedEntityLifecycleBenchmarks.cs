@@ -109,7 +109,7 @@ public class TrackedEntityLifecycleBenchmarks
     {
         for (var i = 0; i < EntityCount; i++)
         {
-            var entity = _world.Commands.CreateEntity();
+            var entity = _world.Commands.CreateEntity().Entity;
             _world.Commands.AddComponent(entity, new Position());
             _world.Commands.AddComponent(entity, new Velocity());
             _world.Commands.AddComponent(entity, new Health());
@@ -123,7 +123,7 @@ public class TrackedEntityLifecycleBenchmarks
     {
         for (var i = 0; i < EntityCount; i++)
         {
-            var entity = _world.Commands.CreateEntity();
+            var entity = _world.Commands.CreateEntity().Entity;
             _world.Commands.AddComponent(entity, new Position());
             _world.Commands.AddComponent(entity, new Velocity());
             _world.Commands.AddComponent(entity, new Health());
@@ -141,7 +141,7 @@ public class TrackedEntityLifecycleBenchmarks
     public void DisposeEntity()
     {
         for (var i = 0; i < EntityCount; i++)
-            _disposeScratch[i] = _world.Commands.CreateEntity();
+            _disposeScratch[i] = _world.Commands.CreateEntity().Entity;
         _world.ApplyCommands();
 
         for (var i = 0; i < EntityCount; i++)

@@ -223,15 +223,16 @@ internal static class ArityTemplates
             ? "    /// <summary>\n"
                 + "    /// Reserves a real <see cref=\"Entity\"/> immediately, same as\n"
                 + "    /// <see cref=\"CreateEntity()\"/>, and queues its placement with the given\n"
-                + "    /// component already set. The returned entity is not\n"
+                + "    /// component already set, returning an <see cref=\"EntityView\"/> bound to this\n"
+                + "    /// buffer so further calls can chain immediately. Not\n"
                 + "    /// <see cref=\"World.IsAlive\"/> until <see cref=\"World.ApplyCommands()\"/> runs.\n"
                 + "    /// </summary>"
             : "    /// <inheritdoc cref=\"CreateEntity{T0}(T0)\"/>");
-        sb.AppendLine($"    public Entity CreateEntity<{tp}>({parameters}) {where}");
+        sb.AppendLine($"    public EntityView CreateEntity<{tp}>({parameters}) {where}");
         sb.AppendLine("    {");
         sb.AppendLine("        var entity = _world.ReserveEntity();");
         sb.AppendLine($"        lock (_gate) Enqueue(new QueuedCommand(entity, CreateEntityOp<{tp}>.Apply, {value}, 0));");
-        sb.AppendLine("        return entity;");
+        sb.AppendLine("        return new EntityView(_world, this, entity);");
         sb.AppendLine("    }");
         return sb.ToString();
     }

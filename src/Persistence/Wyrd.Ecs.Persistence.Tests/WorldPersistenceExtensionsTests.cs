@@ -150,7 +150,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         var registry = BuildRegistry();
         var source = new World();
         source.DefaultComponentCodecRegistry = registry;
-        var entity = source.Commands.CreateEntity(new Position { X = 1f });
+        var entity = source.Commands.CreateEntity(new Position { X = 1f }).Entity;
         source.ApplyCommands();
         source.Commands.AddComponent(entity, new Velocity { X = 2f });
         source.ApplyCommands();
@@ -241,7 +241,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         source.DefaultComponentCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new Position { X = 1f });
         source.ApplyCommands();
-        var entity = source.Commands.CreateEntity();
+        var entity = source.Commands.CreateEntity().Entity;
         source.ApplyCommands();
         source.Commands.AddComponent(entity, new Velocity { X = 2f });
         source.ApplyCommands();

@@ -10,9 +10,9 @@ public class WorldGetMatchingArchetypesTests
     public void DifferentFilters_WithSameRequiredSignature_DoNotShareCacheEntry()
     {
         var world = new World();
-        var tagged = world.Commands.CreateEntity();
+        var tagged = world.Commands.CreateEntity().Entity;
         world.Commands.AddTag<Marker>(tagged);
-        var untagged = world.Commands.CreateEntity();
+        var untagged = world.Commands.CreateEntity().Entity;
         world.ApplyCommands();
 
         var required = ArchetypeSignature.Empty;
