@@ -73,4 +73,40 @@ public readonly ref struct EntityView
         _world.Commands.RemoveTag<T>(_entity);
         return this;
     }
+
+    /// <summary>True if this entity has a <typeparamref name="T"/> edge to <paramref name="target"/>.</summary>
+    public bool HasRelation<T>(Entity target) where T : struct, IRelation => _world.HasRelation<T>(_entity, target);
+
+    /// <summary>Same as <see cref="World.GetRelation{T}(Entity, Entity)"/>, without repeating the entity.</summary>
+    public ref T GetRelation<T>(Entity target) where T : struct, IRelation => ref _world.GetRelation<T>(_entity, target);
+
+    /// <summary>Same as <see cref="World.TryGetRelation{T}(Entity, Entity, out bool)"/>, without repeating the entity.</summary>
+    public ref T TryGetRelation<T>(Entity target, out bool found) where T : struct, IRelation => ref _world.TryGetRelation<T>(_entity, target, out found);
+
+    /// <summary>Queues a <typeparamref name="T"/> edge from this entity to <paramref name="target"/> carrying <paramref name="value"/> — see <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>.</summary>
+    public EntityView AddRelation<T>(Entity target, T value) where T : struct, IRelation
+    {
+        _world.Commands.AddRelation(_entity, target, value);
+        return this;
+    }
+
+    /// <summary>Same as <see cref="AddRelation{T}(Entity, T)"/>, with the edge's payload defaulted — see <see cref="CommandBuffer.AddRelation{T}(Entity, Entity)"/>.</summary>
+    public EntityView AddRelation<T>(Entity target) where T : struct, IRelation
+    {
+        _world.Commands.AddRelation<T>(_entity, target);
+        return this;
+    }
+
+    /// <summary>Queues removing the <typeparamref name="T"/> edge from this entity to <paramref name="target"/>, if it exists — see <see cref="CommandBuffer.RemoveRelation{T}(Entity, Entity)"/>.</summary>
+    public EntityView RemoveRelation<T>(Entity target) where T : struct, IRelation
+    {
+        _world.Commands.RemoveRelation<T>(_entity, target);
+        return this;
+    }
+
+    /// <summary>Every target this entity has a <typeparamref name="T"/> edge to, and each edge's payload — see <see cref="World.Targets{T}(Entity)"/>.</summary>
+    public IReadOnlyDictionary<Entity, T> Targets<T>() where T : struct, IRelation => _world.Targets<T>(_entity);
+
+    /// <summary>Every source entity with a <typeparamref name="T"/> edge pointing at this entity — see <see cref="World.Sources{T}(Entity)"/>.</summary>
+    public IReadOnlyCollection<Entity> Sources<T>() where T : struct, IRelation => _world.Sources<T>(_entity);
 }

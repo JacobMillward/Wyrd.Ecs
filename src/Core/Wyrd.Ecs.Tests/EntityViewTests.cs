@@ -9,6 +9,13 @@ public class EntityViewTests
 
     private struct Flag : ITag;
 
+    private struct Likes : IRelation
+    {
+        public float Weight;
+    }
+
+    private struct Follows : IRelation;
+
     [Fact]
     public void Entity_ReturnsTheBoundEntity()
     {
@@ -159,5 +166,166 @@ public class EntityViewTests
         world.ApplyCommands();
 
         world.HasTag<Flag>(entity).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasRelation_EdgePresent_ReturnsTrue()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        world[a].HasRelation<Likes>(b).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasRelation_EdgeAbsent_ReturnsFalse()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[a].HasRelation<Likes>(b).Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetRelation_EdgePresent_ReturnsATrackedReferenceToThePayload()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        world[a].GetRelation<Likes>(b).Weight.Should().Be(1f);
+    }
+
+    [Fact]
+    public void GetRelation_EdgePresent_ReturnedRefWritesThrough()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        world[a].GetRelation<Likes>(b).Weight = 9f;
+
+        world.TryGetRelation<Likes>(a, b, out _).Weight.Should().Be(9f);
+    }
+
+    [Fact]
+    public void GetRelation_SourceHasNoEdgesOfThisType_Throws()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var act = () => world[a].GetRelation<Likes>(b);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void TryGetRelation_EdgePresent_ReturnsFoundAndTheTrackedValue()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        ref var value = ref world[a].TryGetRelation<Likes>(b, out var found);
+
+        found.Should().BeTrue();
+        value.Weight.Should().Be(1f);
+    }
+
+    [Fact]
+    public void TryGetRelation_EdgeAbsent_ReturnsNotFound()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[a].TryGetRelation<Likes>(b, out var found);
+
+        found.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AddRelation_WithValue_QueuesTheEdge_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[a].AddRelation(b, new Likes { Weight = 4f });
+        world.ApplyCommands();
+
+        world.TryGetRelation<Likes>(a, b, out _).Weight.Should().Be(4f);
+    }
+
+    [Fact]
+    public void AddRelation_MarkerOnly_QueuesTheEdge_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[a].AddRelation<Follows>(b);
+        world.ApplyCommands();
+
+        world.HasRelation<Follows>(a, b).Should().BeTrue();
+    }
+
+    [Fact]
+    public void RemoveRelation_QueuesTheRemove_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        world[a].RemoveRelation<Likes>(b);
+        world.ApplyCommands();
+
+        world.HasRelation<Likes>(a, b).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Targets_ReturnsEveryEdgeAndItsPayload()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        var c = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
+        world.ApplyCommands();
+
+        world[a].Targets<Likes>().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void Sources_ReturnsEverySourcePointingAtThisEntity()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        var target = world.Commands.CreateEntity();
+        world.Commands.AddRelation(a, target, new Likes { Weight = 1f });
+        world.Commands.AddRelation(b, target, new Likes { Weight = 2f });
+        world.ApplyCommands();
+
+        world[target].Sources<Likes>().Should().BeEquivalentTo([a, b]);
     }
 }
