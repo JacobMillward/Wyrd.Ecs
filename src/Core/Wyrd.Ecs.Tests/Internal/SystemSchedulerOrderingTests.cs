@@ -76,6 +76,33 @@ public class SystemSchedulerOrderingTests
     }
 
     [Fact]
+    public void ThreeHopChain_AllLandInStrictlyIncreasingStages()
+    {
+        var p = new OrderedSystemP();
+        var q = Order.For(new OrderedSystemQ()).After<OrderedSystemP>();
+        var r = Order.For(new OrderedSystemR()).After<OrderedSystemQ>();
+        var access = new Dictionary<Type, SystemAccess>
+        {
+            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
+            [typeof(OrderedSystemQ)] = new(Reads: [], Writes: [typeof(OrderingComponentB)]),
+            [typeof(OrderedSystemR)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
+        };
+        OrderedSystem[] systems = [p, q, r];
+
+        var stages = SystemScheduler.BuildStages(systems, access);
+
+        int StageIndexOf(Type systemType) =>
+            Enumerable.Range(0, stages.Count).First(i => stages[i].Any(s => s.GetType() == systemType));
+
+        var pIndex = StageIndexOf(typeof(OrderedSystemP));
+        var qIndex = StageIndexOf(typeof(OrderedSystemQ));
+        var rIndex = StageIndexOf(typeof(OrderedSystemR));
+
+        pIndex.Should().BeLessThan(qIndex);
+        qIndex.Should().BeLessThan(rIndex);
+    }
+
+    [Fact]
     public void MarkerNode_NeverAppearsInTheMaterializedStages()
     {
         var x = Order.For(new OrderedSystemP()).Before<SchedulerTestMarker>();
