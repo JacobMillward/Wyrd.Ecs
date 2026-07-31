@@ -386,7 +386,13 @@ internal static class QueryChainEmitter
     private static string ParamName(MarkerElement e)
     {
         var name = e.ComponentTypeName;
-        var simple = name.Contains('.') ? name[(name.LastIndexOf('.') + 1)..] : name;
+        // Namespace-strip only the outer type's own name, not the last '.' anywhere in the
+        // fully-qualified name -- for a generic component type (e.g. RelationLinks<Ns.Foo>),
+        // the last '.' can sit inside a generic argument's namespace, which previously
+        // produced a garbage identifier (including the argument's own '>').
+        var genericStart = name.IndexOf('<');
+        var outerTypeName = genericStart >= 0 ? name[..genericStart] : name;
+        var simple = outerTypeName.Contains('.') ? outerTypeName[(outerTypeName.LastIndexOf('.') + 1)..] : outerTypeName;
         return char.ToLowerInvariant(simple[0]) + simple[1..];
     }
 }
