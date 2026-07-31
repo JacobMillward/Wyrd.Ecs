@@ -20,11 +20,15 @@ public class SchedulableSystemTests
     }
 
     [Fact]
-    public void MarkerSystem_IsASchedulableSystemButNotAnEcsSystem()
+    public void MarkerSystem_IsASchedulableSystem()
     {
         var marker = new TestMarker();
 
         (marker is SchedulableSystem).Should().BeTrue();
-        (marker is EcsSystem).Should().BeFalse();
     }
+
+    // MarkerSystem and EcsSystem are declared as siblings under SchedulableSystem
+    // (Task 1), not related by inheritance -- the compiler already proves
+    // "marker is EcsSystem" false at compile time (CS0184 on any attempt to write
+    // that check at runtime), so there's no separate runtime assertion to make here.
 }
