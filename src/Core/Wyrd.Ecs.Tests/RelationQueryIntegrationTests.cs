@@ -5,7 +5,7 @@ namespace Wyrd.Ecs.Tests;
 // File-scoped, not nested private: the query-chain generator emits code in a separate
 // partial that can't see a private nested type -- matches QueryFluentBuilderTests.cs's
 // existing convention for any component type used with .With<T>().ForEach(...).
-struct RelationQueryIntegrationLikes : IComponent { public float Weight; }
+struct RelationQueryIntegrationLikes : IRelation { public float Weight; }
 
 public class RelationQueryIntegrationTests
 {

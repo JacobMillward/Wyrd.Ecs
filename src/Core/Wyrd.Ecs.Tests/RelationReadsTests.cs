@@ -2,12 +2,12 @@ namespace Wyrd.Ecs.Tests;
 
 public class RelationReadsTests
 {
-    private struct Likes : IComponent
+    private struct Likes : IRelation
     {
         public float Weight;
     }
 
-    private struct Follows : ITag;
+    private struct Follows : IRelation;
 
     [Fact]
     public void HasRelation_EdgePresent_ReturnsTrue()
@@ -99,38 +99,38 @@ public class RelationReadsTests
     }
 
     [Fact]
-    public void HasRelationTag_EdgePresent_ReturnsTrue()
+    public void HasRelation_MarkerOnlyRelationType_EdgePresent_ReturnsTrue()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
         var b = world.Commands.CreateEntity();
-        world.Commands.AddRelationTag<Follows>(a, b);
+        world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
-        world.HasRelationTag<Follows>(a, b).Should().BeTrue();
+        world.HasRelation<Follows>(a, b).Should().BeTrue();
     }
 
     [Fact]
-    public void TargetsTag_NoEdges_ReturnsEmpty()
+    public void Targets_MarkerOnlyRelationType_NoEdges_ReturnsEmpty()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
         world.ApplyCommands();
 
-        world.TargetsTag<Follows>(a).Should().BeEmpty();
+        world.Targets<Follows>(a).Should().BeEmpty();
     }
 
     [Fact]
-    public void SourcesTag_ManySources_ReturnsAllOfThem()
+    public void Sources_MarkerOnlyRelationType_ManySources_ReturnsAllOfThem()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
         var b = world.Commands.CreateEntity();
         var target = world.Commands.CreateEntity();
-        world.Commands.AddRelationTag<Follows>(a, target);
-        world.Commands.AddRelationTag<Follows>(b, target);
+        world.Commands.AddRelation<Follows>(a, target);
+        world.Commands.AddRelation<Follows>(b, target);
         world.ApplyCommands();
 
-        world.SourcesTag<Follows>(target).Should().BeEquivalentTo([a, b]);
+        world.Sources<Follows>(target).Should().BeEquivalentTo([a, b]);
     }
 }

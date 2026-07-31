@@ -2,12 +2,14 @@ namespace Wyrd.Ecs.Tests;
 
 public class RelationCommandsTests
 {
-    private struct Likes : IComponent
+    private struct Likes : IRelation
     {
         public float Weight;
     }
 
-    private struct Owns : IComponent;
+    private struct Owns : IRelation;
+
+    private struct Follows : IRelation;
 
     [Fact]
     public void AddRelation_CreatesForwardAndBackwardLinks()
@@ -169,5 +171,61 @@ public class RelationCommandsTests
         world.ApplyCommands();
 
         world.GetComponent<RelationLinks<Owns>>(a).Values.Should().ContainKey(b);
+    }
+
+    [Fact]
+    public void AddRelation_NoValueOverload_DefaultsThePayload()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world.Commands.AddRelation<Follows>(a, b); // no value argument -- convenience for a marker-only relation type
+        world.ApplyCommands();
+
+        world.HasComponent<RelationLinks<Follows>>(a).Should().BeTrue();
+        world.GetComponent<RelationLinks<Follows>>(a).Values.Should().ContainKey(b);
+        world.GetComponent<RelationBacklinks<Follows>>(b).Values.Should().Contain(a);
+    }
+
+    [Fact]
+    public void AddRelation_NoValueOverload_TwoDifferentTargets_BothPresentOnTheSameEntity()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        var c = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world.Commands.AddRelation<Follows>(a, b);
+        world.Commands.AddRelation<Follows>(a, c);
+        world.ApplyCommands();
+
+        world.GetComponent<RelationLinks<Follows>>(a).Values.Keys.Should().BeEquivalentTo([b, c]);
+    }
+
+    [Fact]
+    public void RelationBuffers_SharedAcrossDifferentRelationTypes_DoNotCrossWires()
+    {
+        // Regression guard: RelationTargetBuffer (used by RemoveRelation<T> regardless of
+        // T) and separate per-T AddRelationBuffer<T> instances are queued in the same
+        // batch here for two different relation types -- each queued command's own
+        // captured (buffer, slot) must still resolve to its own, correct target.
+        var world = new World();
+        var a = world.Commands.CreateEntity();
+        var b = world.Commands.CreateEntity();
+        var c = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Follows>(a, b);
+        world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        world.ApplyCommands();
+
+        world.Commands.AddRelation<Follows>(a, c);
+        world.Commands.RemoveRelation<Follows>(a, b);
+        world.Commands.RemoveRelation<Likes>(a, b);
+        world.ApplyCommands();
+
+        world.GetComponent<RelationLinks<Follows>>(a).Values.Keys.Should().BeEquivalentTo([c]);
+        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse();
     }
 }

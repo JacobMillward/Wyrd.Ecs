@@ -2,12 +2,12 @@ namespace Wyrd.Ecs.Tests;
 
 public class RelationDestroyCascadeTests
 {
-    private struct Likes : IComponent
+    private struct Likes : IRelation
     {
         public float Weight;
     }
 
-    private struct Follows : ITag;
+    private struct Follows : IRelation;
 
     [Fact]
     public void DestroyingTheSource_RemovesTheEdgeFromTheTargetsBacklinks()
@@ -107,32 +107,32 @@ public class RelationDestroyCascadeTests
     }
 
     [Fact]
-    public void DestroyingTheSource_OfATagRelation_RemovesTheBacklink()
+    public void DestroyingTheSource_OfAMarkerOnlyRelation_RemovesTheBacklink()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
         var b = world.Commands.CreateEntity();
-        world.Commands.AddRelationTag<Follows>(a, b);
+        world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
         world.Commands.DestroyEntity(a);
         world.ApplyCommands();
 
-        world.HasComponent<RelationTagBacklinks<Follows>>(b).Should().BeFalse();
+        world.HasComponent<RelationBacklinks<Follows>>(b).Should().BeFalse();
     }
 
     [Fact]
-    public void DestroyingTheTarget_OfATagRelation_RemovesTheLink()
+    public void DestroyingTheTarget_OfAMarkerOnlyRelation_RemovesTheLink()
     {
         var world = new World();
         var a = world.Commands.CreateEntity();
         var b = world.Commands.CreateEntity();
-        world.Commands.AddRelationTag<Follows>(a, b);
+        world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
         world.Commands.DestroyEntity(b);
         world.ApplyCommands();
 
-        world.TargetsTag<Follows>(a).Should().BeEmpty();
+        world.Targets<Follows>(a).Should().BeEmpty();
     }
 }
