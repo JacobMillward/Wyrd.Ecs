@@ -9,7 +9,7 @@ public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
     private IReadOnlyDictionary<Type, SystemAccess>? _generatedAccess;
-    private EcsSystem[] _systems = [];
+    private OrderedSystem[] _systems = [];
     private int _parallelThreshold = 1000;
 
     /// <summary>
@@ -41,9 +41,10 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Builds a new <see cref="World"/> with the configured options, including whatever
-    /// <see cref="WithSystems"/> registered — the returned <see cref="World"/> already owns
-    /// a static parallel schedule (empty if <see cref="WithSystems"/> was never called) and
-    /// drives it itself via <see cref="World.Tick"/>.
+    /// <see cref="WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>
+    /// registered — the returned <see cref="World"/> already owns a static parallel
+    /// schedule (empty if no systems were registered) and drives it itself via
+    /// <see cref="World.Tick"/>.
     /// </summary>
     public World Build()
     {
@@ -59,14 +60,32 @@ public sealed class WorldBuilder
     /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>) —
     /// passed explicitly by the caller, since <see cref="WorldBuilder"/> lives in
     /// <c>Wyrd.Ecs</c> itself and can't reference a type generated into a consumer's
-    /// own compilation. <paramref name="systems"/>' order is preserved into
-    /// <see cref="Internal.SystemScheduler.BuildStages"/>, which processes systems in
-    /// the order given.
+    /// own compilation. Each <paramref name="systems"/> element converts implicitly from
+    /// a bare <see cref="EcsSystem"/> (see <see cref="OrderedSystem"/>) when it declares
+    /// no Before/After edges, or from <see cref="Order.For"/> when it does. Registration
+    /// order is the tiebreak among systems with no ordering relationship to each other;
+    /// declared edges take precedence over it.
     /// </summary>
-    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params EcsSystem[] systems)
+    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params OrderedSystem[] systems)
     {
         _generatedAccess = generatedAccess;
         _systems = systems;
+        return this;
+    }
+
+    /// <summary>
+    /// Overload for a caller that already has an assembled <see cref="EcsSystem"/>
+    /// collection (e.g. built programmatically, then <c>.ToArray()</c>'d) rather than
+    /// naming each system as its own call-site argument — the implicit
+    /// <see cref="OrderedSystem"/> conversion that keeps <c>WithSystems(a, b, c)</c>
+    /// compiling only applies per-argument, not across an entire array's element type,
+    /// so a plain <see cref="EcsSystem"/> collection needs this explicit overload
+    /// rather than falling through to the <c>params OrderedSystem[]</c> one above.
+    /// </summary>
+    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, IReadOnlyList<EcsSystem> systems)
+    {
+        _generatedAccess = generatedAccess;
+        _systems = [.. systems.Select(s => (OrderedSystem)s)];
         return this;
     }
 

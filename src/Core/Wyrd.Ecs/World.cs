@@ -209,7 +209,7 @@ public sealed partial class World : IWorld
     }
 
     /// <summary>
-    /// Runs one iteration of every system registered via <see cref="WorldBuilder.WithSystems"/>,
+    /// Runs one iteration of every system registered via <see cref="WorldBuilder.WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>,
     /// staged by the static parallel schedule computed once at <see cref="WorldBuilder.Build"/>
     /// time. Advances <see cref="CurrentTick"/> and accumulates <paramref name="delta"/> into
     /// a running total before handing both down as a single <see cref="Time"/> value — the

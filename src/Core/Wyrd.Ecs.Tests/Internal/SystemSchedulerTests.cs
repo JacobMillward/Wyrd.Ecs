@@ -21,7 +21,7 @@ public class SystemSchedulerTests
             [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Position)]),
             [typeof(WriterB)] = new(Reads: [], Writes: [typeof(Position)]),
         };
-        var systems = new EcsSystem[] { new WriterA(), new WriterB() };
+        var systems = new OrderedSystem[] { new WriterA(), new WriterB() };
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
@@ -38,7 +38,7 @@ public class SystemSchedulerTests
             [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Position)]),
             [typeof(WriterB)] = new(Reads: [], Writes: [typeof(Health)]),
         };
-        var systems = new EcsSystem[] { new WriterA(), new WriterB() };
+        var systems = new OrderedSystem[] { new WriterA(), new WriterB() };
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
@@ -54,7 +54,7 @@ public class SystemSchedulerTests
             [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Velocity)]),
             [typeof(ReaderC)] = new(Reads: [typeof(Velocity)], Writes: []),
         };
-        var systems = new EcsSystem[] { new WriterA(), new ReaderC() };
+        var systems = new OrderedSystem[] { new WriterA(), new ReaderC() };
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
@@ -68,7 +68,7 @@ public class SystemSchedulerTests
         {
             [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Health)]),
         };
-        var systems = new EcsSystem[] { new WriterA(), new UnknownSystem() };
+        var systems = new OrderedSystem[] { new WriterA(), new UnknownSystem() };
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
@@ -84,7 +84,7 @@ public class SystemSchedulerTests
             [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Health)]),
         };
         var dynamicSystem = new DynamicHealthWriter();
-        var systems = new EcsSystem[] { new WriterA(), dynamicSystem };
+        var systems = new OrderedSystem[] { new WriterA(), dynamicSystem };
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
