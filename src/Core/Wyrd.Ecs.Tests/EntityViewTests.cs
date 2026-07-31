@@ -7,6 +7,8 @@ public class EntityViewTests
         public float X;
     }
 
+    private struct Flag : ITag;
+
     [Fact]
     public void Entity_ReturnsTheBoundEntity()
     {
@@ -109,5 +111,53 @@ public class EntityViewTests
         var view = world[entity].AddComponent(new Position { X = 1f });
 
         view.Entity.Should().Be(entity);
+    }
+
+    [Fact]
+    public void HasTag_Present_ReturnsTrue()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.Commands.AddTag<Flag>(entity);
+        world.ApplyCommands();
+
+        world[entity].HasTag<Flag>().Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasTag_Missing_ReturnsFalse()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].HasTag<Flag>().Should().BeFalse();
+    }
+
+    [Fact]
+    public void AddTag_QueuesTheAdd_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].AddTag<Flag>();
+        world.ApplyCommands();
+
+        world.HasTag<Flag>(entity).Should().BeTrue();
+    }
+
+    [Fact]
+    public void RemoveTag_QueuesTheRemove_VisibleAfterApplyCommands()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity();
+        world.Commands.AddTag<Flag>(entity);
+        world.ApplyCommands();
+
+        world[entity].RemoveTag<Flag>();
+        world.ApplyCommands();
+
+        world.HasTag<Flag>(entity).Should().BeFalse();
     }
 }

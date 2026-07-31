@@ -56,4 +56,21 @@ public readonly ref struct EntityView
         _world.Commands.RemoveComponent<T>(_entity);
         return this;
     }
+
+    /// <summary>True if this entity has tag <typeparamref name="T"/>.</summary>
+    public bool HasTag<T>() where T : struct, ITag => _world.HasTag<T>(_entity);
+
+    /// <summary>Queues adding tag <typeparamref name="T"/> to this entity — see <see cref="CommandBuffer.AddTag{T}(Entity)"/>.</summary>
+    public EntityView AddTag<T>() where T : struct, ITag
+    {
+        _world.Commands.AddTag<T>(_entity);
+        return this;
+    }
+
+    /// <summary>Queues removing tag <typeparamref name="T"/> from this entity — see <see cref="CommandBuffer.RemoveTag{T}(Entity)"/>.</summary>
+    public EntityView RemoveTag<T>() where T : struct, ITag
+    {
+        _world.Commands.RemoveTag<T>(_entity);
+        return this;
+    }
 }
