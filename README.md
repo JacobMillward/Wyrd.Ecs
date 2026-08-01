@@ -17,6 +17,9 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 
   > The scheduler looks at what each system reads and writes, groups the ones with no conflicts, and runs each group inline or on the thread pool depending on world size.
 - All structural mutation goes through `CommandBuffer`, deferred and applied in one deterministic pass. A query never sees a half-finished change mid-iteration.
+- `CreateEntity()` hands back an `EntityView`, a chainable handle for the entity you just made: `commands.CreateEntity().AddComponent(pos).AddTag<Enemy>()`. It converts implicitly to `Entity` when that's all you need.
+- Parent/child hierarchy built in. `entity.SetParent(parent)` / `AddChild(child)`, `world.Children(e)` / `Ancestors(e)` / `Descendants(e)` to walk it. Destroying a parent recursively destroys its children.
+- `EntityTemplate` for reusable prefab definitions, components/tags/child subtrees declared once. Instantiate a whole tree in one call with `commands.CreateEntity(template)`, or many at once with `commands.CreateEntity(template, count)`.
 - Tick-based change tracking, opt in per component type.
 - Structural change observers for entity/component add/remove.
 - AOT-compatible throughout.
@@ -43,9 +46,9 @@ public sealed partial class MovementSystem : QuerySystem
 
 var world = new World();
 
-var entity = world.Commands.CreateEntity();
-world.Commands.AddComponent(entity, new Position());
-world.Commands.AddComponent(entity, new Velocity { X = 1, Y = 0 });
+world.Commands.CreateEntity()
+    .AddComponent(new Position())
+    .AddComponent(new Velocity { X = 1, Y = 0 });
 world.ApplyCommands();
 
 world.RunOnce(new MovementSystem(), TimeSpan.FromSeconds(1.0 / 60));
@@ -71,6 +74,27 @@ var world = new WorldBuilder()
 
 world.Update(TimeSpan.FromSeconds(1.0 / 60));
 ```
+
+Prefabs are `EntityTemplate`s: declare components, tags, and child subtrees once, then instantiate as many times as needed.
+
+```csharp
+var thrusterTemplate = new EntityTemplate().AddComponent(new Position());
+
+var shipTemplate = new EntityTemplate()
+    .AddComponent(new Position())
+    .AddChild(thrusterTemplate)
+    .AddChild(thrusterTemplate);
+
+var ship = world.Commands.CreateEntity(shipTemplate);
+world.ApplyCommands();
+
+foreach (var thruster in world.Children(ship))
+{
+    // ...
+}
+```
+
+`CreateEntity(template, count)` instantiates many childless entities from one template in a single batch.
 
 ## Project layout
 
