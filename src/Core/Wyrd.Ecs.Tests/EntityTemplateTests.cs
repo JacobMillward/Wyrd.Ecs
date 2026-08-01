@@ -239,4 +239,52 @@ public class EntityTemplateTests
         var act = () => world.Commands.CreateEntity(root, 3);
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public void AddParent_AttachesToAnAlreadyExistingEntity()
+    {
+        var world = new World();
+        var existingParent = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var template = new EntityTemplate().AddComponent(new Position()).AddParent(existingParent);
+        Entity child = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.Targets<Parent>(child).Should().ContainKey(existingParent);
+        world.Sources<Parent>(existingParent).Should().Contain(child);
+    }
+
+    [Fact]
+    public void AddParent_OnADeadEntity_NoOps()
+    {
+        var world = new World();
+        var deadParent = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        world.Commands.DestroyEntity(deadParent);
+        world.ApplyCommands();
+
+        var template = new EntityTemplate().AddComponent(new Position()).AddParent(deadParent);
+        Entity child = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.IsAlive(child).Should().BeTrue();
+        world.HasRelation<Parent>(child, deadParent).Should().BeFalse();
+    }
+
+    [Fact]
+    public void AddParent_OnATemplateAlsoUsedAsAChild_Throws()
+    {
+        var world = new World();
+        var existingParent = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var conflicted = new EntityTemplate().AddComponent(new Position()).AddParent(existingParent);
+        var root = new EntityTemplate().AddChild(conflicted);
+
+        // CreateEntity(EntityTemplate) returns EntityView, a ref struct, which can't be a
+        // Func<T> type argument — the block body makes this a plain Action instead.
+        var act = () => { world.Commands.CreateEntity(root); };
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

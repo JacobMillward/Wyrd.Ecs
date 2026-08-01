@@ -292,7 +292,9 @@ public sealed partial class CommandBuffer
     /// it's called. Not <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs.
     /// </summary>
     public EntityView CreateEntity(EntityTemplate template) =>
-        template.Children.Count > 0 ? CreateEntityFromTree(template) : CreateEntitySingleNode(template);
+        template.Children.Count > 0 || template.ExplicitParent.HasValue
+            ? CreateEntityFromTree(template)
+            : CreateEntitySingleNode(template);
 
     private EntityView CreateEntitySingleNode(EntityTemplate template)
     {
@@ -330,6 +332,18 @@ public sealed partial class CommandBuffer
             FlattenTemplate(child, index, nodes);
     }
 
+    /// <summary>Queues adding <c>child</c> to <c>parent</c>'s <see cref="RelationBacklinks{T}"/> — the "existing parent's side" half of <see cref="EntityTemplate.AddParent"/>'s cost, a no-op if <c>parent</c> is no longer alive by apply time.</summary>
+    private static class ExplicitParentBacklinkOp
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, _, buffer, _) =>
+        {
+            var (parent, child) = ((Entity, Entity))buffer!;
+            if (!w.TryResolve(parent, out var location)) return;
+            ref var backlinks = ref w.GetOrCreateRelationBacklinks<Parent>(parent, location);
+            backlinks.Sources!.Add(child);
+        };
+    }
+
     /// <summary>
     /// Reserves a real <see cref="Entity"/> for the root, and one more for every descendant
     /// in <paramref name="template"/>'s child tree, in a single bulk
@@ -345,6 +359,12 @@ public sealed partial class CommandBuffer
     {
         var nodes = new List<TemplateTreeNode>();
         FlattenTemplate(template, -1, nodes);
+
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            if (nodes[i].ParentIndex >= 0 && nodes[i].Template.ExplicitParent.HasValue)
+                throw new InvalidOperationException("A template cannot have both an in-tree parent (via AddChild) and an explicit parent (via AddParent).");
+        }
 
         var entities = new Entity[nodes.Count];
         _world.ReserveEntityRange(entities);
@@ -364,6 +384,12 @@ public sealed partial class CommandBuffer
                 var signature = node.Template.Signature;
                 var setters = new List<TemplateComponentSetter>(node.Template.Setters);
 
+                // See EntityTemplate.AddParent's own remarks for why this check runs once,
+                // now, rather than being deferred to ApplyCommands().
+                Entity? explicitParentIfAlive = node.ParentIndex < 0 && node.Template.ExplicitParent is { } explicitParent && _world.IsAlive(explicitParent)
+                    ? explicitParent
+                    : null;
+
                 if (node.ParentIndex >= 0)
                 {
                     var parentEntity = entities[node.ParentIndex];
@@ -372,6 +398,15 @@ public sealed partial class CommandBuffer
                     {
                         var storage = archetype.GetOrCreateStorage<RelationLinks<Parent>>();
                         storage.Fill(startRow, count, new RelationLinks<Parent>(new Dictionary<Entity, Parent> { [parentEntity] = default }));
+                    });
+                }
+                else if (explicitParentIfAlive is { } liveExplicitParent)
+                {
+                    signature = signature.With(Internal.TypeIndex<RelationLinks<Parent>>.Value);
+                    setters.Add((w, archetype, startRow, count) =>
+                    {
+                        var storage = archetype.GetOrCreateStorage<RelationLinks<Parent>>();
+                        storage.Fill(startRow, count, new RelationLinks<Parent>(new Dictionary<Entity, Parent> { [liveExplicitParent] = default }));
                     });
                 }
 
@@ -387,6 +422,9 @@ public sealed partial class CommandBuffer
                 }
 
                 Enqueue(new QueuedCommand(entities[i], TemplateNodePlacementOp.Apply, (signature, (IReadOnlyCollection<TemplateComponentSetter>)setters), 0));
+
+                if (explicitParentIfAlive is { } parentToBacklink)
+                    Enqueue(new QueuedCommand(default, ExplicitParentBacklinkOp.Apply, (parentToBacklink, entities[i]), 0));
             }
         }
 

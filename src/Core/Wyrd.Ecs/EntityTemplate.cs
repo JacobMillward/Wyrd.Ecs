@@ -87,6 +87,34 @@ public class EntityTemplate
         return this;
     }
 
+    /// <summary>The entity this template's root should be parented to on instantiation, via <see cref="AddParent"/>. <c>null</c> if not set.</summary>
+    internal Entity? ExplicitParent { get; private set; }
+
+    /// <summary>
+    /// When this template is instantiated as the root of a <see cref="CommandBuffer.CreateEntity(EntityTemplate)"/>
+    /// call, attaches it to <paramref name="parent"/> — an already-existing entity, not one
+    /// created as part of this template's own tree. Different cost profile from
+    /// <see cref="AddChild"/>: the new entity's own side is still one move (placed directly
+    /// with <see cref="RelationLinks{T}"/> pre-populated), but <paramref name="parent"/>
+    /// already has its own archetype, so its <see cref="RelationBacklinks{T}"/> update pays
+    /// the same one-move cost <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>
+    /// already pays today. Whether the edge is included at all is decided synchronously,
+    /// right now (via <c>World.IsAlive</c>), not deferred to <see cref="World.ApplyCommands()"/>
+    /// like every other queued operation's target-aliveness check — a consequence of
+    /// direct-to-final-archetype placement needing its target signature fixed before any
+    /// command in the batch runs. This doesn't protect against <paramref name="parent"/>
+    /// being destroyed by an earlier queued command in the same buffer before this
+    /// template's placement actually applies — the same class of limitation
+    /// <see cref="CommandBuffer.Apply"/>'s own doc comment already describes for ordering in
+    /// general. Throws at instantiate time if this template is also reached as someone's
+    /// <see cref="AddChild"/> in the same tree (two parents for one node).
+    /// </summary>
+    public EntityTemplate AddParent(Entity parent)
+    {
+        ExplicitParent = parent;
+        return this;
+    }
+
     private static TemplateComponentSetter MakeSetter<T>(T value) where T : struct, IComponent =>
         (world, archetype, startRow, count) =>
         {
