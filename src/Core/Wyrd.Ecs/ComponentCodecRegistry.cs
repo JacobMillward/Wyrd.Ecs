@@ -211,10 +211,15 @@ public sealed class ComponentCodecRegistry
     /// </summary>
     public byte[] Migrate(string discriminator, uint fromSchemaHash, byte[] bytes)
     {
-        if (!TryGetByDiscriminator(discriminator, out var registered))
+        uint? targetSchemaHash;
+        if (TryGetByDiscriminator(discriminator, out var registered))
+            targetSchemaHash = registered.SchemaHash;
+        else if (TryGetRelationByDiscriminator(discriminator, out var relationRegistered))
+            targetSchemaHash = relationRegistered.SchemaHash;
+        else
             throw new ArgumentException($"No registration for discriminator '{discriminator}'.", nameof(discriminator));
 
-        if (registered.SchemaHash is not { } targetHash)
+        if (targetSchemaHash is not { } targetHash)
             throw new InvalidOperationException($"'{discriminator}' has no current schema hash to migrate toward.");
 
         var currentHash = fromSchemaHash;

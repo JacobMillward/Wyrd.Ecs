@@ -67,6 +67,13 @@ public static class WorldPersistenceExtensions
                     var entityId = world.GetPermanentId(component.Entity);
                     Internal.CheckpointRecordIO.WriteRecord(stream, entityId, component.Discriminator, component.SchemaHash, component.Data);
                 }
+
+                foreach (var relation in world.EnumerateRelations(registry))
+                {
+                    var sourceId = world.GetPermanentId(relation.Source);
+                    var targetId = world.GetPermanentId(relation.Target);
+                    Internal.CheckpointRecordIO.WriteRelationRecord(stream, sourceId, targetId, relation.Discriminator, relation.SchemaHash, relation.Data);
+                }
             }
             catch
             {
@@ -89,10 +96,17 @@ public static class WorldPersistenceExtensions
         /// <summary>
         /// Reads a full checkpoint from <paramref name="store"/> and reconstructs it into
         /// <paramref name="world"/>: one fresh <see cref="Entity"/> per distinct
-        /// <see cref="EntityId"/> encountered, with every readable record's component
-        /// added to it. A record for a discriminator absent from
-        /// <c>World.DefaultComponentCodecRegistry</c> is silently skipped, same as an
-        /// unknown type is on save. A file truncated or corrupted partway through stops
+        /// <see cref="EntityId"/> encountered — as a component record's own id, or as
+        /// either side of a relation-edge record, whichever comes first — with every
+        /// readable record's component added or relation linked as its record is
+        /// reached. A relation record's target gets a fresh, otherwise-empty entity the
+        /// same way its source would if this were the first time either id was seen: an
+        /// entity referenced only as a relation target, never as its own component
+        /// record's id (a valid, common shape — a pure relationship node with no
+        /// components of its own), is not a corruption signal. A record for a
+        /// discriminator absent from <c>World.DefaultComponentCodecRegistry</c> is
+        /// silently skipped, same as an unknown type is on save. A file truncated or
+        /// corrupted partway through stops
         /// replay cleanly at the last complete, valid record rather than throwing or
         /// misreading garbage. A record whose stored schema hash doesn't match the
         /// currently-registered type's hash is migrated via
@@ -111,7 +125,7 @@ public static class WorldPersistenceExtensions
             Internal.CheckpointRecordIO.ReadHeader(stream);
             var entities = new Dictionary<EntityId, Entity>();
 
-            while (Internal.CheckpointRecordIO.TryReadRecord(stream, out _, out var entityId, out _, out var discriminator, out var schemaHash, out var payload))
+            while (Internal.CheckpointRecordIO.TryReadRecord(stream, out var kind, out var entityId, out var targetId, out var discriminator, out var schemaHash, out var payload))
             {
                 if (!entities.TryGetValue(entityId, out var entity))
                 {
@@ -119,13 +133,32 @@ public static class WorldPersistenceExtensions
                     entities[entityId] = entity;
                 }
 
-                if (!registry.TryGetByDiscriminator(discriminator, out var registered)) continue;
+                if (kind == Internal.CheckpointRecordKind.Component)
+                {
+                    if (!registry.TryGetByDiscriminator(discriminator, out var registered)) continue;
 
-                var bytesToDecode = payload;
-                if (registered.SchemaHash is { } currentHash && schemaHash is { } recordHash && recordHash != currentHash)
-                    bytesToDecode = registry.Migrate(discriminator, recordHash, payload);
+                    var bytesToDecode = payload;
+                    if (registered.SchemaHash is { } currentHash && schemaHash is { } recordHash && recordHash != currentHash)
+                        bytesToDecode = registry.Migrate(discriminator, recordHash, payload);
 
-                registered.DecodeInto(world, entity, bytesToDecode);
+                    registered.DecodeInto(world, entity, bytesToDecode);
+                }
+                else
+                {
+                    if (!entities.TryGetValue(targetId, out var target))
+                    {
+                        target = world.Commands.CreateEntity();
+                        entities[targetId] = target;
+                    }
+
+                    if (!registry.TryGetRelationByDiscriminator(discriminator, out var relationRegistered)) continue;
+
+                    var bytesToDecode = payload;
+                    if (relationRegistered.SchemaHash is { } currentHash && schemaHash is { } recordHash && recordHash != currentHash)
+                        bytesToDecode = registry.Migrate(discriminator, recordHash, payload);
+
+                    relationRegistered.DecodeInto(world, entity, target, bytesToDecode);
+                }
             }
 
             world.ApplyCommands();

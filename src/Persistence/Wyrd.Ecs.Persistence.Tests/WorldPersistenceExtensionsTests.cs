@@ -177,6 +177,130 @@ public class WorldPersistenceExtensionsTests : IDisposable
         found.Should().BeTrue();
     }
 
+    private struct Likes : IRelation
+    {
+        public float Weight;
+    }
+
+    private static ComponentCodecRegistry BuildRegistryWithRelation()
+    {
+        var registry = BuildRegistry();
+        registry.RegisterRelation<Likes>("Likes",
+            v => BitConverter.GetBytes(v.Weight),
+            d => new Likes { Weight = BitConverter.ToSingle(d) });
+        return registry;
+    }
+
+    [Fact]
+    public void Save_ThenLoad_RoundTripsARelationEdge()
+    {
+        var registry = BuildRegistryWithRelation();
+        var source = new World();
+        source.DefaultComponentCodecRegistry = registry;
+        Entity a = source.Commands.CreateEntity(new Position { X = 1f });
+        Entity b = source.Commands.CreateEntity(new Position { X = 2f });
+        source.ApplyCommands();
+        source.Commands.AddRelation(a, b, new Likes { Weight = 3f });
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+
+        source.Save(store);
+
+        var target = new World();
+        target.DefaultComponentCodecRegistry = registry;
+        target.Load(store);
+
+        Entity? loadedA = null;
+        Entity? loadedB = null;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
+        {
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                if (positions[i].X == 1f) loadedA = chunk.Entities[i];
+                if (positions[i].X == 2f) loadedB = chunk.Entities[i];
+            }
+        }
+
+        loadedA.Should().NotBeNull();
+        loadedB.Should().NotBeNull();
+        target.Targets<Likes>(loadedA!.Value).Should().ContainKey(loadedB!.Value)
+            .WhoseValue.Weight.Should().Be(3f);
+    }
+
+    [Fact]
+    public void Save_ThenLoad_DoesNotPersistRelationBacklinksDirectly_ItsRebuiltFromTheLinkRecord()
+    {
+        var registry = BuildRegistryWithRelation();
+        var source = new World();
+        source.DefaultComponentCodecRegistry = registry;
+        Entity a = source.Commands.CreateEntity();
+        Entity b = source.Commands.CreateEntity();
+        source.ApplyCommands();
+        source.Commands.AddRelation(a, b, new Likes { Weight = 1f });
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+
+        source.Save(store);
+
+        var target = new World();
+        target.DefaultComponentCodecRegistry = registry;
+        target.Load(store);
+
+        var hasLinks = false;
+        var hasBacklinks = false;
+        foreach (var snapshot in target.EnumerateEntities(registry))
+        {
+            if (target.HasComponent<RelationLinks<Likes>>(snapshot.Entity)) hasLinks = true;
+            if (target.HasComponent<RelationBacklinks<Likes>>(snapshot.Entity)) hasBacklinks = true;
+        }
+
+        hasLinks.Should().BeTrue("the source side of the edge must exist after load");
+        hasBacklinks.Should().BeTrue("AddRelation's apply-time op must have rebuilt the backlink as a side effect of replaying the link");
+    }
+
+    /// <summary>
+    /// A relation record's target id might never appear as any other record's own
+    /// entity id — either because, like <see cref="Save_ThenLoad_DoesNotPersistRelationBacklinksDirectly_ItsRebuiltFromTheLinkRecord"/>,
+    /// the target genuinely has no components of its own, or (this test's scenario)
+    /// because the file was hand-crafted and the id was simply never real. Either way
+    /// <c>Load</c> can't tell the difference from a forward pass with no lookahead, so
+    /// it creates a fresh entity for it the same as it would for any other
+    /// first-seen id — not a corruption signal.
+    /// </summary>
+    [Fact]
+    public void Save_ThenLoad_ARelationRecordsTargetNeverSeenElsewhere_StillGetsAFreshEntityAndTheEdge()
+    {
+        var registry = BuildRegistryWithRelation();
+        var source = new World();
+        source.DefaultComponentCodecRegistry = registry;
+        Entity a = source.Commands.CreateEntity();
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+
+        using (var stream = store.OpenCheckpointWrite())
+        {
+            Wyrd.Ecs.Persistence.Internal.CheckpointRecordIO.WriteHeader(stream, source.CurrentTick);
+            var payload = BitConverter.GetBytes(1f);
+            Wyrd.Ecs.Persistence.Internal.CheckpointRecordIO.WriteRelationRecord(
+                stream, source.GetPermanentId(a), EntityId.NewId(), "Likes", null, payload);
+        }
+
+        var target = new World();
+        target.DefaultComponentCodecRegistry = registry;
+        var act = () => target.Load(store);
+        act.Should().NotThrow();
+
+        Entity? loadedA = null;
+        foreach (var snapshot in target.EnumerateEntities(registry))
+            if (target.HasComponent<RelationLinks<Likes>>(snapshot.Entity)) loadedA = snapshot.Entity;
+
+        loadedA.Should().NotBeNull();
+        var likesTargets = target.Targets<Likes>(loadedA!.Value);
+        likesTargets.Should().HaveCount(1);
+        likesTargets.Values.Single().Weight.Should().Be(1f);
+    }
+
     [Fact]
     public void Save_ThenLoad_PreservesMultipleEntitiesIndependently()
     {

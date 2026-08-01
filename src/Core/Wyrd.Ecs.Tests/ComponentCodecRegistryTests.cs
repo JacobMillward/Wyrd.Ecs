@@ -201,6 +201,20 @@ public class ComponentCodecRegistryTests
         act.Should().Throw<ArgumentException>();
     }
 
+    private struct Likes : IRelation;
+
+    [Fact]
+    public void Migrate_ForARelationDiscriminator_TransformsTheBytesToTheCurrentSchema()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.RegisterRelation<Likes>("likes", v => [], d => default, schemaHash: 2u);
+        registry.RegisterMigration("likes", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => Encoding.UTF8.GetBytes("migrated"));
+
+        var result = registry.Migrate("likes", fromSchemaHash: 1u, [1, 2, 3]);
+
+        Encoding.UTF8.GetString(result).Should().Be("migrated");
+    }
+
     [Fact]
     public async Task Migrate_WithAChainThatCyclesWithoutEverReachingTheCurrentSchema_ThrowsInsteadOfLoopingForever()
     {
