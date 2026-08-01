@@ -21,6 +21,15 @@ public interface IRelationCodec
     byte[] EncodeValue(object value);
 
     /// <summary>
+    /// Reads and encodes the current payload of the edge from <paramref name="source"/>
+    /// to <paramref name="target"/>. Only safe to call while that edge is known to
+    /// still exist — <see cref="World.Targets{T}"/> throws if <paramref name="source"/>
+    /// has no <c>RelationLinks{T}</c> component, or if <paramref name="target"/> isn't
+    /// one of its keys.
+    /// </summary>
+    byte[] EncodeEdge(World world, Entity source, Entity target);
+
+    /// <summary>
     /// Encodes every edge in <paramref name="rawItems"/>[<paramref name="row"/>] (a
     /// <c>RelationLinks{T}[]</c> component storage's <c>RawItems</c> array) — one
     /// <c>(Target, Payload)</c> pair per target the source entity at that row has an

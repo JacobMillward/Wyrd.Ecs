@@ -20,6 +20,9 @@ internal sealed class RelationCodec<T> : IRelationCodec where T : struct, IRelat
 
     public byte[] EncodeValue(object value) => _encode((T)value);
 
+    public byte[] EncodeEdge(World world, Entity source, Entity target) =>
+        _encode(world.Targets<T>(source)[target]);
+
     public IEnumerable<(Entity Target, byte[] Payload)> EncodeRow(Array rawItems, int row)
     {
         var links = ((RelationLinks<T>[])rawItems)[row];

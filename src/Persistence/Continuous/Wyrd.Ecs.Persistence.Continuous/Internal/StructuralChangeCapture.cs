@@ -1,10 +1,11 @@
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
-/// Turns entity/component lifecycle events into <see cref="CapturedWalEntry"/> values
-/// via <paramref name="onCaptured"/>. Only <see cref="OnEntityCreated"/>,
-/// <see cref="OnEntityDestroyed"/>, and <see cref="OnComponentRemoved"/> produce
-/// anything — <see cref="OnComponentAdded"/> is a deliberate no-op, since
+/// Turns entity/component/relation lifecycle events into <see cref="CapturedWalEntry"/>
+/// values via <paramref name="onCaptured"/>. <see cref="OnEntityCreated"/>,
+/// <see cref="OnEntityDestroyed"/>, <see cref="OnComponentRemoved"/>,
+/// <see cref="OnRelationLinked"/>, and <see cref="OnRelationUnlinked"/> produce
+/// something — <see cref="OnComponentAdded"/> is a deliberate no-op, since
 /// <c>World.AddComponent</c> already marks a tracked type's storage dirty on add, so the
 /// next <see cref="IComponentCodec.EncodeChanges"/> scan already captures the same data
 /// as an ordinary value change; a separate <c>ComponentAdded</c> WAL record would be
@@ -31,4 +32,17 @@ internal sealed class StructuralChangeCapture(World world, ComponentCodecRegistr
     public void OnTagAdded(Entity entity, int typeIndex) { }
 
     public void OnTagRemoved(Entity entity, int typeIndex) { }
+
+    public void OnRelationLinked(Entity source, Entity target, int typeIndex)
+    {
+        if (!registry.TryGetRelationByTypeIndex(typeIndex, out var codec)) return;
+        var payload = codec.EncodeEdge(world, source, target);
+        onCaptured(new CapturedWalEntry(WalRecordKind.RelationLinked, world.CurrentTick, world.GetPermanentId(source), codec.Discriminator, codec.SchemaHash, payload, world.GetPermanentId(target)));
+    }
+
+    public void OnRelationUnlinked(Entity source, Entity target, int typeIndex)
+    {
+        if (!registry.TryGetRelationByTypeIndex(typeIndex, out var codec)) return;
+        onCaptured(new CapturedWalEntry(WalRecordKind.RelationUnlinked, world.CurrentTick, world.GetPermanentId(source), codec.Discriminator, codec.SchemaHash, [], world.GetPermanentId(target)));
+    }
 }
