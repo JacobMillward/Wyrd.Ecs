@@ -14,6 +14,9 @@ public class ComponentCodecRegistryTests
         public float X;
     }
 
+    private struct Enemy : ITag { }
+    private struct Projectile : ITag { }
+
     private static ComponentEncoder<Position> SerializePosition => p => Encoding.UTF8.GetBytes(p.X.ToString());
     private static ComponentDecoder<Position> DeserializePosition => bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) };
 
@@ -211,5 +214,65 @@ public class ComponentCodecRegistryTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*Position*");
+    }
+
+    [Fact]
+    public void RegisterTag_ThenTryGetTagByDiscriminator_FindsIt()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.RegisterTag<Enemy>("Enemy");
+
+        registry.TryGetTagByDiscriminator("Enemy", out var typeIndex).Should().BeTrue();
+        typeIndex.Should().Be(Wyrd.Ecs.Internal.TypeIndex<Enemy>.Value);
+    }
+
+    [Fact]
+    public void RegisterTag_ThenTryGetTagByTypeIndex_FindsTheSameDiscriminator()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.RegisterTag<Enemy>("Enemy");
+
+        registry.TryGetTagByTypeIndex(Wyrd.Ecs.Internal.TypeIndex<Enemy>.Value, out var discriminator).Should().BeTrue();
+        discriminator.Should().Be("Enemy");
+    }
+
+    [Fact]
+    public void TryGetTagByDiscriminator_ForAnUnregisteredDiscriminator_ReturnsFalse()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.TryGetTagByDiscriminator("Nonexistent", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TryGetTagByTypeIndex_ForAnUnregisteredType_ReturnsFalse()
+    {
+        var registry = new ComponentCodecRegistry();
+
+        registry.TryGetTagByTypeIndex(Wyrd.Ecs.Internal.TypeIndex<Projectile>.Value, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void RegisterTag_WithADuplicateDiscriminator_Throws()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.RegisterTag<Enemy>("Enemy");
+
+        var act = () => registry.RegisterTag<Projectile>("Enemy");
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void RegisterTag_TheSameTypeTwiceUnderDifferentDiscriminators_Throws()
+    {
+        var registry = new ComponentCodecRegistry();
+        registry.RegisterTag<Enemy>("Enemy");
+
+        var act = () => registry.RegisterTag<Enemy>("Enemy_V2");
+
+        act.Should().Throw<ArgumentException>();
     }
 }

@@ -6,12 +6,22 @@ namespace Wyrd.Ecs;
 /// "Save everything" is registering every component type; a narrower policy registers
 /// only the types it cares about. The same mechanism serves both, and Wyrd itself has
 /// no opinion on which a given consumer chooses.
+///
+/// <para>
+/// Also maps tag types (<see cref="ITag"/>, which carry no data and so need no codec) to
+/// a display discriminator via <see cref="RegisterTag{T}"/> — used by debug/inspection
+/// output (<see cref="World.EnumerateArchetypes"/>/<see cref="World.EnumerateEntities"/>),
+/// not persistence. A separate dictionary pair from the component-codec ones below, not a
+/// separate type, so a caller only ever threads one registry object through either use.
+/// </para>
 /// </summary>
 public sealed class ComponentCodecRegistry
 {
     private readonly Dictionary<string, IComponentCodec> _byDiscriminator = new();
     private readonly Dictionary<int, IComponentCodec> _byTypeIndex = new();
     private readonly Dictionary<(string Discriminator, uint FromSchemaHash), (uint ToSchemaHash, SchemaMigrationStep Migrate)> _migrations = new();
+    private readonly Dictionary<string, int> _tagsByDiscriminator = new();
+    private readonly Dictionary<int, string> _tagsByTypeIndex = new();
 
     /// <summary>
     /// Registers <typeparamref name="T"/> under <paramref name="discriminator"/> — a
@@ -36,6 +46,37 @@ public sealed class ComponentCodecRegistry
         _byDiscriminator[discriminator] = entry;
         _byTypeIndex[typeIndex] = entry;
     }
+
+    /// <summary>
+    /// Registers <typeparamref name="T"/> — a tag, carrying no data — under
+    /// <paramref name="discriminator"/> so it can be named in debug/inspection output.
+    /// Throws under the same conditions as <see cref="Register{T}"/>: a duplicate
+    /// discriminator, or the same type registered twice under different discriminators.
+    /// Kept as a separate dictionary pair from the component-codec ones (not merged into
+    /// <see cref="IComponentCodec"/>) since a tag has no encode/decode/schema-hash to
+    /// give it, and a tag discriminator is allowed to collide with a component
+    /// discriminator.
+    /// </summary>
+    public void RegisterTag<T>(string discriminator) where T : struct, ITag
+    {
+        if (_tagsByDiscriminator.ContainsKey(discriminator))
+            throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
+
+        var typeIndex = Internal.TypeIndex<T>.Value;
+        if (_tagsByTypeIndex.TryGetValue(typeIndex, out var existing))
+            throw new ArgumentException($"Type '{typeof(T)}' is already registered under discriminator '{existing}'.");
+
+        _tagsByDiscriminator[discriminator] = typeIndex;
+        _tagsByTypeIndex[typeIndex] = discriminator;
+    }
+
+    /// <summary>Looks up a registered tag's discriminator by its current-process <see cref="Internal.TypeIndex{T}"/>.</summary>
+    public bool TryGetTagByTypeIndex(int typeIndex, out string discriminator) =>
+        _tagsByTypeIndex.TryGetValue(typeIndex, out discriminator!);
+
+    /// <summary>Looks up a registered tag's current-process <see cref="Internal.TypeIndex{T}"/> by its discriminator.</summary>
+    public bool TryGetTagByDiscriminator(string discriminator, out int typeIndex) =>
+        _tagsByDiscriminator.TryGetValue(discriminator, out typeIndex);
 
     /// <summary>
     /// Every currently registered codec, in no particular order — used by a consumer
