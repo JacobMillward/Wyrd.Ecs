@@ -24,4 +24,10 @@ public enum WalRecordKind : byte
 
     /// <summary>A component was removed from an entity.</summary>
     ComponentRemoved = 4,
+
+    /// <summary>A relation edge was added.</summary>
+    RelationLinked = 5,
+
+    /// <summary>A relation edge no longer exists.</summary>
+    RelationUnlinked = 6,
 }

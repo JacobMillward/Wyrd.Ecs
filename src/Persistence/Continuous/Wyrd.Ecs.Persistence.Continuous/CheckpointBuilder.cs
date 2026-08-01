@@ -40,7 +40,7 @@ public static class CheckpointBuilder
             using var segmentStream = walStore.OpenSegmentRead(startTick);
             Internal.WalSegmentIO.ReadHeader(segmentStream);
 
-            while (Internal.WalSegmentIO.TryReadRecord(segmentStream, out var kind, out var tick, out var entityId, out var discriminator, out var schemaHash, out var payload))
+            while (Internal.WalSegmentIO.TryReadRecord(segmentStream, out var kind, out var tick, out var entityId, out _, out var discriminator, out var schemaHash, out var payload))
             {
                 if (tick <= priorTick || tick > targetTick) continue;
                 Apply(entries, byEntity, kind, entityId, discriminator, schemaHash, payload);

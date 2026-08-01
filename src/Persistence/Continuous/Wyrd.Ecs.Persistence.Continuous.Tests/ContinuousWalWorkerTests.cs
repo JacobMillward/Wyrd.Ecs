@@ -59,7 +59,7 @@ public class ContinuousWalWorkerTests : IDisposable
         using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
         WalSegmentIO.ReadHeader(readStream);
         var records = new List<(WalRecordKind Kind, EntityId EntityId, string Discriminator)>();
-        while (WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out var readEntity, out var discriminator, out _, out _))
+        while (WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out var readEntity, out _, out var discriminator, out _, out _))
             records.Add((kind, readEntity, discriminator));
 
         records.Should().Contain(r => r.Kind == WalRecordKind.EntityCreated && r.EntityId == world.GetPermanentId(entity));
@@ -79,7 +79,7 @@ public class ContinuousWalWorkerTests : IDisposable
         act.Should().NotThrow();
         using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
         WalSegmentIO.ReadHeader(readStream);
-        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public class ContinuousWalWorkerTests : IDisposable
         {
             using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
             WalSegmentIO.ReadHeader(readStream);
-            while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _))
+            while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _, out _))
                 found = found || readEntity == world.GetPermanentId(entity);
             if (!found) Thread.Sleep(10);
         }
@@ -285,7 +285,7 @@ public class ContinuousWalWorkerTests : IDisposable
         using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
         WalSegmentIO.ReadHeader(readStream);
         var found = false;
-        while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _))
+        while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _, out _))
             found = found || readEntity == world.GetPermanentId(entity);
         found.Should().BeTrue();
     }

@@ -38,4 +38,21 @@ public class CapturedWalEntryTests
         baseline.Equals(baseline with { SchemaHash = 43u }).Should().BeFalse();
         baseline.Equals(baseline with { SchemaHash = null }).Should().BeFalse();
     }
+
+    [Fact]
+    public void Equals_ForDifferingTargetId_ReturnsFalse()
+    {
+        var entityId = EntityId.NewId();
+        var baseline = new CapturedWalEntry(WalRecordKind.RelationLinked, 5, entityId, "Likes", null, [1], EntityId.NewId());
+
+        baseline.Equals(baseline with { TargetId = EntityId.NewId() }).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TargetId_DefaultsToNull()
+    {
+        var entry = new CapturedWalEntry(WalRecordKind.ComponentChanged, 5, EntityId.NewId(), "Position", null, [1]);
+
+        entry.TargetId.Should().BeNull();
+    }
 }

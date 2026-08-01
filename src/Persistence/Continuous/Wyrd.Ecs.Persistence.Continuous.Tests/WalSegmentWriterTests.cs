@@ -53,10 +53,33 @@ public class WalSegmentWriterTests : IDisposable
 
         using var readStream = walStore.OpenSegmentRead(1);
         WalSegmentIO.ReadHeader(readStream);
-        WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out var readEntity, out var discriminator, out _, out _).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out var readEntity, out _, out var discriminator, out _, out _).Should().BeTrue();
         kind.Should().Be(WalRecordKind.ComponentChanged);
         readEntity.Should().Be(entity);
         discriminator.Should().Be("Position");
+    }
+
+    [Fact]
+    public void WriteRecords_RoutesARelationKindEntryThroughWriteRelationRecord()
+    {
+        var walStore = new FileWalStore(BasePath);
+        var writer = new WalSegmentWriter(walStore);
+        writer.EnsureSegmentOpen(1);
+        var sourceId = EntityId.NewId();
+        var targetId = EntityId.NewId();
+        var ready = new List<CapturedWalEntry> { new(WalRecordKind.RelationLinked, 1, sourceId, "Likes", null, [1, 2, 3, 4], targetId) };
+
+        writer.WriteRecords(new DrainedChanges(ready, []));
+        writer.Flush();
+
+        using var readStream = walStore.OpenSegmentRead(1);
+        WalSegmentIO.ReadHeader(readStream);
+        WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out var readSourceId, out var readTargetId, out var discriminator, out _, out var payload).Should().BeTrue();
+        kind.Should().Be(WalRecordKind.RelationLinked);
+        readSourceId.Should().Be(sourceId);
+        readTargetId.Should().Be(targetId);
+        discriminator.Should().Be("Likes");
+        payload.Should().Equal(new byte[] { 1, 2, 3, 4 });
     }
 
     [Fact]
@@ -73,7 +96,7 @@ public class WalSegmentWriterTests : IDisposable
 
         using var readStream = walStore.OpenSegmentRead(1);
         WalSegmentIO.ReadHeader(readStream);
-        WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out _, out var discriminator, out _, out var payload).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out _, out _, out var discriminator, out _, out var payload).Should().BeTrue();
         kind.Should().Be(WalRecordKind.ComponentChanged);
         discriminator.Should().Be("Fake");
         BitConverter.ToSingle(payload).Should().Be(42f);
@@ -99,7 +122,7 @@ public class WalSegmentWriterTests : IDisposable
         using var readStream = walStore.OpenSegmentRead(1);
         WalSegmentIO.ReadHeader(readStream);
         var kinds = new List<WalRecordKind>();
-        while (WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out _, out _, out _, out _))
+        while (WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out _, out _, out _, out _, out _))
             kinds.Add(kind);
 
         kinds.Should().Equal(WalRecordKind.ComponentChanged, WalRecordKind.EntityDestroyed);
@@ -142,7 +165,7 @@ public class WalSegmentWriterTests : IDisposable
 
         using var readStream = walStore.OpenSegmentRead(1);
         WalSegmentIO.ReadHeader(readStream);
-        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -170,7 +193,7 @@ public class WalSegmentWriterTests : IDisposable
 
         using var readStream = walStore.OpenSegmentRead(1);
         WalSegmentIO.ReadHeader(readStream);
-        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _, out _).Should().BeTrue();
     }
 
     private sealed class FakeCodec : IComponentCodec

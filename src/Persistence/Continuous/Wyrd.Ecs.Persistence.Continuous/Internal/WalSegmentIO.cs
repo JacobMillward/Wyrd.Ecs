@@ -10,11 +10,14 @@ namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 /// truncation-tolerant reads) — deliberately duplicated rather than shared across the
 /// package boundary: <c>CheckpointRecordIO</c> is internal to
 /// <c>Wyrd.Ecs.Persistence</c>, and a WAL record needs two fields a checkpoint record
-/// doesn't — <see cref="WalRecordKind"/> and a tick. <see cref="TryReadRecord"/>
-/// returns false (never throws) on any short read or checksum mismatch, so a segment
-/// truncated or corrupted mid-record by a crash mid-write is detected and replay
-/// cleanly stops at the last complete, valid record instead of misreading garbage as
-/// data.
+/// doesn't — <see cref="WalRecordKind"/> and a tick. A <see cref="WalRecordKind.RelationLinked"/>/
+/// <see cref="WalRecordKind.RelationUnlinked"/> record carries a second <see cref="EntityId"/>
+/// (the edge's target) immediately after the first — written via <see cref="WriteRelationRecord(Stream, WalRecordKind, int, EntityId, EntityId, string, uint?, byte[])"/>,
+/// read back via the same <see cref="TryReadRecord"/> every other kind uses.
+/// <see cref="TryReadRecord"/> returns false (never throws) on any short read or
+/// checksum mismatch, so a segment truncated or corrupted mid-record by a crash mid-write
+/// is detected and replay cleanly stops at the last complete, valid record instead of
+/// misreading garbage as data.
 /// </summary>
 internal static class WalSegmentIO
 {
@@ -78,15 +81,49 @@ internal static class WalSegmentIO
         recordBuffer.SetLength(0);
         recordWriter.Write((byte)kind);
         recordWriter.Write(tick);
-        recordWriter.Write((ulong)(entityId.Value >> 64));
-        recordWriter.Write((ulong)entityId.Value);
-        recordWriter.Write(discriminator);
-        recordWriter.Write(schemaHash.HasValue);
-        recordWriter.Write(schemaHash ?? 0);
-        recordWriter.Write(payload.Length);
-        recordWriter.Write(payload);
-        recordWriter.Flush();
+        WriteEntityId(recordWriter, entityId);
+        WriteTail(recordWriter, discriminator, schemaHash, payload);
+        FlushRecord(stream, recordBuffer, recordWriter);
+    }
 
+    /// <summary>Same as <see cref="WriteRecord(Stream, WalRecordKind, int, EntityId, string, uint?, byte[])"/>, for a relation-edge record — carries a second <see cref="EntityId"/> for the edge's target.</summary>
+    public static void WriteRelationRecord(Stream stream, WalRecordKind kind, int tick, EntityId sourceId, EntityId targetId, string discriminator, uint? schemaHash, byte[] payload)
+    {
+        using var recordBuffer = new MemoryStream();
+        using var recordWriter = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true);
+        WriteRelationRecord(stream, recordBuffer, recordWriter, kind, tick, sourceId, targetId, discriminator, schemaHash, payload);
+    }
+
+    /// <summary>Same as <see cref="WriteRecord(Stream, MemoryStream, BinaryWriter, WalRecordKind, int, EntityId, string, uint?, byte[])"/>, for a relation-edge record.</summary>
+    public static void WriteRelationRecord(Stream stream, MemoryStream recordBuffer, BinaryWriter recordWriter, WalRecordKind kind, int tick, EntityId sourceId, EntityId targetId, string discriminator, uint? schemaHash, byte[] payload)
+    {
+        recordBuffer.SetLength(0);
+        recordWriter.Write((byte)kind);
+        recordWriter.Write(tick);
+        WriteEntityId(recordWriter, sourceId);
+        WriteEntityId(recordWriter, targetId);
+        WriteTail(recordWriter, discriminator, schemaHash, payload);
+        FlushRecord(stream, recordBuffer, recordWriter);
+    }
+
+    private static void WriteEntityId(BinaryWriter writer, EntityId entityId)
+    {
+        writer.Write((ulong)(entityId.Value >> 64));
+        writer.Write((ulong)entityId.Value);
+    }
+
+    private static void WriteTail(BinaryWriter writer, string discriminator, uint? schemaHash, byte[] payload)
+    {
+        writer.Write(discriminator);
+        writer.Write(schemaHash.HasValue);
+        writer.Write(schemaHash ?? 0);
+        writer.Write(payload.Length);
+        writer.Write(payload);
+    }
+
+    private static void FlushRecord(Stream stream, MemoryStream recordBuffer, BinaryWriter recordWriter)
+    {
+        recordWriter.Flush();
         var recordBytes = recordBuffer.GetBuffer();
         var recordLength = (int)recordBuffer.Length;
         var checksum = Crc32.HashToUInt32(recordBytes.AsSpan(0, recordLength));
@@ -97,11 +134,12 @@ internal static class WalSegmentIO
         outWriter.Write(checksum);
     }
 
-    public static bool TryReadRecord(Stream stream, out WalRecordKind kind, out int tick, out EntityId entityId, out string discriminator, out uint? schemaHash, out byte[] payload)
+    public static bool TryReadRecord(Stream stream, out WalRecordKind kind, out int tick, out EntityId entityId, out EntityId targetId, out string discriminator, out uint? schemaHash, out byte[] payload)
     {
         kind = default;
         tick = 0;
         entityId = default;
+        targetId = default;
         discriminator = string.Empty;
         schemaHash = null;
         payload = [];
@@ -123,9 +161,10 @@ internal static class WalSegmentIO
         using var reader = new BinaryReader(new MemoryStream(recordBytes), Encoding.UTF8);
         kind = (WalRecordKind)reader.ReadByte();
         tick = reader.ReadInt32();
-        var upper = reader.ReadUInt64();
-        var lower = reader.ReadUInt64();
-        entityId = new EntityId(new UInt128(upper, lower));
+        entityId = ReadEntityId(reader);
+        if (kind is WalRecordKind.RelationLinked or WalRecordKind.RelationUnlinked)
+            targetId = ReadEntityId(reader);
+
         discriminator = reader.ReadString();
         var hasSchemaHash = reader.ReadBoolean();
         var schemaHashValue = reader.ReadUInt32();
@@ -133,6 +172,13 @@ internal static class WalSegmentIO
         var payloadLength = reader.ReadInt32();
         payload = reader.ReadBytes(payloadLength);
         return true;
+    }
+
+    private static EntityId ReadEntityId(BinaryReader reader)
+    {
+        var upper = reader.ReadUInt64();
+        var lower = reader.ReadUInt64();
+        return new EntityId(new UInt128(upper, lower));
     }
 
     private static bool TryReadFully(Stream stream, Span<byte> buffer)

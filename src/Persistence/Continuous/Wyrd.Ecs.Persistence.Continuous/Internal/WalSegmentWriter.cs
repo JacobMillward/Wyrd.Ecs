@@ -70,7 +70,10 @@ internal sealed class WalSegmentWriter(IWalStore walStore)
                 if (writeReady)
                 {
                     var entry = changes.Ready[readyIndex++];
-                    WalSegmentIO.WriteRecord(_currentSegment, RecordBuffer, _recordWriter, entry.Kind, entry.Tick, entry.EntityId, entry.Discriminator, entry.SchemaHash, entry.Payload);
+                    if (entry.Kind is WalRecordKind.RelationLinked or WalRecordKind.RelationUnlinked)
+                        WalSegmentIO.WriteRelationRecord(_currentSegment, RecordBuffer, _recordWriter, entry.Kind, entry.Tick, entry.EntityId, entry.TargetId!.Value, entry.Discriminator, entry.SchemaHash, entry.Payload);
+                    else
+                        WalSegmentIO.WriteRecord(_currentSegment, RecordBuffer, _recordWriter, entry.Kind, entry.Tick, entry.EntityId, entry.Discriminator, entry.SchemaHash, entry.Payload);
                 }
                 else
                 {
