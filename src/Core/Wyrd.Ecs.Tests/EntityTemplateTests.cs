@@ -113,4 +113,21 @@ public class EntityTemplateTests
         foreach (var change in world.ReadChanges<Position>(sinceTick)) seen.Add(change.Entity);
         seen.Should().NotContain(entity);
     }
+
+    private struct Hostile : ITag;
+
+    [Fact]
+    public void AddTag_ContributesSignatureBitButNoStorage()
+    {
+        var world = new World();
+        var template = new EntityTemplate()
+            .AddComponent(new Position())
+            .AddTag<Hostile>();
+
+        Entity entity = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.HasTag<Hostile>(entity).Should().BeTrue();
+        template.Setters.Should().HaveCount(1); // the tag itself adds no setter
+    }
 }

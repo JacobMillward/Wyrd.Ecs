@@ -53,6 +53,19 @@ public class EntityTemplate
         return this;
     }
 
+    /// <summary>
+    /// Adds tag <typeparamref name="T"/> to this template. Unlike <see cref="AddComponent{T}"/>,
+    /// this only ORs <typeparamref name="T"/>'s type index into <see cref="Signature"/> — a
+    /// tag contributes no storage (<c>Archetype.Signature</c>'s own doc: "tags contribute
+    /// only to Signature, never get a storage entry"), so there's no setter to build. Its
+    /// entire instantiation cost is already paid by build time.
+    /// </summary>
+    public EntityTemplate AddTag<T>() where T : struct, ITag
+    {
+        _signature = _signature.With(Internal.TypeIndex<T>.Value);
+        return this;
+    }
+
     private static TemplateComponentSetter MakeSetter<T>(T value) where T : struct, IComponent =>
         (world, archetype, startRow, count) =>
         {
