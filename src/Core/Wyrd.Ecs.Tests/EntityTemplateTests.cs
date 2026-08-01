@@ -130,4 +130,69 @@ public class EntityTemplateTests
         world.HasTag<Hostile>(entity).Should().BeTrue();
         template.Setters.Should().HaveCount(1); // the tag itself adds no setter
     }
+
+    [Fact]
+    public void AddChild_InstantiatesTheWholeTree_WithParentEdges()
+    {
+        var world = new World();
+        var child = new EntityTemplate().AddComponent(new Position());
+        var root = new EntityTemplate().AddComponent(new Health { Value = 10 }).AddChild(child);
+
+        Entity rootEntity = world.Commands.CreateEntity(root);
+        world.ApplyCommands();
+
+        var children = world.Sources<Parent>(rootEntity);
+        children.Should().HaveCount(1);
+        var childEntity = children.Single();
+        world.HasComponent<Position>(childEntity).Should().BeTrue();
+        world.Targets<Parent>(childEntity).Should().ContainKey(rootEntity);
+    }
+
+    [Fact]
+    public void AddChild_SupportsMultipleLevelsOfNesting()
+    {
+        var world = new World();
+        var grandchild = new EntityTemplate().AddComponent(new Position());
+        var child = new EntityTemplate().AddComponent(new Health { Value = 1 }).AddChild(grandchild);
+        var root = new EntityTemplate().AddChild(child);
+
+        Entity rootEntity = world.Commands.CreateEntity(root);
+        world.ApplyCommands();
+
+        var childEntity = world.Sources<Parent>(rootEntity).Single();
+        var grandchildEntity = world.Sources<Parent>(childEntity).Single();
+        world.HasComponent<Position>(grandchildEntity).Should().BeTrue();
+    }
+
+    [Fact]
+    public void AddChild_ReusesTheSameChildTemplateFromMultipleParents()
+    {
+        var world = new World();
+        var shared = new EntityTemplate().AddComponent(new Position());
+        var rootA = new EntityTemplate().AddChild(shared);
+        var rootB = new EntityTemplate().AddChild(shared);
+
+        Entity a = world.Commands.CreateEntity(rootA);
+        Entity b = world.Commands.CreateEntity(rootB);
+        world.ApplyCommands();
+
+        world.Sources<Parent>(a).Single().Should().NotBe(world.Sources<Parent>(b).Single());
+    }
+
+    [Fact]
+    public void DestroyingTheRootOfAnInstantiatedTree_CascadesThroughChildren()
+    {
+        var world = new World();
+        var child = new EntityTemplate().AddComponent(new Position());
+        var root = new EntityTemplate().AddChild(child);
+
+        Entity rootEntity = world.Commands.CreateEntity(root);
+        world.ApplyCommands();
+        var childEntity = world.Sources<Parent>(rootEntity).Single();
+
+        world.Commands.DestroyEntity(rootEntity);
+        world.ApplyCommands();
+
+        world.IsAlive(childEntity).Should().BeFalse();
+    }
 }

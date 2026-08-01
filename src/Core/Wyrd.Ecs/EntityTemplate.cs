@@ -66,6 +66,27 @@ public class EntityTemplate
         return this;
     }
 
+    private readonly List<EntityTemplate> _children = new();
+
+    /// <summary>Every child template attached via <see cref="AddChild"/>, in call order.</summary>
+    internal IReadOnlyList<EntityTemplate> Children => _children;
+
+    /// <summary>
+    /// Attaches <paramref name="child"/> as a child of this template: instantiating this
+    /// template also instantiates <paramref name="child"/> (and its own children,
+    /// recursively) and connects each to its parent via the <see cref="Parent"/> relation
+    /// — one archetype move per node, no matter the tree's depth. <paramref name="child"/>
+    /// is a value, reusable from multiple parents (each instantiation creates its own,
+    /// independent set of entities). Because <paramref name="child"/> must already exist as
+    /// a constructed <see cref="EntityTemplate"/> before it can be passed here, a cycle in
+    /// the child graph is structurally impossible.
+    /// </summary>
+    public EntityTemplate AddChild(EntityTemplate child)
+    {
+        _children.Add(child);
+        return this;
+    }
+
     private static TemplateComponentSetter MakeSetter<T>(T value) where T : struct, IComponent =>
         (world, archetype, startRow, count) =>
         {

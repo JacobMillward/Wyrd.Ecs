@@ -274,18 +274,114 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Reserves a real <see cref="Entity"/> immediately and queues its placement directly
-    /// into the archetype matching <paramref name="template"/>'s components/tags, writing
-    /// every component value in the same move — the <see cref="EntityTemplate"/>
-    /// counterpart of the generated <c>CreateEntity&lt;T0..Tn&gt;</c> family. Returns an
-    /// <see cref="EntityView"/> bound to this buffer, same chaining contract as every other
-    /// <see cref="CreateEntity()"/> overload. Not <see cref="World.IsAlive"/> until
-    /// <see cref="World.ApplyCommands()"/> runs.
+    /// into the archetype matching <paramref name="template"/>'s components/tags — the
+    /// <see cref="EntityTemplate"/> counterpart of the generated
+    /// <c>CreateEntity&lt;T0..Tn&gt;</c> family. For a template with children, instead
+    /// reserves and places every node of its tree (see <see cref="CreateEntityFromTree"/>);
+    /// a childless template with no <see cref="EntityTemplate.ExplicitParent"/> stays on
+    /// <see cref="CreateEntitySingleNode"/>'s zero-extra-allocation path regardless of how
+    /// it's called. Not <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs.
     /// </summary>
-    public EntityView CreateEntity(EntityTemplate template)
+    public EntityView CreateEntity(EntityTemplate template) =>
+        template.Children.Count > 0 ? CreateEntityFromTree(template) : CreateEntitySingleNode(template);
+
+    private EntityView CreateEntitySingleNode(EntityTemplate template)
     {
         var entity = _world.ReserveEntity();
         lock (_gate) Enqueue(new QueuedCommand(entity, TemplatePlacementOp.Apply, template, 0));
         return new EntityView(_world, this, entity);
+    }
+
+    private static class TemplateNodePlacementOp
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, _) =>
+        {
+            var (signature, setters) = ((Internal.ArchetypeSignature, IReadOnlyCollection<TemplateComponentSetter>))buffer!;
+            w.PlaceReservedEntityFromTemplate(e, signature, setters);
+        };
+    }
+
+    /// <summary>
+    /// One node in a flattened <see cref="EntityTemplate"/> tree: the node's own template
+    /// and the index, within the same flattened list, of its in-tree parent (-1 for the
+    /// root). Built by <see cref="FlattenTemplate"/>.
+    /// </summary>
+    private readonly record struct TemplateTreeNode(EntityTemplate Template, int ParentIndex);
+
+    /// <summary>
+    /// Depth-first flattens <paramref name="template"/> and every descendant (via
+    /// <see cref="EntityTemplate.Children"/>) into <paramref name="nodes"/>, each entry
+    /// recording its in-tree parent's index within the same list.
+    /// </summary>
+    private static void FlattenTemplate(EntityTemplate template, int parentIndex, List<TemplateTreeNode> nodes)
+    {
+        var index = nodes.Count;
+        nodes.Add(new TemplateTreeNode(template, parentIndex));
+        foreach (var child in template.Children)
+            FlattenTemplate(child, index, nodes);
+    }
+
+    /// <summary>
+    /// Reserves a real <see cref="Entity"/> for the root, and one more for every descendant
+    /// in <paramref name="template"/>'s child tree, in a single bulk
+    /// <see cref="World.ReserveEntityRange"/> call — not one reservation per node — then
+    /// queues one placement per node, each going directly into its own final archetype
+    /// (its own components/tags, plus a <see cref="RelationLinks{T}"/>/<see cref="RelationBacklinks{T}"/>
+    /// pair wherever an in-tree parent/child edge applies). Returns an
+    /// <see cref="EntityView"/> bound to the root only — descendants are discoverable
+    /// afterward via <see cref="World.Sources{T}"/>/<see cref="World.Targets{T}"/> once
+    /// alive, same as any other <see cref="Parent"/> edge.
+    /// </summary>
+    private EntityView CreateEntityFromTree(EntityTemplate template)
+    {
+        var nodes = new List<TemplateTreeNode>();
+        FlattenTemplate(template, -1, nodes);
+
+        var entities = new Entity[nodes.Count];
+        _world.ReserveEntityRange(entities);
+
+        // childrenOf[i]: every index j whose in-tree parent is node i. Needed up front so
+        // a parent node's RelationBacklinks<Parent> can be pre-populated with every one of
+        // its (already-reserved) children's ids before any placement is queued.
+        var childrenOf = new List<int>[nodes.Count];
+        for (var i = 0; i < nodes.Count; i++) childrenOf[i] = new List<int>();
+        for (var i = 1; i < nodes.Count; i++) childrenOf[nodes[i].ParentIndex].Add(i);
+
+        lock (_gate)
+        {
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                var signature = node.Template.Signature;
+                var setters = new List<TemplateComponentSetter>(node.Template.Setters);
+
+                if (node.ParentIndex >= 0)
+                {
+                    var parentEntity = entities[node.ParentIndex];
+                    signature = signature.With(Internal.TypeIndex<RelationLinks<Parent>>.Value);
+                    setters.Add((w, archetype, startRow, count) =>
+                    {
+                        var storage = archetype.GetOrCreateStorage<RelationLinks<Parent>>();
+                        storage.Fill(startRow, count, new RelationLinks<Parent>(new Dictionary<Entity, Parent> { [parentEntity] = default }));
+                    });
+                }
+
+                if (childrenOf[i].Count > 0)
+                {
+                    var childEntities = new HashSet<Entity>(childrenOf[i].Select(j => entities[j]));
+                    signature = signature.With(Internal.TypeIndex<RelationBacklinks<Parent>>.Value);
+                    setters.Add((w, archetype, startRow, count) =>
+                    {
+                        var storage = archetype.GetOrCreateStorage<RelationBacklinks<Parent>>();
+                        storage.Fill(startRow, count, new RelationBacklinks<Parent>(childEntities));
+                    });
+                }
+
+                Enqueue(new QueuedCommand(entities[i], TemplateNodePlacementOp.Apply, (signature, (IReadOnlyCollection<TemplateComponentSetter>)setters), 0));
+            }
+        }
+
+        return new EntityView(_world, this, entities[0]);
     }
 
     /// <summary>
