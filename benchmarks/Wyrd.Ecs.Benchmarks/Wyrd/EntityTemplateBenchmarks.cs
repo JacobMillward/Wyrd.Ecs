@@ -10,10 +10,17 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 /// instantiate than the equivalent generated <c>CreateEntity&lt;T0..Tn&gt;</c> call, same
 /// shape (four components, matching <see cref="TrackedEntityLifecycleBenchmarks.CreateFourComponentEntity"/>).
 /// Same <c>[SimpleJob(invocationCount: 1)]</c>/per-iteration world reset reasoning as that
-/// class — see its own docs for why.
+/// class — see its own docs for why. <c>warmupCount: 50</c> is deliberate, not a default: with
+/// BenchmarkDotNet's adaptive warmup, these specific benchmarks were observed to sometimes
+/// measure the arity-generated path mid-JIT-tier-up (Mean 213ns, StdDev 118ns — essentially as
+/// large as the mean, i.e. a coin flip between catching tier-0 and tier-1 code) and sometimes
+/// fully optimized (Mean 369ns, StdDev 5ns) across otherwise-identical runs. A fixed, generous
+/// warmup count makes every run measure steady-state (fully tiered) performance, which is what
+/// a long-running game reaches anyway — not a mid-warmup snapshot that happens to depend on
+/// how the adaptive heuristic's random early samples landed.
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(invocationCount: 1)]
+[SimpleJob(invocationCount: 1, warmupCount: 50)]
 public class EntityTemplateBenchmarks
 {
     private const int EntityCount = Comparison.EntityLifecycle.EntityLifecycleBenchmarks.EntityCount;

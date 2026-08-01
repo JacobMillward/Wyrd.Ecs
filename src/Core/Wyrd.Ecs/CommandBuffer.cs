@@ -287,17 +287,17 @@ public sealed partial class CommandBuffer
     /// <see cref="EntityTemplate"/> counterpart of the generated
     /// <c>CreateEntity&lt;T0..Tn&gt;</c> family. For a template with children, instead
     /// reserves and places every node of its tree (see <see cref="CreateEntityFromTree"/>);
-    /// a childless template with no <see cref="EntityTemplate.ExplicitParent"/> stays on
-    /// <see cref="CreateEntitySingleNode"/>'s zero-extra-allocation path regardless of how
-    /// it's called. Not <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs.
+    /// a childless template with no <see cref="EntityTemplate.ExplicitParent"/> stays on this
+    /// zero-extra-allocation path regardless of how it's called. Inlined directly here rather
+    /// than delegated to a separate private helper: measured to matter for how aggressively
+    /// the JIT optimizes this, the common case, once warmed up. Not
+    /// <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs.
     /// </summary>
-    public EntityView CreateEntity(EntityTemplate template) =>
-        template.Children.Count > 0 || template.ExplicitParent.HasValue
-            ? CreateEntityFromTree(template)
-            : CreateEntitySingleNode(template);
-
-    private EntityView CreateEntitySingleNode(EntityTemplate template)
+    public EntityView CreateEntity(EntityTemplate template)
     {
+        if (template.Children.Count > 0 || template.ExplicitParent.HasValue)
+            return CreateEntityFromTree(template);
+
         var entity = _world.ReserveEntity();
         lock (_gate) Enqueue(new QueuedCommand(entity, TemplatePlacementOp.Apply, template, 0));
         return new EntityView(_world, this, entity);
