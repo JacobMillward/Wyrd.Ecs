@@ -695,6 +695,9 @@ public sealed partial class World
 
     private Internal.ChangeFeedHub? _changeFeedHub;
 
+    /// <summary>Test-only visibility into the lazily-created change-feed hub.</summary>
+    internal Internal.ChangeFeedHub? DebugChangeFeedHub => _changeFeedHub;
+
     /// <summary>
     /// Subscribes to every <typeparamref name="T"/> value change, and — if
     /// <paramref name="structuralEvents"/> is true — every structural and relation event

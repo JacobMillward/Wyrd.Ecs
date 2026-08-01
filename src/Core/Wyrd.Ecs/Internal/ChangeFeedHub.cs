@@ -19,6 +19,9 @@ internal sealed class ChangeFeedHub
     private int _structuralSubscriberCount;
     private IDisposable? _structuralSubscription;
 
+    /// <summary>Test-only instrumentation: how many times <see cref="ScanType{T}"/> has run, i.e. once per distinct watched type per tick — not once per subscriber.</summary>
+    internal int ScanCount;
+
     internal ChangeFeedHub(World world) => _world = world;
 
     private sealed class Subscriber(bool wantsStructuralEvents)
@@ -70,6 +73,7 @@ internal sealed class ChangeFeedHub
 
     private void ScanType<T>(int typeIndex, int sinceTick) where T : struct, IComponent
     {
+        ScanCount++;
         foreach (var change in _world.ReadChanges<T>(sinceTick))
         {
             var entry = new ChangeEntry(change.Entity, Entity.Null, typeIndex, change.Tick, ChangeKind.ValueChanged);
@@ -83,9 +87,6 @@ internal sealed class ChangeFeedHub
     {
         if (_tickSubscribed) return;
         _tickSubscribed = true;
-        // CurrentTick - 1, not CurrentTick: ticks are coarse-grained, so a mutation made
-        // later in the same tick this runs in would be missed by the first scan otherwise
-        // (see the matching test's own doc comment for the full reasoning).
         _sinceTick = _world.CurrentTick - 1;
         _world.OnTickAdvanced += OnTickAdvanced;
     }
@@ -94,7 +95,7 @@ internal sealed class ChangeFeedHub
     {
         foreach (var scan in _scanners.Values)
             scan(_sinceTick);
-        _sinceTick = tick;
+        _sinceTick = tick - 1;
     }
 
     internal IReadOnlyList<ChangeEntry> Drain(int id)

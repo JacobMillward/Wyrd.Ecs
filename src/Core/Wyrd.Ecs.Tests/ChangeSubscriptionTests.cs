@@ -105,4 +105,26 @@ public class ChangeSubscriptionTests
 
         act.Should().Throw<KeyNotFoundException>();
     }
+
+    [Fact]
+    public void MutationInTheTickImmediatelyAfterAScan_IsStillReported()
+    {
+        var world = new World();
+        Entity a = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+
+        using var subscription = world.Subscribe<Position>();
+
+        world.GetComponent<Position>(a).X = 2f;
+        world.AdvanceTick();
+        subscription.Drain();
+
+        world.GetComponent<Position>(a).X = 3f;
+        world.AdvanceTick();
+
+        var entries = subscription.Drain();
+
+        entries.Should().ContainSingle();
+        entries[0].Entity.Should().Be(a);
+    }
 }
