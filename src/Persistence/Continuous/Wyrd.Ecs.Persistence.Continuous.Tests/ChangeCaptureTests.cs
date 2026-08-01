@@ -20,6 +20,36 @@ public class ChangeCaptureTests
     }
 
     [Fact]
+    public void ComponentValueChange_OnAnEntityDestroyedBeforeTheNextSwapBuffers_IsStillCapturedNotLost()
+    {
+        // Regression: PendingValueChange.EntityId must be resolved synchronously at
+        // scan time (per tick), not deferred to SwapBuffers — SwapBuffers can be
+        // called arbitrarily later (e.g. from a background WAL-writer thread, on its
+        // own cadence), by which point a since-destroyed entity's transient handle can
+        // no longer resolve a permanent id at all.
+        var world = new World();
+        var registry = BuildRegistry();
+        using var capture = new ChangeCapture(world, registry);
+        Entity survivor = world.Commands.CreateEntity(new Position { X = 1f });
+        Entity destroyed = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
+        var survivorId = world.GetPermanentId(survivor);
+
+        world.GetComponent<Position>(destroyed).X = 3f;
+        world.AdvanceTick();
+
+        world.Commands.DestroyEntity(destroyed);
+        world.ApplyCommands();
+        world.AdvanceTick();
+
+        DrainedChanges drained = default;
+        var act = () => drained = capture.SwapBuffers();
+        act.Should().NotThrow();
+
+        drained.Pending.Should().Contain(p => p.EntityId == survivorId);
+    }
+
+    [Fact]
     public void ComponentValueChange_AppearsInThePendingListAfterATick_UnencodedAndCorrect()
     {
         var world = new World();
@@ -132,5 +162,33 @@ public class ChangeCaptureTests
         var drained = capture.SwapBuffers();
         drained.Ready.Should().BeEmpty();
         drained.Pending.Should().BeEmpty();
+    }
+
+    private struct Likes : IRelation
+    {
+        public float Weight;
+    }
+
+    [Fact]
+    public void RelationLinked_AppearsInTheReadyListWithThePayload()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
+        Entity a = world.Commands.CreateEntity();
+        Entity b = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        using var capture = new ChangeCapture(world, registry);
+
+        world.Commands.AddRelation(a, b, new Likes { Weight = 5f });
+        world.ApplyCommands();
+
+        var drained = capture.SwapBuffers();
+
+        var entry = drained.Ready.Should().ContainSingle(e => e.Kind == WalRecordKind.RelationLinked).Which;
+        entry.EntityId.Should().Be(world.GetPermanentId(a));
+        entry.TargetId.Should().Be(world.GetPermanentId(b));
+        entry.Discriminator.Should().Be("Likes");
+        BitConverter.ToSingle(entry.Payload).Should().Be(5f);
     }
 }

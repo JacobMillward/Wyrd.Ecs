@@ -1,68 +1,67 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
-/// Owns the tick-driven capture step: enables change tracking for every type in the
-/// given <see cref="ComponentCodecRegistry"/>, observes structural changes via
-/// <see cref="Internal.StructuralChangeCapture"/>, and appends every result into
-/// double-buffered pairs of lists per kind, swapped by <see cref="SwapBuffers"/> — the
-/// seam a background WAL-writer thread drains from, so the thread driving
-/// <see cref="World.OnTickAdvanced"/> never blocks on I/O. Structural events are
-/// captured as already-resolved <see cref="CapturedWalEntry"/> values (they have no
-/// value to encode); component value changes are captured as unresolved
-/// <see cref="PendingValueChange"/> values — deliberately not encoded here, since the
-/// encode itself (whatever a registered <see cref="IComponentCodec"/> actually does,
-/// which this package has no control over) is real work this method has no reason to
-/// spend on the thread driving the simulation's tick. The scan that finds changed rows
-/// still runs here, synchronously — it reads live component storage the very next tick
-/// can overwrite, so deferring the scan itself (not just the encode) would risk reading
-/// a later tick's value. <see cref="Dispose"/> stops capture entirely: change tracking
-/// is disabled for every type, the structural observer is unregistered, and the tick
-/// subscription is removed.
+/// Owns the tick-driven capture step: subscribes to every type in the given
+/// <see cref="ComponentCodecRegistry"/> via <see cref="World.Subscribe(IComponentCodec, bool)"/>
+/// (sharing the underlying scan with any other subscriber already watching the same
+/// type — see <c>Wyrd.Ecs.Internal.ChangeFeedHub</c>), observes structural and relation
+/// changes via <see cref="Internal.StructuralChangeCapture"/>, and appends every result
+/// into double-buffered pairs of lists, swapped by <see cref="SwapBuffers"/> — the seam
+/// a background WAL-writer thread drains from, so the thread driving
+/// <see cref="World.OnTickAdvanced"/> never blocks on I/O.
+///
+/// <para>
+/// Each of this instance's own value-change subscriptions is drained every tick, on the
+/// same thread that raised <see cref="World.OnTickAdvanced"/> — not lazily, on whatever
+/// later tick <see cref="SwapBuffers"/> happens to be called. <see cref="World.GetPermanentId"/>
+/// can only resolve a still-alive entity; deferring that resolution to
+/// <see cref="SwapBuffers"/> (called from a background thread, on its own cadence, an
+/// arbitrary number of ticks later) would mean an entity destroyed in a later tick makes
+/// its own earlier, still-undrained value change unresolvable, silently dropping that
+/// whole drain cycle. Resolving per tick, synchronously, is what keeps every pending
+/// value already carrying a permanent id — the same guarantee structural events already
+/// have via <see cref="Internal.StructuralChangeCapture"/>'s own synchronous callback.
+/// </para>
 /// </summary>
 internal sealed class ChangeCapture : IDisposable
 {
     private readonly World _world;
-    private readonly ComponentCodecRegistry _registry;
-    private readonly List<IDisposable> _trackingHandles = [];
+    private readonly List<(IComponentCodec Codec, ChangeSubscription Subscription)> _valueSubscriptions = [];
     private readonly IDisposable _structuralSubscription;
     private readonly object _lock = new();
     private List<CapturedWalEntry> _frontReady = [];
     private List<CapturedWalEntry> _backReady = [];
     private List<PendingValueChange> _frontPending = [];
     private List<PendingValueChange> _backPending = [];
-    private int _sinceTick;
     private bool _disposed;
 
     internal ChangeCapture(World world, ComponentCodecRegistry registry)
     {
         _world = world;
-        _registry = registry;
-        // One less than the current tick, not the current tick itself: ticks are
-        // coarse-grained (every mutation during tick N shares timestamp N, including
-        // ones that happen after this constructor runs but before the first
-        // AdvanceTick), so starting at CurrentTick would exclude anything dirty-marked
-        // during the tick capture was enabled in. ReadRawChanges filters on
-        // tick > sinceTick, so CurrentTick - 1 is the first value that still includes it.
-        _sinceTick = world.CurrentTick - 1;
 
         foreach (var codec in registry.All)
-            _trackingHandles.Add(codec.EnableChangeTracking(world));
+            _valueSubscriptions.Add((codec, world.Subscribe(codec)));
 
         _structuralSubscription = world.ObserveStructuralChanges(new Internal.StructuralChangeCapture(world, registry, AppendReady));
+
+        // Subscribed after every codec above, so each codec's own Subscribe call has
+        // already registered the shared hub's tick handler first — multicast delegate
+        // invocation runs in subscription order, so the hub's scan always populates
+        // this tick's changes before this handler drains them.
         world.OnTickAdvanced += OnTickAdvanced;
     }
 
     private void OnTickAdvanced(int tick)
     {
         var batch = new List<PendingValueChange>();
-        foreach (var codec in _registry.All)
-            foreach (var change in codec.ReadRawChanges(_world, _sinceTick))
-                batch.Add(new PendingValueChange(codec, change.Tick, _world.GetPermanentId(change.Entity), change.Value));
+        foreach (var (codec, subscription) in _valueSubscriptions)
+            foreach (var entry in subscription.Drain())
+                // entry.Value is never null here: this subscription only ever tracks
+                // ChangeKind.ValueChanged, and the hub always populates Value for that kind.
+                batch.Add(new PendingValueChange(codec, entry.Tick, _world.GetPermanentId(entry.Entity), entry.Value!));
 
         if (batch.Count > 0)
             lock (_lock) _frontPending.AddRange(batch);
-
-        _sinceTick = tick - 1;
     }
 
     private void AppendReady(CapturedWalEntry entry)
@@ -95,7 +94,7 @@ internal sealed class ChangeCapture : IDisposable
         _disposed = true;
 
         _world.OnTickAdvanced -= OnTickAdvanced;
+        foreach (var (_, subscription) in _valueSubscriptions) subscription.Dispose();
         _structuralSubscription.Dispose();
-        foreach (var handle in _trackingHandles) handle.Dispose();
     }
 }
