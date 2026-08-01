@@ -307,7 +307,7 @@ public sealed partial class CommandBuffer
     {
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, _) =>
         {
-            var (signature, setters) = ((Internal.ArchetypeSignature, IReadOnlyCollection<TemplateComponentSetter>))buffer!;
+            var (signature, setters) = ((Internal.ArchetypeSignature, TemplateComponentSetter[]))buffer!;
             w.PlaceReservedEntityFromTemplate(e, signature, setters);
         };
     }
@@ -421,7 +421,7 @@ public sealed partial class CommandBuffer
                     });
                 }
 
-                Enqueue(new QueuedCommand(entities[i], TemplateNodePlacementOp.Apply, (signature, (IReadOnlyCollection<TemplateComponentSetter>)setters), 0));
+                Enqueue(new QueuedCommand(entities[i], TemplateNodePlacementOp.Apply, (signature, setters.ToArray()), 0));
 
                 if (explicitParentIfAlive is { } parentToBacklink)
                     Enqueue(new QueuedCommand(default, ExplicitParentBacklinkOp.Apply, (parentToBacklink, entities[i]), 0));

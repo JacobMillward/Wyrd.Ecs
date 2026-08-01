@@ -25,19 +25,24 @@ internal delegate void TemplateComponentSetter(World world, Internal.Archetype a
 public class EntityTemplate
 {
     private Internal.ArchetypeSignature _signature = Internal.ArchetypeSignature.Empty;
-    private readonly Dictionary<int, TemplateComponentSetter> _setters = new();
+    private readonly Dictionary<int, TemplateComponentSetter> _settersByType = new();
+    private TemplateComponentSetter[]? _cachedSetters;
 
     /// <summary>The archetype signature every instance of this template lands in (components + tags). Computed incrementally as <see cref="AddComponent{T}"/>/<see cref="AddTag{T}"/> are called.</summary>
     internal Internal.ArchetypeSignature Signature => _signature;
 
     /// <summary>
-    /// Every component setter on this template, keyed internally by type so a repeated
-    /// <see cref="AddComponent{T}"/> call for the same component type replaces rather than
-    /// duplicates. Returns the dictionary's live <c>Values</c> view, not a copy — matches
-    /// <see cref="ComponentCodecRegistry.All"/>'s existing pattern for the same reason:
-    /// repeated reads (once per instantiate call) cost nothing extra.
+    /// Every component setter on this template. Backed by <see cref="_settersByType"/> (keyed
+    /// by type so a repeated <see cref="AddComponent{T}"/> call for the same component type
+    /// replaces rather than duplicates), but exposed as a concrete array — not
+    /// <c>IReadOnlyCollection&lt;T&gt;</c> — cached after the first read and invalidated only
+    /// by a further <see cref="AddComponent{T}"/> call, so a reused template still pays the
+    /// materialization cost once, not per instantiate. The concrete array type matters, not
+    /// just the caching: an interface-typed <c>foreach</c> (as this used to be) forces a
+    /// boxed, virtually-dispatched enumerator on every hot-path instantiate call; iterating a
+    /// <c>TemplateComponentSetter[]</c> directly doesn't.
     /// </summary>
-    internal IReadOnlyCollection<TemplateComponentSetter> Setters => _setters.Values;
+    internal TemplateComponentSetter[] Setters => _cachedSetters ??= [.. _settersByType.Values];
 
     /// <summary>
     /// Adds <paramref name="value"/> as this template's <typeparamref name="T"/>. Calling
@@ -49,7 +54,8 @@ public class EntityTemplate
     {
         var typeIndex = Internal.TypeIndex<T>.Value;
         _signature = _signature.With(typeIndex);
-        _setters[typeIndex] = MakeSetter(value);
+        _settersByType[typeIndex] = MakeSetter(value);
+        _cachedSetters = null;
         return this;
     }
 

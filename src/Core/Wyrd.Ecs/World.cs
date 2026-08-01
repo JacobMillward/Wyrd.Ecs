@@ -244,7 +244,7 @@ public sealed partial class World
     /// signature/setter list instead of a closed generic. Used only by
     /// <see cref="CommandBuffer.CreateEntity(EntityTemplate)"/>'s queued placement.
     /// </summary>
-    internal void PlaceReservedEntityFromTemplate(Entity entity, Internal.ArchetypeSignature signature, IReadOnlyCollection<TemplateComponentSetter> setters)
+    internal void PlaceReservedEntityFromTemplate(Entity entity, Internal.ArchetypeSignature signature, TemplateComponentSetter[] setters)
     {
         if (!_archetypes.TryGetValue(signature, out var target))
             target = CreateArchetype(signature);
@@ -252,6 +252,11 @@ public sealed partial class World
         var row = _entityTable.Place(entity, target);
         NotifyEntityCreated(entity);
 
+        // A concrete array parameter, not IReadOnlyCollection<T>: foreach over an
+        // interface-typed collection here would force a boxed, virtually-dispatched
+        // enumerator on every instantiate call — measured to roughly double this method's
+        // cost relative to the generated PlaceReservedEntity<T0..Tn> family it mirrors. See
+        // EntityTemplate.Setters' own doc for the matching fix on the producing side.
         foreach (var setter in setters)
             setter(this, target, row, 1);
     }
@@ -264,7 +269,7 @@ public sealed partial class World
     /// rather than once per entity. Used only by
     /// <see cref="CommandBuffer.CreateEntity(EntityTemplate, int)"/>'s queued placement.
     /// </summary>
-    internal void PlaceReservedEntitiesFromTemplate(Entity[] entities, Internal.ArchetypeSignature signature, IReadOnlyCollection<TemplateComponentSetter> setters)
+    internal void PlaceReservedEntitiesFromTemplate(Entity[] entities, Internal.ArchetypeSignature signature, TemplateComponentSetter[] setters)
     {
         if (!_archetypes.TryGetValue(signature, out var target))
             target = CreateArchetype(signature);
