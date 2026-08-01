@@ -102,7 +102,7 @@ public static class CheckpointBuilder
         {
             var tick = Persistence.Internal.CheckpointRecordIO.ReadHeader(stream);
             var entries = new Dictionary<(EntityId, string), (uint?, byte[])>();
-            while (Persistence.Internal.CheckpointRecordIO.TryReadRecord(stream, out var entityId, out var discriminator, out var schemaHash, out var payload))
+            while (Persistence.Internal.CheckpointRecordIO.TryReadRecord(stream, out _, out var entityId, out _, out var discriminator, out var schemaHash, out var payload))
                 entries[(entityId, discriminator)] = (schemaHash, payload);
             return (tick, entries);
         }

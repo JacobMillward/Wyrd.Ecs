@@ -8,23 +8,22 @@ namespace Wyrd.Ecs.Persistence.Internal;
 /// header is magic bytes, a format version, and the tick the checkpoint reflects
 /// (<see cref="World.CurrentTick"/> at the moment it was written) — checked once per
 /// file: a corrupt or foreign file fails loudly via <see cref="ReadHeader"/>, not by
-/// misreading garbage as records. The tick lets any consumer built on top of a raw
-/// checkpoint (continuous persistence's checkpoint-merge, for one) know exactly what
-/// state it captures without extra out-of-band bookkeeping — a plain manual
-/// <c>World.Save</c> stamps it the same way, whether or not anything
-/// downstream ever reads it. Each record is a permanent <see cref="EntityId"/>, a
-/// component's stable wire discriminator, its registered schema hash (an explicit
-/// has-a-hash flag plus the value, not a 0-means-unset sentinel), and its serialized
-/// payload bytes, framed as a length-prefixed block plus a CRC32 checksum.
-/// <see cref="TryReadRecord"/> returns false (never throws) on any short read or
-/// checksum mismatch, so a file truncated or corrupted mid-record by a crash mid-write
-/// is detected and replay cleanly stops at the last complete, valid record instead of
-/// misreading garbage as data.
+/// misreading garbage as records. Each record carries a <see cref="CheckpointRecordKind"/>:
+/// a <see cref="CheckpointRecordKind.Component"/> record is a permanent
+/// <see cref="EntityId"/>, a component's stable wire discriminator, its registered
+/// schema hash (an explicit has-a-hash flag plus the value, not a 0-means-unset
+/// sentinel), and its serialized payload bytes; a <see cref="CheckpointRecordKind.RelationEdge"/>
+/// record is the same, plus a second <see cref="EntityId"/> for the edge's target,
+/// written immediately after the first. All framed as a length-prefixed block plus a
+/// CRC32 checksum. <see cref="TryReadRecord"/> returns false (never throws) on any
+/// short read or checksum mismatch, so a file truncated or corrupted mid-record by a
+/// crash mid-write is detected and replay cleanly stops at the last complete, valid
+/// record instead of misreading garbage as data.
 /// </summary>
 internal static class CheckpointRecordIO
 {
     private const uint MagicBytes = 0x57594543;
-    private const ushort FormatVersion = 2;
+    private const ushort FormatVersion = 3;
 
     public static void WriteHeader(Stream stream, int tick)
     {
@@ -79,15 +78,45 @@ internal static class CheckpointRecordIO
         using var recordBuffer = new MemoryStream();
         using (var writer = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true))
         {
-            writer.Write((ulong)(entityId.Value >> 64));
-            writer.Write((ulong)entityId.Value);
-            writer.Write(discriminator);
-            writer.Write(schemaHash.HasValue);
-            writer.Write(schemaHash ?? 0);
-            writer.Write(payload.Length);
-            writer.Write(payload);
+            writer.Write((byte)CheckpointRecordKind.Component);
+            WriteEntityId(writer, entityId);
+            WriteTail(writer, discriminator, schemaHash, payload);
         }
 
+        FlushRecord(stream, recordBuffer);
+    }
+
+    public static void WriteRelationRecord(Stream stream, EntityId sourceId, EntityId targetId, string discriminator, uint? schemaHash, byte[] payload)
+    {
+        using var recordBuffer = new MemoryStream();
+        using (var writer = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write((byte)CheckpointRecordKind.RelationEdge);
+            WriteEntityId(writer, sourceId);
+            WriteEntityId(writer, targetId);
+            WriteTail(writer, discriminator, schemaHash, payload);
+        }
+
+        FlushRecord(stream, recordBuffer);
+    }
+
+    private static void WriteEntityId(BinaryWriter writer, EntityId entityId)
+    {
+        writer.Write((ulong)(entityId.Value >> 64));
+        writer.Write((ulong)entityId.Value);
+    }
+
+    private static void WriteTail(BinaryWriter writer, string discriminator, uint? schemaHash, byte[] payload)
+    {
+        writer.Write(discriminator);
+        writer.Write(schemaHash.HasValue);
+        writer.Write(schemaHash ?? 0);
+        writer.Write(payload.Length);
+        writer.Write(payload);
+    }
+
+    private static void FlushRecord(Stream stream, MemoryStream recordBuffer)
+    {
         var recordBytes = recordBuffer.ToArray();
         var checksum = Crc32.HashToUInt32(recordBytes);
 
@@ -97,9 +126,11 @@ internal static class CheckpointRecordIO
         outWriter.Write(checksum);
     }
 
-    public static bool TryReadRecord(Stream stream, out EntityId entityId, out string discriminator, out uint? schemaHash, out byte[] payload)
+    public static bool TryReadRecord(Stream stream, out CheckpointRecordKind kind, out EntityId entityId, out EntityId targetId, out string discriminator, out uint? schemaHash, out byte[] payload)
     {
+        kind = default;
         entityId = default;
+        targetId = default;
         discriminator = string.Empty;
         schemaHash = null;
         payload = [];
@@ -119,9 +150,11 @@ internal static class CheckpointRecordIO
         if (Crc32.HashToUInt32(recordBytes) != expectedChecksum) return false;
 
         using var reader = new BinaryReader(new MemoryStream(recordBytes), Encoding.UTF8);
-        var upper = reader.ReadUInt64();
-        var lower = reader.ReadUInt64();
-        entityId = new EntityId(new UInt128(upper, lower));
+        kind = (CheckpointRecordKind)reader.ReadByte();
+        entityId = ReadEntityId(reader);
+        if (kind == CheckpointRecordKind.RelationEdge)
+            targetId = ReadEntityId(reader);
+
         discriminator = reader.ReadString();
         var hasSchemaHash = reader.ReadBoolean();
         var schemaHashValue = reader.ReadUInt32();
@@ -129,6 +162,13 @@ internal static class CheckpointRecordIO
         var payloadLength = reader.ReadInt32();
         payload = reader.ReadBytes(payloadLength);
         return true;
+    }
+
+    private static EntityId ReadEntityId(BinaryReader reader)
+    {
+        var upper = reader.ReadUInt64();
+        var lower = reader.ReadUInt64();
+        return new EntityId(new UInt128(upper, lower));
     }
 
     private static bool TryReadFully(Stream stream, Span<byte> buffer)

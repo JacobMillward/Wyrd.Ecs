@@ -111,7 +111,7 @@ public static class WorldPersistenceExtensions
             Internal.CheckpointRecordIO.ReadHeader(stream);
             var entities = new Dictionary<EntityId, Entity>();
 
-            while (Internal.CheckpointRecordIO.TryReadRecord(stream, out var entityId, out var discriminator, out var schemaHash, out var payload))
+            while (Internal.CheckpointRecordIO.TryReadRecord(stream, out _, out var entityId, out _, out var discriminator, out var schemaHash, out var payload))
             {
                 if (!entities.TryGetValue(entityId, out var entity))
                 {
