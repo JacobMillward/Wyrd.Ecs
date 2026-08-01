@@ -79,6 +79,27 @@ public class ChangeCaptureTests
     }
 
     [Fact]
+    public void ComponentValueChange_InTheTickImmediatelyAfterAScan_IsStillCaptured()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        Entity entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+        using var capture = new ChangeCapture(world, registry);
+
+        world.GetComponent<Position>(entity).X = 2f;
+        world.AdvanceTick();
+        capture.SwapBuffers();
+
+        world.GetComponent<Position>(entity).X = 3f;
+        world.AdvanceTick();
+
+        var drained = capture.SwapBuffers();
+
+        drained.Pending.Should().ContainSingle();
+    }
+
+    [Fact]
     public void SwapBuffers_CalledTwiceWithNoActivityBetween_ReturnsEmptyListsTheSecondTime()
     {
         var world = new World();

@@ -62,7 +62,7 @@ internal sealed class ChangeCapture : IDisposable
         if (batch.Count > 0)
             lock (_lock) _frontPending.AddRange(batch);
 
-        _sinceTick = tick;
+        _sinceTick = tick - 1;
     }
 
     private void AppendReady(CapturedWalEntry entry)
