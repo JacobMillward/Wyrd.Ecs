@@ -16,6 +16,8 @@ internal sealed class ChangeFeedHub
     private int _nextId;
     private int _sinceTick;
     private bool _tickSubscribed;
+    private int _structuralSubscriberCount;
+    private IDisposable? _structuralSubscription;
 
     internal ChangeFeedHub(World world) => _world = world;
 
@@ -37,6 +39,7 @@ internal sealed class ChangeFeedHub
         _subscribers[id] = subscriber;
 
         EnsureTypeTracked<T>(typeIndex);
+        if (structuralEvents) EnsureStructuralSubscribed();
         EnsureTickSubscribed();
 
         return new ChangeSubscription(this, id);
@@ -49,6 +52,20 @@ internal sealed class ChangeFeedHub
 
         _trackingHandles[typeIndex] = _world.TrackChanges<T>();
         _scanners[typeIndex] = sinceTick => ScanType<T>(typeIndex, sinceTick);
+    }
+
+    private void EnsureStructuralSubscribed()
+    {
+        if (_structuralSubscriberCount == 0)
+            _structuralSubscription = _world.ObserveStructuralChanges(new HubObserver(this));
+        _structuralSubscriberCount++;
+    }
+
+    internal void AppendStructural(ChangeEntry entry)
+    {
+        foreach (var subscriber in _subscribers.Values)
+            if (subscriber.WantsStructuralEvents)
+                lock (subscriber.Lock) subscriber.Front.Add(entry);
     }
 
     private void ScanType<T>(int typeIndex, int sinceTick) where T : struct, IComponent
@@ -109,5 +126,35 @@ internal sealed class ChangeFeedHub
             _trackingHandles.Remove(typeIndex);
             _scanners.Remove(typeIndex);
         }
+
+        if (!subscriber.WantsStructuralEvents) return;
+        _structuralSubscriberCount--;
+        if (_structuralSubscriberCount > 0) return;
+        _structuralSubscription?.Dispose();
+        _structuralSubscription = null;
+    }
+
+    private sealed class HubObserver(ChangeFeedHub hub) : IStructuralChangeObserver
+    {
+        public void OnEntityCreated(Entity entity) =>
+            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, 0, hub._world.CurrentTick, ChangeKind.EntityCreated));
+
+        public void OnEntityDestroyed(Entity entity) =>
+            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, 0, hub._world.CurrentTick, ChangeKind.EntityDestroyed));
+
+        public void OnComponentAdded(Entity entity, int typeIndex) =>
+            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentAdded));
+
+        public void OnComponentRemoved(Entity entity, int typeIndex) =>
+            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentRemoved));
+
+        public void OnTagAdded(Entity entity, int typeIndex) { }
+        public void OnTagRemoved(Entity entity, int typeIndex) { }
+
+        public void OnRelationLinked(Entity source, Entity target, int typeIndex) =>
+            hub.AppendStructural(new ChangeEntry(source, target, typeIndex, hub._world.CurrentTick, ChangeKind.RelationLinked));
+
+        public void OnRelationUnlinked(Entity source, Entity target, int typeIndex) =>
+            hub.AppendStructural(new ChangeEntry(source, target, typeIndex, hub._world.CurrentTick, ChangeKind.RelationUnlinked));
     }
 }
