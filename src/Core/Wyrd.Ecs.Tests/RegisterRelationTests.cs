@@ -9,10 +9,7 @@ public class RegisterRelationTests
 
     private struct Follows : IRelation;
 
-    private struct Position : IComponent
-    {
-        public float X;
-    }
+    private struct Position : IComponent;
 
     [Fact]
     public void RegisterRelation_IsFindableByTypeIndexAndDiscriminator()

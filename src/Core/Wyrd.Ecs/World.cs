@@ -693,6 +693,18 @@ public sealed partial class World
 
     private void UntrackChanges(int typeIndex) => _tracking.Unregister(typeIndex);
 
+    private Internal.ChangeFeedHub? _changeFeedHub;
+
+    /// <summary>
+    /// Subscribes to every <typeparamref name="T"/> value change, and — if
+    /// <paramref name="structuralEvents"/> is true — every structural and relation event
+    /// too, reported through a private <see cref="ChangeSubscription"/> only this caller
+    /// drains. The scan for <typeparamref name="T"/> runs at most once per tick no matter
+    /// how many subscribers are watching it; see <see cref="ChangeSubscription"/>'s own doc.
+    /// </summary>
+    public ChangeSubscription Subscribe<T>(bool structuralEvents = false) where T : struct, IComponent =>
+        (_changeFeedHub ??= new Internal.ChangeFeedHub(this)).Subscribe<T>(structuralEvents);
+
     private sealed class TrackingHandle : IDisposable
     {
         private readonly World _world;
