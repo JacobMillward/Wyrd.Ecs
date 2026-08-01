@@ -150,4 +150,36 @@ public class ArchetypeSignatureTests
 
         a.Intersects(b).Should().BeTrue();
     }
+
+    [Fact]
+    public void SetBits_OnEmpty_YieldsNothing()
+    {
+        var indices = new List<int>();
+        foreach (var index in ArchetypeSignature.Empty.SetBits) indices.Add(index);
+
+        indices.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SetBits_WithSeveralInlineBitsSet_YieldsThemAllInAscendingOrder()
+    {
+        var signature = ArchetypeSignature.Empty.With(3).With(0).With(63).With(64);
+
+        var indices = new List<int>();
+        foreach (var index in signature.SetBits) indices.Add(index);
+
+        indices.Should().Equal(0, 3, 63, 64);
+    }
+
+    [Fact]
+    public void SetBits_WithABitPastInlineCapacity_StillYieldsIt()
+    {
+        // 4 inline 64-bit words = 256 bits; 300 forces the heap-array overflow path.
+        var signature = ArchetypeSignature.Empty.With(5).With(300);
+
+        var indices = new List<int>();
+        foreach (var index in signature.SetBits) indices.Add(index);
+
+        indices.Should().Equal(5, 300);
+    }
 }

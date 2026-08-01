@@ -47,6 +47,51 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
         _ => wordIndex - InlineWordCount < OverflowLength ? _overflow![wordIndex - InlineWordCount] : 0UL,
     };
 
+    /// <summary>Every type index set in this signature, ascending, allocation-free.</summary>
+    internal SetBitsEnumerable SetBits => new(this);
+
+    internal readonly struct SetBitsEnumerable
+    {
+        private readonly ArchetypeSignature _signature;
+        internal SetBitsEnumerable(ArchetypeSignature signature) => _signature = signature;
+        public SetBitsEnumerator GetEnumerator() => new(_signature);
+    }
+
+    internal struct SetBitsEnumerator
+    {
+        private readonly ArchetypeSignature _signature;
+        private readonly int _totalWords;
+        private int _wordIndex;
+        private ulong _remainingBitsInWord;
+        private int _current;
+
+        internal SetBitsEnumerator(ArchetypeSignature signature)
+        {
+            _signature = signature;
+            _totalWords = signature.TotalWordCount;
+            _wordIndex = 0;
+            _remainingBitsInWord = _totalWords > 0 ? signature.GetWord(0) : 0UL;
+            _current = -1;
+        }
+
+        public int Current => _current;
+
+        public bool MoveNext()
+        {
+            while (_remainingBitsInWord == 0)
+            {
+                _wordIndex++;
+                if (_wordIndex >= _totalWords) return false;
+                _remainingBitsInWord = _signature.GetWord(_wordIndex);
+            }
+
+            var bitIndex = System.Numerics.BitOperations.TrailingZeroCount(_remainingBitsInWord);
+            _current = _wordIndex * 64 + bitIndex;
+            _remainingBitsInWord &= _remainingBitsInWord - 1; // clear the lowest set bit
+            return true;
+        }
+    }
+
     internal bool Contains(int typeIndex)
     {
         var word = typeIndex >> 6;
