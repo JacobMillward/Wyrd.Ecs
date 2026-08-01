@@ -48,6 +48,21 @@ internal sealed class ChangeFeedHub
         return new ChangeSubscription(this, id);
     }
 
+    internal ChangeSubscription Subscribe(IComponentCodec codec, bool structuralEvents)
+    {
+        var id = _nextId++;
+        var subscriber = new Subscriber(structuralEvents);
+        var typeIndex = codec.TypeIndex;
+        subscriber.TypeIndexes.Add(typeIndex);
+        _subscribers[id] = subscriber;
+
+        EnsureTypeTrackedErased(codec, typeIndex);
+        if (structuralEvents) EnsureStructuralSubscribed();
+        EnsureTickSubscribed();
+
+        return new ChangeSubscription(this, id);
+    }
+
     private void EnsureTypeTracked<T>(int typeIndex) where T : struct, IComponent
     {
         _typeInterestCount[typeIndex] = _typeInterestCount.GetValueOrDefault(typeIndex) + 1;
@@ -55,6 +70,15 @@ internal sealed class ChangeFeedHub
 
         _trackingHandles[typeIndex] = _world.TrackChanges<T>();
         _scanners[typeIndex] = sinceTick => ScanType<T>(typeIndex, sinceTick);
+    }
+
+    private void EnsureTypeTrackedErased(IComponentCodec codec, int typeIndex)
+    {
+        _typeInterestCount[typeIndex] = _typeInterestCount.GetValueOrDefault(typeIndex) + 1;
+        if (_trackingHandles.ContainsKey(typeIndex)) return;
+
+        _trackingHandles[typeIndex] = codec.EnableChangeTracking(_world);
+        _scanners[typeIndex] = sinceTick => ScanTypeErased(codec, typeIndex, sinceTick);
     }
 
     private void EnsureStructuralSubscribed()
@@ -75,12 +99,22 @@ internal sealed class ChangeFeedHub
     {
         ScanCount++;
         foreach (var change in _world.ReadChanges<T>(sinceTick))
-        {
-            var entry = new ChangeEntry(change.Entity, Entity.Null, typeIndex, change.Tick, ChangeKind.ValueChanged);
-            foreach (var subscriber in _subscribers.Values)
-                if (subscriber.TypeIndexes.Contains(typeIndex))
-                    lock (subscriber.Lock) subscriber.Front.Add(entry);
-        }
+            FanOutValueChange(typeIndex, change.Entity, change.Tick, change.Value);
+    }
+
+    private void ScanTypeErased(IComponentCodec codec, int typeIndex, int sinceTick)
+    {
+        ScanCount++;
+        foreach (var change in codec.ReadRawChanges(_world, sinceTick))
+            FanOutValueChange(typeIndex, change.Entity, change.Tick, change.Value);
+    }
+
+    private void FanOutValueChange(int typeIndex, Entity entity, int tick, object value)
+    {
+        var entry = new ChangeEntry(entity, Entity.Null, typeIndex, tick, ChangeKind.ValueChanged, value);
+        foreach (var subscriber in _subscribers.Values)
+            if (subscriber.TypeIndexes.Contains(typeIndex))
+                lock (subscriber.Lock) subscriber.Front.Add(entry);
     }
 
     private void EnsureTickSubscribed()

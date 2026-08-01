@@ -737,6 +737,16 @@ public sealed partial class World
     public ChangeSubscription Subscribe<T>(bool structuralEvents = false) where T : struct, IComponent =>
         (_changeFeedHub ??= new Internal.ChangeFeedHub(this)).Subscribe<T>(structuralEvents);
 
+    /// <summary>
+    /// Same as <see cref="Subscribe{T}"/>, for a caller that doesn't know its component
+    /// type at compile time — a registry-driven consumer working from
+    /// <see cref="ComponentCodecRegistry.All"/>, for one. Shares the same underlying
+    /// scan-per-type-per-tick with any <see cref="Subscribe{T}"/> call already watching
+    /// the same type; neither path knows or cares which the other used.
+    /// </summary>
+    public ChangeSubscription Subscribe(IComponentCodec codec, bool structuralEvents = false) =>
+        (_changeFeedHub ??= new Internal.ChangeFeedHub(this)).Subscribe(codec, structuralEvents);
+
     private sealed class TrackingHandle : IDisposable
     {
         private readonly World _world;
