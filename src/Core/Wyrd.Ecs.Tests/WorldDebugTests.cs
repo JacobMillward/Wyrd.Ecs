@@ -99,4 +99,98 @@ public class WorldDebugTests
 
         snapshots.Should().ContainSingle().Which.EntityCount.Should().Be(1);
     }
+
+    [Fact]
+    public void EnumerateEntities_OnAnEmptyWorld_YieldsNothing()
+    {
+        var world = new World();
+
+        world.EnumerateEntities(NewRegistry()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EnumerateEntities_YieldsOneSnapshotPerLiveEntityWithItsComponents()
+    {
+        var world = new World();
+        world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        world.ApplyCommands();
+
+        var snapshot = world.EnumerateEntities(NewRegistry()).Should().ContainSingle().Subject;
+
+        snapshot.Components.Select(c => c.Discriminator).Should().BeEquivalentTo(["Position", "Velocity"]);
+    }
+
+    [Fact]
+    public void EnumerateEntities_YieldsTagDiscriminatorsForTheEntity()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.Commands.AddTag<Enemy>(entity);
+        world.ApplyCommands();
+
+        var snapshot = world.EnumerateEntities(NewRegistry()).Should().ContainSingle().Subject;
+
+        snapshot.Tags.Should().BeEquivalentTo(["Enemy"]);
+    }
+
+    [Fact]
+    public void EnumerateEntities_IncludesAnEntityWithNoRegisteredComponentsOrTags_UnlikeEnumerateAll()
+    {
+        var world = new World();
+        world.Commands.CreateEntity(); // no components, no tags at all
+        world.ApplyCommands();
+
+        var registry = NewRegistry();
+
+        world.EnumerateAll(registry).Should().BeEmpty(); // the existing method silently drops this entity
+        var snapshot = world.EnumerateEntities(registry).Should().ContainSingle().Subject;
+        snapshot.Components.Should().BeEmpty();
+        snapshot.Tags.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EnumerateEntities_WithAnUnregisteredComponentType_OmitsItFromTheSnapshotButStillYieldsTheEntity()
+    {
+        var world = new World();
+        world.Commands.CreateEntity(new Velocity { X = 1f });
+        world.ApplyCommands();
+
+        var registry = new ComponentCodecRegistry();
+        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
+
+        var snapshot = world.EnumerateEntities(registry).Should().ContainSingle().Subject;
+
+        snapshot.Components.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EnumerateEntities_ReportsCorrectEntityIdentityAcrossMultipleEntities()
+    {
+        var world = new World();
+        var a = world.Commands.CreateEntity(new Position { X = 1f });
+        var b = world.Commands.CreateEntity(new Position { X = 2f });
+        world.ApplyCommands();
+
+        var snapshots = world.EnumerateEntities(NewRegistry()).ToList();
+
+        snapshots.Select(s => s.Entity).Should().BeEquivalentTo([(Entity)a, (Entity)b]);
+    }
+
+    [Fact]
+    public void EnumerateEntities_IsUnaffectedByAMutationThatReachesANewArchetypeAfterItReturns()
+    {
+        // Same regression as EnumerateArchetypes' equivalent test: a structural mutation
+        // applied after EnumerateEntities returns (but before the caller finishes reading the
+        // result) must never throw "Collection was modified" against the live World.
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        world.ApplyCommands();
+
+        var snapshots = world.EnumerateEntities(NewRegistry());
+
+        world.Commands.AddComponent(entity, new Velocity { X = 2f }); // moves entity to a brand-new archetype
+        world.ApplyCommands();
+
+        snapshots.Should().ContainSingle().Which.Components.Should().HaveCount(1); // the pre-mutation snapshot: Position only
+    }
 }

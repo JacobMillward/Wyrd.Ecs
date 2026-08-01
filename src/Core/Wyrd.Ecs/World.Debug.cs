@@ -61,4 +61,42 @@ public sealed partial class World
                 tags.Add(discriminator);
         return tags;
     }
+
+    /// <summary>
+    /// Every live entity, including ones with no registered components or tags — the
+    /// case <see cref="EnumerateAll"/> silently drops, since it only visits archetypes by
+    /// walking their registered component storages. Debug/tooling path, not a per-tick
+    /// one. Same trimming guidance and eager-materialization reasoning as
+    /// <see cref="EnumerateArchetypes"/> apply here too.
+    /// </summary>
+    public IReadOnlyList<EntitySnapshot> EnumerateEntities(ComponentCodecRegistry registry)
+    {
+        var result = new List<EntitySnapshot>();
+
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0) continue;
+
+            var tags = ResolveTagDiscriminators(archetype.Signature, registry);
+
+            // Resolve which storages are registered once per archetype, not once per row
+            // — the answer is identical for every entity in the archetype, so checking it
+            // again for every row would just repeat the same dictionary lookups.
+            var registeredStorages = new List<(Internal.IComponentStorage Storage, IComponentCodec Codec)>();
+            foreach (var (typeIndex, storage) in archetype.Storages)
+                if (registry.TryGetByTypeIndex(typeIndex, out var registered))
+                    registeredStorages.Add((storage, registered));
+
+            for (var row = 0; row < archetype.Count; row++)
+            {
+                var components = new List<EncodedComponent>(registeredStorages.Count);
+                foreach (var (storage, registered) in registeredStorages)
+                    components.Add(new EncodedComponent(archetype.Entities[row], registered.Discriminator, registered.SchemaHash, registered.EncodeRow(storage.RawItems, row)));
+
+                result.Add(new EntitySnapshot(archetype.Entities[row], components, tags));
+            }
+        }
+
+        return result;
+    }
 }
