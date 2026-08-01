@@ -22,20 +22,23 @@ public sealed class ComponentCodecRegistry
     private readonly Dictionary<(string Discriminator, uint FromSchemaHash), (uint ToSchemaHash, SchemaMigrationStep Migrate)> _migrations = new();
     private readonly Dictionary<string, int> _tagsByDiscriminator = new();
     private readonly Dictionary<int, string> _tagsByTypeIndex = new();
+    private readonly Dictionary<string, IRelationCodec> _relationsByDiscriminator = new();
+    private readonly Dictionary<int, IRelationCodec> _relationsByTypeIndex = new();
 
     /// <summary>
     /// Registers <typeparamref name="T"/> under <paramref name="discriminator"/> — a
     /// caller-chosen, stable identifier, never <see cref="Internal.TypeIndex{T}"/>.
-    /// Throws if <paramref name="discriminator"/> is already registered, or if
-    /// <typeparamref name="T"/> is already registered under a different discriminator
-    /// (silently letting this through would leave <see cref="TryGetByTypeIndex"/> and
-    /// <see cref="TryGetByDiscriminator"/> resolving to different entries for the same
-    /// type — the first serializes on save, the second deserializes anything saved
-    /// under the earlier discriminator, with no guarantee they agree).
+    /// Throws if <paramref name="discriminator"/> is already registered (by a component
+    /// or a relation — see <see cref="RegisterRelation{T}"/>), or if <typeparamref name="T"/>
+    /// is already registered under a different discriminator (silently letting this
+    /// through would leave <see cref="TryGetByTypeIndex"/> and <see cref="TryGetByDiscriminator"/>
+    /// resolving to different entries for the same type — the first serializes on save,
+    /// the second deserializes anything saved under the earlier discriminator, with no
+    /// guarantee they agree).
     /// </summary>
     public void Register<T>(string discriminator, ComponentEncoder<T> encode, ComponentDecoder<T> decode, uint? schemaHash = null) where T : struct, IComponent
     {
-        if (_byDiscriminator.ContainsKey(discriminator))
+        if (_byDiscriminator.ContainsKey(discriminator) || _relationsByDiscriminator.ContainsKey(discriminator))
             throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
 
         var typeIndex = Internal.TypeIndex<T>.Value;
@@ -45,6 +48,53 @@ public sealed class ComponentCodecRegistry
         var entry = new Internal.ComponentCodec<T>(discriminator, encode, decode, schemaHash);
         _byDiscriminator[discriminator] = entry;
         _byTypeIndex[typeIndex] = entry;
+    }
+
+    /// <summary>
+    /// Registers <typeparamref name="T"/> (an <see cref="IRelation"/> payload type) under
+    /// <paramref name="discriminator"/>, sharing the same collision namespace
+    /// <see cref="Register{T}"/> uses — a discriminator already used by a component or
+    /// another relation type throws, for the same reason <see cref="Register{T}"/>
+    /// itself throws on either case.
+    /// </summary>
+    public void RegisterRelation<T>(string discriminator, RelationEncoder<T> encode, RelationDecoder<T> decode, uint? schemaHash = null) where T : struct, IRelation
+    {
+        if (_byDiscriminator.ContainsKey(discriminator) || _relationsByDiscriminator.ContainsKey(discriminator))
+            throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
+
+        var typeIndex = Internal.TypeIndex<T>.Value;
+        if (_relationsByTypeIndex.TryGetValue(typeIndex, out var existing))
+            throw new ArgumentException($"Relation type '{typeof(T)}' is already registered under discriminator '{existing.Discriminator}'.");
+
+        var entry = new Internal.RelationCodec<T>(discriminator, encode, decode, schemaHash);
+        _relationsByDiscriminator[discriminator] = entry;
+        _relationsByTypeIndex[typeIndex] = entry;
+    }
+
+    /// <summary>Same as <see cref="TryGetByTypeIndex"/>, for a registered relation payload type.</summary>
+    public bool TryGetRelationByTypeIndex(int typeIndex, out IRelationCodec registered)
+    {
+        if (_relationsByTypeIndex.TryGetValue(typeIndex, out var found))
+        {
+            registered = found;
+            return true;
+        }
+
+        registered = null!;
+        return false;
+    }
+
+    /// <summary>Same as <see cref="TryGetByDiscriminator"/>, for a registered relation payload type.</summary>
+    public bool TryGetRelationByDiscriminator(string discriminator, out IRelationCodec registered)
+    {
+        if (_relationsByDiscriminator.TryGetValue(discriminator, out var found))
+        {
+            registered = found;
+            return true;
+        }
+
+        registered = null!;
+        return false;
     }
 
     /// <summary>
