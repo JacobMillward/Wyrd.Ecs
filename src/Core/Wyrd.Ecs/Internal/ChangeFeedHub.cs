@@ -87,7 +87,7 @@ internal sealed class ChangeFeedHub
     {
         if (_tickSubscribed) return;
         _tickSubscribed = true;
-        _sinceTick = _world.CurrentTick - 1;
+        ResetWatermark(_world.CurrentTick);
         _world.OnTickAdvanced += OnTickAdvanced;
     }
 
@@ -95,8 +95,10 @@ internal sealed class ChangeFeedHub
     {
         foreach (var scan in _scanners.Values)
             scan(_sinceTick);
-        _sinceTick = tick - 1;
+        ResetWatermark(tick);
     }
+
+    private void ResetWatermark(int tick) => _sinceTick = tick - 1;
 
     internal IReadOnlyList<ChangeEntry> Drain(int id)
     {
