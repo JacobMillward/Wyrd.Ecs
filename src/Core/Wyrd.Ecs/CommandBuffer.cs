@@ -169,6 +169,15 @@ public sealed partial class CommandBuffer
         internal static readonly Action<World, Entity, object?, int> Apply = (w, _, buffer, _) => w.PlaceReservedEntities((Entity[])buffer!);
     }
 
+    private static class TemplatePlacementOp
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, _) =>
+        {
+            var template = (EntityTemplate)buffer!;
+            w.PlaceReservedEntityFromTemplate(e, template.Signature, template.Setters);
+        };
+    }
+
     private static class AddComponentOp<T> where T : struct, IComponent
     {
         // TODO: once logging exists, warn here when the overwrite branch runs. It's valid
@@ -260,6 +269,22 @@ public sealed partial class CommandBuffer
     {
         var entity = _world.ReserveEntity();
         lock (_gate) Enqueue(new QueuedCommand(entity, PlaceReservedOp.Apply, null, 0));
+        return new EntityView(_world, this, entity);
+    }
+
+    /// <summary>
+    /// Reserves a real <see cref="Entity"/> immediately and queues its placement directly
+    /// into the archetype matching <paramref name="template"/>'s components/tags, writing
+    /// every component value in the same move — the <see cref="EntityTemplate"/>
+    /// counterpart of the generated <c>CreateEntity&lt;T0..Tn&gt;</c> family. Returns an
+    /// <see cref="EntityView"/> bound to this buffer, same chaining contract as every other
+    /// <see cref="CreateEntity()"/> overload. Not <see cref="World.IsAlive"/> until
+    /// <see cref="World.ApplyCommands()"/> runs.
+    /// </summary>
+    public EntityView CreateEntity(EntityTemplate template)
+    {
+        var entity = _world.ReserveEntity();
+        lock (_gate) Enqueue(new QueuedCommand(entity, TemplatePlacementOp.Apply, template, 0));
         return new EntityView(_world, this, entity);
     }
 

@@ -235,6 +235,27 @@ public sealed partial class World
         NotifyEntityCreated(entity);
     }
 
+    /// <summary>
+    /// Places a previously-reserved entity directly into the archetype matching
+    /// <paramref name="signature"/>, creating it if needed, then invokes every setter in
+    /// <paramref name="setters"/> against the placed row with <c>count = 1</c>. The
+    /// <see cref="EntityTemplate"/> counterpart of the generated
+    /// <c>PlaceReservedEntity&lt;T0..Tn&gt;</c> family — works from a pre-built
+    /// signature/setter list instead of a closed generic. Used only by
+    /// <see cref="CommandBuffer.CreateEntity(EntityTemplate)"/>'s queued placement.
+    /// </summary>
+    internal void PlaceReservedEntityFromTemplate(Entity entity, Internal.ArchetypeSignature signature, IReadOnlyCollection<TemplateComponentSetter> setters)
+    {
+        if (!_archetypes.TryGetValue(signature, out var target))
+            target = CreateArchetype(signature);
+
+        var row = _entityTable.Place(entity, target);
+        NotifyEntityCreated(entity);
+
+        foreach (var setter in setters)
+            setter(this, target, row, 1);
+    }
+
     /// <summary>Bulk counterpart to <see cref="PlaceReservedEntity(Entity)"/>: places every entity in one <see cref="Internal.Archetype.AddRows"/> call. Used only by <see cref="CommandBuffer.CreateEntity(int)"/>'s queued placement.</summary>
     internal void PlaceReservedEntities(Entity[] entities)
     {

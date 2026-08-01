@@ -35,4 +35,82 @@ public class EntityTemplateTests
 
         template.Setters.Should().HaveCount(1);
     }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_PlacesEntityWithComponentValues()
+    {
+        var world = new World();
+        var template = new EntityTemplate()
+            .AddComponent(new Position { X = 3, Y = 4 })
+            .AddComponent(new Health { Value = 50 });
+
+        Entity entity = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.IsAlive(entity).Should().BeTrue();
+        world.GetComponent<Position>(entity).X.Should().Be(3);
+        world.GetComponent<Health>(entity).Value.Should().Be(50);
+    }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_TwoEntitiesOfTheSameTemplate_ShareOneArchetype()
+    {
+        var world = new World();
+        var template = new EntityTemplate().AddComponent(new Position());
+
+        Entity a = world.Commands.CreateEntity(template);
+        Entity b = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.GetComponent<Position>(a) = new Position { X = 1 };
+        world.GetComponent<Position>(b) = new Position { X = 2 };
+        world.GetComponent<Position>(a).X.Should().Be(1);
+        world.GetComponent<Position>(b).X.Should().Be(2);
+    }
+
+    [Fact]
+    public void CreateEntity_FromEmptyTemplate_CreatesALiveEntityWithNoComponents()
+    {
+        var world = new World();
+        var template = new EntityTemplate();
+
+        Entity entity = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.IsAlive(entity).Should().BeTrue();
+        world.HasComponent<Position>(entity).Should().BeFalse();
+    }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_WithTrackingOn_MarksTheRowDirty()
+    {
+        var world = new World();
+        using var tracking = world.TrackChanges<Position>();
+        var sinceTick = world.CurrentTick;
+        world.AdvanceTick(); // entries recorded at or before sinceTick are never visible
+        var template = new EntityTemplate().AddComponent(new Position());
+
+        Entity entity = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        var seen = new List<Entity>();
+        foreach (var change in world.ReadChanges<Position>(sinceTick)) seen.Add(change.Entity);
+        seen.Should().Contain(entity);
+    }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_WithTrackingOff_MarksNothingDirty()
+    {
+        var world = new World();
+        var sinceTick = world.CurrentTick;
+        world.AdvanceTick();
+        var template = new EntityTemplate().AddComponent(new Position());
+
+        Entity entity = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        var seen = new List<Entity>();
+        foreach (var change in world.ReadChanges<Position>(sinceTick)) seen.Add(change.Entity);
+        seen.Should().NotContain(entity);
+    }
 }
