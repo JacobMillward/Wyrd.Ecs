@@ -660,6 +660,35 @@ public sealed partial class World
         }
     }
 
+    /// <summary>
+    /// Every live relation edge whose payload type is registered in <paramref name="registry"/>
+    /// via <see cref="ComponentCodecRegistry.RegisterRelation{T}"/>, one <see cref="EncodedRelation"/>
+    /// per edge — mirrors <see cref="EnumerateAll"/>, walking <see cref="RelationLinks{T}"/>
+    /// storages instead of ordinary component storages. <see cref="RelationBacklinks{T}"/>
+    /// is never walked here: replaying an edge through
+    /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/> regenerates it as a
+    /// side effect, same as at runtime.
+    /// </summary>
+    public IEnumerable<EncodedRelation> EnumerateRelations(ComponentCodecRegistry registry)
+    {
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0) continue;
+
+            foreach (var (typeIndex, storage) in archetype.Storages)
+            {
+                if (!registry.TryGetRelationByLinksTypeIndex(typeIndex, out var registered)) continue;
+
+                for (var row = 0; row < archetype.Count; row++)
+                {
+                    var source = archetype.Entities[row];
+                    foreach (var (target, payload) in registered.EncodeRow(storage.RawItems, row))
+                        yield return new EncodedRelation(source, target, registered.Discriminator, registered.SchemaHash, payload);
+                }
+            }
+        }
+    }
+
     /// <summary>Hot-path query: invokes <paramref name="action"/> once per matching archetype chunk with a <typeparamref name="TAccess0"/> accessor.</summary>
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {

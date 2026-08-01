@@ -24,6 +24,7 @@ public sealed class ComponentCodecRegistry
     private readonly Dictionary<int, string> _tagsByTypeIndex = new();
     private readonly Dictionary<string, IRelationCodec> _relationsByDiscriminator = new();
     private readonly Dictionary<int, IRelationCodec> _relationsByTypeIndex = new();
+    private readonly Dictionary<int, IRelationCodec> _relationsByLinksTypeIndex = new();
 
     /// <summary>
     /// Registers <typeparamref name="T"/> under <paramref name="discriminator"/> — a
@@ -69,6 +70,7 @@ public sealed class ComponentCodecRegistry
         var entry = new Internal.RelationCodec<T>(discriminator, encode, decode, schemaHash);
         _relationsByDiscriminator[discriminator] = entry;
         _relationsByTypeIndex[typeIndex] = entry;
+        _relationsByLinksTypeIndex[Internal.TypeIndex<RelationLinks<T>>.Value] = entry;
     }
 
     /// <summary>Same as <see cref="TryGetByTypeIndex"/>, for a registered relation payload type.</summary>
@@ -88,6 +90,25 @@ public sealed class ComponentCodecRegistry
     public bool TryGetRelationByDiscriminator(string discriminator, out IRelationCodec registered)
     {
         if (_relationsByDiscriminator.TryGetValue(discriminator, out var found))
+        {
+            registered = found;
+            return true;
+        }
+
+        registered = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Looks up a relation registration by its <c>RelationLinks{T}</c> wrapper's
+    /// current-process <see cref="Internal.TypeIndex{T}"/> — a different value from
+    /// <see cref="TryGetRelationByTypeIndex"/>'s own <c>T</c>-keyed lookup. Used by
+    /// <see cref="World.EnumerateRelations"/> while walking type-erased archetype
+    /// storage, which only ever has the wrapper's own type index to look up by.
+    /// </summary>
+    internal bool TryGetRelationByLinksTypeIndex(int typeIndex, out IRelationCodec registered)
+    {
+        if (_relationsByLinksTypeIndex.TryGetValue(typeIndex, out var found))
         {
             registered = found;
             return true;

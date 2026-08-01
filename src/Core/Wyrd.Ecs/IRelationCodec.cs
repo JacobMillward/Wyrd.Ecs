@@ -21,6 +21,16 @@ public interface IRelationCodec
     byte[] EncodeValue(object value);
 
     /// <summary>
+    /// Encodes every edge in <paramref name="rawItems"/>[<paramref name="row"/>] (a
+    /// <c>RelationLinks{T}[]</c> component storage's <c>RawItems</c> array) — one
+    /// <c>(Target, Payload)</c> pair per target the source entity at that row has an
+    /// edge to. Unlike a component's single-value row, one row here can yield any
+    /// number of results, since one <c>RelationLinks{T}</c> value holds every edge for
+    /// its owning entity.
+    /// </summary>
+    IEnumerable<(Entity Target, byte[] Payload)> EncodeRow(Array rawItems, int row);
+
+    /// <summary>
     /// Deserializes <paramref name="data"/> and queues linking <paramref name="source"/>
     /// to <paramref name="target"/> via <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/>.
     /// Call <see cref="World.ApplyCommands()"/> to make it take effect.
