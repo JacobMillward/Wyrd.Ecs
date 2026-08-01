@@ -44,7 +44,10 @@ public readonly struct RelationBacklinks<T> : IComponent where T : struct, IRela
         else
         {
             foreach (var source in backlinks.Sources!)
+            {
                 world.RemoveRelationLink<T>(source, self);
+                world.NotifyRelationUnlinked(source, self, Internal.TypeIndex<T>.Value);
+            }
         }
     }
 }

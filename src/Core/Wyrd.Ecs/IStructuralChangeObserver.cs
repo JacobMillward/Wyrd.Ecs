@@ -28,4 +28,10 @@ public interface IStructuralChangeObserver
 
     /// <summary>A tag was removed from an entity.</summary>
     void OnTagRemoved(Entity entity, int typeIndex);
+
+    /// <summary>An edge was added from <paramref name="source"/> to <paramref name="target"/>.</summary>
+    void OnRelationLinked(Entity source, Entity target, int typeIndex) { }
+
+    /// <summary>An edge from <paramref name="source"/> to <paramref name="target"/> no longer exists.</summary>
+    void OnRelationUnlinked(Entity source, Entity target, int typeIndex) { }
 }

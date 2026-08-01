@@ -250,6 +250,8 @@ public sealed partial class CommandBuffer
             if (!w.TryResolve(target, out var targetLocation)) return;
             ref var backlinks = ref w.GetOrCreateRelationBacklinks<T>(target, targetLocation);
             backlinks.Sources!.Add(source);
+
+            w.NotifyRelationLinked(source, target, Internal.TypeIndex<T>.Value);
         };
     }
 

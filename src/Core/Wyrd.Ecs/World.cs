@@ -102,6 +102,18 @@ public sealed partial class World
             observer.OnTagRemoved(entity, typeIndex);
     }
 
+    internal void NotifyRelationLinked(Entity source, Entity target, int typeIndex)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnRelationLinked(source, target, typeIndex);
+    }
+
+    internal void NotifyRelationUnlinked(Entity source, Entity target, int typeIndex)
+    {
+        foreach (var observer in _structuralObservers)
+            observer.OnRelationUnlinked(source, target, typeIndex);
+    }
+
     private sealed class StructuralObserverHandle : IDisposable
     {
         private readonly World _world;
@@ -457,7 +469,14 @@ public sealed partial class World
         if (links.Targets.Count == 0) RemoveComponent(source, location, typeIndex);
     }
 
-    /// <summary>Same as <see cref="RemoveRelationLink{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>) side.</summary>
+    /// <summary>
+    /// Same as <see cref="RemoveRelationLink{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>)
+    /// side. This is the single point that notifies <see cref="IStructuralChangeObserver.OnRelationUnlinked"/>
+    /// for an edge removal, not <see cref="RemoveRelationLink{T}"/> — every caller that removes an edge
+    /// calls this method somewhere in the process except <see cref="RelationBacklinks{T}"/>'s own
+    /// cascade-remove (which notifies explicitly instead, since it deliberately skips this method — see
+    /// its own doc).
+    /// </summary>
     internal void RemoveRelationBacklink<T>(Entity target, Entity source) where T : struct, IRelation
     {
         if (!TryResolve(target, out var location)) return;
@@ -466,6 +485,7 @@ public sealed partial class World
 
         var backlinks = GetComponent<RelationBacklinks<T>>(target, location);
         if (!backlinks.Sources!.Remove(source)) return;
+        NotifyRelationUnlinked(source, target, TypeIndex<T>.Value);
         if (backlinks.Sources.Count == 0) RemoveComponent(target, location, typeIndex);
     }
 
