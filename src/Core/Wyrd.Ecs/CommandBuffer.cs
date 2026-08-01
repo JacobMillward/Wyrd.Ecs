@@ -178,6 +178,15 @@ public sealed partial class CommandBuffer
         };
     }
 
+    private static class BatchTemplatePlacementOp
+    {
+        internal static readonly Action<World, Entity, object?, int> Apply = (w, _, buffer, _) =>
+        {
+            var (entities, template) = ((Entity[], EntityTemplate))buffer!;
+            w.PlaceReservedEntitiesFromTemplate(entities, template.Signature, template.Setters);
+        };
+    }
+
     private static class AddComponentOp<T> where T : struct, IComponent
     {
         // TODO: once logging exists, warn here when the overwrite branch runs. It's valid
@@ -403,6 +412,33 @@ public sealed partial class CommandBuffer
         _world.ReserveEntityRange(entities);
 
         lock (_gate) Enqueue(new QueuedCommand(default, BatchPlaceReservedOp.Apply, entities, 0));
+        return entities;
+    }
+
+    /// <summary>
+    /// Batch counterpart of <see cref="CreateEntity(EntityTemplate)"/>: reserves
+    /// <paramref name="count"/> real <see cref="Entity"/> ids immediately and queues their
+    /// placement, all sharing <paramref name="template"/>'s components/tags, blitted in one
+    /// <see cref="Internal.ComponentStorage{T}.Fill"/> call per component regardless of
+    /// <paramref name="count"/>. Throws <see cref="InvalidOperationException"/> if
+    /// <paramref name="template"/> has children (<see cref="EntityTemplate.Children"/>) —
+    /// each child is a distinct set of entities per instance, so there's no blitting trick
+    /// that applies to a tree; call <see cref="CreateEntity(EntityTemplate)"/> once per
+    /// instance instead. Returns <see cref="Array.Empty{T}"/> for <paramref name="count"/> == 0;
+    /// throws <see cref="ArgumentOutOfRangeException"/> for a negative count.
+    /// </summary>
+    public Entity[] CreateEntity(EntityTemplate template, int count)
+    {
+        if (template.Children.Count > 0)
+            throw new InvalidOperationException("Batch instantiation is not supported for a template with children — each child is a distinct set of entities per instance. Call CreateEntity(EntityTemplate) once per instance instead.");
+
+        if (count == 0) return Array.Empty<Entity>();
+        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), count, "count must be non-negative.");
+
+        var entities = new Entity[count];
+        _world.ReserveEntityRange(entities);
+
+        lock (_gate) Enqueue(new QueuedCommand(default, BatchTemplatePlacementOp.Apply, (entities, template), 0));
         return entities;
     }
 

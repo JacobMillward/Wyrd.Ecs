@@ -256,6 +256,28 @@ public sealed partial class World
             setter(this, target, row, 1);
     }
 
+    /// <summary>
+    /// Batch counterpart of <see cref="PlaceReservedEntityFromTemplate"/>: places every
+    /// entity into the archetype matching <paramref name="signature"/>, creating it if
+    /// needed, then invokes every setter in <paramref name="setters"/> once for the whole
+    /// batch (each setter internally blits via <see cref="Internal.ComponentStorage{T}.Fill"/>)
+    /// rather than once per entity. Used only by
+    /// <see cref="CommandBuffer.CreateEntity(EntityTemplate, int)"/>'s queued placement.
+    /// </summary>
+    internal void PlaceReservedEntitiesFromTemplate(Entity[] entities, Internal.ArchetypeSignature signature, IReadOnlyCollection<TemplateComponentSetter> setters)
+    {
+        if (!_archetypes.TryGetValue(signature, out var target))
+            target = CreateArchetype(signature);
+
+        var startRow = target.AddRows(entities);
+        _entityTable.PlaceBatch(entities, target, startRow);
+
+        foreach (var setter in setters)
+            setter(this, target, startRow, entities.Length);
+
+        foreach (var entity in entities) NotifyEntityCreated(entity);
+    }
+
     /// <summary>Bulk counterpart to <see cref="PlaceReservedEntity(Entity)"/>: places every entity in one <see cref="Internal.Archetype.AddRows"/> call. Used only by <see cref="CommandBuffer.CreateEntity(int)"/>'s queued placement.</summary>
     internal void PlaceReservedEntities(Entity[] entities)
     {

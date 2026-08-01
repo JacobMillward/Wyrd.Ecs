@@ -195,4 +195,48 @@ public class EntityTemplateTests
 
         world.IsAlive(childEntity).Should().BeFalse();
     }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_Batch_SharesOneArchetypeAndBlitsValues()
+    {
+        var world = new World();
+        var template = new EntityTemplate().AddComponent(new Position { X = 7 });
+
+        var entities = world.Commands.CreateEntity(template, 5);
+        world.ApplyCommands();
+
+        entities.Should().HaveCount(5);
+        foreach (var e in entities) world.GetComponent<Position>(e).X.Should().Be(7);
+
+        world.GetComponent<Position>(entities[0]) = new Position { X = 99 };
+        world.GetComponent<Position>(entities[1]).X.Should().Be(7);
+    }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_BatchCountZero_ReturnsEmptyArray()
+    {
+        var world = new World();
+        var template = new EntityTemplate().AddComponent(new Position());
+        world.Commands.CreateEntity(template, 0).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_BatchNegativeCount_Throws()
+    {
+        var world = new World();
+        var template = new EntityTemplate().AddComponent(new Position());
+        var act = () => world.Commands.CreateEntity(template, -1);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void CreateEntity_FromTemplate_BatchWithChildren_Throws()
+    {
+        var world = new World();
+        var child = new EntityTemplate().AddComponent(new Position());
+        var root = new EntityTemplate().AddChild(child);
+
+        var act = () => world.Commands.CreateEntity(root, 3);
+        act.Should().Throw<InvalidOperationException>();
+    }
 }
