@@ -60,7 +60,7 @@ public class RelationCommandsTests
         world.ApplyCommands();
 
         world.GetComponent<RelationLinks<Likes>>(a).Values[b].Weight.Should().Be(9f);
-        world.GetComponent<RelationBacklinks<Likes>>(b).Values.Should().HaveCount(1); // still one backlink, not two
+        world.GetComponent<RelationBacklinks<Likes>>(b).Values.Should().HaveCount(1, "still one backlink, not two");
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class RelationCommandsTests
         world.Commands.RemoveRelation<Likes>(a, b);
         world.ApplyCommands();
 
-        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse(); // last edge removed: component gone entirely
+        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse("last edge removed: component gone entirely");
         world.HasComponent<RelationBacklinks<Likes>>(b).Should().BeFalse();
     }
 

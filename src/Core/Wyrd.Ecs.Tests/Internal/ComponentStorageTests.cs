@@ -185,7 +185,7 @@ public class ComponentStorageTests
         storage.Fill(startRow: 0, count: 2, new Value { Number = 1 });
         storage[0].Number = 99;
 
-        storage[1].Number.Should().Be(1); // mutating one row's copy must not affect the other
+        storage[1].Number.Should().Be(1, "mutating one row's copy must not affect the other");
     }
 
     [Fact]

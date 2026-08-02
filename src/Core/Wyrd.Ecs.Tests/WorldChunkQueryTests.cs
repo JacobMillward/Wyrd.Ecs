@@ -113,7 +113,7 @@ public class WorldChunkQueryTests
         var archetype = GetArchetype(world, entity);
         var storage = archetype.Storages[Wyrd.Ecs.Internal.TypeIndex<Position>.Value];
         storage.RawLastMarkedTick[0].Should().NotBe(world.CurrentTick);
-        world.GetComponent<Position>(entity).X.Should().Be(2f); // the write itself still went through
+        world.GetComponent<Position>(entity).X.Should().Be(2f, "the write itself still went through");
     }
 
     private static Wyrd.Ecs.Internal.Archetype GetArchetype(World world, Entity entity) =>

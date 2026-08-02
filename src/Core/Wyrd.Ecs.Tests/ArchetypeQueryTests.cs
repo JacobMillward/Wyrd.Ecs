@@ -39,8 +39,7 @@ public class ArchetypeQueryTests
         var query = ArchetypeQuery.Empty.Has<Position>().Has<Velocity>();
         var chunks = query.Resolve(world);
 
-        // Position+Velocity, Position+Velocity+Dead, Position+Velocity+BuffA: three distinct archetypes.
-        chunks.Count.Should().Be(3);
+        chunks.Count.Should().Be(3, "Position+Velocity, Position+Velocity+Dead, Position+Velocity+BuffA are three distinct archetypes");
     }
 
     [Fact]

@@ -84,6 +84,6 @@ public class QueryArityOverloadTests
         world.Query().With<ArityPosition>().Any<ArityBuffA, ArityBuffB, ArityBuffC>()
             .ForEach(0, (in int _, in ArityPosition p) => total += p.X);
 
-        total.Should().Be(11f); // 1 (ArityBuffA) + 10 (ArityBuffB); the tagless entity (100) excluded
+        total.Should().Be(11f, "1 (ArityBuffA) + 10 (ArityBuffB); the tagless entity (100) excluded");
     }
 }

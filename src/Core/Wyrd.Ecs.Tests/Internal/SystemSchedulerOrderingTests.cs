@@ -114,10 +114,7 @@ public class SystemSchedulerOrderingTests
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
-        // BuildStages returns IReadOnlyList<IReadOnlyList<EcsSystem>>. Since MarkerSystem
-        // is a sibling of EcsSystem, not a subtype, a marker can never appear here as a
-        // matter of the type system. This only confirms no phantom entry snuck in some other way.
-        stages.SelectMany(s => s).Should().HaveCount(2);
+        stages.SelectMany(s => s).Should().HaveCount(2, "MarkerSystem is a sibling of EcsSystem, not a subtype, so a marker can never appear here as a matter of the type system; this only confirms no phantom entry snuck in some other way");
     }
 
     [Fact]
@@ -132,9 +129,7 @@ public class SystemSchedulerOrderingTests
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
-        // The marker is only an edge target; with nothing registered after it, it
-        // contributes no stage of its own to the materialized output.
-        stages.Should().ContainSingle();
+        stages.Should().ContainSingle("the marker is only an edge target, and with nothing registered after it, it contributes no stage of its own to the materialized output");
         stages[0].Should().ContainSingle(s => s.GetType() == typeof(OrderedSystemP));
     }
 }

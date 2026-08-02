@@ -84,8 +84,7 @@ public class QueryChainGeneratorForEachTests
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("RunTwoComponent")!.Invoke(null, null)!;
 
-        // Entity 1: Position.X 1+2=3. Entity 2: Position.X 10+20=30. Sum of running totals: 3, then 3+30=33.
-        result.Should().Be(33f);
+        result.Should().Be(33f, "Entity 1: Position.X 1+2=3, Entity 2: Position.X 10+20=30, sum of running totals: 3, then 3+30=33");
     }
 
     [Fact]

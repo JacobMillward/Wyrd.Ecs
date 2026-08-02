@@ -89,7 +89,7 @@ public class EntityViewTests
         world.ApplyCommands();
 
         world[entity].AddComponent(new Position { X = 3f });
-        world.HasComponent<Position>(entity).Should().BeFalse(); // still deferred
+        world.HasComponent<Position>(entity).Should().BeFalse("still deferred");
         world.ApplyCommands();
 
         world.GetComponent<Position>(entity).X.Should().Be(3f);
@@ -464,7 +464,7 @@ public class EntityViewTests
         world.ApplyCommands();
 
         world[entity].DestroyEntity();
-        world.IsAlive(entity).Should().BeTrue(); // still deferred
+        world.IsAlive(entity).Should().BeTrue("still deferred");
         world.ApplyCommands();
 
         world.IsAlive(entity).Should().BeFalse();

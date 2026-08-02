@@ -49,8 +49,7 @@ public class QuerySystemGeneratorTests
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
 
-        // Entity 1: 1 + 2 = 3. Entity 2: 10 + 20 = 30. Sum: 33.
-        result.Should().Be(33f);
+        result.Should().Be(33f, "Entity 1: 1 + 2 = 3, Entity 2: 10 + 20 = 30, sum: 33");
     }
 
     [Fact]
@@ -106,7 +105,7 @@ public class QuerySystemGeneratorTests
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
 
-        result.Should().Be(6f); // 1 (Position.X) + 2 (Velocity.X) + 3 (Health.Current)
+        result.Should().Be(6f, "1 (Position.X) + 2 (Velocity.X) + 3 (Health.Current)");
     }
 
     [Fact]
@@ -215,8 +214,6 @@ public class QuerySystemGeneratorTests
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
 
-        // alive: 1f, +1 from MoveSystem's own Update = 2f. dead: untouched, since Without<Dead>
-        // excludes it from MoveSystem's query, so it stays 100f. 2 + 100 = 102.
-        result.Should().Be(102f);
+        result.Should().Be(102f, "alive: 1f, +1 from MoveSystem's own Update = 2f; dead: untouched, since Without<Dead> excludes it from MoveSystem's query, so it stays 100f; 2 + 100 = 102");
     }
 }

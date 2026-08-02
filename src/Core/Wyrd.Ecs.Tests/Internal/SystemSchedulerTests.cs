@@ -88,7 +88,7 @@ public class SystemSchedulerTests
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
-        stages.Should().HaveCount(2); // dynamicSystem also writes Health -> conflicts with WriterA
+        stages.Should().HaveCount(2, "dynamicSystem also writes Health -> conflicts with WriterA");
     }
 
     private sealed class DynamicHealthWriter : EcsSystem, IQueryAccessDescriptor

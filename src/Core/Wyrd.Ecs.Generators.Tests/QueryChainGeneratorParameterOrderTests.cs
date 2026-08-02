@@ -54,8 +54,6 @@ public class QueryChainGeneratorParameterOrderTests
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("RunThreeComponent")!.Invoke(null, null)!;
 
-        // Position.X (1) doubled by RunTwoComponent (1 + 2 = 3) is applied first, then the
-        // three-component pass reads Position.X=3, Velocity.X=2, adds both to Health.Current=100.
-        result.Should().Be(105f);
+        result.Should().Be(105f, "Position.X (1) doubled by RunTwoComponent (1 + 2 = 3) is applied first, then the three-component pass reads Position.X=3, Velocity.X=2, adds both to Health.Current=100");
     }
 }

@@ -16,7 +16,7 @@ public class EntityTableTests
         table.Place(b, archetype);
 
         table.IsAlive(a.Id, a.Generation).Should().BeFalse();
-        table.IsAlive(b.Id, b.Generation).Should().BeTrue(); // b must be alive immediately from its own Place call, regardless of a's
+        table.IsAlive(b.Id, b.Generation).Should().BeTrue("b must be alive immediately from its own Place call, regardless of a's");
 
         table.Place(a, archetype);
 

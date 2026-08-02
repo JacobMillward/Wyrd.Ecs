@@ -211,7 +211,7 @@ public class StructuralChangeObserverTests
         world.Commands.AddComponent(entity, new Position());
         world.ApplyCommands();
 
-        observer.Events.Should().Equal($"Destroyed:{entity.Id}"); // the AddComponent never landed, so it never notified
+        observer.Events.Should().Equal([$"Destroyed:{entity.Id}"], "the AddComponent never landed, so it never notified");
     }
 
     [Fact]

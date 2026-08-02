@@ -36,7 +36,7 @@ public class RelationDestroyCascadeTests
         world.Commands.DestroyEntity(b);
         world.ApplyCommands();
 
-        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse(); // b was a's only edge: now empty, so the component itself is removed
+        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse("b was a's only edge: now empty, so the component itself is removed");
         world.Targets<Likes>(a).Should().BeEmpty();
     }
 
@@ -148,7 +148,7 @@ public class RelationDestroyCascadeTests
         world.Commands.DestroyEntity(b);
         world.ApplyCommands();
 
-        world.IsAlive(a).Should().BeTrue(); // Likes is not IDependent, so a survives, just unlinked
+        world.IsAlive(a).Should().BeTrue("Likes is not IDependent, so a survives, just unlinked");
         world.HasRelation<Likes>(a, b).Should().BeFalse();
     }
 }

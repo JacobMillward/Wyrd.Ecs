@@ -161,10 +161,8 @@ public class WorldDirtyReadTests
         foreach (var change in world.ReadChanges<Position>(fastWatermark))
             fastSeenTicks.Add(change.Tick);
 
-        // There is one current tick-stamp per row, not a log of every past touch: both
-        // watermarks see the same single entry, at the row's latest tick.
-        slowSeenTicks.Should().Equal(4);
-        fastSeenTicks.Should().Equal(4);
+        slowSeenTicks.Should().Equal([4], "there is one current tick-stamp per row, not a log of every past touch, so both watermarks see the same single entry at the row's latest tick");
+        fastSeenTicks.Should().Equal([4], "there is one current tick-stamp per row, not a log of every past touch, so both watermarks see the same single entry at the row's latest tick");
     }
 
     [Fact]

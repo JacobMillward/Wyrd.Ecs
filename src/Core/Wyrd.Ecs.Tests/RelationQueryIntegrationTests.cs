@@ -37,7 +37,7 @@ public class RelationQueryIntegrationTests
         world.Query().With<RelationLinks<Likes>>()
             .ForEach(0, (in int _, in RelationLinks<Likes> link) => count++);
 
-        count.Should().Be(2); // a and b, both matched purely by "has any Likes edge": untouched and c (which only has backlinks) are excluded
+        count.Should().Be(2, "a and b, both matched purely by \"has any Likes edge\": untouched and c (which only has backlinks) are excluded");
     }
 
     [Fact]

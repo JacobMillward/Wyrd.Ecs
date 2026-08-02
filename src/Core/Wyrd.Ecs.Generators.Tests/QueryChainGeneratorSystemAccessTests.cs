@@ -58,7 +58,7 @@ public class QueryChainGeneratorSystemAccessTests
         var result = assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
         var tuple = (System.Runtime.CompilerServices.ITuple)result;
 
-        ((Type[])tuple[0]!).Should().HaveCount(2); // MovementSystem, MultiQuerySystem
+        ((Type[])tuple[0]!).Should().HaveCount(2, "MovementSystem, MultiQuerySystem");
         ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("Velocity")]);
         ((Type[])tuple[2]!).Should().BeEquivalentTo([assembly.GetType("Position")]);
     }

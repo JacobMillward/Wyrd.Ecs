@@ -66,8 +66,8 @@ public class ScheduledExecutorTests
 
         world.Update(TimeSpan.Zero);
 
-        world.GetComponent<ScheduledPosition>(e).X.Should().Be(1f); // MoveSystem ran exactly once
-        world.GetComponent<ScheduledHealth>(e).Value.Should().Be(4); // DamageSystem ran exactly once
+        world.GetComponent<ScheduledPosition>(e).X.Should().Be(1f, "MoveSystem ran exactly once");
+        world.GetComponent<ScheduledHealth>(e).Value.Should().Be(4, "DamageSystem ran exactly once");
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class ScheduledExecutorTests
         var count = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledHealth>>().Resolve(world))
             count += chunk.Count;
-        count.Should().Be(1); // SpawnerSystem's CreateEntity/AddComponent must be applied by RunStages, not left pending
+        count.Should().Be(1, "SpawnerSystem's CreateEntity/AddComponent must be applied by RunStages, not left pending");
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class ScheduledExecutorTests
 
         world.Update(TimeSpan.Zero);
 
-        world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f); // both MoveSystem instances ran, one per stage
+        world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f, "both MoveSystem instances ran, one per stage");
     }
 
     [Fact]
@@ -129,8 +129,8 @@ public class ScheduledExecutorTests
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ScheduledHealth>>().Resolve(world))
             healthCount += chunk.Count;
 
-        positionCount.Should().Be(200); // SpawnerASystem's 200 concurrent creates all survived
-        healthCount.Should().Be(200); // SpawnerBSystem's 200 concurrent creates all survived, dispatched alongside SpawnerASystem
+        positionCount.Should().Be(200, "SpawnerASystem's 200 concurrent creates all survived");
+        healthCount.Should().Be(200, "SpawnerBSystem's 200 concurrent creates all survived, dispatched alongside SpawnerASystem");
     }
 
     [Fact]
@@ -145,6 +145,6 @@ public class ScheduledExecutorTests
         world.Update(TimeSpan.FromSeconds(1));
         world.Update(TimeSpan.FromSeconds(2));
 
-        world.CurrentTick.Should().Be(3); // starts at 1 (World's own default), advanced once per Update call
+        world.CurrentTick.Should().Be(3, "it starts at 1 (World's own default), advanced once per Update call");
     }
 }

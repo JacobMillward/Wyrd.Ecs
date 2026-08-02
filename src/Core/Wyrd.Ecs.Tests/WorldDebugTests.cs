@@ -140,7 +140,7 @@ public class WorldDebugTests
 
         var registry = NewRegistry();
 
-        world.EnumerateAll(registry).Should().BeEmpty(); // the existing method silently drops this entity
+        world.EnumerateAll(registry).Should().BeEmpty("the existing method silently drops this entity");
         var snapshot = world.EnumerateEntities(registry).Should().ContainSingle().Subject;
         snapshot.Components.Should().BeEmpty();
         snapshot.Tags.Should().BeEmpty();
@@ -189,6 +189,6 @@ public class WorldDebugTests
         world.Commands.AddComponent(entity, new Velocity { X = 2f }); // moves entity to a brand-new archetype
         world.ApplyCommands();
 
-        snapshots.Should().ContainSingle().Which.Components.Should().HaveCount(1); // the pre-mutation snapshot: Position only
+        snapshots.Should().ContainSingle().Which.Components.Should().HaveCount(1, "the pre-mutation snapshot: Position only");
     }
 }

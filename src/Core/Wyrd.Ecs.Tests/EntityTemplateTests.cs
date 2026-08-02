@@ -128,7 +128,7 @@ public class EntityTemplateTests
         world.ApplyCommands();
 
         world.HasTag<Hostile>(entity).Should().BeTrue();
-        template.Setters.Should().HaveCount(1); // the tag itself adds no setter
+        template.Setters.Should().HaveCount(1, "the tag itself adds no setter");
     }
 
     [Fact]

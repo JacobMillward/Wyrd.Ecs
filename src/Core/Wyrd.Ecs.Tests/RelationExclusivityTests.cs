@@ -105,7 +105,7 @@ public class RelationExclusivityTests
         act.Should().NotThrow();
         world.Targets<Parent>(a).Should().HaveCount(1);
         world.Targets<Parent>(a).Should().ContainKey(b);
-        world.HasComponent<RelationBacklinks<Parent>>(a).Should().BeFalse(); // a is no longer its own target, so its backlinks component is gone
+        world.HasComponent<RelationBacklinks<Parent>>(a).Should().BeFalse("a is no longer its own target, so its backlinks component is gone");
     }
 
     [Fact]
@@ -126,11 +126,8 @@ public class RelationExclusivityTests
         world.Commands.AddRelation(child, momTwo, new Parent { Weight = 2f });
         world.ApplyCommands();
 
-        // Only momOne's RelationBacklinks<Parent> removal and momTwo's add should count. If
-        // child's own RelationLinks<Parent> had also been removed-then-re-added, these counts
-        // would be 2 and 2, not 1 and 1.
-        observer.AddedCount.Should().Be(1);
-        observer.RemovedCount.Should().Be(1);
+        observer.AddedCount.Should().Be(1, "only momOne's RelationBacklinks<Parent> removal and momTwo's add should count; if child's own RelationLinks<Parent> had also been removed-then-re-added, these counts would be 2 and 2");
+        observer.RemovedCount.Should().Be(1, "only momOne's RelationBacklinks<Parent> removal and momTwo's add should count; if child's own RelationLinks<Parent> had also been removed-then-re-added, these counts would be 2 and 2");
     }
 
     [Fact]
@@ -146,6 +143,6 @@ public class RelationExclusivityTests
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
 
-        world.Targets<Likes>(a).Should().HaveCount(2); // Likes is not IExclusiveRelation, so both targets coexist
+        world.Targets<Likes>(a).Should().HaveCount(2, "Likes is not IExclusiveRelation, so both targets coexist");
     }
 }

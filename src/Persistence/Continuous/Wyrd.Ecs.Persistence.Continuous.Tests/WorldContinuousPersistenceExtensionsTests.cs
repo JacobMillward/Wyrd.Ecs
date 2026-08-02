@@ -120,10 +120,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
             .Build();
 
         var (tick, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
-        // One less than CurrentTick: EnableContinuousPersistence advances the tick once
-        // after taking the bootstrap snapshot, sealing its boundary (see the
-        // implementation's comment for why).
-        tick.Should().Be(world.CurrentTick - 1);
+        tick.Should().Be(world.CurrentTick - 1, "EnableContinuousPersistence advances the tick once after taking the bootstrap snapshot, sealing its boundary");
         world.StopContinuousPersistence();
     }
 
@@ -218,12 +215,12 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
             for (var i = 0; i < chunk.Count; i++)
                 positions.Add(values[i].X);
         }
-        positions.Should().Equal(1f); // only the surviving entity, at its original value; the destroyed one is gone
+        positions.Should().Equal([1f], "only the surviving entity, at its original value; the destroyed one is gone");
 
         var velocityCount = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Velocity>>().Resolve(reloaded))
             velocityCount += chunk.Count;
-        velocityCount.Should().Be(0); // added then removed, must not resurrect
+        velocityCount.Should().Be(0, "added then removed, must not resurrect");
     }
 
     [Fact]

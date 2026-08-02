@@ -93,10 +93,7 @@ public class ChainWalkerTests
 
         var shape = ChainWalker.TryExtractShape(terminal, model, default);
 
-        // .Has/.Without/.Any never touch TShape: the walked shape only ever reflects
-        // .With<T>() data elements, regardless of how many filter calls were chained in
-        // between or around them.
-        shape.Should().NotBeNull();
+        shape.Should().NotBeNull(".Has/.Without/.Any never touch TShape, so the walked shape only ever reflects .With<T>() data elements regardless of how many filter calls were chained in between or around them");
         shape!.Markers.Should().BeEquivalentTo(new[]
         {
             new MarkerElement(MarkerKind.Writes, "Position"),

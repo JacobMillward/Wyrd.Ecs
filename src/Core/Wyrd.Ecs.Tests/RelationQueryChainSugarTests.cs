@@ -26,7 +26,7 @@ public class RelationQueryChainSugarTests
         world.Query().WithRelation<Likes>()
             .ForEach(0, (in int _, in RelationLinks<Likes> link) => count++);
 
-        count.Should().Be(2); // a and b, both matched purely by "has any Likes edge": untouched and c (backlinks only) are excluded
+        count.Should().Be(2, "a and b, both matched purely by \"has any Likes edge\": untouched and c (backlinks only) are excluded");
     }
 
     [Fact]

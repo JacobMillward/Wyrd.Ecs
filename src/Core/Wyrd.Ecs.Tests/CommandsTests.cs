@@ -23,7 +23,7 @@ public class CommandsTests
         Parallel.For(0, 500, i => entities[i] = world.Commands.CreateEntity());
         world.ApplyCommands();
 
-        entities.Distinct().Should().HaveCount(500); // every reservation produced a unique entity, none clobbered by a race
+        entities.Distinct().Should().HaveCount(500, "every reservation produced a unique entity, none clobbered by a race");
         entities.Should().OnlyContain(e => world.IsAlive(e));
     }
 
@@ -36,7 +36,7 @@ public class CommandsTests
         Parallel.For(0, 500, i => entities[i] = world.Commands.CreateEntity(new Position { X = i }));
         world.ApplyCommands();
 
-        entities.Distinct().Should().HaveCount(500); // every reservation produced a unique entity, none clobbered by a race
+        entities.Distinct().Should().HaveCount(500, "every reservation produced a unique entity, none clobbered by a race");
         entities.Should().OnlyContain(e => world.IsAlive(e) && world.HasComponent<Position>(e));
     }
 
@@ -53,7 +53,7 @@ public class CommandsTests
         var count = 0;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<ConcurrentMarker>>().Resolve(world))
             count += chunk.Count;
-        count.Should().Be(500); // every one of the 500 concurrent enqueues must survive, none lost to a race
+        count.Should().Be(500, "every one of the 500 concurrent enqueues must survive, none lost to a race");
     }
 
     [Fact]
