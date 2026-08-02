@@ -15,7 +15,7 @@ namespace Wyrd.Ecs;
 /// separate type, so a caller only ever threads one registry object through either use.
 /// </para>
 /// </summary>
-public sealed class ComponentCodecRegistry
+public sealed partial class ComponentCodecRegistry
 {
     private readonly Dictionary<string, IComponentCodec> _byDiscriminator = new();
     private readonly Dictionary<int, IComponentCodec> _byTypeIndex = new();
@@ -50,104 +50,6 @@ public sealed class ComponentCodecRegistry
         _byDiscriminator[discriminator] = entry;
         _byTypeIndex[typeIndex] = entry;
     }
-
-    /// <summary>
-    /// Registers <typeparamref name="T"/> (an <see cref="IRelation"/> payload type) under
-    /// <paramref name="discriminator"/>, sharing the same collision namespace
-    /// <see cref="Register{T}"/> uses — a discriminator already used by a component or
-    /// another relation type throws, for the same reason <see cref="Register{T}"/>
-    /// itself throws on either case.
-    /// </summary>
-    public void RegisterRelation<T>(string discriminator, RelationEncoder<T> encode, RelationDecoder<T> decode, uint? schemaHash = null) where T : struct, IRelation
-    {
-        if (_byDiscriminator.ContainsKey(discriminator) || _relationsByDiscriminator.ContainsKey(discriminator))
-            throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
-
-        var typeIndex = Internal.TypeIndex<T>.Value;
-        if (_relationsByTypeIndex.TryGetValue(typeIndex, out var existing))
-            throw new ArgumentException($"Relation type '{typeof(T)}' is already registered under discriminator '{existing.Discriminator}'.");
-
-        var entry = new Internal.RelationCodec<T>(discriminator, encode, decode, schemaHash);
-        _relationsByDiscriminator[discriminator] = entry;
-        _relationsByTypeIndex[typeIndex] = entry;
-        _relationsByLinksTypeIndex[Internal.TypeIndex<RelationLinks<T>>.Value] = entry;
-    }
-
-    /// <summary>Same as <see cref="TryGetByTypeIndex"/>, for a registered relation payload type.</summary>
-    public bool TryGetRelationByTypeIndex(int typeIndex, out IRelationCodec registered)
-    {
-        if (_relationsByTypeIndex.TryGetValue(typeIndex, out var found))
-        {
-            registered = found;
-            return true;
-        }
-
-        registered = null!;
-        return false;
-    }
-
-    /// <summary>Same as <see cref="TryGetByDiscriminator"/>, for a registered relation payload type.</summary>
-    public bool TryGetRelationByDiscriminator(string discriminator, out IRelationCodec registered)
-    {
-        if (_relationsByDiscriminator.TryGetValue(discriminator, out var found))
-        {
-            registered = found;
-            return true;
-        }
-
-        registered = null!;
-        return false;
-    }
-
-    /// <summary>
-    /// Looks up a relation registration by its <c>RelationLinks{T}</c> wrapper's
-    /// current-process <see cref="Internal.TypeIndex{T}"/> — a different value from
-    /// <see cref="TryGetRelationByTypeIndex"/>'s own <c>T</c>-keyed lookup. Used by
-    /// <see cref="World.EnumerateRelations"/> while walking type-erased archetype
-    /// storage, which only ever has the wrapper's own type index to look up by.
-    /// </summary>
-    internal bool TryGetRelationByLinksTypeIndex(int typeIndex, out IRelationCodec registered)
-    {
-        if (_relationsByLinksTypeIndex.TryGetValue(typeIndex, out var found))
-        {
-            registered = found;
-            return true;
-        }
-
-        registered = null!;
-        return false;
-    }
-
-    /// <summary>
-    /// Registers <typeparamref name="T"/> — a tag, carrying no data — under
-    /// <paramref name="discriminator"/> so it can be named in debug/inspection output.
-    /// Throws under the same conditions as <see cref="Register{T}"/>: a duplicate
-    /// discriminator, or the same type registered twice under different discriminators.
-    /// Kept as a separate dictionary pair from the component-codec ones (not merged into
-    /// <see cref="IComponentCodec"/>) since a tag has no encode/decode/schema-hash to
-    /// give it, and a tag discriminator is allowed to collide with a component
-    /// discriminator.
-    /// </summary>
-    public void RegisterTag<T>(string discriminator) where T : struct, ITag
-    {
-        if (_tagsByDiscriminator.ContainsKey(discriminator))
-            throw new ArgumentException($"Discriminator '{discriminator}' is already registered.", nameof(discriminator));
-
-        var typeIndex = Internal.TypeIndex<T>.Value;
-        if (_tagsByTypeIndex.TryGetValue(typeIndex, out var existing))
-            throw new ArgumentException($"Type '{typeof(T)}' is already registered under discriminator '{existing}'.");
-
-        _tagsByDiscriminator[discriminator] = typeIndex;
-        _tagsByTypeIndex[typeIndex] = discriminator;
-    }
-
-    /// <summary>Looks up a registered tag's discriminator by its current-process <see cref="Internal.TypeIndex{T}"/>.</summary>
-    public bool TryGetTagByTypeIndex(int typeIndex, out string discriminator) =>
-        _tagsByTypeIndex.TryGetValue(typeIndex, out discriminator!);
-
-    /// <summary>Looks up a registered tag's current-process <see cref="Internal.TypeIndex{T}"/> by its discriminator.</summary>
-    public bool TryGetTagByDiscriminator(string discriminator, out int typeIndex) =>
-        _tagsByDiscriminator.TryGetValue(discriminator, out typeIndex);
 
     /// <summary>
     /// Every currently registered codec, in no particular order — used by a consumer
