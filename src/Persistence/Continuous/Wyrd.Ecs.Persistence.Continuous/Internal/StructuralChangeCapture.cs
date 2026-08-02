@@ -7,8 +7,8 @@ namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 /// <see cref="OnRelationLinked"/>, and <see cref="OnRelationUnlinked"/> produce
 /// something — <see cref="OnComponentAdded"/> is a deliberate no-op, since
 /// <c>World.AddComponent</c> already marks a tracked type's storage dirty on add, so the
-/// next <see cref="IComponentCodec.EncodeChanges"/> scan already captures the same data
-/// as an ordinary value change; a separate <c>ComponentAdded</c> WAL record would be
+/// next <see cref="World.Subscribe(IComponentCodec)"/> scan already captures the same
+/// data as an ordinary value change; a separate <c>ComponentAdded</c> WAL record would be
 /// redundant. Tag events are never captured — tags carry no data and are already
 /// skipped by <see cref="World.EnumerateAll"/> on checkpoint, and continuous persistence
 /// stays consistent with that policy.

@@ -174,8 +174,9 @@ internal sealed class ChangeFeedHub
         _typeInterestCount[typeIndex] = _typeInterestCount.GetValueOrDefault(typeIndex) + 1;
         if (_trackingHandles.ContainsKey(typeIndex)) return;
 
-        _trackingHandles[typeIndex] = codec.EnableChangeTracking(_world);
-        _scanners[typeIndex] = sinceTick => ScanTypeErased(codec, typeIndex, sinceTick);
+        var source = (IComponentChangeSource)codec;
+        _trackingHandles[typeIndex] = source.EnableChangeTracking(_world);
+        _scanners[typeIndex] = sinceTick => ScanTypeErased(source, typeIndex, sinceTick);
     }
 
     /// <summary>Registers the raw structural observer, if not already registered, the first time any subscriber wants a non-<see cref="ChangeKind.ValueChanged"/> kind.</summary>
@@ -206,10 +207,10 @@ internal sealed class ChangeFeedHub
             Publish(new ChangeEntry(change.Entity, Entity.Null, typeIndex, change.Tick, ChangeKind.ValueChanged, change.Value));
     }
 
-    private void ScanTypeErased(IComponentCodec codec, int typeIndex, int sinceTick)
+    private void ScanTypeErased(IComponentChangeSource source, int typeIndex, int sinceTick)
     {
         ScanCount++;
-        foreach (var change in codec.ReadRawChanges(_world, sinceTick))
+        foreach (var change in source.ReadRawChanges(_world, sinceTick))
             Publish(new ChangeEntry(change.Entity, Entity.Null, typeIndex, change.Tick, ChangeKind.ValueChanged, change.Value));
     }
 

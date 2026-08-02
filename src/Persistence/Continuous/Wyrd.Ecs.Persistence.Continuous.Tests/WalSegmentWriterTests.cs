@@ -201,9 +201,6 @@ public class WalSegmentWriterTests : IDisposable
         public string Discriminator => "Fake";
         public int TypeIndex => 0;
         public uint? SchemaHash => null;
-        public IDisposable EnableChangeTracking(World world) => throw new NotSupportedException();
-        public List<EncodedChange> EncodeChanges(World world, int sinceTick) => throw new NotSupportedException();
-        public List<RawChange> ReadRawChanges(World world, int sinceTick) => throw new NotSupportedException();
         public byte[] EncodeRow(Array rawItems, int row) => throw new NotSupportedException();
         public byte[] EncodeValue(object value) => BitConverter.GetBytes((float)value);
         public void DecodeInto(World world, Entity entity, byte[] data) => throw new NotSupportedException();

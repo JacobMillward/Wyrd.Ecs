@@ -20,47 +20,48 @@ public class ComponentCodecChangeTrackingTests
     }
 
     [Fact]
-    public void EncodeChanges_WithNoTrackingEnabled_ReturnsNothing()
+    public void ReadRawChanges_WithNoTrackingEnabled_ReturnsNothing()
     {
         var world = new World();
         var registry = BuildRegistry();
         world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
         registry.TryGetByDiscriminator("Position", out var codec);
+        var source = (Wyrd.Ecs.Internal.IComponentChangeSource)codec;
 
-        var changes = codec.EncodeChanges(world, sinceTick: 0);
+        var changes = source.ReadRawChanges(world, sinceTick: 0);
 
         changes.Should().BeEmpty();
     }
 
     [Fact]
-    public void EnableChangeTracking_ThenEncodeChanges_ReturnsTheChangedValueEncoded()
+    public void EnableChangeTracking_ThenReadRawChanges_ReturnsTheBoxedValueUnencoded()
     {
         var world = new World();
         var registry = BuildRegistry(schemaHash: 7u);
         registry.TryGetByDiscriminator("Position", out var codec);
-        using var tracking = codec.EnableChangeTracking(world);
+        var source = (Wyrd.Ecs.Internal.IComponentChangeSource)codec;
+        using var tracking = source.EnableChangeTracking(world);
 
         Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
 
-        var changes = codec.EncodeChanges(world, sinceTick: 0);
+        var changes = source.ReadRawChanges(world, sinceTick: 0);
 
         changes.Should().ContainSingle();
         var change = changes[0];
         change.Entity.Should().Be(entity);
-        change.Discriminator.Should().Be("Position");
-        change.SchemaHash.Should().Be(7u);
-        Encoding.UTF8.GetString(change.Data).Should().Be("5");
+        change.Value.Should().BeOfType<Position>().Which.X.Should().Be(5f);
     }
 
     [Fact]
-    public void EncodeChanges_OnlyReturnsChangesAfterTheGivenSinceTick()
+    public void ReadRawChanges_OnlyReturnsChangesAfterTheGivenSinceTick()
     {
         var world = new World();
         var registry = BuildRegistry();
         registry.TryGetByDiscriminator("Position", out var codec);
-        using var tracking = codec.EnableChangeTracking(world);
+        var source = (Wyrd.Ecs.Internal.IComponentChangeSource)codec;
+        using var tracking = source.EnableChangeTracking(world);
 
         world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
@@ -70,7 +71,7 @@ public class ComponentCodecChangeTrackingTests
         Entity second = world.Commands.CreateEntity(new Position { X = 2f });
         world.ApplyCommands();
 
-        var changes = codec.EncodeChanges(world, sinceTick: watermark);
+        var changes = source.ReadRawChanges(world, sinceTick: watermark);
 
         changes.Should().ContainSingle();
         changes[0].Entity.Should().Be(second);
@@ -82,60 +83,29 @@ public class ComponentCodecChangeTrackingTests
         var world = new World();
         var registry = BuildRegistry();
         registry.TryGetByDiscriminator("Position", out var codec);
-        var tracking = codec.EnableChangeTracking(world);
+        var source = (Wyrd.Ecs.Internal.IComponentChangeSource)codec;
+        var tracking = source.EnableChangeTracking(world);
         tracking.Dispose();
 
         world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
 
-        var changes = codec.EncodeChanges(world, sinceTick: 0);
+        var changes = source.ReadRawChanges(world, sinceTick: 0);
 
         changes.Should().BeEmpty();
     }
 
     [Fact]
-    public void ReadRawChanges_WithNoTrackingEnabled_ReturnsNothing()
-    {
-        var world = new World();
-        var registry = BuildRegistry();
-        world.Commands.CreateEntity(new Position { X = 1f });
-        world.ApplyCommands();
-        registry.TryGetByDiscriminator("Position", out var codec);
-
-        var changes = codec.ReadRawChanges(world, sinceTick: 0);
-
-        changes.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void EnableChangeTracking_ThenReadRawChanges_ReturnsTheBoxedValueUnencoded()
-    {
-        var world = new World();
-        var registry = BuildRegistry(schemaHash: 7u);
-        registry.TryGetByDiscriminator("Position", out var codec);
-        using var tracking = codec.EnableChangeTracking(world);
-
-        Entity entity = world.Commands.CreateEntity(new Position { X = 5f });
-        world.ApplyCommands();
-
-        var changes = codec.ReadRawChanges(world, sinceTick: 0);
-
-        changes.Should().ContainSingle();
-        var change = changes[0];
-        change.Entity.Should().Be(entity);
-        change.Value.Should().BeOfType<Position>().Which.X.Should().Be(5f);
-    }
-
-    [Fact]
-    public void EncodeValue_EncodesABoxedValueTheSameWayEncodeChangesWould()
+    public void EncodeValue_EncodesABoxedValueTheSameWayReadRawChangesWouldReportIt()
     {
         var world = new World();
         var registry = BuildRegistry();
         registry.TryGetByDiscriminator("Position", out var codec);
-        using var tracking = codec.EnableChangeTracking(world);
+        var source = (Wyrd.Ecs.Internal.IComponentChangeSource)codec;
+        using var tracking = source.EnableChangeTracking(world);
         world.Commands.CreateEntity(new Position { X = 5f });
         world.ApplyCommands();
-        var raw = codec.ReadRawChanges(world, sinceTick: 0)[0];
+        var raw = source.ReadRawChanges(world, sinceTick: 0)[0];
 
         var encoded = codec.EncodeValue(raw.Value);
 

@@ -5,8 +5,11 @@ namespace Wyrd.Ecs.Internal;
 /// <see cref="IComponentCodec"/> — the only place the downcast from a
 /// type-erased <see cref="Array"/> back to <typeparamref name="T"/>[] happens, the same
 /// pattern <see cref="ComponentStorage{T}.CopyRowTo"/> already uses for the same reason.
+/// Also implements <see cref="IComponentChangeSource"/> — the two interfaces are kept
+/// separate so a plain serialization consumer never sees tracking members, but one
+/// concrete instance backs both.
 /// </summary>
-internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, IComponent
+internal sealed class ComponentCodec<T> : IComponentCodec, IComponentChangeSource where T : struct, IComponent
 {
     private readonly ComponentEncoder<T> _encode;
     private readonly ComponentDecoder<T> _decode;
@@ -25,14 +28,6 @@ internal sealed class ComponentCodec<T> : IComponentCodec where T : struct, ICom
     }
 
     public IDisposable EnableChangeTracking(World world) => world.TrackChanges<T>();
-
-    public List<EncodedChange> EncodeChanges(World world, int sinceTick)
-    {
-        var changes = new List<EncodedChange>();
-        foreach (var change in world.ReadChanges<T>(sinceTick))
-            changes.Add(new EncodedChange(change.Entity, change.Tick, Discriminator, SchemaHash, _encode(change.Value)));
-        return changes;
-    }
 
     public List<RawChange> ReadRawChanges(World world, int sinceTick)
     {
