@@ -303,6 +303,7 @@ internal static class QueryChainEmitter
     internal static string RenderAddSystemExtensions()
     {
         var sb = new StringBuilder();
+        sb.AppendLine("#nullable enable");
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine();

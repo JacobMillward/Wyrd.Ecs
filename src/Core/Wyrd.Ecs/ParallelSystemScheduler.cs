@@ -18,6 +18,7 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     private IReadOnlyList<IReadOnlyList<EcsSystem>> _stages = [];
     private bool _dirty;
 
+    /// <summary>Starts with an empty schedule — the first <see cref="InitialRegister"/>/<see cref="Register"/> call populates it. <paramref name="parallelThreshold"/> is the minimum <see cref="World.TotalEntityCount"/> a stage needs before <see cref="RunStages"/> dispatches it to the thread pool instead of running it inline.</summary>
     public ParallelSystemScheduler(int parallelThreshold) => _parallelThreshold = parallelThreshold;
 
     /// <inheritdoc/>

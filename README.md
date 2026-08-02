@@ -13,9 +13,10 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
   > No boxing, no reflection on the hot path.
 - `.Without`/`.Has`/`.Any` can be applied conditionally — they never change the query's shape, only its runtime filter, so `if (hardcore) query = query.Has<HardcoreOnly>();` compiles and works exactly as you'd expect.
 - `QuerySystem` sugar for the declared-system case. Override `DefineQuery` (query shape) and declare an `Update` (per-entity body) method, the generator fills in dispatch.
-- Systems run in parallel automatically. Register them with `WorldBuilder.WithSystems(...)`, call `World.Update(...)`, and independent systems spread across your CPU cores with no thread code of your own.
+- Systems run in parallel automatically. Register them with `WorldBuilder.AddSystem<T>()`, call `World.Update(...)`, and independent systems spread across your CPU cores with no thread code of your own.
 
   > The scheduler looks at what each system reads and writes, groups the ones with no conflicts, and runs each group inline or on the thread pool depending on world size.
+- Systems can be enabled/disabled (`system.Enabled = false`), added, or removed at runtime — `world.AddSystem<T>()`/`world.RemoveSystem<T>()` work the same as at `Build()` time, ordering edges resolve correctly regardless of registration order, and the scheduler itself is swappable via `WorldBuilder.WithScheduler(...)` for a custom (e.g. deterministic) implementation.
 - All structural mutation goes through `CommandBuffer`, deferred and applied in one deterministic pass. A query never sees a half-finished change mid-iteration.
 - `CreateEntity()` hands back an `EntityView`, a chainable handle for the entity you just made: `commands.CreateEntity().AddComponent(pos).AddTag<Enemy>()`. It converts implicitly to `Entity` when that's all you need.
 - Parent/child hierarchy built in. `entity.SetParent(parent)` / `AddChild(child)`, `world.Children(e)` / `Ancestors(e)` / `Descendants(e)` to walk it. Destroying a parent recursively destroys its children.
@@ -69,7 +70,7 @@ To run several systems together, register them with `WorldBuilder` and let the s
 
 ```csharp
 var world = new WorldBuilder()
-    .WithSystems<MovementSystem>()
+    .AddSystem<MovementSystem>()
     .Build();
 
 world.Update(TimeSpan.FromSeconds(1.0 / 60));
