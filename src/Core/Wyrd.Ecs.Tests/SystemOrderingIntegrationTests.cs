@@ -33,11 +33,9 @@ public class SystemOrderingIntegrationTests
     {
         IntegrationExecutionLog.Entries.Clear();
 
-        // Disjoint component access -- Physics and RenderPrep never touch the same
-        // component type, so the only thing that can force them into separate stages
-        // (and therefore run in that order) is the RunAfter(typeof(EndOfPhysics)) edge
-        // itself, never a data conflict. Network shares the anchor with neither and is
-        // left fully unconstrained.
+        // Physics and RenderPrep share no component access, so only the
+        // RunAfter(EndOfPhysics) edge, never a data conflict, can force them into separate,
+        // ordered stages. Network shares the anchor with neither and stays unconstrained.
         var access = new Dictionary<Type, SystemAccess>
         {
             [typeof(IntegrationPhysicsSystem)] = new(Reads: [], Writes: [typeof(IntegrationPhysicsData)]),

@@ -43,7 +43,7 @@ public class RelationLinksTests
     [Fact]
     public void MarkerOnlyRelationType_IsAValidTypeArgument()
     {
-        // Follows has no fields -- no separate tag-relation storage type is needed for
+        // Follows has no fields, so no separate tag-relation storage type is needed for
         // this (see IRelation's own doc); the empty struct is just the dictionary's value.
         var backing = new Dictionary<Entity, Follows> { [new Entity(1, 0)] = new Follows() };
 

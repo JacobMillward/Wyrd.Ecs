@@ -5,11 +5,9 @@ using Wyrd.Ecs.Persistence.Continuous;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Relation-edge analog of <see cref="CheckpointBuildBenchmarks"/>: measures
-/// CheckpointBuilder.Build's cost when the prior checkpoint's own working set is
-/// dominated by relation-edge records (one hub entity with EdgeCount edges) rather than
-/// component records, confirming the merge's relation dimension scales the same way the
-/// component dimension already does.
+/// Relation-edge analog of <see cref="CheckpointBuildBenchmarks"/>: measures the merge
+/// cost when the prior checkpoint's working set is dominated by relation-edge records
+/// (one hub entity with many edges) rather than component records.
 /// </summary>
 [MemoryDiagnoser]
 public class CheckpointBuildRelationBenchmarks
@@ -56,7 +54,7 @@ public class CheckpointBuildRelationBenchmarks
 
     /// <summary>
     /// The cheapest real call shape (no WAL records to apply) still has to read every
-    /// relation edge in the prior checkpoint back into memory and rewrite it — this is
+    /// relation edge in the prior checkpoint back into memory and rewrite it. This is
     /// that cost, at EdgeCount scale.
     /// </summary>
     [Benchmark]

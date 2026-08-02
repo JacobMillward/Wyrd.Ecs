@@ -10,13 +10,13 @@ public partial class EntityLifecycleBenchmarks
     {
         public readonly World World = new();
 
-        /// <summary>Reused scratch space for <see cref="Fennecs_DisposeEntity"/> — sized once, never reallocated, so it doesn't contaminate that method's own allocation measurement.</summary>
+        /// <summary>Reused scratch space for <see cref="Fennecs_DisposeEntity"/>, sized once and never reallocated so it doesn't contaminate that method's own allocation measurement.</summary>
         public readonly Entity[] DisposeScratch = new Entity[EntityCount];
     }
 
     [Context] private FennecsContext _fennecs = null!;
 
-    /// <summary>Resets <see cref="_fennecs"/> every iteration for the growing <c>Create*</c> methods — see <see cref="Wyrd_ResetContext"/>'s docs for why.</summary>
+    /// <summary>Resets <see cref="_fennecs"/> every iteration for the growing <c>Create*</c> methods. See <see cref="Wyrd_ResetContext"/>'s docs for why.</summary>
     [IterationSetup(Targets = [
         nameof(Fennecs_CreateBareEntity), nameof(Fennecs_CreateOneComponentEntity),
         nameof(Fennecs_CreateFourComponentEntity), nameof(Fennecs_CreateEightComponentEntity)])]
@@ -52,7 +52,7 @@ public partial class EntityLifecycleBenchmarks
                 .Add(new Padding1()).Add(new Padding2()).Add(new Padding3()).Add(new Padding4());
     }
 
-    /// <summary>Create-then-destroy pairs, self-resetting — see <see cref="EntityLifecycleBenchmarks.Wyrd_DisposeEntity"/>'s docs for why.</summary>
+    /// <summary>Create-then-destroy pairs, self-resetting. See <see cref="EntityLifecycleBenchmarks.Wyrd_DisposeEntity"/>'s docs for why.</summary>
     [Benchmark(OperationsPerInvoke = EntityCount)]
     public void Fennecs_DisposeEntity()
     {

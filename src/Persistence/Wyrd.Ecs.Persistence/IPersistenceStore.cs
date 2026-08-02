@@ -1,10 +1,9 @@
 namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
-/// Where persisted bytes physically live — the storage-backend seam. A
-/// local-filesystem implementation (<see cref="FileStore"/>) is the
-/// only one built so far; a future backend (e.g. SQLite) implements this interface
-/// without the rest of the pipeline changing.
+/// Where a checkpoint's bytes are physically stored. <see cref="FileStore"/> saves to a
+/// local file; implement this interface directly to save somewhere else (a database,
+/// cloud storage, etc.) without changing how <c>World.Save</c>/<c>World.Load</c> are used.
 /// </summary>
 public interface IPersistenceStore
 {
@@ -14,11 +13,8 @@ public interface IPersistenceStore
     /// <summary>
     /// Opens a stream to read the current checkpoint from. Must throw
     /// <see cref="FileNotFoundException"/> (or a subclass) when no checkpoint has ever
-    /// been written yet — the continuous-persistence package's checkpoint builder relies
-    /// on exactly this to tell "empty store" apart from a real read failure when merging
-    /// a WAL into a checkpoint for the first time. <see cref="FileStore"/> gets this for
-    /// free from <see cref="File.OpenRead(string)"/>; a non-file-backed implementation
-    /// must throw it explicitly for the same case.
+    /// been written, so callers can tell "nothing saved yet" apart from a real read
+    /// failure.
     /// </summary>
     Stream OpenCheckpointRead();
 }

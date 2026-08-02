@@ -1,20 +1,15 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
-/// One captured change, ready to write through
-/// <see cref="Internal.WalSegmentIO.WriteRecord(Stream, WalRecordKind, int, EntityId, string, uint?, byte[])"/>
-/// (or, for <see cref="WalRecordKind.RelationLinked"/>/<see cref="WalRecordKind.RelationUnlinked"/>,
-/// <see cref="Internal.WalSegmentIO.WriteRelationRecord(Stream, WalRecordKind, int, EntityId, EntityId, string, uint?, byte[])"/>
-/// using <see cref="TargetId"/>) with no further translation. Produced by the
-/// tick-driven capture step (component value changes) and the structural observer
-/// (entity/component/relation lifecycle events).
+/// One captured change, ready to write via <see cref="Internal.WalSegmentIO"/> with no
+/// further translation. Produced by the tick-driven capture step (component value
+/// changes) and the structural observer (entity/component/relation lifecycle events).
 /// </summary>
 public readonly record struct CapturedWalEntry(WalRecordKind Kind, int Tick, EntityId EntityId, string Discriminator, uint? SchemaHash, byte[] Payload, EntityId? TargetId = null)
 {
     /// <summary>
-    /// Value equality over <see cref="Payload"/>'s contents, not the default record
-    /// struct behavior a <c>byte[]</c> field would otherwise get (reference equality) —
-    /// the same reason <c>EncodedComponent</c>/<c>EncodedRelation</c> override it too.
+    /// Value equality over <see cref="Payload"/>'s contents, not the default record struct
+    /// reference equality a <c>byte[]</c> field would otherwise get.
     /// </summary>
     public bool Equals(CapturedWalEntry other) =>
         Kind == other.Kind &&

@@ -1,12 +1,12 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// One declared system's component access footprint — every type it reads, every type
+/// One declared system's component access footprint: every type it reads, every type
 /// it writes, derived directly from its query shape's <c>Reads&lt;T&gt;</c>/<c>Writes&lt;T&gt;</c>
-/// elements. <c>Has</c>/<c>Without</c>/<c>Any</c> elements never appear here — they're
+/// elements. <c>Has</c>/<c>Without</c>/<c>Any</c> elements never appear here since they're
 /// filter-only, never a data dependency. Populated by the query-chain generator's
-/// <c>GeneratedSystemAccess.Entries</c> registry (Task 9), consumed by the
-/// static-parallel-scheduler plan's (not yet built) conflict-graph construction.
+/// <c>GeneratedSystemAccess.Entries</c> registry, consumed by
+/// <see cref="Internal.SystemScheduler"/>'s conflict-graph construction.
 /// </summary>
 public sealed class SystemAccess : IEquatable<SystemAccess>
 {
@@ -16,7 +16,7 @@ public sealed class SystemAccess : IEquatable<SystemAccess>
     /// <summary>Every component type this system writes.</summary>
     public IReadOnlyList<Type> Writes { get; }
 
-    /// <summary>Wraps an already-computed read/write set — populated by the query-chain generator's <c>GeneratedSystemAccess</c> registry.</summary>
+    /// <summary>Wraps an already-computed read/write set, populated by the query-chain generator's <c>GeneratedSystemAccess</c> registry.</summary>
     public SystemAccess(IReadOnlyList<Type> Reads, IReadOnlyList<Type> Writes)
     {
         this.Reads = Reads;

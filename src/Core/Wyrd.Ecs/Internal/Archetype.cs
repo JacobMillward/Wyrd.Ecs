@@ -3,23 +3,20 @@ namespace Wyrd.Ecs.Internal;
 /// <summary>
 /// One archetype: every entity sharing this exact component/tag <see cref="Signature"/>,
 /// stored as parallel dense arrays, one <see cref="ComponentStorage{T}"/> per component
-/// type (tags contribute only to <see cref="Signature"/>, never get a storage entry) plus
+/// type (tags contribute only to <see cref="Signature"/>, never get a storage entry), plus
 /// <see cref="Entities"/> mapping row to the entity occupying it. A query's "chunk" is one
-/// archetype's full row range; there is no finer-grained chunking within an archetype.
+/// archetype's full row range.
 /// </summary>
 internal sealed class Archetype
 {
     private Entity[] _entities;
 
     /// <summary>
-    /// Cached archetype-transition targets, indexed directly by type index (the same
-    /// dense-small-int space <see cref="ArchetypeStorages"/> already indexes by) rather
-    /// than hashed through a <c>Dictionary</c>, since every lookup here is on the
-    /// structural-change hot path. One shared array for both add- and remove-edges: for
-    /// a given type index, this archetype's <see cref="Signature"/> either contains it
-    /// or doesn't, permanently, so <see cref="TryGetAddEdge"/> (only ever queried when
-    /// it doesn't) and <see cref="TryGetRemoveEdge"/> (only ever queried when it does)
-    /// can never both hold a value at the same slot.
+    /// Cached archetype-transition targets, indexed directly by type index rather than
+    /// hashed, since every lookup here is on the structural-change hot path. One shared
+    /// array serves both add- and remove-edges: a given type index is either in this
+    /// archetype's <see cref="Signature"/> or not, permanently, so <see cref="TryGetAddEdge"/>
+    /// and <see cref="TryGetRemoveEdge"/> never query the same slot.
     /// </summary>
     private Archetype?[] _edges = [];
 
@@ -90,12 +87,9 @@ internal sealed class Archetype
     }
 
     /// <summary>
-    /// Bulk counterpart to <see cref="AddRow"/>: grows capacity once for the whole
-    /// batch (instead of once per entity) and appends every entity in
-    /// <paramref name="entities"/> starting at the current <see cref="Count"/>. Used by
-    /// batch entity creation (<see cref="World.PlaceReservedEntities{T0}"/> and its
-    /// higher-arity siblings) so a batch of N entities pays one capacity check and one
-    /// contiguous copy, not N incremental ones.
+    /// Bulk counterpart to <see cref="AddRow"/>: grows capacity once for the whole batch
+    /// and appends every entity in <paramref name="entities"/> starting at the current
+    /// <see cref="Count"/>, instead of one capacity check and copy per entity.
     /// </summary>
     internal int AddRows(ReadOnlySpan<Entity> entities)
     {
@@ -118,12 +112,11 @@ internal sealed class Archetype
     }
 
     /// <summary>
-    /// Grows <see cref="Entities"/> and every storage together, keeping storages sized
-    /// to at least <see cref="Entities"/>'s length (the invariant <see cref="GetOrCreateStorage{T}"/>
-    /// relies on). Skips the storages loop entirely when <see cref="Entities"/> is
-    /// already large enough. Otherwise every <see cref="AddRow"/> call would pay one
-    /// virtual <see cref="IComponentStorage.EnsureCapacity"/> dispatch per component
-    /// type even in the steady state where nothing actually grows.
+    /// Grows <see cref="Entities"/> and every storage together, keeping storages sized to
+    /// at least <see cref="Entities"/>'s length (the invariant <see cref="GetOrCreateStorage{T}"/>
+    /// relies on). Skips the storages loop when <see cref="Entities"/> is already large
+    /// enough, so a steady-state <see cref="AddRow"/> doesn't pay a virtual dispatch per
+    /// component type for nothing.
     /// </summary>
     private void EnsureCapacity(int capacity)
     {

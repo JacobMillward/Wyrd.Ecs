@@ -2,10 +2,9 @@ namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
 /// Extension members attaching persistence configuration and manual save/load to a
-/// <see cref="World"/> or <see cref="WorldBuilder"/>, neither of which can gain new fields
-/// from another assembly. Backed by <see cref="Internal.WorldAttachedProperty{T}"/>, keyed
-/// on the <see cref="World"/> instance so a configured store doesn't outlive the World
-/// that used it.
+/// <see cref="World"/> or <see cref="WorldBuilder"/>. Backed by
+/// <see cref="Internal.WorldAttachedProperty{T}"/>, keyed on the <see cref="World"/>
+/// instance so a configured store doesn't outlive the World that used it.
 /// </summary>
 public static class WorldPersistenceExtensions
 {
@@ -16,11 +15,9 @@ public static class WorldPersistenceExtensions
     {
         /// <summary>
         /// The <see cref="IPersistenceStore"/> <c>Save</c>/<c>Load</c> fall back to when
-        /// called without an explicit store. Null until set, either directly, or via
-        /// <c>WorldBuilder.SetDefaultPersistenceStore</c>/<c>WorldBuilder.AddBinaryPersistence</c>
-        /// at construction time. Assigning <c>null</c> clears it back to unset. (Extension
-        /// members can't be referenced via <c>cref</c> yet, CS1574, so these are plain
-        /// text, not links.)
+        /// called without an explicit store. Null until set, either directly or via
+        /// <c>WorldBuilder.SetDefaultPersistenceStore</c>/<c>WorldBuilder.AddBinaryPersistence</c>.
+        /// Assigning <c>null</c> clears it.
         /// </summary>
         public IPersistenceStore? DefaultPersistenceStore
         {
@@ -29,11 +26,10 @@ public static class WorldPersistenceExtensions
         }
 
         /// <summary>
-        /// The <see cref="ComponentCodecRegistry"/> <c>Save</c>/<c>Load</c> and a
-        /// background persistence behavior (continuous persistence's capture step, for
-        /// one) fall back to when they have no registry of their own to use. Null until
-        /// set, either directly, or via <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>
-        /// at construction time. Assigning <c>null</c> clears it back to unset.
+        /// The <see cref="ComponentCodecRegistry"/> <c>Save</c>/<c>Load</c> and continuous
+        /// persistence's capture step fall back to when they have no registry of their
+        /// own. Null until set, either directly or via
+        /// <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>. Assigning <c>null</c> clears it.
         /// </summary>
         public ComponentCodecRegistry? DefaultComponentCodecRegistry
         {
@@ -42,16 +38,13 @@ public static class WorldPersistenceExtensions
         }
 
         /// <summary>
-        /// Writes a full checkpoint of every entity and every component registered in
-        /// <c>World.DefaultComponentCodecRegistry</c> to <paramref name="store"/>. A
-        /// component type on a live entity but absent from the registry is silently
-        /// skipped, the same behavior <see cref="World.EnumerateAll"/> already has, not
-        /// an error. <paramref name="store"/> defaults to <c>World.DefaultPersistenceStore</c>
-        /// when omitted. If <paramref name="store"/> returns an
-        /// <see cref="ITransactionalWriteStream"/> (<see cref="FileStore"/> does) and
-        /// anything throws partway through the write, the stream is aborted before the
-        /// exception propagates, so the previous checkpoint is never replaced by a
-        /// truncated one.
+        /// Writes a full checkpoint of every entity and component registered in
+        /// <c>World.DefaultComponentCodecRegistry</c> to <paramref name="store"/>
+        /// (defaults to <c>World.DefaultPersistenceStore</c>). A component type present
+        /// on an entity but absent from the registry is silently skipped, not an error.
+        /// If the write throws partway through and <paramref name="store"/> returns an
+        /// <see cref="ITransactionalWriteStream"/>, the stream is aborted first, so the
+        /// previous checkpoint is never replaced by a truncated one.
         /// </summary>
         public void Save(IPersistenceStore? store = null)
         {
@@ -94,28 +87,18 @@ public static class WorldPersistenceExtensions
         public void Save(string path) => world.Save(new FileStore(path));
 
         /// <summary>
-        /// Reads a full checkpoint from <paramref name="store"/> and reconstructs it into
-        /// <paramref name="world"/>: one fresh <see cref="Entity"/> per distinct
-        /// <see cref="EntityId"/> encountered — as a component record's own id, or as
-        /// either side of a relation-edge record, whichever comes first — with every
-        /// readable record's component added or relation linked as its record is
-        /// reached. A relation record's target gets a fresh, otherwise-empty entity the
-        /// same way its source would if this were the first time either id was seen: an
-        /// entity referenced only as a relation target, never as its own component
-        /// record's id (a valid, common shape — a pure relationship node with no
-        /// components of its own), is not a corruption signal. A record for a
-        /// discriminator absent from <c>World.DefaultComponentCodecRegistry</c> is
-        /// silently skipped, same as an unknown type is on save. A file truncated or
-        /// corrupted partway through stops
-        /// replay cleanly at the last complete, valid record rather than throwing or
-        /// misreading garbage. A record whose stored schema hash doesn't match the
-        /// currently-registered type's hash is migrated via
-        /// <see cref="ComponentCodecRegistry.Migrate"/> before decoding. This check is
-        /// skipped entirely when either side has no schema hash registered (a record or a
-        /// currently-registered type with a <c>null</c> hash). A foreign or corrupt file
-        /// (bad header) throws immediately, before any record is read.
-        /// <paramref name="store"/> defaults to <c>World.DefaultPersistenceStore</c>
-        /// when omitted.
+        /// Reads a full checkpoint from <paramref name="store"/> (defaults to
+        /// <c>World.DefaultPersistenceStore</c>) and reconstructs it into
+        /// <paramref name="world"/>. Each <see cref="EntityId"/> seen, as a component or
+        /// as either side of a relation edge, gets one fresh <see cref="Entity"/> the
+        /// first time it appears; an entity referenced only as a relation target is
+        /// valid, not a corruption signal. A record for a discriminator absent from
+        /// <c>World.DefaultComponentCodecRegistry</c> is silently skipped, same as on
+        /// save. A file truncated or corrupted mid-record stops replay cleanly at the
+        /// last complete record. A record whose schema hash doesn't match the
+        /// currently-registered type is migrated via
+        /// <see cref="ComponentCodecRegistry.Migrate"/> first. A foreign or corrupt
+        /// header throws immediately, before any record is read.
         /// </summary>
         public void Load(IPersistenceStore? store = null)
         {

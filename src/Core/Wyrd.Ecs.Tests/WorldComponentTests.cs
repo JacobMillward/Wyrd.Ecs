@@ -39,11 +39,10 @@ public class WorldComponentTests
     }
 
     /// <summary>
-    /// The {Position} archetype is created via GetOrCreateStorage (sized to match its
-    /// own Entities array). Adding Velocity to the first such entity clones Position's
-    /// storage into a brand-new {Position, Velocity} archetype instead — a different
-    /// construction path that must size the clone the same way, or entities past a
-    /// small hardcoded default would index out of range once this archetype grows.
+    /// Adding Velocity clones the {Position} archetype's storage into a new
+    /// {Position, Velocity} archetype via a different construction path than
+    /// GetOrCreateStorage; the clone must size the same way or entities past a small
+    /// default index out of range as it grows.
     /// </summary>
     [Fact]
     public void AddComponent_ClonedArchetypeStorage_GrowsWithTheArchetype()

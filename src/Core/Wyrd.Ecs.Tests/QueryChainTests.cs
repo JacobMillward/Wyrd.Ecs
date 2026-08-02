@@ -1,11 +1,8 @@
 namespace Wyrd.Ecs.Tests;
 
-// Named uniquely (not Position/Velocity/Dead/BuffA/BuffB, which QueryFluentBuilderTests.cs
-// already declares in this same namespace) and NOT `file`-scoped: the query-chain
-// generator's `.ForEach` extension methods are emitted into a separate generated source
-// file, which can never see a `file`-scoped type from this one -- `file` types only ever
-// worked in this file before because nothing here called `.ForEach`, only `.BeOfType<>()`
-// (a runtime/reflection check needing no generated code at all).
+// Named uniquely to avoid colliding with QueryFluentBuilderTests.cs's types in this same
+// namespace, and not `file`-scoped: the source generator's `.ForEach` extensions live in a
+// separate generated file that can't see a `file`-scoped type from here.
 struct ChainPosition : IComponent { public float X; }
 struct ChainVelocity : IComponent { public float X; }
 struct ChainDead : ITag;

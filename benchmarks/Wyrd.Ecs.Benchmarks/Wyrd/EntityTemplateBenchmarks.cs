@@ -5,19 +5,12 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Feeds the deferred decision in <c>docs/superpowers/specs/2026-07-31-entity-template-design.md</c>
-/// section G: whether a reused <see cref="EntityTemplate"/> costs meaningfully more per
-/// instantiate than the equivalent generated <c>CreateEntity&lt;T0..Tn&gt;</c> call, same
-/// shape (four components, matching <see cref="TrackedEntityLifecycleBenchmarks.CreateFourComponentEntity"/>).
-/// Same <c>[SimpleJob(invocationCount: 1)]</c>/per-iteration world reset reasoning as that
-/// class — see its own docs for why. <c>warmupCount: 50</c> is deliberate, not a default: with
-/// BenchmarkDotNet's adaptive warmup, these specific benchmarks were observed to sometimes
-/// measure the arity-generated path mid-JIT-tier-up (Mean 213ns, StdDev 118ns — essentially as
-/// large as the mean, i.e. a coin flip between catching tier-0 and tier-1 code) and sometimes
-/// fully optimized (Mean 369ns, StdDev 5ns) across otherwise-identical runs. A fixed, generous
-/// warmup count makes every run measure steady-state (fully tiered) performance, which is what
-/// a long-running game reaches anyway — not a mid-warmup snapshot that happens to depend on
-/// how the adaptive heuristic's random early samples landed.
+/// Whether a reused <see cref="EntityTemplate"/> costs meaningfully more per instantiate
+/// than the equivalent generated <c>CreateEntity&lt;T0..Tn&gt;</c> call, same four-component
+/// shape as <see cref="TrackedEntityLifecycleBenchmarks.CreateFourComponentEntity"/>.
+/// <c>warmupCount: 50</c> is deliberate: BenchmarkDotNet's adaptive warmup sometimes caught
+/// the arity-generated path mid-JIT-tier-up instead of fully optimized, producing noisy
+/// runs. A fixed, generous warmup measures steady-state performance instead.
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob(invocationCount: 1, warmupCount: 50)]

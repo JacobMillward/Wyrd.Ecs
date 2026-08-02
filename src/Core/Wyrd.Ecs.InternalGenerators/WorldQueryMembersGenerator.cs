@@ -4,19 +4,12 @@ using Microsoft.CodeAnalysis;
 namespace Wyrd.Ecs.InternalGenerators;
 
 /// <summary>
-/// Emits the <c>CommandBuffer.CreateEntity&lt;T0..T{ArityCap.Max-1}&gt;(...)</c>
-/// multi-component entity-creation overloads (arity 1 through
-/// <see cref="ArityCap.Max"/>), plus <c>World</c>'s internal
-/// <c>PlaceReservedEntity&lt;T0..T{ArityCap.Max-1}&gt;</c> helper and the
-/// <c>QuerySignature&lt;T0..T{ArityCap.Max-1}&gt;</c> cache it needs to find or
-/// create a multi-component entity's target archetype. Also emits
-/// <c>Query&lt;TShape&gt;</c>'s arity-2+ <c>With</c>/<c>Without</c>/<c>Has</c>/<c>Any</c>
-/// overloads (a different arity-templated family from the bounded whole-query-shape
-/// <c>Query&lt;T0,...,T7&gt;</c>/<c>QueryRow&lt;T0,...,T7&gt;</c> family removed when
-/// queries moved to the generator-backed unbounded query-shape design — these are pure
-/// call-site sugar for chaining, not a cap on the total shape) — entity creation and
-/// query-chain sugar are unrelated concerns that happen to share this file and
-/// <see cref="ArityCap"/>.
+/// Emits the multi-component <c>CommandBuffer.CreateEntity&lt;T0..T{ArityCap.Max-1}&gt;(...)</c>
+/// overloads, <c>World</c>'s internal <c>PlaceReservedEntity&lt;...&gt;</c> helper, and the
+/// <c>QuerySignature&lt;...&gt;</c> cache they use to find or create a target archetype.
+/// Also emits <c>Query&lt;TShape&gt;</c>'s arity-2+ <c>With</c>/<c>Without</c>/<c>Has</c>/<c>Any</c>
+/// overloads. Entity creation and query-chain overloads are unrelated concerns that happen
+/// to share this file and <see cref="ArityCap"/>.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class WorldQueryMembersGenerator : IIncrementalGenerator

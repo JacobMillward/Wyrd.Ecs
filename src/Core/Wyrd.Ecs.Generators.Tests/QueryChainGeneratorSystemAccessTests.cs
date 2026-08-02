@@ -45,7 +45,7 @@ public class QueryChainGeneratorSystemAccessTests
             {
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
-                return GeneratedSystemAccess.Entries.Count == 2; // only MovementSystem and MultiQuerySystem -- this ad-hoc call adds nothing
+                return GeneratedSystemAccess.Entries.Count == 2; // only MovementSystem and MultiQuerySystem: this ad-hoc call adds nothing
             }
         }
         """;

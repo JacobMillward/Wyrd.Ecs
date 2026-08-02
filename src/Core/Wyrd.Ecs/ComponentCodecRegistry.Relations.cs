@@ -4,10 +4,9 @@ public sealed partial class ComponentCodecRegistry
 {
     /// <summary>
     /// Registers <typeparamref name="T"/> (an <see cref="IRelation"/> payload type) under
-    /// <paramref name="discriminator"/>, sharing the same collision namespace
-    /// <see cref="Register{T}"/> uses — a discriminator already used by a component or
-    /// another relation type throws, for the same reason <see cref="Register{T}"/>
-    /// itself throws on either case.
+    /// <paramref name="discriminator"/>, sharing the same collision namespace as
+    /// <see cref="Register{T}"/>: a discriminator already used by a component or another
+    /// relation type throws.
     /// </summary>
     public void RegisterRelation<T>(string discriminator, RelationEncoder<T> encode, RelationDecoder<T> decode, uint? schemaHash = null) where T : struct, IRelation
     {
@@ -52,10 +51,10 @@ public sealed partial class ComponentCodecRegistry
 
     /// <summary>
     /// Looks up a relation registration by its <c>RelationLinks{T}</c> wrapper's
-    /// current-process <see cref="Internal.TypeIndex{T}"/> — a different value from
+    /// current-process <see cref="Internal.TypeIndex{T}"/>, different from
     /// <see cref="TryGetRelationByTypeIndex"/>'s own <c>T</c>-keyed lookup. Used by
-    /// <see cref="World.EnumerateRelations"/> while walking type-erased archetype
-    /// storage, which only ever has the wrapper's own type index to look up by.
+    /// <see cref="World.EnumerateRelations"/>, which only has the wrapper's type index to
+    /// look up by.
     /// </summary>
     internal bool TryGetRelationByLinksTypeIndex(int typeIndex, out IRelationCodec registered)
     {

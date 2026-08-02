@@ -1,13 +1,11 @@
 namespace Wyrd.Ecs.Generators.Tests;
 
 /// <summary>
-/// The shared backend RenderBackend emits sorts a shape's Reads/Writes elements
-/// alphabetically by component type name (<see cref="QueryShapeExtensions.DataElements"/>) so
-/// two call sites declaring the same components in a different `.With&lt;&gt;()` order still
-/// share one backend (see <see cref="QueryChainGeneratorDeduplicationTests"/>). That's an
-/// internal sharing detail — a caller's `.ForEach(...)` lambda should be able to use whatever
-/// parameter order they actually declared the shape in, not be forced to guess the shared
-/// backend's alphabetical order.
+/// The shared backend sorts a shape's Reads/Writes elements alphabetically by component
+/// type name so two call sites declaring the same components in a different
+/// `.With&lt;&gt;()` order still share one backend. That's an internal sharing detail: a
+/// caller's `.ForEach(...)` lambda should be able to use whatever order they actually
+/// declared, not the shared backend's alphabetical order.
 /// </summary>
 public class QueryChainGeneratorParameterOrderTests
 {
@@ -22,13 +20,13 @@ public class QueryChainGeneratorParameterOrderTests
         {
             // Reuses Position/Velocity in a two-component shape, so the three-component shape
             // below shares a backend-relevant component set with another shape in the same
-            // compilation -- exactly the condition that exposed the ordering bug.
+            // compilation, exercising the lambda-parameter-order-vs-backend-order distinction.
             public static void RunTwoComponent(World world) =>
                 world.Query().With<Position>().With<Velocity>()
                     .ForEach(0, (in int _, ref Position p, in Velocity v) => p.X += v.X);
 
             // Lambda parameters follow the .With<>() declaration order (Position, Velocity,
-            // Health) -- not alphabetical-by-type-name order (Health, Position, Velocity).
+            // Health), not alphabetical-by-type-name order (Health, Position, Velocity).
             public static float RunThreeComponent()
             {
                 var world = new World();

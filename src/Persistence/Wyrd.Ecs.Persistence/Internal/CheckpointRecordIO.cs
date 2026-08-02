@@ -5,22 +5,16 @@ namespace Wyrd.Ecs.Persistence.Internal;
 
 /// <summary>
 /// Reads and writes the checkpoint file header and individual checkpoint records. The
-/// header is magic bytes, a format version, and the tick the checkpoint reflects
-/// (<see cref="World.CurrentTick"/> at the moment it was written) — checked once per
-/// file: a corrupt or foreign file fails loudly via <see cref="ReadHeader"/>, not by
-/// misreading garbage as records. Each record carries a <see cref="CheckpointRecordKind"/>:
-/// a <see cref="CheckpointRecordKind.Component"/> record is a permanent
-/// <see cref="EntityId"/>, a component's stable wire discriminator, its registered
-/// schema hash (an explicit has-a-hash flag plus the value, not a 0-means-unset
-/// sentinel), and its serialized payload bytes; a <see cref="CheckpointRecordKind.RelationEdge"/>
-/// record is the same, plus a second <see cref="EntityId"/> for the edge's target,
-/// written immediately after the first. All framed as a length-prefixed block plus a
-/// CRC32 checksum. <see cref="TryReadRecord"/> returns false (never throws) on any
-/// short read, checksum mismatch, or a length prefix claiming more data than the
-/// stream actually has left (a corrupted length field would otherwise try to allocate
-/// an implausibly large array), so a file truncated or corrupted mid-record by a
-/// crash mid-write is detected and replay cleanly stops at the last complete, valid
-/// record instead of misreading garbage as data.
+/// header is magic bytes, a format version, and the tick the checkpoint reflects;
+/// <see cref="ReadHeader"/> checks it once per file so a corrupt or foreign file fails
+/// loudly instead of being misread as records. Each record is a length-prefixed block
+/// with a CRC32 checksum, carrying a <see cref="CheckpointRecordKind"/>: a
+/// <see cref="CheckpointRecordKind.Component"/> record holds an <see cref="EntityId"/>,
+/// discriminator, schema hash, and payload; a <see cref="CheckpointRecordKind.RelationEdge"/>
+/// record adds a second <see cref="EntityId"/> for the edge's target.
+/// <see cref="TryReadRecord"/> never throws: it returns false on a short read, a
+/// checksum mismatch, or an implausible length prefix, so a file truncated or corrupted
+/// mid-write stops replay cleanly at the last valid record.
 /// </summary>
 internal static class CheckpointRecordIO
 {

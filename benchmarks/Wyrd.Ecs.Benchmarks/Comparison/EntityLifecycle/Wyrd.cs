@@ -10,28 +10,20 @@ public partial class EntityLifecycleBenchmarks
     {
         public readonly World World = new();
 
-        /// <summary>Reused scratch space for <see cref="Wyrd_DisposeEntity"/> — sized once, never reallocated, so it doesn't contaminate that method's own allocation measurement.</summary>
+        /// <summary>Reused scratch space for <see cref="Wyrd_DisposeEntity"/>, sized once and never reallocated so it doesn't contaminate that method's own allocation measurement.</summary>
         public readonly Entity[] DisposeScratch = new Entity[EntityCount];
     }
 
     [Context] private WyrdContext _wyrd = null!;
 
     /// <summary>
-    /// Rebuilds <see cref="_wyrd"/> fresh every iteration, scoped (via <c>Targets</c>) to
-    /// only the four <c>Wyrd_Create*</c> methods below — <see cref="Wyrd_DisposeEntity"/>
-    /// already destroys everything it creates each invocation, so its own
-    /// <see cref="WyrdContext"/> never grows and needs no reset. The <c>Create*</c> methods
-    /// do grow it every invocation, and since <c>[SimpleJob(invocationCount: 1)]</c> means
-    /// each iteration is exactly one <see cref="EntityCount"/>-sized batch (hundreds of
-    /// microseconds), that batch's real work vastly dominates this reset's cost (~200ns) —
-    /// unlike the single-entity case this whole suite moved away from, IterationSetup
-    /// doesn't spoil anything here. Without this reset the same context keeps growing across
-    /// every iteration BenchmarkDotNet decides to run, so later iterations measure entity
-    /// creation into a much bigger, previously-grown world than earlier ones — a
-    /// non-stationary measurement, visible as huge outlier ranges and internally
-    /// inconsistent numbers (confirmed: an actual run without this had
-    /// <c>Wyrd_CreateFourComponentEntity</c> reporting as cheaper than
-    /// <c>Wyrd_CreateOneComponentEntity</c>).
+    /// Rebuilds <see cref="_wyrd"/> fresh every iteration, scoped to only the four
+    /// <c>Wyrd_Create*</c> methods. Without this, the same context keeps growing across
+    /// every iteration, so later iterations measure creation into a much bigger,
+    /// previously-grown world than earlier ones: a non-stationary measurement (confirmed
+    /// by an actual run showing <c>Wyrd_CreateFourComponentEntity</c> reporting as cheaper
+    /// than <c>Wyrd_CreateOneComponentEntity</c>). <see cref="Wyrd_DisposeEntity"/> needs
+    /// no reset since it destroys everything it creates each invocation.
     /// </summary>
     [IterationSetup(Targets = [
         nameof(Wyrd_CreateBareEntity), nameof(Wyrd_CreateOneComponentEntity),
@@ -82,8 +74,8 @@ public partial class EntityLifecycleBenchmarks
     }
 
     /// <summary>
-    /// Create-then-destroy, one batch of <see cref="EntityCount"/> pairs per invocation —
-    /// not a single pre-seeded entity destroyed once, because <see cref="EntityLifecycleBenchmarks"/>
+    /// Create-then-destroy, one batch of <see cref="EntityCount"/> pairs per invocation.
+    /// Not a single pre-seeded entity destroyed once, because <see cref="EntityLifecycleBenchmarks"/>
     /// builds <see cref="WyrdContext"/> once via <c>[GlobalSetup]</c> and reuses it across
     /// every invocation (see that class's docs): a single fixed target would only be alive
     /// for the first call, then destroy every call after that as a no-op. Pairing keeps

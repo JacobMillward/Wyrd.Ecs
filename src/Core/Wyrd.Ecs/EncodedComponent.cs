@@ -9,10 +9,8 @@ namespace Wyrd.Ecs;
 public readonly record struct EncodedComponent(Entity Entity, string Discriminator, uint? SchemaHash, byte[] Data)
 {
     /// <summary>
-    /// Value equality over <see cref="Data"/>'s contents, not the default record struct
-    /// behavior a <c>byte[]</c> field would otherwise get (reference equality: arrays
-    /// don't override <see cref="object.Equals(object)"/>, so two structurally identical
-    /// payloads from separate encode calls would otherwise compare unequal).
+    /// Value equality over <see cref="Data"/>'s contents, not the reference equality a
+    /// <c>byte[]</c> field would default to (arrays don't override <see cref="object.Equals(object)"/>).
     /// </summary>
     public bool Equals(EncodedComponent other) =>
         Entity == other.Entity &&

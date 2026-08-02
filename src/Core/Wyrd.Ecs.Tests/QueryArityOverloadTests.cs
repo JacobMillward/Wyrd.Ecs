@@ -47,8 +47,8 @@ public class QueryArityOverloadTests
     {
         var world = new World();
 
-        // Compiles iff Query<TShape>.With<T0,T1>()'s return type still exposes .Without<T>()
-        // -- proves arity overloads don't special-case away ordinary chaining.
+        // Compiles iff Query<TShape>.With<T0,T1>()'s return type still exposes .Without<T>(),
+        // proving arity overloads don't special-case away ordinary chaining.
         var query = world.Query().With<ArityPosition, ArityVelocity>().Without<ArityFrozen>();
 
         query.Should().NotBeNull();
@@ -59,7 +59,7 @@ public class QueryArityOverloadTests
     {
         var world = new World();
         world.Commands.CreateEntity(new ArityPosition { X = 1f }, new ArityVelocity { X = 2f });
-        world.Commands.CreateEntity(new ArityPosition { X = 10f }); // ArityPosition only -- shouldn't match
+        world.Commands.CreateEntity(new ArityPosition { X = 10f }); // ArityPosition only, shouldn't match
         world.ApplyCommands();
 
         var total = 0f;

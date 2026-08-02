@@ -260,13 +260,10 @@ public class WorldPersistenceExtensionsTests : IDisposable
     }
 
     /// <summary>
-    /// A relation record's target id might never appear as any other record's own
-    /// entity id — either because, like <see cref="Save_ThenLoad_DoesNotPersistRelationBacklinksDirectly_ItsRebuiltFromTheLinkRecord"/>,
-    /// the target genuinely has no components of its own, or (this test's scenario)
-    /// because the file was hand-crafted and the id was simply never real. Either way
-    /// <c>Load</c> can't tell the difference from a forward pass with no lookahead, so
-    /// it creates a fresh entity for it the same as it would for any other
-    /// first-seen id — not a corruption signal.
+    /// A relation record's target id may never appear as any other record's own entity
+    /// id (here, because the file was hand-crafted and the id was never real).
+    /// <c>Load</c> creates a fresh entity for it the same as any other first-seen id:
+    /// not a corruption signal.
     /// </summary>
     [Fact]
     public void Save_ThenLoad_ARelationRecordsTargetNeverSeenElsewhere_StillGetsAFreshEntityAndTheEdge()

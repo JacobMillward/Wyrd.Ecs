@@ -8,16 +8,13 @@ internal static class QueryChainEmitter
 {
     /// <summary>
     /// Emits the shared backend for one *logical* shape (one call per distinct
-    /// <see cref="QueryShapeExtensions.DedupKey"/> among the shapes passed to
-    /// <see cref="RenderForEachOverload"/>): the cached <c>ArchetypeQuery</c> covering just
-    /// this shape's statically-known accessor requirements (one <c>.Access&lt;TAccessor&gt;()</c>
-    /// per Reads/Writes marker), the bespoke delegate type, and the actual per-chunk
-    /// iteration logic. Reused by every exact-declaration-order overload sharing this shape.
-    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> are never baked in here anymore -- they live on
-    /// the caller's own <c>Query&lt;TShape&gt;.Filter</c> and get combined in at resolve time
-    /// (see <see cref="AppendMethod"/>), which is also why two shapes differing only by which
-    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> calls they chained now correctly share one
-    /// backend instead of getting separate ones.
+    /// <see cref="QueryShapeExtensions.DedupKey"/>): the cached <c>ArchetypeQuery</c>
+    /// covering this shape's accessor requirements, the delegate type, and the per-chunk
+    /// iteration logic. Reused by every exact-declaration-order overload sharing this
+    /// shape. <c>.Without</c>/<c>.Has</c>/<c>.Any</c> are never baked in here: they live
+    /// on the caller's own <c>Query&lt;TShape&gt;.Filter</c> and combine in at resolve
+    /// time (see <see cref="AppendMethod"/>), so two shapes differing only by those calls
+    /// share one backend.
     /// </summary>
     internal static string RenderBackend(QueryShape shape)
     {
@@ -46,11 +43,10 @@ internal static class QueryChainEmitter
     /// <summary>
     /// One generated terminal's shape: which delegate names it uses, what its shared
     /// <c>Process</c> local function returns, and whether it dispatches sequentially or
-    /// via <c>Parallel.ForEach</c>. Drives <see cref="AppendTerminalClass"/> so
-    /// <see cref="RenderForEachOverload"/>, <see cref="RenderPredicateForEachOverload"/>,
-    /// and <see cref="RenderParallelForEachOverload"/> share one implementation instead of
-    /// three hand-copied ~60-line methods. Only three instances are ever constructed
-    /// (below) -- a predicate-parallel combination is never emitted.
+    /// via <c>Parallel.ForEach</c>. Drives <see cref="AppendTerminalClass"/> so the three
+    /// ForEach/PredicateForEach/ParallelForEach renderers share one implementation. Only
+    /// three instances are ever constructed: a predicate-parallel combination is never
+    /// emitted.
     /// </summary>
     private readonly record struct TerminalSpec(
         string ClassSuffix,
@@ -76,7 +72,7 @@ internal static class QueryChainEmitter
             ProcessReturnType: "bool",
             IsParallel: false);
 
-        // Reuses Action's delegate names -- .ParallelForEach shares the plain .ForEach's
+        // Reuses Action's delegate names: .ParallelForEach shares the plain .ForEach's
         // per-entity signature (only dispatch differs), so it declares no delegates of
         // its own; see RenderParallelForEachOverload.
         internal static TerminalSpec Parallel(string overloadHash) => new(
@@ -90,12 +86,10 @@ internal static class QueryChainEmitter
 
     /// <summary>
     /// Emits the per-exact-shape extension method overload (one call per distinct
-    /// <see cref="QueryShape.ExactShapeTypeName"/>). Its public delegate/parameter list uses
-    /// this shape's own declaration order (<see cref="QueryShapeExtensions.OwnDataElements"/>),
-    /// not the shared backend's alphabetical order — the body adapts between the two orders
-    /// when calling into <see cref="RenderBackend"/>'s backend for this shape's
-    /// <see cref="QueryShapeExtensions.DedupKey"/>, so a caller never needs to know or match
-    /// the backend's internal ordering.
+    /// <see cref="QueryShape.ExactShapeTypeName"/>). Its public delegate/parameter list
+    /// uses this shape's own declaration order, not the shared backend's alphabetical
+    /// order; the body adapts between the two when calling into the backend, so a caller
+    /// never needs to match the backend's internal ordering.
     /// </summary>
     internal static string RenderForEachOverload(QueryShape shape)
     {
@@ -107,7 +101,7 @@ internal static class QueryChainEmitter
         return sb.ToString();
     }
 
-    /// <summary>The predicate-delegate `.ForEach` overload — same own-order/adapter rules as <see cref="RenderForEachOverload"/>.</summary>
+    /// <summary>The predicate-delegate `.ForEach` overload. Same own-order/adapter rules as <see cref="RenderForEachOverload"/>.</summary>
     internal static string RenderPredicateForEachOverload(QueryShape shape)
     {
         var sb = new StringBuilder();
@@ -118,7 +112,7 @@ internal static class QueryChainEmitter
         return sb.ToString();
     }
 
-    /// <summary>The `.ParallelForEach` overload — same own-order/adapter rules as <see cref="RenderForEachOverload"/>. Declares no delegates of its own; see <see cref="TerminalSpec.Parallel"/>.</summary>
+    /// <summary>The `.ParallelForEach` overload. Same own-order/adapter rules as <see cref="RenderForEachOverload"/>. Declares no delegates of its own; see <see cref="TerminalSpec.Parallel"/>.</summary>
     internal static string RenderParallelForEachOverload(QueryShape shape)
     {
         var sb = new StringBuilder();
@@ -135,7 +129,7 @@ internal static class QueryChainEmitter
         sb.AppendLine();
     }
 
-    /// <summary>Declares <paramref name="spec"/>'s own/no-uniform delegate pair. Not called for <see cref="TerminalSpec.Parallel"/> -- it reuses <see cref="TerminalSpec.Action"/>'s delegates, declared by whichever <see cref="RenderForEachOverload"/> call ran for this shape.</summary>
+    /// <summary>Declares <paramref name="spec"/>'s own/no-uniform delegate pair. Not called for <see cref="TerminalSpec.Parallel"/>: it reuses <see cref="TerminalSpec.Action"/>'s delegates, declared by whichever <see cref="RenderForEachOverload"/> call ran for this shape.</summary>
     private static void AppendDelegates(StringBuilder sb, QueryShape shape, TerminalSpec spec)
     {
         var ownElements = shape.OwnDataElements();
@@ -164,7 +158,7 @@ internal static class QueryChainEmitter
 
     /// <summary>
     /// Emits one of <paramref name="spec"/>'s two overloads (<paramref name="uniform"/>
-    /// selects the state-carrying vs. plain form) -- the outer extension method plus its
+    /// selects the state-carrying vs. plain form): the outer extension method plus its
     /// local <c>Process</c> function. The outer method is always <c>void</c>; only
     /// <c>Process</c>'s return type and early-exit behavior vary with
     /// <see cref="TerminalSpec.ProcessReturnType"/>, and only the chunk-gathering
@@ -194,10 +188,9 @@ internal static class QueryChainEmitter
             sb.AppendLine();
             if (uniform)
             {
-                // An `in` parameter can't be captured by a closure (CS1628) -- copy it to
+                // An `in` parameter can't be captured by a closure (CS1628), so copy it to
                 // an ordinary local first. One copy per `.ParallelForEach()` call, not per
-                // entity, so it doesn't undermine the no-per-entity-allocation point of
-                // `in` at all.
+                // entity, so it doesn't undermine the no-per-entity-allocation point of `in`.
                 sb.AppendLine("        var capturedState = state;");
             }
             sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(chunks, chunk =>");
@@ -266,19 +259,14 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `WithSystems` sugar so a consumer never has to spell out
+    /// Emits `WithSystems` overloads so a consumer never has to spell out
     /// `Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries` by hand: a `params
-    /// OrderedSystem[]` overload for call-site systems (each argument converts
-    /// implicitly from a bare `EcsSystem`), an `IReadOnlyList&lt;EcsSystem&gt;` overload
-    /// for a caller that already assembled a system collection programmatically (the
-    /// implicit conversion applies per-argument, not across an entire array's element
-    /// type, so a pre-built `EcsSystem[]` needs this explicit overload), plus
-    /// `WithSystems&lt;T0..T{ArityCap.Max}&gt;()` for the parameterless case. Emitted into
-    /// namespace `Wyrd.Ecs` itself, not `Wyrd.Ecs.Generated` — every consumer already
-    /// has `using Wyrd.Ecs;` in scope for `WorldBuilder`/`EcsSystem`, so the extension
-    /// methods are visible without a second `using` just for them. Unconditional —
-    /// this doesn't depend on any discovered `QuerySystem`/chain candidate, so it's the
-    /// same fixed output regardless of what a consumer's own compilation contains.
+    /// OrderedSystem[]` overload for call-site systems, an
+    /// `IReadOnlyList&lt;EcsSystem&gt;` overload for a caller with a pre-built array (the
+    /// implicit `EcsSystem`-to-`OrderedSystem` conversion doesn't apply across an array's
+    /// element type), plus `WithSystems&lt;T0..T{ArityCap.Max}&gt;()` for the parameterless
+    /// case. Emitted into `Wyrd.Ecs` itself so it's visible without an extra `using`.
+    /// Unconditional: fixed output regardless of what a consumer's compilation contains.
     /// </summary>
     internal static string RenderWithSystemsExtensions()
     {
@@ -313,22 +301,16 @@ internal static class QueryChainEmitter
 
     /// <summary>
     /// Emits the `partial` class part supplying a `QuerySystem` subclass's
-    /// `EcsSystem.Execute` implementation, calling the developer-written `Update` method
-    /// (an ordinary method, not `partial` — its own `ref`/`in` modifiers are the source of
-    /// truth for access mode, read by <c>QueryChainGenerator.TryExtractQuerySystem</c>, so
-    /// there is nothing left for this class to pre-declare). See
+    /// `EcsSystem.Execute`, calling the developer-written `Update` method (its own
+    /// `ref`/`in` modifiers are the source of truth for access mode). See
     /// <see cref="AppendStateExecute"/>/<see cref="AppendEntityViewExecute"/> for the two
     /// possible emission shapes.
     /// </summary>
     internal static string RenderQuerySystemGlue(QuerySystemCandidate candidate)
     {
-        // OwnDataElements(), not DataElements() -- this is a caller-facing parameter
-        // list (both Update's own declaration and the lambda passed to .ForEach, which
-        // must match that terminal's own OwnDataElements()-ordered delegate type), and
-        // DataElements()'s own doc comment says exactly that: "Not used for any
-        // caller-facing parameter list." Every existing QuerySystem test happened to
-        // have alphabetical-by-type-name order match declaration order, which is why
-        // this went uncaught until a three-component shape where they diverge.
+        // OwnDataElements(), not DataElements(): this is a caller-facing parameter list
+        // (Update's own declaration and the .ForEach lambda), and DataElements() is only
+        // for the shared backend's internal ordering.
         var dataElements = candidate.Shape.OwnDataElements();
 
         var sb = new StringBuilder();
@@ -355,23 +337,17 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `Execute` for a shape whose `Update` does not declare `EntityView` — routed
-    /// through the shape's already-emitted `.ForEach&lt;TState&gt;()` extension exactly as
-    /// before this feature existed. When `World` alone is declared, widens `TState` from
-    /// bare `Time` to `(Time Time, World World)` — an ordinary value tuple, since
-    /// `ForEach&lt;TState&gt;` has no constraint on `TState` — so this still shares the same
-    /// `Process`/backend codegen (<see cref="AppendMethod"/>) unchanged; only what's passed
-    /// as state differs.
+    /// Emits `Execute` for a shape whose `Update` does not declare `EntityView`, routed
+    /// through the shape's `.ForEach&lt;TState&gt;()` extension. When `World` alone is
+    /// declared, widens `TState` from bare `Time` to `(Time Time, World World)`, so this
+    /// still shares the same `Process`/backend codegen unchanged.
     /// </summary>
     private static void AppendStateExecute(StringBuilder sb, QuerySystemCandidate candidate, ImmutableArray<MarkerElement> dataElements)
     {
-        // Calling a ref/in parameter requires the same modifier at the call site, not
-        // just on the parameter declaration -- RefKind(e) here, not a bare ParamName(e).
-        // Built by prepending the state parameter into the same list before joining
-        // (matching RenderBackend's actionParams pattern), not by joining dataElements
-        // alone and string-concatenating a separator afterward -- the latter produces a
-        // trailing comma when dataElements is empty (a filter-only shape with no
-        // Writes/Reads at all), which doesn't compile.
+        // Calling a ref/in parameter requires the same modifier at the call site
+        // (RefKind(e), not a bare ParamName(e)). The state parameter is prepended before
+        // joining, not appended by string concatenation, since that would leave a
+        // trailing comma when dataElements is empty (a filter-only shape).
         sb.AppendLine("    protected override void Execute(World world, Time time) =>");
 
         if (candidate.HasWorldParameter)
@@ -389,15 +365,12 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `Execute` for a shape whose `Update` declares `EntityView`. The per-row
-    /// `Entity` its construction needs is never threaded through the shared `Process` loop
-    /// (adding it there would cost every `.ForEach()` call site for the shape, not just this
-    /// one — see this feature's design doc, section B), so this bypasses the shape's
-    /// `.ForEach()` extension entirely and walks `QueryChainBackend_&lt;hash&gt;` directly,
-    /// mirroring (not reusing) <see cref="AppendMethod"/>'s own chunk-iteration shape.
-    /// `world[entities[i]]` — never `new EntityView(...)` — since `EntityView`'s constructor
-    /// is `internal` to `Wyrd.Ecs.dll`; this generated code compiles into the *consumer's*
-    /// assembly, where only `World`'s public indexer can reach it.
+    /// Emits `Execute` for a shape whose `Update` declares `EntityView`. Bypasses the
+    /// shape's `.ForEach()` extension and walks `QueryChainBackend_&lt;hash&gt;` directly,
+    /// since threading the per-row `Entity` through the shared `Process` loop would cost
+    /// every `.ForEach()` call site, not just this one. Uses `world[entities[i]]`, never
+    /// `new EntityView(...)`, since `EntityView`'s constructor is `internal` and this
+    /// generated code compiles into the consumer's own assembly.
     /// </summary>
     private static void AppendEntityViewExecute(StringBuilder sb, QuerySystemCandidate candidate, ImmutableArray<MarkerElement> dataElements)
     {
@@ -424,13 +397,13 @@ internal static class QueryChainEmitter
 
     /// <summary>
     /// A stable, valid-C#-identifier suffix derived from <see cref="QueryShape.ExactShapeTypeName"/>
-    /// *and* <see cref="QueryShape.Markers"/> — distinct from <see cref="QueryShapeExtensions.HashName"/>,
+    /// *and* <see cref="QueryShape.Markers"/>, distinct from <see cref="QueryShapeExtensions.HashName"/>,
     /// which is derived from the order-independent <see cref="QueryShapeExtensions.DedupKey"/>
     /// instead. Markers must be folded in here, not just the type name: since
-    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> no longer affect <c>TShape</c>, two shapes can
+    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, two shapes can
     /// share one <see cref="QueryShape.ExactShapeTypeName"/> while resolving different ref/in
     /// markers for the same component (see <c>QueryChainGenerator.DeduplicateShapes</c>'s own
-    /// doc comment) — hashing the type name alone would collide their generated class names.
+    /// doc comment), so hashing the type name alone would collide their generated class names.
     /// </summary>
     internal static string ExactShapeHash(QueryShape shape)
     {
@@ -459,9 +432,9 @@ internal static class QueryChainEmitter
     {
         var name = e.ComponentTypeName;
         // Namespace-strip only the outer type's own name, not the last '.' anywhere in the
-        // fully-qualified name -- for a generic component type (e.g. RelationLinks<Ns.Foo>),
-        // the last '.' can sit inside a generic argument's namespace, which previously
-        // produced a garbage identifier (including the argument's own '>').
+        // fully-qualified name: for a generic component type (e.g. RelationLinks<Ns.Foo>),
+        // the last '.' can sit inside a generic argument's namespace, which would otherwise
+        // produce a garbage identifier (including the argument's own '>').
         var genericStart = name.IndexOf('<');
         var outerTypeName = genericStart >= 0 ? name[..genericStart] : name;
         var simple = outerTypeName.Contains('.') ? outerTypeName[(outerTypeName.LastIndexOf('.') + 1)..] : outerTypeName;

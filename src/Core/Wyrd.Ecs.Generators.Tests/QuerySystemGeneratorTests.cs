@@ -101,8 +101,7 @@ public class QuerySystemGeneratorTests
     public void DefineQuery_DoesNotNeedItsOwnSignatureUpdatedWhenTheChainGrows()
     {
         // IQuery means adding a component to the chain (Health here) only ever touches
-        // DefineQuery's body, never its declared return type -- this is the whole point
-        // of this task.
+        // DefineQuery's body, never its declared return type.
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(EditedShapeHarness));
 
         var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
@@ -200,10 +199,10 @@ public class QuerySystemGeneratorTests
 
                 // Read back directly (not via another .ForEach over Query<(Position, Nil)>):
                 // that would be a second, independent read-only call site sharing MoveSystem's
-                // exact shape while wanting `in` instead of `ref` for Position -- exactly the
-                // WYRD003 conflict this design surfaced (see QueryChainGenerator.DeduplicateShapes).
-                // GetComponent sidesteps it entirely, and is what this test actually needs: a
-                // direct value check, not another generated query terminal.
+                // exact shape while wanting `in` instead of `ref` for Position, which is exactly
+                // the WYRD003 conflict (see QueryChainGenerator.DeduplicateShapes). GetComponent
+                // sidesteps it entirely, and is what this test actually needs: a direct value
+                // check, not another generated query terminal.
                 return world.GetComponent<Position>(alive).X + world.GetComponent<Position>(dead).X;
             }
         }
@@ -217,7 +216,7 @@ public class QuerySystemGeneratorTests
         var result = (float)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
 
         // alive: 1f, +1 from MoveSystem's own Update = 2f. dead: untouched, since Without<Dead>
-        // excludes it from MoveSystem's query -- stays 100f. 2 + 100 = 102.
+        // excludes it from MoveSystem's query, so it stays 100f. 2 + 100 = 102.
         result.Should().Be(102f);
     }
 }

@@ -5,11 +5,9 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// The <see cref="Tracked"/> dimension, Wyrd.Ecs-only with no Friflo or fennecs equivalent — see
-/// <see cref="TrackedEntityLifecycleBenchmarks"/> for the same reasoning. Stays at arity 1-2 (the
-/// scope the original implementation covered before the arity cap was removed) rather than
-/// growing to 5 — the point of this class is measuring the tracked-write-stamping cost specifically,
-/// not re-deriving the arity-scaling numbers the untracked
+/// The <see cref="Tracked"/> dimension, Wyrd.Ecs-only with no Friflo/fennecs equivalent.
+/// Stays at arity 1-2 rather than growing to 5, since the point is measuring the
+/// tracked-write-stamping cost, not re-deriving the arity-scaling numbers
 /// <see cref="Comparison.QueryIteration.QueryIterationBenchmarks"/> already covers.
 /// </summary>
 [MemoryDiagnoser]

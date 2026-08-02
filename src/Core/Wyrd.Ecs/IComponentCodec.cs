@@ -1,18 +1,18 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// A type-erased view over one component type's registration — its stable wire
+/// A type-erased view over one component type's registration: its stable wire
 /// discriminator, its current-process <see cref="Internal.TypeIndex{T}"/>, and the
 /// ability to serialize a row out of a type-erased storage array or deserialize bytes
-/// into a <see cref="World"/> via <see cref="CommandBuffer"/>, without the caller needing
-/// to know the concrete component type. Obtained from <see cref="ComponentCodecRegistry"/>.
+/// into a <see cref="World"/> via <see cref="CommandBuffer"/>. Obtained from
+/// <see cref="ComponentCodecRegistry"/>.
 /// </summary>
 public interface IComponentCodec
 {
     /// <summary>The stable wire discriminator this type was registered under.</summary>
     string Discriminator { get; }
 
-    /// <summary>This type's current-process <see cref="Internal.TypeIndex{T}"/> — an in-memory optimization detail, never persisted.</summary>
+    /// <summary>This type's current-process <see cref="Internal.TypeIndex{T}"/>: an in-memory optimization detail, never persisted.</summary>
     int TypeIndex { get; }
 
     /// <summary>
@@ -26,10 +26,9 @@ public interface IComponentCodec
     byte[] EncodeRow(Array rawItems, int row);
 
     /// <summary>
-    /// Encodes <paramref name="value"/>, a previously-boxed value of this registration's
-    /// concrete component type (as produced internally by the change-tracking scan
-    /// feeding <see cref="World.Subscribe(IComponentCodec)"/>). <paramref name="value"/>
-    /// must be a boxed instance of that type — passing anything else throws an
+    /// Encodes <paramref name="value"/>, a boxed value of this registration's concrete
+    /// component type (as produced by the change-tracking scan feeding
+    /// <see cref="World.Subscribe(IComponentCodec)"/>). Passing anything else throws
     /// <see cref="InvalidCastException"/>.
     /// </summary>
     byte[] EncodeValue(object value);
@@ -37,19 +36,11 @@ public interface IComponentCodec
     /// <summary>
     /// Deserializes <paramref name="data"/> and queues adding it to <paramref name="entity"/>
     /// in <paramref name="world"/> as this registration's concrete component type, via
-    /// <see cref="CommandBuffer.AddComponent{T}"/> — the exact same mechanism and the same
-    /// silent-no-op-if-not-alive contract as every other structural mutation. This is
-    /// deliberate, not just consistency for its own sake: deserializing writes a
-    /// component and can move an entity between archetypes, the same operation
-    /// <see cref="CommandBuffer.AddComponent{T}"/> already performs, and that operation is
-    /// unsafe at the wrong time regardless of where the value came from — a network
-    /// client applying received entity state, or a redundancy replica applying a stream
-    /// to its own standby <see cref="World"/>, can do this while other things are
-    /// running, not only during an isolated startup load. Call
-    /// <see cref="World.ApplyCommands()"/> to make it take effect. A caller that needs to
-    /// detect corrupt source data (a reference to an entity that never landed) should
-    /// check for that at the loading layer, which has the context to know what "missing"
-    /// means — not by expecting this primitive to throw.
+    /// <see cref="CommandBuffer.AddComponent{T}"/>: same silent-no-op-if-not-alive contract as
+    /// every other structural mutation. Call <see cref="World.ApplyCommands()"/> to make it
+    /// take effect. A caller that needs to detect corrupt source data (a reference to an
+    /// entity that never landed) should check for that at the loading layer; this primitive
+    /// doesn't throw for a missing entity.
     /// </summary>
     void DecodeInto(World world, Entity entity, byte[] data);
 }

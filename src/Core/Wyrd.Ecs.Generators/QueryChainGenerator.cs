@@ -10,14 +10,10 @@ namespace Wyrd.Ecs.Generators;
 /// <summary>
 /// Finds every `.ForEach`/`.ParallelForEach` terminal call on a fluent query chain, and
 /// every `QuerySystem` subclass's `DefineQuery` override, anywhere in the consuming
-/// project's source. Extracts each one's shape (<see cref="ChainWalker"/>) and emits bespoke
-/// terminal methods, `QuerySystem` glue, and a `GeneratedSystemAccess` registry entry
-/// for both chains found directly inside an `EcsSystem.Execute` override and
-/// `QuerySystem` subclasses. See the design's "The terminal methods only exist because
-/// a generator emits them" and "Canonical parameter order" for the two-level grouping
-/// this <see cref="Initialize"/> pipeline implements for chain terminals: exact
-/// declaration-order tuple type (one extension-method overload each) nested inside
-/// logical shape (one shared backend each).
+/// project's source. Extracts each one's shape (<see cref="ChainWalker"/>) and emits
+/// terminal methods, `QuerySystem` glue, and a `GeneratedSystemAccess` registry entry.
+/// Groups chain terminals two levels deep: exact declaration-order tuple type (one
+/// overload each) nested inside logical shape (one shared backend each).
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class QueryChainGenerator : IIncrementalGenerator
@@ -76,16 +72,15 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         });
     }
 
-    /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, same as before this was added, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
+    /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
     private readonly record struct ChainCandidateResult(QueryShape? Shape, string? SystemTypeName, Diagnostic? Diagnostic);
 
     private static ChainCandidateResult ExtractChainCandidate(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
     {
-        // Checked before ChainWalker.TryExtractShape, not after: a file-local component
-        // type must never reach the exact-shape/dedup pipeline at all, since that is
-        // exactly what let it silently collide with an unrelated, ordinarily-scoped type
-        // of the same simple name elsewhere in the compilation (see WYRD004's own doc
-        // comment, and the design's Task 6 finding).
+        // Checked before ChainWalker.TryExtractShape: a file-local component type must
+        // never reach the exact-shape/dedup pipeline, since that's what lets it silently
+        // collide with an unrelated, ordinarily-scoped type of the same simple name
+        // elsewhere in the compilation (see WYRD004's own doc comment).
         if (invocation.Expression is MemberAccessExpressionSyntax { Expression: var receiverExpr }
             && semanticModel.GetTypeInfo(receiverExpr, ct).Type is INamedTypeSymbol receiverType
             && ChainWalker.TryFindFileLocalComponentType(receiverType, ct) is { } fileLocalTypeName)
@@ -99,22 +94,17 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     }
 
     /// <summary>
-    /// Two-level grouping: <paramref name="chains"/>/<paramref name="querySystems"/> collapse to
-    /// one shape per distinct <see cref="QueryShape.ExactShapeTypeName"/> (one extension-method
-    /// overload each), nested inside one per distinct <see cref="QueryShapeExtensions.DedupKey"/>
-    /// (one shared backend each). Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c> no longer affect
-    /// <c>TShape</c>, two otherwise-unrelated queries (e.g. a <c>QuerySystem</c> writing a
-    /// component and a plain read-only query reading the same component, with nothing else in
-    /// their <c>.With&lt;T&gt;()</c> set to distinguish them) can now share the exact same closed
-    /// <c>Query&lt;TShape&gt;</c> type while resolving different ref/in markers for it. Emitting
-    /// both as separate overloads compiles, but produces a hard-to-diagnose CS0121 "ambiguous
-    /// call" at every consumer call site (verified directly: C# doesn't reject the
-    /// wrong-ref/in candidate during overload resolution here, it reports both as equally
-    /// applicable). So conflicting groups are reported via <see cref="WyrdDiagnostics.ConflictingAccessForSameShape"/>
-    /// instead, keeping only the first shape encountered per <see cref="QueryShape.ExactShapeTypeName"/>
-    /// for emission -- same "first wins" fallback the naive type-name-only grouping already had,
-    /// just now with a diagnostic explaining why, instead of one of the two callers silently
-    /// getting the other's resolved access mode with no explanation.
+    /// Two-level grouping: chains/querySystems collapse to one shape per distinct
+    /// <see cref="QueryShape.ExactShapeTypeName"/> (one overload each), nested inside one
+    /// per distinct <see cref="QueryShapeExtensions.DedupKey"/> (one shared backend each).
+    /// Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, two
+    /// otherwise-unrelated queries can share the exact same closed <c>Query&lt;TShape&gt;</c>
+    /// type while resolving different ref/in markers for it. Emitting both as separate
+    /// overloads compiles but produces a hard-to-diagnose CS0121 "ambiguous call" at every
+    /// consumer call site, since C# reports both as equally applicable rather than
+    /// rejecting the wrong one. So conflicting groups are reported via
+    /// <see cref="WyrdDiagnostics.ConflictingAccessForSameShape"/> instead, keeping only
+    /// the first shape encountered per <see cref="QueryShape.ExactShapeTypeName"/>.
     /// </summary>
     private static (List<QueryShape> ByExactShape, List<QueryShape> ByDedupKey) DeduplicateShapes(
         SourceProductionContext spc,
@@ -185,17 +175,17 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         spc.AddSource("GeneratedSystemAccess.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
     }
 
-    /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/> -- only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent, same as before this was added.</summary>
+    /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/>: only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent.</summary>
     private readonly record struct QuerySystemResult(QuerySystemCandidate? Candidate, Diagnostic? Diagnostic);
 
     private static QuerySystemResult TryExtractQuerySystem(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
     {
         if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return default;
-        if (classSymbol.ContainingType is not null) return default; // nested classes not supported -- see Task 11's context note.
+        if (classSymbol.ContainingType is not null) return default; // nested classes not supported
         if (classSymbol.BaseType is not { Name: "QuerySystem" } baseType) return default;
         if (baseType.ContainingNamespace?.ToDisplayString() != "Wyrd.Ecs") return default;
 
-        // Find the real override of QuerySystem.DefineQuery -- a genuine abstract member,
+        // Find the real override of QuerySystem.DefineQuery: a genuine abstract member,
         // so this is a symbol comparison against the one specific member, not a
         // name/static/parameter-shape guess that could false-positive on an unrelated
         // method.
@@ -207,7 +197,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         if (defineQueryMethod is null) return default;
 
         // Read the shape from DefineQuery's return *expression*, not its declared return
-        // type -- lets DefineQuery declare the non-generic IQuery instead of restating
+        // type: lets DefineQuery declare the non-generic IQuery instead of restating
         // the exact tuple shape. Only a single-expression body (arrow or
         // block-with-one-return) is recognized; anything else falls through to the
         // ordinary "does not implement abstract member Execute" compiler error the same
@@ -229,11 +219,11 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
         var namespaceName = classSymbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
 
-        // Update is name-convention-recognized, not a real override -- its parameter list
+        // Update is name-convention-recognized, not a real override: its parameter list
         // depends on unpacking an arbitrary TShape tuple, which isn't expressible as a
         // fixed C# signature (see QuerySystem.cs's doc comment). A missing/malformed
         // Update falls through to WYRD002, not this method returning nothing for a reason a
-        // developer can't see -- so this only bails out here for "no method named Update
+        // developer can't see, so this only bails out here for "no method named Update
         // exists at all" (the true "nothing to resolve against" case, for both the
         // filter-only and data-bearing shapes below); count/type/order mismatches against
         // an Update that *does* exist are WYRD002's job, checked separately by its

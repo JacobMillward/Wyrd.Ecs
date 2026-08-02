@@ -2,19 +2,15 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// An archetype's identity: an immutable bitset over the shared <see cref="TypeIndex{T}"/>
-/// space (component and tag indices share one index space, so one bitset covers both). The
-/// first 256 bits (<see cref="InlineWordCount"/> x 64) live directly in this struct's own
-/// fields — no heap allocation for any project realistically under that many distinct
-/// component+tag types combined. A type index at or beyond 256 falls back to a heap
-/// <c>ulong[]</c>, sized to fit only the overflow words actually needed — correctness for
-/// <see cref="TypeIndex{T}"/>'s unbounded index space is preserved; the common case just
-/// never touches the heap. Words beyond either operand's length (inline or overflow) are
-/// treated as zero — <see cref="Equals(ArchetypeSignature)"/> and <see cref="GetHashCode"/>
-/// both ignore trailing all-zero words so equal bit sets compare/hash identically regardless
-/// of how they were constructed. <c>default(ArchetypeSignature)</c> (all-zero inline words,
-/// null overflow) is deliberately equivalent to <see cref="Empty"/> — every operation below
+/// space (components and tags share one index space). The first 256 bits
+/// (<see cref="InlineWordCount"/> x 64) live directly in this struct's own fields; a type
+/// index at or beyond 256 falls back to a heap <c>ulong[]</c> sized to fit only the
+/// overflow words needed. Words beyond either operand's length are treated as zero, so
+/// <see cref="Equals(ArchetypeSignature)"/> and <see cref="GetHashCode"/> ignore trailing
+/// zero words and equal bit sets compare/hash identically regardless of construction.
+/// <c>default(ArchetypeSignature)</c> is equivalent to <see cref="Empty"/>: every operation
 /// treats a null <see cref="_overflow"/> the same as an empty one, so a struct-defaulted
-/// value is always safe to call into, not just <see cref="Empty"/> itself.
+/// value is always safe to use.
 /// </summary>
 internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
 {
@@ -164,7 +160,7 @@ internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
         return new ArchetypeSignature(_w0, _w1, _w2, _w3, overflow);
     }
 
-    /// <summary>The bitwise union of this signature and <paramref name="other"/> — every bit set in either.</summary>
+    /// <summary>The bitwise union of this signature and <paramref name="other"/>: every bit set in either.</summary>
     internal ArchetypeSignature Union(ArchetypeSignature other)
     {
         var length = Math.Max(TotalWordCount, other.TotalWordCount);

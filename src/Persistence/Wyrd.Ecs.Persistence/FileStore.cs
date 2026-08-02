@@ -1,13 +1,10 @@
 namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
-/// Stores the checkpoint as a single file on the local filesystem at
-/// <paramref name="path"/>. <see cref="OpenCheckpointWrite"/> writes go to a temporary
-/// sibling file first and are only moved into place when the returned stream is
-/// disposed without <see cref="ITransactionalWriteStream.Abort"/> having been called
-/// (see <see cref="Internal.AtomicFileWriteStream"/>) — a save that throws partway
-/// through leaves the previous checkpoint untouched instead of a truncated file where
-/// it used to be.
+/// Stores the checkpoint as a single file on disk at <paramref name="path"/>. Writes
+/// go to a temporary file first and are only moved into place once the save completes
+/// successfully, so a crash or exception partway through a save can't corrupt or
+/// truncate the existing save file.
 /// </summary>
 public sealed class FileStore(string path) : IPersistenceStore
 {

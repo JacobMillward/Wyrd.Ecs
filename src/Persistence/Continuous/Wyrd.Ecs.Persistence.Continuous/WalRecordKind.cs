@@ -1,12 +1,9 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
-/// What kind of structural or value change one WAL record represents: the
-/// <see cref="IStructuralChangeObserver"/> event set plus a plain value change from
-/// <c>ReadChanges&lt;T&gt;</c>. Tag add/remove are deliberately not represented: tags
-/// carry no data and are already skipped by <see cref="World.EnumerateAll"/> on
-/// checkpoint, and continuous persistence stays consistent with that policy. Nothing
-/// here tracks more than a checkpoint would.
+/// What kind of structural or value change one WAL record represents. Tag add/remove
+/// are not represented: tags carry no data and are already skipped by
+/// <see cref="World.EnumerateAll"/> on checkpoint.
 /// </summary>
 public enum WalRecordKind : byte
 {

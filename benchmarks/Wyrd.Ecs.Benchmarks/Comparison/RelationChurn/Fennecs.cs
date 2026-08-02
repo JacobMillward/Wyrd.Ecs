@@ -2,7 +2,7 @@ using BenchmarkDotNet.Attributes;
 using fennecs;
 using Comparison.Fennecs;
 // fennecs ships its own generic Link<T> (entity-object relations), colliding with our
-// vocabulary's non-generic Link — disambiguate in favor of ours.
+// vocabulary's non-generic Link. Disambiguate in favor of ours.
 using Link = Comparison.Fennecs.Link;
 
 namespace Comparison.RelationChurn;

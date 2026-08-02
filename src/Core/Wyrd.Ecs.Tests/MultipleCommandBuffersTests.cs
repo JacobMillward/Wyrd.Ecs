@@ -81,7 +81,7 @@ public class MultipleCommandBuffersTests
         setsToOne.AddComponent(entity, new Position { X = 1f });
         setsToTwo.AddComponent(entity, new Position { X = 2f });
 
-        // Applied in the reverse of creation order — the caller decides, Commands doesn't.
+        // Applied in the reverse of creation order: the caller decides, Commands doesn't.
         world.ApplyCommands(setsToTwo);
 
         world.GetComponent<Position>(entity).X.Should().Be(2f);

@@ -2,11 +2,7 @@ namespace Wyrd.Ecs.Tests;
 
 public class ChangeKindTests
 {
-    /// <summary>
-    /// Every defined <see cref="ChangeKind"/> member, via reflection rather than a
-    /// hand-maintained list — stays correct as members are added or removed, instead of
-    /// silently under-checking a stale list.
-    /// </summary>
+    /// <summary>Every defined <see cref="ChangeKind"/> member, found via reflection so this list can't go stale.</summary>
     private static IEnumerable<ChangeKind> AllDefinedKinds => Enum.GetValues<ChangeKind>();
 
     [Fact]

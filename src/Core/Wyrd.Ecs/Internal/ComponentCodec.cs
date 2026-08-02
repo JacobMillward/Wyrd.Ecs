@@ -2,12 +2,10 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// The concrete, generic-over-<typeparamref name="T"/> implementation behind
-/// <see cref="IComponentCodec"/> — the only place the downcast from a
-/// type-erased <see cref="Array"/> back to <typeparamref name="T"/>[] happens, the same
-/// pattern <see cref="ComponentStorage{T}.CopyRowTo"/> already uses for the same reason.
-/// Also implements <see cref="IComponentChangeSource"/> — the two interfaces are kept
-/// separate so a plain serialization consumer never sees tracking members, but one
-/// concrete instance backs both.
+/// <see cref="IComponentCodec"/>: the only place the downcast from a type-erased
+/// <see cref="Array"/> back to <typeparamref name="T"/>[] happens. Also implements
+/// <see cref="IComponentChangeSource"/>, kept as a separate interface so a plain
+/// serialization consumer never sees tracking members, though one instance backs both.
 /// </summary>
 internal sealed class ComponentCodec<T> : IComponentCodec, IComponentChangeSource where T : struct, IComponent
 {

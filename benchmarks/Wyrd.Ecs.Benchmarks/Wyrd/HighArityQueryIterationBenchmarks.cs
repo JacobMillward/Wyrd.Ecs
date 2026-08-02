@@ -5,15 +5,10 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Arity 8 and 12 query iteration — Wyrd.Ecs-only, since both Friflo
-/// (<c>ArchetypeQuery&lt;T1..T5&gt;</c>) and fennecs (<c>Stream&lt;C0..C4&gt;</c>) are hard-capped
-/// at arity 5. Demonstrates the arity cap the generator-backed unbounded query-shape redesign
-/// removed from Wyrd.Ecs — see
-/// docs/superpowers/specs/2026-07-25-generator-backed-unbounded-query-shape-design.md. Component
-/// construction is one-at-a-time via <c>Commands.AddComponent</c>, not the batched
-/// <c>CreateEntity{T...}</c> overload — that overload only goes up to 8 type arguments
-/// (<c>QueryArity.Max</c>), which covers arity 8 but not arity 12; one-at-a-time construction
-/// (matching <c>QueryArityBoundaryTests.cs</c>'s precedent) works uniformly for both.
+/// Arity 8 and 12 query iteration, Wyrd.Ecs-only: Friflo and fennecs are hard-capped at
+/// arity 5, while Wyrd.Ecs has no arity cap. Components are added one at a time via
+/// <c>Commands.AddComponent</c> rather than the batched <c>CreateEntity{T...}</c> overload,
+/// since that overload only goes up to 8 type arguments and this needs both 8 and 12.
 /// </summary>
 [MemoryDiagnoser]
 public class HighArityQueryIterationBenchmarks

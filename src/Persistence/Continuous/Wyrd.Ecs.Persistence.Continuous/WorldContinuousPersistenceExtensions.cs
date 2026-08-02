@@ -2,10 +2,8 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
 /// Extension members wiring continuous persistence to a <see cref="WorldBuilder"/>/
-/// <see cref="World"/>, neither of which can gain new fields from another assembly.
-/// Backed by <see cref="Wyrd.Ecs.Persistence.Internal.WorldAttachedProperty{T}"/>, keyed
-/// on the <see cref="World"/> instance, so a running session doesn't outlive the World
-/// that started it.
+/// <see cref="World"/>. A session is tied to the <see cref="World"/> instance it started
+/// on and does not outlive it.
 /// </summary>
 public static class WorldContinuousPersistenceExtensions
 {
@@ -14,27 +12,19 @@ public static class WorldContinuousPersistenceExtensions
     extension(WorldBuilder builder)
     {
         /// <summary>
-        /// Enables continuous persistence: pulls <c>World.DefaultComponentCodecRegistry</c>
-        /// and <c>World.DefaultPersistenceStore</c> (both must already be configured,
-        /// set directly, or via <c>WorldBuilder.SetDefaultComponentCodecRegistry</c>/
-        /// <c>SetDefaultPersistenceStore</c>/<c>AddBinaryPersistence</c>, before this call
-        /// in the builder chain), writes an initial <c>World.Save</c>
-        /// bootstrap checkpoint so a valid baseline always exists, then starts the
-        /// WAL-writer and checkpoint-merge background threads. Applied via
+        /// Enables continuous persistence: writes an initial bootstrap checkpoint, then
+        /// starts the WAL-writer and checkpoint-merge background threads. Requires
+        /// <c>World.DefaultComponentCodecRegistry</c> and <c>World.DefaultPersistenceStore</c>
+        /// to already be configured earlier in the builder chain. Applied via
         /// <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
         /// Throws if continuous persistence is already enabled for this World.
         /// <paramref name="walStore"/> defaults to a <see cref="FileWalStore"/> colocated
-        /// with the World's default persistence store when that store is a
-        /// <see cref="FileStore"/> (no naming collision: <see cref="FileWalStore"/>
-        /// names segments <c>{path}.wal.{tick}</c>, distinct from the checkpoint file at
-        /// <c>path</c> itself); otherwise it must be supplied explicitly.
-        /// <paramref name="registerProcessExitSafetyNet"/> (default true) tracks this
-        /// session so that if the process exits without <c>StopContinuousPersistence</c>
-        /// ever being called, it's force-stopped and merged then, as a safety net for
-        /// crashes, forced quits, or a missing shutdown path. Not a fix for a World
-        /// abandoned mid-process while the game keeps running, which still leaks until
-        /// the process itself exits. Pass false to opt this session out and guarantee
-        /// <c>Stop</c> is only ever called explicitly.
+        /// with the default persistence store when that's a <see cref="FileStore"/>;
+        /// otherwise supply it explicitly.
+        /// <paramref name="registerProcessExitSafetyNet"/> (default true) force-stops and
+        /// merges this session if the process exits without <c>StopContinuousPersistence</c>
+        /// being called first; it does not help a World abandoned mid-process while the
+        /// game keeps running. Pass false to require <c>Stop</c> be called explicitly.
         /// </summary>
         public WorldBuilder EnableContinuousPersistence(
             IWalStore? walStore = null,
@@ -71,16 +61,10 @@ public static class WorldContinuousPersistenceExtensions
                         "explicitly to EnableContinuousPersistence."));
 
                 world.Save();
-                // Seals the bootstrap checkpoint's tick boundary. World.Save stamps the
-                // checkpoint with world.CurrentTick as it is at this exact instant, but if
-                // the consumer's very next action is creating initial entities (the
-                // ordinary "populate the world, then start ticking" pattern, before ever
-                // calling AdvanceTick themselves), those creations would be stamped with
-                // that same tick number. A later merge's tick > priorTick filter would then
-                // exclude them forever, since they'd share a tick with a checkpoint that
-                // (by construction) already claims to cover it. Advancing once here, before
-                // ChangeCapture or the WAL worker exist, guarantees nothing captured
-                // afterward can ever collide with the bootstrap snapshot's own tick.
+                // Advances past the bootstrap checkpoint's tick so later WAL merges
+                // (filtering on tick > priorTick) don't exclude entities created
+                // immediately after enabling persistence, before the caller's first
+                // AdvanceTick.
                 world.AdvanceTick();
 
                 var capture = new ChangeCapture(world, registry);
@@ -98,16 +82,13 @@ public static class WorldContinuousPersistenceExtensions
     extension(World world)
     {
         /// <summary>
-        /// Stops continuous persistence: disposes the WAL-writer/checkpoint-merge
-        /// threads (the WAL-writer finishes draining and fsyncs one last time; the
-        /// checkpoint-merge thread finishes any in-flight merge rather than aborting
-        /// it, but performs no forced final merge), then stops change tracking. When
-        /// <paramref name="mergeFinalCheckpoint"/> is true (the default), also folds
-        /// everything left in the WAL into the checkpoint before returning, so
-        /// <c>World.Load</c> alone reflects everything written before this call.
-        /// Pass false for the fastest possible shutdown, leaving the WAL unmerged for a
-        /// caller who will merge it later or elsewhere. Throws if
-        /// <c>EnableContinuousPersistence</c> was never called for this World.
+        /// Stops continuous persistence: disposes the WAL-writer and checkpoint-merge
+        /// threads, then stops change tracking. When <paramref name="mergeFinalCheckpoint"/>
+        /// is true (the default), also folds everything left in the WAL into the
+        /// checkpoint before returning, so <c>World.Load</c> alone reflects everything
+        /// written before this call. Pass false for the fastest shutdown, leaving the WAL
+        /// to be merged later. Throws if <c>EnableContinuousPersistence</c> was never
+        /// called for this World.
         /// </summary>
         public void StopContinuousPersistence(bool mergeFinalCheckpoint = true)
         {

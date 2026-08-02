@@ -50,10 +50,8 @@ public class SystemSchedulerOrderingTests
     [Fact]
     public void EdgeAndDataConflict_EachSeparatesIndependently()
     {
-        // P writes A. Q writes B (no data conflict with P) but has an edge After<P>,
-        // so it must land later regardless. R writes A -- conflicts with P on data
-        // grounds alone, independent of any edge -- so it must land in a different
-        // stage from P too, whether or not that happens to be Q's stage.
+        // Q has no data conflict with P but an explicit After<P> edge; R has a data conflict
+        // with P but no edge. Both must still separate from P, via different mechanisms.
         var p = new OrderedSystemP();
         var q = Order.For(new OrderedSystemQ()).After<OrderedSystemP>();
         var r = new OrderedSystemR();
@@ -116,10 +114,9 @@ public class SystemSchedulerOrderingTests
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
-        // BuildStages' return type is IReadOnlyList<IReadOnlyList<EcsSystem>> -- since
-        // MarkerSystem is a sibling of EcsSystem, not a subtype, a marker can never
-        // appear here at all as a matter of the type system; this only needs to
-        // confirm no phantom extra entry snuck in some other way.
+        // BuildStages returns IReadOnlyList<IReadOnlyList<EcsSystem>>. Since MarkerSystem
+        // is a sibling of EcsSystem, not a subtype, a marker can never appear here as a
+        // matter of the type system. This only confirms no phantom entry snuck in some other way.
         stages.SelectMany(s => s).Should().HaveCount(2);
     }
 
@@ -135,9 +132,8 @@ public class SystemSchedulerOrderingTests
 
         var stages = SystemScheduler.BuildStages(systems, access);
 
-        // OrderedSystemP is the only real system here; the marker it points at exists
-        // only to be an edge target and, with nothing registered after it, contributes
-        // no stage of its own to the materialized output.
+        // The marker is only an edge target; with nothing registered after it, it
+        // contributes no stage of its own to the materialized output.
         stages.Should().ContainSingle();
         stages[0].Should().ContainSingle(s => s.GetType() == typeof(OrderedSystemP));
     }

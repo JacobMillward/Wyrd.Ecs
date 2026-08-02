@@ -8,10 +8,9 @@ namespace Wyrd.Ecs.Generators.Diagnostics;
 
 /// <summary>
 /// Flags a `QuerySystem` subclass whose `Update` doesn't match `DefineQuery`'s declared
-/// components — missing entirely, wrong count, wrong type, or wrong order — as `WYRD002`.
-/// A missing `DefineQuery` itself needs no diagnostic of its own: it's a real
-/// `protected abstract` member (see `QuerySystem.cs`), so omitting it is the ordinary
-/// `CS0534`, not this analyzer's job.
+/// components (missing, wrong count, wrong type, or wrong order) as `WYRD002`. A missing
+/// `DefineQuery` itself needs no diagnostic: it's a real `protected abstract` member, so
+/// omitting it is the ordinary `CS0534`, not this analyzer's job.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class QuerySystemShapeAnalyzer : DiagnosticAnalyzer
@@ -37,7 +36,7 @@ public sealed class QuerySystemShapeAnalyzer : DiagnosticAnalyzer
 
         var defineQuery = type.GetMembers("DefineQuery").OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.IsOverride && SymbolEqualityComparer.Default.Equals(m.OverriddenMethod?.OriginalDefinition, defineQueryOnBase));
-        if (defineQuery is null) return; // missing entirely -- CS0534, not WYRD002
+        if (defineQuery is null) return; // missing entirely: CS0534, not WYRD002
 
         if (defineQuery.DeclaringSyntaxReferences is not [var defineQuerySyntaxRef, ..]) return;
         if (defineQuerySyntaxRef.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax { ExpressionBody.Expression: var returnExpr }) return;
@@ -48,7 +47,7 @@ public sealed class QuerySystemShapeAnalyzer : DiagnosticAnalyzer
         var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken);
         if (shape is null) return;
 
-        var declaredComponents = shape.PendingDataElements; // already declaration order -- see ChainWalker.TryExtractShapeFromQueryType
+        var declaredComponents = shape.PendingDataElements; // already declaration order; see ChainWalker.TryExtractShapeFromQueryType
         var update = type.GetMembers("Update").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic);
         var classification = update is null ? QuerySystemUpdateShape.Invalid : QuerySystemUpdateShape.Classify(update.Parameters);
 

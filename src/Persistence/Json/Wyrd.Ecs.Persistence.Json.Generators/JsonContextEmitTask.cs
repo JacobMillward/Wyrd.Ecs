@@ -11,20 +11,18 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// MSBuild task, wired to run <c>BeforeTargets="CoreCompile"</c> by
 /// <c>build/Wyrd.Ecs.Persistence.Json.Generators.targets</c>. Builds an ad hoc
 /// <see cref="CSharpCompilation"/> from the consuming project's own <c>@(Compile)</c>
-/// items and resolved references, scans it for <c>Wyrd.Ecs.IComponent</c> implementers
-/// not marked <see cref="JsonPersistenceIgnoreAttribute"/>, and materializes a
+/// items, scans it for <c>Wyrd.Ecs.IComponent</c> implementers not marked
+/// <see cref="JsonPersistenceIgnoreAttribute"/>, and materializes a
 /// <c>[JsonSerializable]</c>-decorated <c>JsonSerializerContext</c> partial class to
-/// disk before <c>CoreCompile</c> runs — so System.Text.Json's own source generator,
-/// referenced normally as an analyzer in the same project, processes it exactly as it
-/// would any other hand-written source. This two-step materialize-then-let-STJ-run
-/// approach exists because one Roslyn generator cannot see another generator's output
-/// within the same compilation (confirmed via dotnet/roslyn#77560) — an ordinary
-/// <c>IIncrementalGenerator</c> can't populate <c>[JsonSerializable]</c> on STJ's own
-/// context class the way <see cref="JsonRegistrationGenerator"/> populates
-/// <c>ComponentCodecRegistry</c>.
+/// disk before <c>CoreCompile</c> runs, so System.Text.Json's own source generator
+/// processes it like any hand-written source. This materialize-then-let-STJ-run step
+/// exists because one Roslyn generator cannot see another generator's output within the
+/// same compilation (dotnet/roslyn#77560): an ordinary <c>IIncrementalGenerator</c>
+/// can't populate <c>[JsonSerializable]</c> on STJ's own context class the way
+/// <see cref="JsonRegistrationGenerator"/> populates <c>ComponentCodecRegistry</c>.
 /// </summary>
 // RS1035 bans file IO for analyzer assemblies. This class is an MSBuild Task, not an
-// analyzer, and file IO is its entire job — the ban doesn't apply, it just can't tell
+// analyzer, and file IO is its entire job: the ban doesn't apply, it just can't tell
 // the two roles apart within one assembly.
 #pragma warning disable RS1035
 public sealed class JsonContextEmitTask : Microsoft.Build.Utilities.Task

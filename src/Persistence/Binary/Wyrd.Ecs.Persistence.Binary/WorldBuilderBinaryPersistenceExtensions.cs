@@ -1,27 +1,24 @@
 namespace Wyrd.Ecs.Persistence.Binary;
 
 /// <summary>
-/// The <c>Wyrd.Ecs.Persistence.Binary</c> package's construction-time convenience —
-/// only visible once this package is installed, unlike the codec-agnostic
-/// <c>WorldBuilder.SetDefaultPersistenceStore</c> in the core
-/// <c>Wyrd.Ecs.Persistence</c> package. Both overloads here take an explicit
-/// <see cref="ComponentCodecRegistry"/> because this library can't call
-/// <c>MemoryPackAutoRegistration.RegisterAll</c> itself — that type is generated fresh
-/// into whatever project references <c>Wyrd.Ecs.Persistence.Binary.Generators</c> as an
-/// analyzer, scanning that project's own <c>[MemoryPackable]</c> types, and doesn't
-/// exist inside this library's own compilation. A consumer with the generator wired in
-/// gets a one-argument <c>AddBinaryPersistence(store)</c>/<c>AddBinaryPersistence(path)</c>
-/// pair generated alongside <c>RegisterAll</c> for exactly that reason — see
-/// <c>MemoryPackRegistrationGenerator</c>.
+/// Sets up binary (MemoryPack) save/load for a <see cref="WorldBuilder"/>. Both
+/// overloads here need an explicit <see cref="ComponentCodecRegistry"/> listing which
+/// component types to save. If your project also references
+/// <c>Wyrd.Ecs.Persistence.Binary.Generators</c>, use the generated
+/// <c>AddBinaryPersistence(store)</c>/<c>AddBinaryPersistence(path)</c> overloads
+/// instead: they build that registry for you from every <c>[MemoryPackable]</c>
+/// component in your project.
 /// </summary>
 public static class WorldBuilderBinaryPersistenceExtensions
 {
     extension(WorldBuilder builder)
     {
         /// <summary>
-        /// Shorthand for
+        /// Same as
         /// <see cref="AddBinaryPersistence(WorldBuilder, IPersistenceStore, ComponentCodecRegistry)"/>
-        /// with <c>new FileStore(path)</c>.
+        /// but takes a file path directly, wrapping it in a <c>new FileStore(path)</c>.
+        /// Use this when you just want to save to a file and don't need a custom
+        /// <see cref="IPersistenceStore"/>.
         /// </summary>
         public WorldBuilder AddBinaryPersistence(string path, ComponentCodecRegistry registry) =>
             builder.AddBinaryPersistence(new FileStore(path), registry);

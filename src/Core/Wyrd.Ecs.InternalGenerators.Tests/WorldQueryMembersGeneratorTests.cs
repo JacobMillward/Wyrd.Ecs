@@ -27,10 +27,9 @@ public class WorldQueryMembersGeneratorTests
     [Fact]
     public void World_StillEmitsPlaceReservedEntityAndItsQuerySignatureCache()
     {
-        // PlaceReservedEntity (entity creation, unrelated to querying) still needs a
-        // cached archetype-signature lookup to find or create its target archetype --
-        // QuerySignature<T0,...> stays for this reason even though the fluent
-        // Query<T0,...> family that originally shared it is gone.
+        // PlaceReservedEntity (entity creation, unrelated to querying) needs a cached
+        // archetype-signature lookup to find or create its target archetype, which is
+        // what QuerySignature<T0,...> provides.
         var sources = Run();
         sources.Should().Contain(s => s.Contains("internal void PlaceReservedEntity<T0>"));
         sources.Should().Contain(s => s.Contains("internal static class QuerySignature<T0>"));

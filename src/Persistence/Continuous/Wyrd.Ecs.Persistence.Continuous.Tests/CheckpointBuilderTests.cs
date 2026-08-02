@@ -280,9 +280,8 @@ public class CheckpointBuilderTests : IDisposable
     public void Build_APriorCheckpointsOwnRelationRecord_SurvivesAMergeWithNoWalActivityTouchingIt()
     {
         // Regression: a checkpoint can already contain RelationEdge records written
-        // directly by World.Save (not just ones this class itself merged in from WAL
-        // activity) — ReadCheckpoint must read that kind correctly instead of silently
-        // misreading it as a Component record and losing the target/edge shape.
+        // directly by World.Save, not just ones merged in from WAL activity. ReadCheckpoint
+        // must read that kind correctly, not misread it as a Component record.
         var checkpointStore = CheckpointStore;
         var registry = new ComponentCodecRegistry();
         registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });

@@ -283,7 +283,7 @@ public class EntityTemplateTests
         var root = new EntityTemplate().AddChild(conflicted);
 
         // CreateEntity(EntityTemplate) returns EntityView, a ref struct, which can't be a
-        // Func<T> type argument — the block body makes this a plain Action instead.
+        // Func<T> type argument, so the block body makes this a plain Action instead.
         var act = () => { world.Commands.CreateEntity(root); };
         act.Should().Throw<InvalidOperationException>();
     }

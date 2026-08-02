@@ -3,14 +3,12 @@ using System.Reflection;
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Resolves every Before/After edge declared across a system list — via
+/// Resolves every Before/After edge declared across a system list, via
 /// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> and
-/// <see cref="OrderedSystem"/>'s fluent wrapper — into a graph over
+/// <see cref="OrderedSystem"/>'s fluent wrapper, into a graph over
 /// <see cref="OrderNode"/>s: every registered <see cref="EcsSystem"/> instance, plus
 /// one node per distinct <see cref="MarkerSystem"/> type an edge actually references
-/// (never an instance of it — see <see cref="OrderNode"/>). Consumed by
-/// <see cref="SystemScheduler.BuildStages"/> to seed each node's minimum-allowed stage
-/// index before conflict-based packing runs.
+/// (never an instance of it). Consumed by <see cref="SystemScheduler.BuildStages"/>.
 /// </summary>
 internal static class SystemOrderGraph
 {

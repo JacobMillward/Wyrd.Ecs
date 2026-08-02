@@ -141,7 +141,7 @@ public class RelationReadsTests
         world.ApplyCommands();
         world.AdvanceTick();
 
-        var act = () => world.GetRelation<Likes>(a, c); // b exists, c doesn't -- must throw, not mark dirty
+        var act = () => world.GetRelation<Likes>(a, c); // b exists, c doesn't: must throw, not mark dirty
         act.Should().Throw<InvalidOperationException>();
 
         var (archetype, row) = TestReflection.GetLocation(world, a);

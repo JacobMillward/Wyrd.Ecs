@@ -75,8 +75,8 @@ public class QueryChainGeneratorDeduplicationTests
     public void SameExactShapeTypeName_ConflictingRefInResolution_ReportsWYRD003()
     {
         // Both call sites declare the identical .With<Position>() set (so the identical
-        // Query<(Position, Nil)> closed type), but one writes it and one only reads it --
-        // since .Without/.Has/.Any no longer affect TShape, nothing else distinguishes them.
+        // Query<(Position, Nil)> closed type), but one writes it and one only reads it.
+        // Since .Without/.Has/.Any don't affect TShape, nothing else distinguishes them.
         var compilation = GeneratorTestHost.Compile("""
             using Wyrd.Ecs;
 

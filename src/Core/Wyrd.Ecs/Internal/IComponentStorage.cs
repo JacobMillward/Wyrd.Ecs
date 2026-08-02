@@ -2,8 +2,8 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// Type-erased view over a <see cref="ComponentStorage{T}"/> used by <see cref="Archetype"/>
-/// and <see cref="World"/> for operations that don't need to know the component type —
-/// row bookkeeping and cross-archetype moves. <see cref="RawItems"/>/
+/// and <see cref="World"/> for operations that don't need to know the component type,
+/// such as row bookkeeping and cross-archetype moves. <see cref="RawItems"/>/
 /// <see cref="RawLastMarkedTick"/> are the full backing arrays (may be larger than the
 /// archetype's live row count).
 /// </summary>

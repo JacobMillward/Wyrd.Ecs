@@ -7,23 +7,20 @@ public sealed partial class World
 {
     /// <summary>
     /// Not synchronized: <see cref="ObserveStructuralChanges"/>/dispose of the returned
-    /// handle only ever race safely against each other if the caller serializes them
-    /// itself. <see cref="Internal.ChangeFeedHub"/> is a safe caller of this because it
-    /// only ever registers once, itself under its own lock, no matter how many
-    /// <c>Subscribe*</c> callers ask for it — a second, independent caller of
-    /// <see cref="ObserveStructuralChanges"/> directly (bypassing <c>Subscribe*</c>) from a
-    /// different thread than another such caller is not safe against this list without
-    /// external synchronization of its own.
+    /// handle only race safely if the caller serializes them itself.
+    /// <see cref="Internal.ChangeFeedHub"/> is safe since it only ever registers once,
+    /// under its own lock. A second, independent caller of
+    /// <see cref="ObserveStructuralChanges"/> directly, from a different thread than
+    /// another such caller, needs its own external synchronization.
     /// </summary>
     private readonly List<IStructuralChangeObserver> _structuralObservers = new();
 
     /// <summary>
     /// Registers <paramref name="observer"/> for every structural change from this point
-    /// on. Dispose the returned handle to unregister. This is tier 0 — synchronous,
-    /// zero-buffer, fires inline at the exact moment of mutation. For a buffered,
-    /// per-type-scoped alternative, see <see cref="Subscribe{T}"/> and its siblings. Not
-    /// synchronized against another independent caller of this same method from a
-    /// different thread — see <see cref="_structuralObservers"/>'s own doc.
+    /// on. Dispose the returned handle to unregister. Tier 0: synchronous, zero-buffer,
+    /// fires inline at the exact moment of mutation. For a buffered, per-type-scoped
+    /// alternative, see <see cref="Subscribe{T}"/>. Not synchronized against another
+    /// independent caller from a different thread; see <see cref="_structuralObservers"/>'s doc.
     /// </summary>
     public IDisposable ObserveStructuralChanges(IStructuralChangeObserver observer)
     {
@@ -111,7 +108,7 @@ public sealed partial class World
         return new TrackingHandle(this, typeIndex);
     }
 
-    /// <summary>Every row of <typeparamref name="T"/> touched since <paramref name="sinceTick"/>, across every archetype containing it. Only observes writes made while <see cref="TrackChanges{T}"/> was registered. Internal — the primitive-tier value-change scan feeding <see cref="Subscribe{T}"/>; a consumer wanting "process only what changed" should use tag-based filtering (One-Frame Components), not this.</summary>
+    /// <summary>Every row of <typeparamref name="T"/> touched since <paramref name="sinceTick"/>, across every archetype containing it. Only observes writes made while <see cref="TrackChanges{T}"/> was registered. Internal: the primitive-tier value-change scan feeding <see cref="Subscribe{T}"/>; a consumer wanting "process only what changed" should use tag-based filtering (One-Frame Components), not this.</summary>
     internal ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent =>
         new(GetMatchingArchetypes(Internal.QuerySignature<Ref<T>>.Value), sinceTick);
 
@@ -119,7 +116,7 @@ public sealed partial class World
 
     /// <summary>
     /// Marks <paramref name="storage"/>'s row <paramref name="row"/> dirty if
-    /// <typeparamref name="T"/> is currently tracked, no-op otherwise — the single
+    /// <typeparamref name="T"/> is currently tracked, no-op otherwise. The single
     /// implementation of the "check tracked, then mark" idiom every tracked-access path
     /// otherwise repeated by hand.
     /// </summary>
@@ -142,22 +139,22 @@ public sealed partial class World
     internal Internal.ChangeFeedHub? DebugChangeFeedHub => _changeFeedHub;
 
     /// <summary>
-    /// Subscribes to every <typeparamref name="T"/> value change plus <typeparamref name="T"/>
-    /// being added to or removed from an already-existing entity, reported through a
-    /// private <see cref="ChangeSubscription"/> only this caller drains. The scan for
-    /// <typeparamref name="T"/> runs at most once per tick no matter how many subscribers
-    /// are watching it; see <see cref="ChangeSubscription"/>'s own doc. For structural
-    /// events with no buffering delay, see <see cref="ObserveStructuralChanges"/> instead.
+    /// Subscribes to every <typeparamref name="T"/> value change plus
+    /// <typeparamref name="T"/> being added to or removed from an existing entity,
+    /// reported through a private <see cref="ChangeSubscription"/> only this caller
+    /// drains. The scan for <typeparamref name="T"/> runs at most once per tick no
+    /// matter how many subscribers are watching it. For structural events with no
+    /// buffering delay, see <see cref="ObserveStructuralChanges"/> instead.
     /// </summary>
     public ChangeSubscription Subscribe<T>() where T : struct, IComponent =>
         GetOrCreateChangeFeedHub().Subscribe<T>();
 
     /// <summary>
     /// Same as <see cref="Subscribe{T}"/>, for a caller that doesn't know its component
-    /// type at compile time — a registry-driven consumer working from
-    /// <see cref="ComponentCodecRegistry.All"/>, for one. Shares the same underlying
-    /// scan-per-type-per-tick with any <see cref="Subscribe{T}"/> call already watching
-    /// the same type; neither path knows or cares which the other used.
+    /// type at compile time: a registry-driven consumer working from
+    /// <see cref="ComponentCodecRegistry.All"/>, for one. Shares the same
+    /// scan-per-type-per-tick as any <see cref="Subscribe{T}"/> call already watching
+    /// the same type.
     /// </summary>
     public ChangeSubscription Subscribe(IComponentCodec codec) =>
         GetOrCreateChangeFeedHub().Subscribe(codec);
@@ -171,7 +168,7 @@ public sealed partial class World
         GetOrCreateChangeFeedHub().SubscribeTag<T>();
 
     /// <summary>
-    /// Subscribes to just <typeparamref name="T"/>'s own link/unlink events — no other
+    /// Subscribes to just <typeparamref name="T"/>'s own link/unlink events. No other
     /// relation type, no component value tracking (a relation edge's mutation is never
     /// scanned; it's pushed synchronously the moment it happens).
     /// </summary>
@@ -179,7 +176,7 @@ public sealed partial class World
         GetOrCreateChangeFeedHub().SubscribeRelation<T>();
 
     /// <summary>
-    /// Subscribes to entity creation/destruction, world-scoped rather than type-scoped —
+    /// Subscribes to entity creation/destruction, world-scoped rather than type-scoped:
     /// an entity being created or destroyed isn't associated with any one component/tag/
     /// relation type, unlike every other <c>Subscribe*</c> entry point.
     /// </summary>
@@ -187,16 +184,11 @@ public sealed partial class World
         GetOrCreateChangeFeedHub().SubscribeEntityLifecycle();
 
     /// <summary>
-    /// Thread-safe lazy init — every <c>Subscribe*</c> entry point is meant to be
-    /// callable from any thread (a background WAL-writer thread, for one), so a plain
-    /// <c>_changeFeedHub ??= new(...)</c> isn't safe here: two threads racing the very
-    /// first subscribe could each construct their own hub, and the loser's — even
-    /// though never published to <see cref="_changeFeedHub"/> — would still register its
-    /// own independent structural observer, racing the winner's for
-    /// <see cref="_structuralObservers"/> access with no shared lock between them.
-    /// <see cref="LazyInitializer"/>'s <c>EnsureInitialized</c> guarantees at most one
-    /// instance is ever published and returned to any caller, discarding a losing
-    /// candidate before it's ever used.
+    /// Thread-safe lazy init: every <c>Subscribe*</c> entry point is callable from any
+    /// thread, so a plain <c>_changeFeedHub ??= new(...)</c> isn't safe here, since two
+    /// threads racing the first subscribe could each construct their own hub and
+    /// register their own structural observer. <see cref="LazyInitializer"/>'s
+    /// <c>EnsureInitialized</c> guarantees at most one instance is ever published.
     /// </summary>
     private Internal.ChangeFeedHub GetOrCreateChangeFeedHub() =>
         LazyInitializer.EnsureInitialized(ref _changeFeedHub, () => new Internal.ChangeFeedHub(this));

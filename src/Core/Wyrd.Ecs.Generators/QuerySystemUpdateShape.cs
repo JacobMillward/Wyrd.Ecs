@@ -5,12 +5,10 @@ namespace Wyrd.Ecs.Generators;
 
 /// <summary>
 /// Classifies a `QuerySystem` subclass's `Update` method's leading parameters against the
-/// canonical order `Time` (mandatory) -&gt; `World` (optional) -&gt; `EntityView` (optional),
-/// shared by <see cref="QueryChainGenerator"/> (candidate extraction),
-/// <see cref="QueryChainEmitter"/> (glue emission, via the flags stored on
-/// <see cref="QuerySystemCandidate"/>), and <see cref="Diagnostics.QuerySystemShapeAnalyzer"/>
-/// (WYRD002), so the three can never independently drift on what counts as a valid
-/// `Update` shape.
+/// canonical order `Time` (mandatory) -&gt; `World` (optional) -&gt; `EntityView` (optional).
+/// Shared by <see cref="QueryChainGenerator"/>, <see cref="QueryChainEmitter"/>, and
+/// <see cref="Diagnostics.QuerySystemShapeAnalyzer"/>, so the three can never
+/// independently drift on what counts as a valid `Update` shape.
 /// </summary>
 internal static class QuerySystemUpdateShape
 {

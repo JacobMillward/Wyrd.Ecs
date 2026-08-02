@@ -1,12 +1,6 @@
 namespace Wyrd.Ecs;
 
-/// <summary>
-/// What a <see cref="ChangeEntry"/> represents. A single value when stamped on a
-/// <see cref="ChangeEntry.Kind"/>; a bitmask of "kinds this subscriber wants" when used
-/// as <see cref="Internal.ChangeFeedHub"/>'s own <c>Subscriber.WantedKinds</c> — the same
-/// dual single-value/set-of-values usage this codebase already has for
-/// <see cref="Internal.ArchetypeSignature"/>, not a new idiom.
-/// </summary>
+/// <summary>What a <see cref="ChangeEntry"/> represents, stamped on <see cref="ChangeEntry.Kind"/>.</summary>
 [Flags]
 public enum ChangeKind : ushort
 {

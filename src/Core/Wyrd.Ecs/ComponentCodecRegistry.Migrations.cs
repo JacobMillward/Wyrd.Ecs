@@ -4,7 +4,7 @@ public sealed partial class ComponentCodecRegistry
 {
     /// <summary>
     /// Registers a transform from <paramref name="fromSchemaHash"/> to
-    /// <paramref name="toSchemaHash"/> for <paramref name="discriminator"/> — one step
+    /// <paramref name="toSchemaHash"/> for <paramref name="discriminator"/>: one step
     /// in a chain, not a direct oldest-to-current transform. Throws if a step from
     /// <paramref name="fromSchemaHash"/> is already registered for this discriminator.
     /// </summary>
@@ -21,13 +21,10 @@ public sealed partial class ComponentCodecRegistry
     /// Walks the chain of registered migrations for <paramref name="discriminator"/>,
     /// starting at <paramref name="fromSchemaHash"/>, until reaching the discriminator's
     /// currently-registered <see cref="IComponentCodec.SchemaHash"/>. Throws if
-    /// <paramref name="discriminator"/> isn't registered, if its current registration has
-    /// no schema hash to migrate toward, if the walk reaches a hash with no registered
-    /// next step (naming that specific hash, not a generic mismatch error), or if the
-    /// walk revisits a hash it's already passed through — a misconfigured chain (e.g. a
-    /// swapped <paramref name="fromSchemaHash"/>/<c>toSchemaHash</c> pair creating a
-    /// cycle that never reaches the current hash) fails loudly instead of looping
-    /// forever.
+    /// <paramref name="discriminator"/> isn't registered, if its current registration has no
+    /// schema hash to migrate toward, if the walk reaches a hash with no registered next
+    /// step, or if the walk revisits a hash it's already passed through (a cycle in a
+    /// misconfigured chain).
     /// </summary>
     public byte[] Migrate(string discriminator, uint fromSchemaHash, byte[] bytes)
     {

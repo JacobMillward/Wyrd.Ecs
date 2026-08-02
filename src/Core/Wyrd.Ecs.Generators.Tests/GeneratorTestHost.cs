@@ -22,9 +22,10 @@ internal static class GeneratorTestHost
     public static CSharpCompilation Compile(string source) => Compile([source]);
 
     /// <summary>
-    /// Same as <see cref="Compile(string)"/>, but each string becomes its own syntax tree with
-    /// a distinct <c>path</c> -- without one, <c>IsFileLocal</c> can't tell same-named `file`-scoped
-    /// types apart across trees, since they'd otherwise share the same blank path.
+    /// Use this instead of <see cref="Compile(string)"/> when a test needs multiple source
+    /// files: each string becomes its own syntax tree with a distinct <c>path</c>, since
+    /// without one, <c>IsFileLocal</c> can't tell same-named `file`-scoped types apart
+    /// across trees (they'd otherwise share the same blank path).
     /// </summary>
     public static CSharpCompilation Compile(params string[] sources) =>
         CSharpCompilation.Create(
@@ -44,9 +45,9 @@ internal static class GeneratorTestHost
 
     /// <summary>
     /// Runs <paramref name="generator"/> against <paramref name="compilation"/>, emits
-    /// the result (original + generated sources) to an in-memory assembly, and loads
-    /// it — for tests that need to actually execute generated code against a real
-    /// <c>World</c>, not just inspect generated source text.
+    /// the result (original + generated sources) to an in-memory assembly, and loads it.
+    /// Use this instead of <see cref="Run"/> when a test needs to actually execute
+    /// generated code against a real <c>World</c>, not just inspect generated source text.
     /// </summary>
     public static System.Reflection.Assembly CompileAndLoad(IIncrementalGenerator generator, Compilation compilation)
     {
@@ -70,13 +71,10 @@ internal static class GeneratorTestHost
     }
 
     /// <summary>
-    /// Wraps <paramref name="source"/> in a real workspace <see cref="Document"/> --
-    /// needed by anything driving a <c>CodeFixProvider</c> directly (no
-    /// <c>Microsoft.CodeAnalysis.Testing</c> harness in this repo: its latest release
-    /// still depends on a decade-old <c>Microsoft.CodeAnalysis.Workspaces 1.0.1</c>,
-    /// which hard-conflicts (<c>CS1705</c>) with the 5.6.0 this repo already targets
-    /// everywhere else), since <see cref="Compile"/>'s plain <see cref="CSharpCompilation"/>
-    /// has no <see cref="Document"/>/<see cref="Solution"/> wrapper a codefix can edit.
+    /// Wraps <paramref name="source"/> in a real workspace <see cref="Document"/>. Needed
+    /// by anything driving a <c>CodeFixProvider</c> directly, since <see cref="Compile"/>'s
+    /// plain <see cref="CSharpCompilation"/> has no <see cref="Document"/>/
+    /// <see cref="Solution"/> wrapper a codefix can edit.
     /// </summary>
     public static Document CreateDocument(string source)
     {

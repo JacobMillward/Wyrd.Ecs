@@ -3,20 +3,17 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// The only way to perform structural mutation: creating or destroying an entity, adding
 /// or removing a component or tag. Queued operations are not visible until
-/// <see cref="World.ApplyCommands()"/> runs. Deferred rather than immediate for two
-/// reasons: mutating an archetype's backing arrays while a query is mid-walk over the
-/// same archetype has no guard against corruption, and structural mutation touches
-/// world-level shared state that a per-component parallel scheduler can't reason about,
-/// so a single-threaded apply point is required for running systems concurrently at all.
-/// Reading and mutating an already-placed entity's existing values
-/// (<see cref="World.GetComponent{T}(Entity)"/> and friends) never touches archetype row
-/// layout, so it stays direct on <see cref="World"/> instead.
+/// <see cref="World.ApplyCommands()"/> runs. Deferred rather than immediate since mutating
+/// an archetype's backing arrays while a query is mid-walk over it has no guard against
+/// corruption, and structural mutation touches world-level shared state a per-component
+/// parallel scheduler can't reason about. Reading and mutating an already-placed entity's
+/// existing values (<see cref="World.GetComponent{T}(Entity)"/> and friends) never touches
+/// archetype row layout, so it stays direct on <see cref="World"/> instead.
 ///
 /// <para>
-/// Nothing here is synchronized: every field is private, per-instance state, since a
-/// <see cref="CommandBuffer"/> is meant to have exactly one writer. Several concurrent
-/// sources queue safely by each holding their own buffer (<see cref="World.CreateCommands"/>),
-/// then applying them all, in whatever order the caller chooses, via
+/// Every public method is safe to call concurrently from several threads at once
+/// (guarded by an internal lock); several sources can queue against the same buffer, or
+/// each hold their own via <see cref="World.CreateCommands"/>, then apply them all via
 /// <see cref="World.ApplyCommands(CommandBuffer)"/>.
 /// </para>
 /// </summary>
@@ -28,11 +25,10 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Guards every enqueue-side mutation (<see cref="_queue"/>/<see cref="_count"/>,
-    /// <see cref="_addComponentBuffers"/>, and each buffer's own <c>Items</c>/<c>Count</c>)
-    /// so several systems in the same stage can queue against this shared buffer
-    /// concurrently. Every public method locks once for its whole body; <see cref="Enqueue"/>
-    /// and the buffer getters are unlocked helpers always called with this already held, so
-    /// a method needing both never acquires it twice.
+    /// <see cref="_addComponentBuffers"/>, and each buffer's own <c>Items</c>/<c>Count</c>),
+    /// so several systems can queue against this shared buffer concurrently. Every public
+    /// method locks once for its whole body; <see cref="Enqueue"/> and the buffer getters
+    /// are unlocked helpers always called with it already held.
     /// </summary>
     private readonly Lock _gate = new();
 
@@ -41,13 +37,7 @@ public sealed partial class CommandBuffer
     /// <summary>The <see cref="World"/> this buffer was created for. Checked by <see cref="Wyrd.Ecs.World.ApplyCommands(CommandBuffer)"/> before replaying it.</summary>
     internal World World => _world;
 
-    /// <summary>
-    /// Appends to a raw growable array with a manual count, not <c>List&lt;QueuedCommand&gt;</c>,
-    /// matching every other hot-path collection in this engine. <c>List&lt;T&gt;</c> bumps a
-    /// version counter on every <c>Add</c>/<c>Clear</c> to detect mutation during enumeration,
-    /// a check this queue never needs since nothing enumerates it while still being built.
-    /// Caller must already hold <see cref="_gate"/>.
-    /// </summary>
+    /// <summary>Appends to the command queue. Caller must already hold <see cref="_gate"/>.</summary>
     private void Enqueue(QueuedCommand command)
     {
         Internal.ArrayGrowth.EnsureCapacity(ref _queue, _count + 1);
@@ -55,13 +45,10 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// One queued operation: the target entity, a cached non-capturing dispatcher delegate
-    /// (one static instance per closed generic operation, shared across every call), and,
-    /// only for <see cref="World.AddComponent{T}(Entity)"/>, a reference to that component
-    /// type's <see cref="AddComponentBuffer{T}"/> plus the slot within it. Every other
-    /// operation leaves <see cref="Buffer"/> null and <see cref="Slot"/> 0. Passing a buffer
-    /// reference costs nothing, since it's already a heap object; see
-    /// <see cref="AddComponentBuffer{T}"/> for why the value itself is never boxed.
+    /// One queued operation: the target entity, a cached non-capturing dispatcher delegate,
+    /// and, only for <see cref="World.AddComponent{T}(Entity)"/>, a reference to that
+    /// component type's <see cref="AddComponentBuffer{T}"/> plus the slot within it. Every
+    /// other operation leaves <see cref="Buffer"/> null and <see cref="Slot"/> 0.
     /// </summary>
     private readonly struct QueuedCommand(Entity entity, Action<World, Entity, object?, int> apply, object? buffer, int slot)
     {
@@ -81,12 +68,8 @@ public sealed partial class CommandBuffer
     /// One component type's queued <see cref="World.AddComponent{T}(Entity)"/> values, stored
     /// as a real <typeparamref name="T"/>[]: the container reference is type-erased (indexed
     /// by <see cref="Internal.TypeIndex{T}"/> in <see cref="_addComponentBuffers"/>, held as
-    /// <c>object</c>), but the payload is never boxed, since it lives in a genuinely generic
-    /// array. A pooling scheme was measured and rejected: every thread-safe pool tried cost
-    /// more, in this access pattern, than the box it was meant to avoid. Needs no
-    /// synchronization beyond <see cref="_gate"/>, which every caller already holds. Reset to
-    /// empty at the end of every <see cref="Apply"/>; its backing array is kept, not
-    /// reallocated.
+    /// <c>object</c>), but the payload itself is never boxed. Reset to empty at the end of
+    /// every <see cref="Apply"/>; its backing array is kept, not reallocated.
     /// </summary>
     private sealed class AddComponentBuffer<T> : IResettableBuffer where T : struct, IComponent
     {
@@ -125,9 +108,7 @@ public sealed partial class CommandBuffer
     /// The queued-target buffer for every <see cref="RemoveRelation{T}"/> call, shared across
     /// every relation type: removal carries no per-edge payload, only a target
     /// <see cref="Entity"/>, so unlike <see cref="AddRelationBuffer{T}"/> there's no value to
-    /// keep unboxed per closed generic. Each queued command still captures its own
-    /// <c>(buffer, slot)</c> pair at enqueue time, so sharing this array across relation
-    /// types is as safe as <see cref="_queue"/> being shared across every command kind.
+    /// keep unboxed per closed generic.
     /// </summary>
     private sealed class RelationTargetBuffer : IResettableBuffer
     {
@@ -189,10 +170,9 @@ public sealed partial class CommandBuffer
 
     private static class AddComponentOp<T> where T : struct, IComponent
     {
-        // TODO: once logging exists, warn here when the overwrite branch runs. It's valid
-        // (last-queued value wins, matching every other op's already-in-that-state-is-fine
-        // stance) but usually signals two systems queuing AddComponent for the same entity
-        // without coordinating.
+        // TODO: once logging exists, warn here when the overwrite branch runs. Valid
+        // (last-queued value wins) but usually signals two systems queuing AddComponent
+        // for the same entity without coordinating.
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, slot) =>
         {
             if (!w.TryResolve(e, out var location)) return;
@@ -271,10 +251,9 @@ public sealed partial class CommandBuffer
     /// can chain immediately: <c>commands.CreateEntity().AddComponent(pos).SetParent(p)</c>.
     /// Assign to an <see cref="Entity"/>-typed variable or parameter (e.g. <c>Entity e =
     /// commands.CreateEntity();</c>) to get the raw, storable id via <see cref="EntityView"/>'s
-    /// implicit conversion. <c>var</c> instead infers <see cref="EntityView"/> itself. The
-    /// entity is not <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs. Safe
-    /// to call concurrently from several threads at once (<see cref="World.ReserveEntity"/>
-    /// is itself lock-free; only the queueing that follows needs <see cref="_gate"/>).
+    /// implicit conversion; <c>var</c> instead infers <see cref="EntityView"/> itself. Not
+    /// <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs. Safe to
+    /// call concurrently from several threads at once.
     /// </summary>
     public EntityView CreateEntity()
     {
@@ -285,15 +264,11 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Reserves a real <see cref="Entity"/> immediately and queues its placement directly
-    /// into the archetype matching <paramref name="template"/>'s components/tags — the
+    /// into the archetype matching <paramref name="template"/>'s components/tags, the
     /// <see cref="EntityTemplate"/> counterpart of the generated
     /// <c>CreateEntity&lt;T0..Tn&gt;</c> family. For a template with children, instead
-    /// reserves and places every node of its tree (see <see cref="CreateEntityFromTree"/>);
-    /// a childless template with no <see cref="EntityTemplate.ExplicitParent"/> stays on this
-    /// zero-extra-allocation path regardless of how it's called. Inlined directly here rather
-    /// than delegated to a separate private helper: measured to matter for how aggressively
-    /// the JIT optimizes this, the common case, once warmed up. Not
-    /// <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs.
+    /// reserves and places every node of its tree (see <see cref="CreateEntityFromTree"/>).
+    /// Not <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs.
     /// </summary>
     public EntityView CreateEntity(EntityTemplate template)
     {
@@ -334,7 +309,7 @@ public sealed partial class CommandBuffer
             FlattenTemplate(child, index, nodes);
     }
 
-    /// <summary>Queues adding <c>child</c> to <c>parent</c>'s <see cref="RelationBacklinks{T}"/> — the "existing parent's side" half of <see cref="EntityTemplate.AddParent"/>'s cost, a no-op if <c>parent</c> is no longer alive by apply time.</summary>
+    /// <summary>Queues adding <c>child</c> to <c>parent</c>'s <see cref="RelationBacklinks{T}"/>: the "existing parent's side" half of <see cref="EntityTemplate.AddParent"/>'s cost, a no-op if <c>parent</c> is no longer alive by apply time.</summary>
     private static class ExplicitParentBacklinkOp
     {
         internal static readonly Action<World, Entity, object?, int> Apply = (w, _, buffer, _) =>
@@ -347,15 +322,14 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// Reserves a real <see cref="Entity"/> for the root, and one more for every descendant
-    /// in <paramref name="template"/>'s child tree, in a single bulk
-    /// <see cref="World.ReserveEntityRange"/> call — not one reservation per node — then
-    /// queues one placement per node, each going directly into its own final archetype
-    /// (its own components/tags, plus a <see cref="RelationLinks{T}"/>/<see cref="RelationBacklinks{T}"/>
-    /// pair wherever an in-tree parent/child edge applies). Returns an
-    /// <see cref="EntityView"/> bound to the root only — descendants are discoverable
-    /// afterward via <see cref="World.Sources{T}"/>/<see cref="World.Targets{T}"/> once
-    /// alive, same as any other <see cref="Parent"/> edge.
+    /// Reserves a real <see cref="Entity"/> for the root and one for every descendant in
+    /// <paramref name="template"/>'s child tree, via a single bulk
+    /// <see cref="World.ReserveEntityRange"/> call, then queues one placement per node,
+    /// each going directly into its own final archetype (components/tags, plus a
+    /// <see cref="RelationLinks{T}"/>/<see cref="RelationBacklinks{T}"/> pair wherever an
+    /// in-tree parent/child edge applies). Returns an <see cref="EntityView"/> bound to the
+    /// root only; descendants are discoverable afterward via
+    /// <see cref="World.Sources{T}"/>/<see cref="World.Targets{T}"/>.
     /// </summary>
     private EntityView CreateEntityFromTree(EntityTemplate template)
     {
@@ -435,12 +409,10 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Bulk counterpart to <see cref="CreateEntity()"/>: reserves <paramref name="count"/>
-    /// real <see cref="Entity"/> ids immediately via <see cref="World.ReserveEntityRange"/>
-    /// (one bulk reservation, not <paramref name="count"/> individual ones) and queues
-    /// their placement into the empty archetype as a single deferred command. The
-    /// returned entities are not <see cref="World.IsAlive"/> until
-    /// <see cref="World.ApplyCommands()"/> runs. Returns <see cref="Array.Empty{T}"/> for
-    /// <paramref name="count"/> == 0 without reserving or queuing anything; throws
+    /// real <see cref="Entity"/> ids via a single <see cref="World.ReserveEntityRange"/> call
+    /// and queues their placement into the empty archetype as one deferred command. Not
+    /// <see cref="World.IsAlive"/> until <see cref="World.ApplyCommands()"/> runs. Returns
+    /// <see cref="Array.Empty{T}"/> for <paramref name="count"/> == 0; throws
     /// <see cref="ArgumentOutOfRangeException"/> for a negative count.
     /// </summary>
     public Entity[] CreateEntity(int count)
@@ -457,15 +429,14 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Batch counterpart of <see cref="CreateEntity(EntityTemplate)"/>: reserves
-    /// <paramref name="count"/> real <see cref="Entity"/> ids immediately and queues their
-    /// placement, all sharing <paramref name="template"/>'s components/tags, blitted in one
-    /// <see cref="Internal.ComponentStorage{T}.Fill"/> call per component regardless of
-    /// <paramref name="count"/>. Throws <see cref="InvalidOperationException"/> if
-    /// <paramref name="template"/> has children (<see cref="EntityTemplate.Children"/>) —
-    /// each child is a distinct set of entities per instance, so there's no blitting trick
-    /// that applies to a tree; call <see cref="CreateEntity(EntityTemplate)"/> once per
-    /// instance instead. Returns <see cref="Array.Empty{T}"/> for <paramref name="count"/> == 0;
-    /// throws <see cref="ArgumentOutOfRangeException"/> for a negative count.
+    /// <paramref name="count"/> real <see cref="Entity"/> ids and queues their placement,
+    /// all sharing <paramref name="template"/>'s components/tags, blitted in one
+    /// <see cref="Internal.ComponentStorage{T}.Fill"/> call per component. Throws
+    /// <see cref="InvalidOperationException"/> if <paramref name="template"/> has children
+    /// (<see cref="EntityTemplate.Children"/>): call <see cref="CreateEntity(EntityTemplate)"/>
+    /// once per instance instead. Returns <see cref="Array.Empty{T}"/> for
+    /// <paramref name="count"/> == 0; throws <see cref="ArgumentOutOfRangeException"/> for a
+    /// negative count.
     /// </summary>
     public Entity[] CreateEntity(EntityTemplate template, int count)
     {
@@ -489,14 +460,11 @@ public sealed partial class CommandBuffer
     }
 
     /// <summary>
-    /// Queues adding <paramref name="value"/> to <paramref name="entity"/>. A no-op at
-    /// apply time if the entity was destroyed by an earlier queued command. If
-    /// <paramref name="entity"/> already has a <typeparamref name="T"/> by the time this
-    /// command runs (an earlier queued <see cref="World.AddComponent{T}(Entity)"/> for the same entity,
-    /// or one from a previous batch that was never removed), this overwrites it instead
-    /// of adding a second one. Last-queued value wins, the same
-    /// already-in-that-state-is-fine stance every other queued operation on this class
-    /// takes. Safe to call concurrently from several threads at once.
+    /// Queues adding <paramref name="value"/> to <paramref name="entity"/>. A no-op at apply
+    /// time if the entity was destroyed by an earlier queued command. If
+    /// <paramref name="entity"/> already has a <typeparamref name="T"/> by the time this runs,
+    /// this overwrites it instead of adding a second one: last-queued value wins. Safe to
+    /// call concurrently from several threads at once.
     /// </summary>
     public void AddComponent<T>(Entity entity, T value) where T : struct, IComponent
     {
@@ -571,14 +539,12 @@ public sealed partial class CommandBuffer
     /// <summary>
     /// Applies every queued command, in queued order, then clears the queue. Each command
     /// re-checks <see cref="World.IsAlive"/> at its own point in the sequence, so an earlier
-    /// command that destroys an entity silently invalidates any later command in the same
-    /// batch still targeting it rather than throwing. What can still throw is consumer code
-    /// reached through a structural-change notification. Cleanup (clearing the queue,
-    /// resetting the per-type buffers) runs in a <c>finally</c> regardless, so a misbehaving
-    /// observer never leaves the batch half-applied for the next <see cref="Apply"/> call to
-    /// silently replay. Only ever called single-threaded, from a stage's join point after
-    /// every enqueueing thread has already returned, so neither the replay loop nor the
-    /// cleanup needs <see cref="_gate"/>.
+    /// command that destroys an entity silently invalidates any later command targeting it,
+    /// rather than throwing. Consumer code reached through a structural-change notification
+    /// can still throw; cleanup (clearing the queue, resetting the per-type buffers) runs in
+    /// a <c>finally</c> regardless, so a misbehaving observer never leaves the batch
+    /// half-applied for the next <see cref="Apply"/> call to silently replay. Only ever
+    /// called single-threaded, after every enqueueing thread has already returned.
     /// </summary>
     internal void Apply()
     {

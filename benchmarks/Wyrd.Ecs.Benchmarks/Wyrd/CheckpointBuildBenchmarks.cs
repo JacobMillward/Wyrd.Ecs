@@ -5,13 +5,9 @@ using Wyrd.Ecs.Persistence.Continuous;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Measures CheckpointBuilder.Build's full-rewrite cost at the engine's
+/// Measures <c>CheckpointBuilder.Build</c>'s full-rewrite cost at the engine's
 /// ~20,000-entity target scale, checked against the default 60-second/64MB checkpoint
-/// cadence, not a per-frame budget — this runs on the checkpoint-merge background
-/// thread, on its own cadence. No structural change is planned regardless of the result
-/// this pass, per
-/// docs/superpowers/specs/2026-07-20-continuous-persistence-lifecycle-hardening-design.md's
-/// Performance section.
+/// cadence rather than a per-frame budget, since it runs on its own background thread.
 /// </summary>
 [MemoryDiagnoser]
 public class CheckpointBuildBenchmarks
@@ -53,7 +49,7 @@ public class CheckpointBuildBenchmarks
 
     /// <summary>
     /// The cheapest real call shape (no WAL records to apply) still has to read the
-    /// whole prior checkpoint back into memory and rewrite it — this is that cost, at
+    /// whole prior checkpoint back into memory and rewrite it. This is that cost, at
     /// EntityCount scale.
     /// </summary>
     [Benchmark]

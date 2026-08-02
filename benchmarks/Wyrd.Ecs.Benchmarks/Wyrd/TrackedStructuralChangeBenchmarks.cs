@@ -5,8 +5,8 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// The <see cref="Tracked"/> dimension, Wyrd.Ecs-only with no Friflo or fennecs equivalent — see
-/// <see cref="TrackedEntityLifecycleBenchmarks"/> for the same reasoning.
+/// The <see cref="Tracked"/> dimension, Wyrd.Ecs-only with no Friflo or fennecs equivalent.
+/// See <see cref="TrackedEntityLifecycleBenchmarks"/> for the same reasoning.
 /// </summary>
 [MemoryDiagnoser]
 public class TrackedStructuralChangeBenchmarks

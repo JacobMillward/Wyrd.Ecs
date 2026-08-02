@@ -5,12 +5,9 @@ using Wyrd.Ecs.Persistence.Continuous;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Measures ChangeCapture's tick-driven capture cost — the work that runs synchronously
-/// inside World.AdvanceTick on the sim thread whenever continuous persistence is
-/// enabled — at the engine's ~20,000-entity target scale. Checked against a
-/// 16.6ms/60Hz frame budget, per
-/// docs/superpowers/specs/2026-07-20-continuous-persistence-lifecycle-hardening-design.md's
-/// Performance section.
+/// Measures <c>ChangeCapture</c>'s tick-driven capture cost, the work that runs
+/// synchronously inside <c>World.AdvanceTick</c> whenever continuous persistence is
+/// enabled, at the engine's ~20,000-entity target scale against a 16.6ms/60Hz frame budget.
 /// </summary>
 [MemoryDiagnoser]
 public class ContinuousPersistenceTickBenchmarks

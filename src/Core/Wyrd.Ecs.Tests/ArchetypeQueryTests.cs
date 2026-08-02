@@ -39,7 +39,7 @@ public class ArchetypeQueryTests
         var query = ArchetypeQuery.Empty.Has<Position>().Has<Velocity>();
         var chunks = query.Resolve(world);
 
-        // Position+Velocity, Position+Velocity+Dead, Position+Velocity+BuffA — three distinct archetypes.
+        // Position+Velocity, Position+Velocity+Dead, Position+Velocity+BuffA: three distinct archetypes.
         chunks.Count.Should().Be(3);
     }
 
@@ -103,15 +103,12 @@ public class ArchetypeQueryTests
     {
         var world = new World();
 
-        // Only BuffC -- satisfies the second group (BuffC or BuffD) but NOT the first
-        // (BuffA or BuffB). A "last call wins" bug would incorrectly include this entity,
-        // since it only checks the second group; correct AND-of-both-groups semantics
-        // must exclude it.
+        // Satisfies only the second Any group; a "last call wins" bug would wrongly include it.
         Entity onlySecondGroup = world.Commands.CreateEntity();
         world.Commands.AddComponent(onlySecondGroup, new Position { X = 1f });
         world.Commands.AddTag<BuffC>(onlySecondGroup);
 
-        // BuffA and BuffC -- satisfies both groups.
+        // BuffA and BuffC: satisfies both groups.
         Entity bothGroups = world.Commands.CreateEntity();
         world.Commands.AddComponent(bothGroups, new Position { X = 2f });
         world.Commands.AddTag<BuffA>(bothGroups);

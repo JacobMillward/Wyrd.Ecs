@@ -4,11 +4,10 @@ using System.Runtime.CompilerServices;
 namespace Wyrd.Ecs.Persistence.Internal;
 
 /// <summary>
-/// One nullable, per-<see cref="World"/> value, backed by a <see cref="ConditionalWeakTable{TKey,TValue}"/>
-/// so a configured value doesn't outlive the World it was set on. Shared by every
-/// extension-member-backed property across the persistence packages (default store,
-/// default registry, continuous persistence session), since none of them can add a
-/// real field to <see cref="World"/> from another assembly.
+/// One nullable, per-<see cref="World"/> value, backed by a
+/// <see cref="ConditionalWeakTable{TKey,TValue}"/> so a configured value doesn't outlive
+/// the World it was set on. Shared by every extension-member-backed property across the
+/// persistence packages (default store, default registry, continuous persistence session).
 /// </summary>
 internal sealed class WorldAttachedProperty<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T> where T : class
 {

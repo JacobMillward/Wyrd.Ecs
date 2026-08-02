@@ -2,25 +2,19 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// Builds the static parallel schedule: partitions the registered system list into
-/// stages honoring two independent constraints: the conflict rule (no two systems in
-/// the same stage share a component type where at least one side writes it) and any
-/// Before/After edges declared via <see cref="RunBeforeAttribute"/>/
-/// <see cref="RunAfterAttribute"/>/<see cref="OrderedSystem"/>. Computed once, not
-/// re-evaluated per tick; the caller (<c>WorldBuilder.Build</c>) is responsible for
-/// that.
+/// stages honoring two constraints: the conflict rule (no two systems in the same
+/// stage share a component type where at least one side writes it) and any Before/After
+/// edges declared via <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/>/
+/// <see cref="OrderedSystem"/>. Computed once, not re-evaluated per tick.
 /// </summary>
 internal static class SystemScheduler
 {
     /// <summary>
-    /// Resolves every ordering edge across <paramref name="orderedSystems"/>
-    /// (<see cref="SystemOrderGraph.Resolve"/>), stably topologically sorts the
-    /// combined node set (<see cref="StableTopologicalSort.Sort"/>, tie-broken by
-    /// registration order), then packs each node (real systems and any marker together)
-    /// into the first stage at-or-after its minimum-allowed index whose contents don't
-    /// conflict with it, the same conflict rule this scheduler has always used. Finally
-    /// drops every marker node from the result (a marker is a bare <see cref="Type"/>,
-    /// never a real system, see <see cref="OrderNode"/>: a scheduling placeholder only)
-    /// and collapses any stage index left with zero real systems.
+    /// Resolves every ordering edge across <paramref name="orderedSystems"/>, stably
+    /// topologically sorts the combined node set (tie-broken by registration order), then
+    /// packs each node into the first stage at-or-after its minimum-allowed index whose
+    /// contents don't conflict with it. Drops marker nodes (see <see cref="OrderNode"/>)
+    /// from the result and collapses any stage left with zero real systems.
     /// </summary>
     internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(
         IReadOnlyList<OrderedSystem> orderedSystems,
@@ -49,11 +43,9 @@ internal static class SystemScheduler
 
         foreach (var node in order)
         {
-            // A node's predecessors are always assigned before it (StableTopologicalSort
-            // guarantees this), and each predecessor's assigned index was always a valid
-            // index into `stages` at the time it was assigned, so `minAllowed` here can
-            // never exceed the current `stages.Count`, and the "open a new stage" branch
-            // below never needs to pad with empty placeholder stages to reach it.
+            // Predecessors are always assigned before this node (StableTopologicalSort
+            // guarantees it), so `minAllowed` never exceeds `stages.Count`, and the
+            // "open a new stage" branch below never needs to pad with placeholders.
             var minAllowed = predecessors[node].Count == 0
                 ? 0
                 : predecessors[node].Max(p => assignedStage[p]) + 1;
@@ -108,10 +100,9 @@ internal static class SystemScheduler
             return ([.. described.Reads], [.. described.Writes], false);
         }
 
-        // Conservative default: a system with neither a generated entry nor a
-        // hand-written descriptor never joins an existing stage and never accepts
-        // another system into its own. See BuildStages' doc for why this can't be
-        // expressed as synthetic Reads/Writes data instead.
+        // Conservative default: a system with no generated entry or hand-written
+        // descriptor never joins an existing stage and never accepts another system
+        // into its own.
         return ([], [], true);
     }
 }

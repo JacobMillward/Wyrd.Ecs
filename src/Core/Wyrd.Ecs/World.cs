@@ -172,9 +172,8 @@ public sealed partial class World
     /// <paramref name="signature"/>, creating it if needed, then invokes every setter in
     /// <paramref name="setters"/> against the placed row with <c>count = 1</c>. The
     /// <see cref="EntityTemplate"/> counterpart of the generated
-    /// <c>PlaceReservedEntity&lt;T0..Tn&gt;</c> family — works from a pre-built
-    /// signature/setter list instead of a closed generic. Used only by
-    /// <see cref="CommandBuffer.CreateEntity(EntityTemplate)"/>'s queued placement.
+    /// <c>PlaceReservedEntity&lt;T0..Tn&gt;</c> family, working from a pre-built
+    /// signature/setter list instead of a closed generic.
     /// </summary>
     internal void PlaceReservedEntityFromTemplate(Entity entity, Internal.ArchetypeSignature signature, TemplateComponentSetter[] setters)
     {
@@ -186,7 +185,7 @@ public sealed partial class World
 
         // A concrete array parameter, not IReadOnlyCollection<T>: foreach over an
         // interface-typed collection here would force a boxed, virtually-dispatched
-        // enumerator on every instantiate call — measured to roughly double this method's
+        // enumerator on every instantiate call, measured to roughly double this method's
         // cost relative to the generated PlaceReservedEntity<T0..Tn> family it mirrors. See
         // EntityTemplate.Setters' own doc for the matching fix on the producing side.
         foreach (var setter in setters)
@@ -196,10 +195,8 @@ public sealed partial class World
     /// <summary>
     /// Batch counterpart of <see cref="PlaceReservedEntityFromTemplate"/>: places every
     /// entity into the archetype matching <paramref name="signature"/>, creating it if
-    /// needed, then invokes every setter in <paramref name="setters"/> once for the whole
-    /// batch (each setter internally blits via <see cref="Internal.ComponentStorage{T}.Fill"/>)
-    /// rather than once per entity. Used only by
-    /// <see cref="CommandBuffer.CreateEntity(EntityTemplate, int)"/>'s queued placement.
+    /// needed, then invokes every setter once for the whole batch (each setter blits via
+    /// <see cref="Internal.ComponentStorage{T}.Fill"/>) rather than once per entity.
     /// </summary>
     internal void PlaceReservedEntitiesFromTemplate(Entity[] entities, Internal.ArchetypeSignature signature, TemplateComponentSetter[] setters)
     {
@@ -389,9 +386,9 @@ public sealed partial class World
     /// <summary>
     /// Same as <see cref="RemoveRelationLink{T}"/>, for the reverse (<see cref="RelationBacklinks{T}"/>)
     /// side. This is the single point that notifies <see cref="IStructuralChangeObserver.OnRelationUnlinked"/>
-    /// for an edge removal, not <see cref="RemoveRelationLink{T}"/> — every caller that removes an edge
+    /// for an edge removal, not <see cref="RemoveRelationLink{T}"/>: every caller that removes an edge
     /// calls this method somewhere in the process except <see cref="RelationBacklinks{T}"/>'s own
-    /// cascade-remove (which notifies explicitly instead, since it deliberately skips this method — see
+    /// cascade-remove (which notifies explicitly instead, since it deliberately skips this method; see
     /// its own doc).
     /// </summary>
     internal void RemoveRelationBacklink<T>(Entity target, Entity source) where T : struct, IRelation
@@ -578,7 +575,7 @@ public sealed partial class World
     /// <summary>
     /// Every live relation edge whose payload type is registered in <paramref name="registry"/>
     /// via <see cref="ComponentCodecRegistry.RegisterRelation{T}"/>, one <see cref="EncodedRelation"/>
-    /// per edge — mirrors <see cref="EnumerateAll"/>, walking <see cref="RelationLinks{T}"/>
+    /// per edge. Mirrors <see cref="EnumerateAll"/>, walking <see cref="RelationLinks{T}"/>
     /// storages instead of ordinary component storages. <see cref="RelationBacklinks{T}"/>
     /// is never walked here: replaying an edge through
     /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/> regenerates it as a
@@ -620,13 +617,9 @@ public sealed partial class World
             action(chunk.Access<TAccess0>(), chunk.Access<TAccess1>());
     }
 
-    // World.Query<TAccess0>/Query<TAccess0,TAccess1> above are deliberately hand-written
-    // and capped at arity 2, not generator-emitted: this is the zero-codegen chunk-callback
-    // tier, meant to work with no consumer-side generator setup at all, unlike the fluent
-    // Query<TShape> chain (Query.cs), which requires one. See
-    // docs/superpowers/specs/2026-07-25-generator-backed-unbounded-query-shape-design.md,
-    // "Packaging implication", for why that property matters. For 3+ components, use the
-    // fluent chain instead.
+    // World.Query<TAccess0>/Query<TAccess0,TAccess1> above are deliberately hand-written and
+    // capped at arity 2: the zero-codegen chunk-callback tier, usable with no generator setup,
+    // unlike the fluent Query<TShape> chain (Query.cs). For 3+ components, use the fluent chain.
 
     private void RequireAlive(Entity entity)
     {

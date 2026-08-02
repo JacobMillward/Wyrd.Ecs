@@ -1,14 +1,10 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The change-marking bookkeeping <see cref="Mut{T}"/> needs, factored out because none
-/// of it depends on the wrapped component type -- only <c>Span&lt;T&gt; _items</c> does.
-/// Kept as its own non-generic ref struct so this logic compiles to a single shared
-/// routine instead of being duplicated, once per closed <see cref="Mut{T}"/> instantiation,
-/// inside each type's own indexer. Mixing several distinct <c>Mut&lt;T&gt;</c> instantiations
-/// in one method forces the JIT to alternate between separately-optimized code per T;
-/// keeping the type-agnostic part of that work in one place shrinks how much of it there
-/// is to alternate between.
+/// The change-marking bookkeeping <see cref="Mut{T}"/> needs, factored out since none of
+/// it depends on the wrapped component type. Kept as its own non-generic ref struct so
+/// this logic compiles to one shared routine instead of being duplicated per closed
+/// <see cref="Mut{T}"/> instantiation.
 /// </summary>
 internal readonly ref struct ChangeMarker
 {
@@ -24,7 +20,7 @@ internal readonly ref struct ChangeMarker
     }
 
     /// <summary>
-    /// Marks the entity at <paramref name="index"/> dirty (an unconditional tick stamp --
+    /// Marks the entity at <paramref name="index"/> dirty (an unconditional tick stamp:
     /// touching an entity more than once in a tick just re-stamps the same value), unless
     /// change tracking is currently off, in which case this does nothing.
     /// </summary>
@@ -63,7 +59,7 @@ public readonly ref struct Mut<T> : IComponentAccessor<Mut<T>> where T : struct,
     public int Length => _items.Length;
 
     /// <summary>
-    /// Marks the entity at <paramref name="index"/> dirty (an unconditional tick stamp —
+    /// Marks the entity at <paramref name="index"/> dirty (an unconditional tick stamp:
     /// touching an entity more than once in a tick just re-stamps the same value), then
     /// returns a mutable reference to its <typeparamref name="T"/> component. Marking is
     /// skipped entirely when change tracking is currently off for this component type.

@@ -61,10 +61,9 @@ public class WithSystemsExtensionsTests
     [Fact]
     public void WithSystemsInstances_RegistersAPreBuiltEcsSystemArrayVariable()
     {
-        // The implicit EcsSystem -> OrderedSystem conversion only applies per
-        // call-site argument, not across an entire array's element type, so a caller
-        // that already assembled an EcsSystem[] (e.g. built programmatically) needs
-        // the explicit IReadOnlyList<EcsSystem> overload, not the params one.
+        // The implicit EcsSystem -> OrderedSystem conversion applies per argument, not across
+        // an array's element type, so a pre-built EcsSystem[] needs the explicit
+        // IReadOnlyList<EcsSystem> overload, not the params one.
         EcsSystem[] preBuilt = [new SugarConstructedSystem(5f)];
 
         var world = new WorldBuilder().WithSystems(preBuilt).Build();

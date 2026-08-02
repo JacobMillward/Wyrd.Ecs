@@ -2,25 +2,16 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
 /// Owns the tick-driven capture step: subscribes to every type in the given
-/// <see cref="ComponentCodecRegistry"/> via <see cref="World.Subscribe(IComponentCodec)"/>
-/// (sharing the underlying scan with any other subscriber already watching the same
-/// type — see <c>Wyrd.Ecs.Internal.ChangeFeedHub</c>), observes structural and relation
-/// changes via <see cref="Internal.StructuralChangeCapture"/>, and appends every result
-/// into double-buffered pairs of lists, swapped by <see cref="SwapBuffers"/> — the seam
-/// a background WAL-writer thread drains from, so the thread driving
-/// <see cref="World.OnTickAdvanced"/> never blocks on I/O.
+/// <see cref="ComponentCodecRegistry"/>, observes structural and relation changes via
+/// <see cref="Internal.StructuralChangeCapture"/>, and appends every result into
+/// double-buffered pairs of lists, swapped by <see cref="SwapBuffers"/> so a background
+/// WAL-writer thread can drain without blocking <see cref="World.OnTickAdvanced"/>.
 ///
 /// <para>
-/// Each of this instance's own value-change subscriptions is drained every tick, on the
-/// same thread that raised <see cref="World.OnTickAdvanced"/> — not lazily, on whatever
-/// later tick <see cref="SwapBuffers"/> happens to be called. <see cref="World.GetPermanentId"/>
-/// can only resolve a still-alive entity; deferring that resolution to
-/// <see cref="SwapBuffers"/> (called from a background thread, on its own cadence, an
-/// arbitrary number of ticks later) would mean an entity destroyed in a later tick makes
-/// its own earlier, still-undrained value change unresolvable, silently dropping that
-/// whole drain cycle. Resolving per tick, synchronously, is what keeps every pending
-/// value already carrying a permanent id — the same guarantee structural events already
-/// have via <see cref="Internal.StructuralChangeCapture"/>'s own synchronous callback.
+/// Value changes are resolved to a permanent id synchronously, per tick, not lazily at
+/// drain time: <see cref="World.GetPermanentId"/> can only resolve a still-alive entity,
+/// and deferring resolution would let a later-tick destroy make an earlier,
+/// still-undrained value change unresolvable, silently dropping it.
 /// </para>
 /// </summary>
 internal sealed class ChangeCapture : IDisposable
@@ -44,10 +35,8 @@ internal sealed class ChangeCapture : IDisposable
 
         _structuralSubscription = world.ObserveStructuralChanges(new Internal.StructuralChangeCapture(world, registry, AppendReady));
 
-        // Subscribed after every codec above, so each codec's own Subscribe call has
-        // already registered the shared hub's tick handler first — multicast delegate
-        // invocation runs in subscription order, so the hub's scan always populates
-        // this tick's changes before this handler drains them.
+        // Subscribed after every codec's own Subscribe call above: multicast delegate order
+        // means the hub's scan populates this tick's changes before this handler drains them.
         world.OnTickAdvanced += OnTickAdvanced;
     }
 
@@ -57,13 +46,10 @@ internal sealed class ChangeCapture : IDisposable
         foreach (var (codec, subscription) in _valueSubscriptions)
             foreach (var entry in subscription.Drain())
             {
-                // Subscribe(codec) also reports ComponentAdded/ComponentRemoved (Value is
-                // null for those) alongside ValueChanged — only the latter belongs here.
-                // A component add is already redundant with the value it carries, captured
-                // via this same ValueChanged scan next tick (see
-                // Internal.StructuralChangeCapture.OnComponentAdded's own doc); a component
-                // remove is captured separately, as its own WAL record, by that same
-                // structural observer.
+                // Subscribe(codec) also reports ComponentAdded/ComponentRemoved (Value is null
+                // for those); only ValueChanged belongs here. Add is redundant with the value
+                // it carries (captured via this scan next tick); remove is captured separately
+                // by the structural observer.
                 if (entry.Kind != ChangeKind.ValueChanged) continue;
                 batch.Add(new PendingValueChange(codec, entry.Tick, _world.GetPermanentId(entry.Entity), entry.Value!));
             }
@@ -78,11 +64,9 @@ internal sealed class ChangeCapture : IDisposable
     }
 
     /// <summary>
-    /// Swaps the front and back buffers under the lock and returns the pair just
-    /// swapped out (everything captured since the previous call), for the caller to
-    /// drain at its own pace with no lock held. The returned lists are only safe to
-    /// read until the next call to <see cref="SwapBuffers"/>, at which point they may
-    /// be cleared and reused as the new front buffers.
+    /// Swaps the front and back buffers and returns the pair just swapped out (everything
+    /// captured since the previous call), safe to read with no lock held until the next
+    /// <see cref="SwapBuffers"/> call, after which they may be cleared and reused.
     /// </summary>
     internal DrainedChanges SwapBuffers()
     {

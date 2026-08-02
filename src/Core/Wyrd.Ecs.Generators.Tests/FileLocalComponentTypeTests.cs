@@ -47,11 +47,9 @@ public class FileLocalComponentTypeTests
     public void FileScopedTypeCollidingWithOrdinarySameNamedTypeElsewhere_ReportsWYRD004_DoesNotCorruptTheOrdinaryOnesShape()
     {
         // Two separate "files" (syntax trees): FileA declares an ordinary Position and reads it;
-        // FileB declares an unrelated file-scoped Position and writes it. Before the fix,
-        // ChainWalker's ToDisplayString()-based dedup key couldn't tell these two Position types
-        // apart, so the generator could silently merge them -- FileB's file-scoped type is now
-        // rejected outright instead, and FileA's own query must still resolve correctly (not
-        // corrupted by the rejected one).
+        // FileB declares an unrelated file-scoped Position and writes it. FileB's file-scoped
+        // type is rejected outright, and FileA's own query must still resolve correctly, not
+        // corrupted by the rejected one.
         var fileA = """
             using Wyrd.Ecs;
 

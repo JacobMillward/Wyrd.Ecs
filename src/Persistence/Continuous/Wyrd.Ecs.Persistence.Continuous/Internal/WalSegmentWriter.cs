@@ -3,12 +3,10 @@ using System.Text;
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
-/// Owns the currently-open WAL segment. Lock-guarded, not because ordinary writes and
-/// reads race each other (only the WAL-writer thread ever calls
-/// <see cref="WriteRecords"/>/<see cref="Flush"/>) but because <see cref="Rotate"/> is
-/// called from the checkpoint-merge thread as part of the rotation handoff — the lock
-/// makes swapping the underlying stream reference safe regardless of which thread calls
-/// what, when. Opens a segment lazily on first use and never resumes a closed one.
+/// Owns the currently-open WAL segment. Lock-guarded because <see cref="Rotate"/> is
+/// called from the checkpoint-merge thread while <see cref="WriteRecords"/>/<see cref="Flush"/>
+/// run on the WAL-writer thread; the lock makes swapping the stream reference safe
+/// across both. Opens a segment lazily on first use and never resumes a closed one.
 /// </summary>
 internal sealed class WalSegmentWriter(IWalStore walStore)
 {
@@ -40,17 +38,13 @@ internal sealed class WalSegmentWriter(IWalStore walStore)
     }
 
     /// <summary>
-    /// Writes every entry to the currently open segment, encoding any pending value
-    /// change as it goes. <see cref="DrainedChanges.Ready"/> and
-    /// <see cref="DrainedChanges.Pending"/> are merged by <c>Tick</c> (stable, ready
-    /// first on a tie) rather than written as two separate blocks — a single drain
-    /// cycle can span several ticks (nothing forces a drain between every tick), and
-    /// <see cref="CheckpointBuilder.Apply"/> replays records strictly in write order
-    /// with no tick-aware reordering of its own. Writing every ready record before
-    /// every pending one would let an earlier tick's stale <c>ComponentChanged</c> land
-    /// after a later tick's <c>EntityDestroyed</c> for the same entity in the file,
-    /// silently resurrecting it on replay. Throws if none is open — call
-    /// <see cref="EnsureSegmentOpen"/> first.
+    /// Writes every entry to the currently open segment, encoding any pending value change
+    /// as it goes. <see cref="DrainedChanges.Ready"/> and <see cref="DrainedChanges.Pending"/>
+    /// are merged by <c>Tick</c> (ready first on a tie), not written as two separate blocks:
+    /// since <see cref="CheckpointBuilder.Apply"/> replays records strictly in write order,
+    /// writing all ready before all pending could put a stale <c>ComponentChanged</c> after
+    /// a later <c>EntityDestroyed</c> for the same entity, silently resurrecting it on
+    /// replay. Throws if no segment is open; call <see cref="EnsureSegmentOpen"/> first.
     /// </summary>
     internal void WriteRecords(DrainedChanges changes)
     {
@@ -93,7 +87,7 @@ internal sealed class WalSegmentWriter(IWalStore walStore)
         }
     }
 
-    /// <summary>Closes the currently open segment (if any) without opening a replacement — for a final shutdown merge where no further writing will happen.</summary>
+    /// <summary>Closes the currently open segment (if any) without opening a replacement, for a final shutdown merge where no further writing will happen.</summary>
     internal void CloseCurrentSegment()
     {
         lock (_lock)

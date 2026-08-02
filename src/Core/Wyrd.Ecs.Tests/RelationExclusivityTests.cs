@@ -111,11 +111,9 @@ public class RelationExclusivityTests
     [Fact]
     public void AddRelation_ExclusiveType_ReplacingTheOnlyTarget_NeverMovesTheSourcesRelationLinksComponent()
     {
-        // Regression guard: replacing an exclusive relation's sole existing target must
-        // mutate RelationLinks<Parent>'s dictionary in place, never remove-then-re-add the
-        // component itself -- confirmed here by asserting no ComponentAdded/ComponentRemoved
-        // notification fires for `child` at all during the replace (removing momOne's own
-        // RelationBacklinks<Parent> component, a different type, still notifies once).
+        // Replacing an exclusive relation's sole target must mutate RelationLinks<Parent> in
+        // place, never remove-then-re-add it: no ComponentAdded/ComponentRemoved should fire
+        // for `child`.
         var world = new World();
         Entity child = world.Commands.CreateEntity();
         Entity momOne = world.Commands.CreateEntity();
@@ -128,10 +126,9 @@ public class RelationExclusivityTests
         world.Commands.AddRelation(child, momTwo, new Parent { Weight = 2f });
         world.ApplyCommands();
 
-        // momOne's RelationBacklinks<Parent> removal (last backlink gone) and momTwo's
-        // RelationBacklinks<Parent> add (first backlink) are the only two real component
-        // transitions expected. If child's own RelationLinks<Parent> had also been
-        // removed-then-re-added, these counts would be 2 and 2, not 1 and 1.
+        // Only momOne's RelationBacklinks<Parent> removal and momTwo's add should count. If
+        // child's own RelationLinks<Parent> had also been removed-then-re-added, these counts
+        // would be 2 and 2, not 1 and 1.
         observer.AddedCount.Should().Be(1);
         observer.RemovedCount.Should().Be(1);
     }
@@ -149,6 +146,6 @@ public class RelationExclusivityTests
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
 
-        world.Targets<Likes>(a).Should().HaveCount(2); // Likes is not IExclusiveRelation -- both targets coexist
+        world.Targets<Likes>(a).Should().HaveCount(2); // Likes is not IExclusiveRelation, so both targets coexist
     }
 }

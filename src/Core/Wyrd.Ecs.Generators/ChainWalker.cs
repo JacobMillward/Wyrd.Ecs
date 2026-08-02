@@ -18,7 +18,7 @@ internal static class ChainWalker
 
         if (terminal.ArgumentList.Arguments is not [.., var lastArgument]) return null;
         // Every argument before the lambda is a leading uniform/state value the lambda
-        // receives as its own leading parameter(s) -- the uniform overload passes one
+        // receives as its own leading parameter(s): the uniform overload passes one
         // (`ForEach(state, action)`, lambda takes `(in TState, ...)`), the no-uniform
         // overload passes none (`ForEach(action)`, lambda's first parameter is already a
         // real data component). Skip exactly that many of the lambda's own parameters
@@ -33,9 +33,9 @@ internal static class ChainWalker
     /// <summary>
     /// Reads the <c>ref</c>/<c>in</c> modifier off each of <paramref name="lambdaArgument"/>'s
     /// data parameters, in declaration order, skipping <paramref name="skipCount"/> leading
-    /// uniform/state parameters. Pure syntax -- no semantic binding needed, since the
-    /// modifier keyword is right there in the parameter list regardless of whether the
-    /// lambda has explicit parameter types.
+    /// uniform/state parameters. Pure syntax: no semantic binding needed, since the modifier
+    /// keyword is right there in the parameter list regardless of whether the lambda has
+    /// explicit parameter types.
     /// </summary>
     private static ImmutableArray<RefKind>? TryGetLambdaDataRefKinds(ArgumentSyntax lambdaArgument, int skipCount)
     {
@@ -57,22 +57,17 @@ internal static class ChainWalker
     }
 
     /// <summary>
-    /// Resolves <paramref name="raw"/>'s <see cref="QueryShape.PendingDataElements"/> (bare
-    /// data components whose Reads/Writes kind wasn't yet known during the tuple walk) into
-    /// real <see cref="MarkerElement"/>s, using <paramref name="refKindsInDeclarationOrder"/>
-    /// — the ref/in modifiers read off whatever the query's terminal actually is, in the same
-    /// left-to-right order the caller wrote their `.With&lt;&gt;()` calls (matching the
-    /// existing declaration-order convention <c>QueryShapeExtensions.OwnDataElements</c>
-    /// already relies on). Returns <c>null</c> if the counts don't match (caller declared a
-    /// different number of components than the terminal has parameters for) or any ref-kind
-    /// isn't <see cref="RefKind.Ref"/>/<see cref="RefKind.In"/> (a bare, unmodified parameter
-    /// -- <c>WYRD001</c>'s job to explain why, not this method's).
+    /// Resolves <paramref name="raw"/>'s <see cref="QueryShape.PendingDataElements"/> into
+    /// real <see cref="MarkerElement"/>s using <paramref name="refKindsInDeclarationOrder"/>,
+    /// the ref/in modifiers read off the query's terminal in the same order the caller
+    /// wrote their `.With&lt;&gt;()` calls. Returns <c>null</c> if the counts don't match
+    /// or any ref-kind isn't <see cref="RefKind.Ref"/>/<see cref="RefKind.In"/> (reporting
+    /// that is <c>WYRD001</c>'s job, not this method's).
     /// </summary>
     internal static QueryShape? ResolveAccessKinds(QueryShape raw, ImmutableArray<RefKind> refKindsInDeclarationOrder)
     {
-        // raw.PendingDataElements is already in declaration order (QueryShape.Markers and
-        // QueryShape.PendingDataElements are both normalized to declaration order once, in
-        // TryExtractShapeFromQueryType) -- no reversal needed to line it up with
+        // raw.PendingDataElements is already in declaration order (normalized once, in
+        // TryExtractShapeFromQueryType), so no reversal is needed to line it up with
         // refKindsInDeclarationOrder.
         var declarationOrder = raw.PendingDataElements;
         if (declarationOrder.Length != refKindsInDeclarationOrder.Length) return null;
@@ -105,10 +100,10 @@ internal static class ChainWalker
 
     /// <summary>
     /// Unpacks an already-resolved <c>Wyrd.Ecs.Query&lt;TShape&gt;</c> type symbol's
-    /// nested-tuple <c>TShape</c> directly — shared by <see cref="TryExtractShape"/>
-    /// (a chain terminal's receiver expression type) and <c>QuerySystem</c> recognition
-    /// (a <c>Build</c> method's declared return type, Task 11) — both start from a
-    /// resolved <c>Query&lt;TShape&gt;</c> symbol, they just get it different ways.
+    /// nested-tuple <c>TShape</c>. Shared by <see cref="TryExtractShape"/> (a chain
+    /// terminal's receiver expression type) and <c>QuerySystem</c> recognition (a
+    /// <c>Build</c> method's declared return type): both start from a resolved
+    /// <c>Query&lt;TShape&gt;</c> symbol, just obtained differently.
     /// </summary>
     internal static QueryShape? TryExtractShapeFromQueryType(INamedTypeSymbol queryType, CancellationToken ct)
     {
@@ -135,7 +130,7 @@ internal static class ChainWalker
         }
 
         // The walk above visits `.With<A>().With<B>()`'s nested-tuple type `(B, (A, Nil))`
-        // outer-first, i.e. last-declared-first -- the reverse of declaration order. Reverse
+        // outer-first, i.e. last-declared-first: the reverse of declaration order. Reverse
         // once, here, so QueryShape.PendingDataElements is in declaration order everywhere
         // downstream (OwnDataElements, ResolveAccessKinds, every caller-facing parameter list).
         pendingData.Reverse();
@@ -149,19 +144,11 @@ internal static class ChainWalker
     }
 
     /// <summary>
-    /// Walks <paramref name="queryType"/>'s nested tuple shape the same way
-    /// <see cref="TryExtractShapeFromQueryType"/> does, purely to find a `file`-scoped
-    /// component type, if any -- these can never work with the query-chain generator: its
-    /// emitted `.ForEach`/`.ParallelForEach` terminals and `QuerySystem` glue live in a
-    /// *separate* generated source file, which cannot reference a `file`-scoped type
-    /// declared in the consumer's own file, regardless of whether some other type happens
-    /// to share its simple name (the actual way this was found -- see WYRD004). Returns the
-    /// first offending type's simple name, or <c>null</c> if none (including when
-    /// <paramref name="queryType"/> isn't a <c>Query&lt;TShape&gt;</c>, or its shape is
-    /// malformed -- either of those is <see cref="TryExtractShapeFromQueryType"/>'s own
-    /// concern, not this method's). Kept as its own pass rather than folded into
-    /// <see cref="TryExtractShapeFromQueryType"/> itself, so that method's existing,
-    /// well-tested walk stays untouched -- this only ever adds a diagnostic on top of it.
+    /// Walks <paramref name="queryType"/>'s nested tuple shape to find a `file`-scoped
+    /// component type, if any: these can never work, since the generator's emitted
+    /// terminals/glue live in a separate generated source file that cannot reference a
+    /// `file`-scoped type from the consumer's own file (see WYRD004). Returns the first
+    /// offending type's simple name, or <c>null</c> if none.
     /// </summary>
     internal static string? TryFindFileLocalComponentType(INamedTypeSymbol queryType, CancellationToken ct)
     {
@@ -186,7 +173,7 @@ internal static class ChainWalker
     /// <summary>
     /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass whose
     /// <c>Execute</c> override directly contains <paramref name="terminal"/>, or
-    /// <c>null</c> if it isn't inside one — walks the override chain, not just the
+    /// <c>null</c> if it isn't inside one. Walks the override chain, not just the
     /// method name, so a same-named method that isn't actually an <c>EcsSystem</c>
     /// override never matches.
     /// </summary>
@@ -211,12 +198,9 @@ internal static class ChainWalker
     {
         if (element is not INamedTypeSymbol) return false;
 
-        // Every tuple element left after the runtime-filter-unification redesign is a bare
-        // data component -- .Without/.Has/.Any never touch TShape anymore (see Query.cs),
-        // so there is nothing else for this walk to classify. Its Reads/Writes kind isn't
-        // known until the terminal (a .ForEach lambda's ref/in, or QuerySystem.Update's real
-        // parameters) is read, which happens after this whole tuple walk finishes. See
-        // ChainWalker.ResolveAccessKinds.
+        // Every tuple element is a bare data component: .Without/.Has/.Any never touch
+        // TShape. Its Reads/Writes kind isn't known until the terminal is read, after this
+        // whole tuple walk finishes. See ChainWalker.ResolveAccessKinds.
         pendingData.Add(element.ToDisplayString());
         return true;
     }

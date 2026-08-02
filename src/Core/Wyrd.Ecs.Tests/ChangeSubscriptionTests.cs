@@ -63,12 +63,8 @@ public class ChangeSubscriptionTests
     }
 
     /// <summary>
-    /// Ticks are coarse (every mutation within tick N shares timestamp N), so the scan
-    /// watermark at subscribe time must be set to <c>CurrentTick - 1</c>, not
-    /// <c>CurrentTick</c> — otherwise a mutation made later in the same tick Subscribe
-    /// was called in would be silently missed by the first scan. This is the same root
-    /// cause <c>ChangeCapture</c>'s own <c>_sinceTick = CurrentTick - 1</c> fix
-    /// addresses (Plan 4d of the continuous-persistence arc).
+    /// Subscribe must watermark at <c>CurrentTick - 1</c>, not <c>CurrentTick</c>: ticks are
+    /// coarse, so a same-tick mutation after Subscribe would otherwise be missed by the first scan.
     /// </summary>
     [Fact]
     public void MutationInTheSameTickAsSubscribing_IsStillReported()

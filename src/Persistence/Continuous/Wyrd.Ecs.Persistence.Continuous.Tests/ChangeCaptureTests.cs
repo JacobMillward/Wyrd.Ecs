@@ -22,11 +22,10 @@ public class ChangeCaptureTests
     [Fact]
     public void ComponentValueChange_OnAnEntityDestroyedBeforeTheNextSwapBuffers_IsStillCapturedNotLost()
     {
-        // Regression: PendingValueChange.EntityId must be resolved synchronously at
-        // scan time (per tick), not deferred to SwapBuffers — SwapBuffers can be
-        // called arbitrarily later (e.g. from a background WAL-writer thread, on its
-        // own cadence), by which point a since-destroyed entity's transient handle can
-        // no longer resolve a permanent id at all.
+        // Regression: PendingValueChange.EntityId must resolve synchronously at scan time
+        // (per tick), not deferred to SwapBuffers, which can run arbitrarily later (e.g.
+        // from a background thread) by which point a since-destroyed entity can no longer
+        // resolve.
         var world = new World();
         var registry = BuildRegistry();
         using var capture = new ChangeCapture(world, registry);

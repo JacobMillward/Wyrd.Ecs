@@ -68,9 +68,8 @@ public class TagAutoRegistrationGeneratorTests
     public void APrivateNestedTagStruct_IsNotRegistered()
     {
         // A generated public RegisterAll could never legally reference a private nested
-        // type -- discovered via a real CS0122 build failure when this generator ran over
-        // Wyrd.Ecs.Tests itself, which has several private ITag structs scattered across
-        // unrelated test files for unrelated purposes.
+        // type. Wyrd.Ecs.Tests itself has several private ITag structs scattered across
+        // unrelated test files for unrelated purposes, so this generator must skip them.
         const string source = """
             using Wyrd.Ecs;
             namespace Test;

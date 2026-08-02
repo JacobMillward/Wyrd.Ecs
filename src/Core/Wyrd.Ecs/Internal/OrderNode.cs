@@ -4,12 +4,10 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// One node in the system-ordering graph: either a registered <see cref="EcsSystem"/>
-/// instance, or a bare marker <see cref="Type"/> — never a <see cref="MarkerSystem"/>
-/// instance. A marker's only job is being a unique ordering token; nothing ever reads
-/// or executes it, so its <see cref="Type"/> alone is sufficient identity, and nothing
-/// needs to be constructed for it, in this assembly or any other. Equality is by
-/// reference for a system, by <see cref="Type"/> for a marker, so every edge targeting
-/// the same marker type resolves to the same node without any explicit caching.
+/// instance, or a bare marker <see cref="Type"/> (never a <see cref="MarkerSystem"/>
+/// instance, since a marker is only ever a unique ordering token, never constructed).
+/// Equality is by reference for a system, by <see cref="Type"/> for a marker, so every
+/// edge targeting the same marker type resolves to the same node.
 /// </summary>
 internal readonly struct OrderNode : IEquatable<OrderNode>
 {

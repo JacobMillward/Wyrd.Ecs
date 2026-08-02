@@ -3,22 +3,15 @@ using Wyrd.Ecs.Internal;
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// One archetype's full row range, resolved from an <see cref="ArchetypeQuery"/>. Every
-/// caller — <see cref="World.Query{TAccess0}(ChunkAction{TAccess0})"/>'s hand-written
-/// implementation and, eventually, generator-emitted query code of any arity alike — calls
-/// one <see cref="Access{TAccessor}"/> per required component type, using the same flat,
-/// non-recursive style throughout: there is no per-shape specialization at this layer.
+/// One archetype's full row range, resolved from an <see cref="ArchetypeQuery"/>. Call
+/// <see cref="Access{TAccessor}"/> once per component type your loop needs to read or write.
 ///
-/// <para>Performance note, confirmed by benchmark (<c>QueryIterationBenchmarks</c> in this
-/// repo's benchmark suite): when a loop uses two or more <see cref="Access{TAccessor}"/>
+/// <para>Performance tip: when a loop uses two or more <see cref="Access{TAccessor}"/>
 /// results together, write the per-row/per-chunk work as a <c>static</c> local function
-/// taking the accessors as parameters, rather than inline in the enclosing loop —
-/// e.g. <c>Process(chunk.Access&lt;Mut&lt;Position&gt;&gt;(), chunk.Access&lt;Ref&lt;Velocity&gt;&gt;())</c>
-/// calling a <c>static void Process(Mut&lt;Position&gt; position, Ref&lt;Velocity&gt; velocity)</c>.
-/// A single-accessor loop needs no such care. This is a JIT register-allocation effect
-/// (a dedicated small stack frame optimizes better than one sharing space with the
-/// enclosing loop's other locals), not specific to this type — the same applies to any
-/// loop touching two or more of this codebase's ref-struct accessors.</para>
+/// taking the accessors as parameters, rather than inline in the loop body. For example,
+/// call <c>Process(chunk.Access&lt;Mut&lt;Position&gt;&gt;(), chunk.Access&lt;Ref&lt;Velocity&gt;&gt;())</c>
+/// where <c>Process</c> is <c>static void Process(Mut&lt;Position&gt; position, Ref&lt;Velocity&gt; velocity)</c>.
+/// A single-accessor loop needs no such care.</para>
 /// </summary>
 public readonly struct ArchetypeChunk
 {
@@ -39,12 +32,11 @@ public readonly struct ArchetypeChunk
 
     /// <summary>
     /// Chunk-level access to this archetype's <typeparamref name="TAccessor"/>-wrapped
-    /// component column -- typically <see cref="Mut{T}"/> or <see cref="Ref{T}"/>. The
+    /// component column, typically <see cref="Mut{T}"/> or <see cref="Ref{T}"/>. The
     /// archetype must actually store <typeparamref name="TAccessor"/>'s component type
-    /// (i.e. this chunk's query included it via <see cref="ArchetypeQuery.Access{TAccessor}"/>)
-    /// -- calling this for a type the archetype never stores is a caller bug, not a
-    /// runtime-checked condition, matching every other chunk-level accessor in this
-    /// codebase.
+    /// (i.e. this chunk's query included it via <see cref="ArchetypeQuery.Access{TAccessor}"/>).
+    /// Calling this for a type the archetype doesn't store is a caller bug: not checked
+    /// at runtime.
     /// </summary>
     public TAccessor Access<TAccessor>() where TAccessor : struct, IComponentAccessor<TAccessor>, allows ref struct
     {

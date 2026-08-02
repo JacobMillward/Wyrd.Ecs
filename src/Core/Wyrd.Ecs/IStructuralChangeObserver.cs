@@ -11,7 +11,7 @@ namespace Wyrd.Ecs;
 /// </summary>
 public interface IStructuralChangeObserver
 {
-    /// <summary>An entity was created, with whatever initial components it was given — never followed by <see cref="OnComponentAdded"/> for those same initial components.</summary>
+    /// <summary>An entity was created, with whatever initial components it was given. Never followed by <see cref="OnComponentAdded"/> for those same initial components.</summary>
     void OnEntityCreated(Entity entity);
 
     /// <summary>An entity was destroyed, along with all of its components.</summary>

@@ -5,29 +5,14 @@ using Comparison.Wyrd;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// The <see cref="Tracked"/> (<see cref="World.TrackChanges{T}"/>) dimension and the
-/// one-at-a-time component-add variants — both Wyrd.Ecs-only, with no Friflo or fennecs
-/// equivalent, so they don't belong on the shared
+/// The <see cref="Tracked"/> dimension and one-at-a-time component-add variants, both
+/// Wyrd.Ecs-only with no Friflo/fennecs equivalent, so they don't belong on the shared
 /// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/> comparison class.
-/// <c>[GlobalSetup]</c>, not <c>[IterationSetup]</c>, and <see cref="EntityCount"/> entities
-/// per invocation, not one — see that class's docs for both: BenchmarkDotNet's own guidance
-/// warns IterationSetup "can spoil the results" for anything faster than ~100ms/invocation,
-/// which every method here is by several orders of magnitude, and batching gives the
-/// adaptive pilot a better signal-to-noise ratio per sample so it converges faster. One
-/// <see cref="World"/> is built once and grows across every invocation — which is exactly why
-/// <c>[SimpleJob(invocationCount: 1)]</c> below is required, not optional: without it,
-/// BenchmarkDotNet's adaptive engine multiplies each already-<see cref="EntityCount"/>-sized
-/// invocation further on top, and since this <see cref="World"/> never resets, that compounds
-/// into unbounded growth across the run — see
-/// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/>'s docs for the
-/// (confirmed by an actual crash: <c>OverflowException</c>/<c>OutOfMemoryException</c>) reasoning.
-/// Even with growth bounded per-iteration by that pin, the <c>Create*</c> methods still need
-/// <see cref="ResetWorld"/> to run every iteration (not just once via <c>[GlobalSetup]</c>) —
-/// otherwise later iterations measure creation into a much bigger, already-grown world than
-/// earlier ones, a non-stationary measurement (confirmed: without this, results were
-/// internally inconsistent, e.g. the four-component variant reporting cheaper than the
-/// one-component one). <see cref="DisposeEntity"/> is excluded from that reset (see its own
-/// docs) since it already destroys everything it creates each invocation.
+/// Same <c>[GlobalSetup]</c>/batching/<c>[SimpleJob(invocationCount: 1)]</c> reasoning as
+/// that class. The <c>Create*</c> methods additionally need <see cref="ResetWorld"/> every
+/// iteration, not just once via <c>[GlobalSetup]</c>, so later iterations don't measure
+/// creation into an already-grown world; <see cref="DisposeEntity"/> is excluded since it
+/// destroys everything it creates each invocation.
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob(invocationCount: 1)]
@@ -40,7 +25,7 @@ public class TrackedEntityLifecycleBenchmarks
 
     private World _world = null!;
 
-    /// <summary>Reused scratch space for <see cref="DisposeEntity"/> — sized once, never reallocated, so it doesn't contaminate that method's own allocation measurement.</summary>
+    /// <summary>Reused scratch space for <see cref="DisposeEntity"/>: sized once, never reallocated, so it doesn't contaminate that method's own allocation measurement.</summary>
     private Entity[] _disposeScratch = null!;
 
     [GlobalSetup]
@@ -136,7 +121,7 @@ public class TrackedEntityLifecycleBenchmarks
         _world.ApplyCommands();
     }
 
-    /// <summary>Create-then-destroy pairs, self-resetting — see <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks.Wyrd_DisposeEntity"/>'s docs for why.</summary>
+    /// <summary>Create-then-destroy pairs, self-resetting. See <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks.Wyrd_DisposeEntity"/>'s docs for why.</summary>
     [Benchmark(OperationsPerInvoke = EntityCount)]
     public void DisposeEntity()
     {

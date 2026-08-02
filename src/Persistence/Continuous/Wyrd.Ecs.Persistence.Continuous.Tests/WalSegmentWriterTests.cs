@@ -109,10 +109,9 @@ public class WalSegmentWriterTests : IDisposable
         var writer = new WalSegmentWriter(walStore);
         writer.EnsureSegmentOpen(1);
         var entity = EntityId.NewId();
-        // An earlier-tick stale ComponentChanged (still pending, not yet encoded) and a
-        // later-tick EntityDestroyed for the same entity, drained together in one
-        // cycle. Written in tick order, EntityDestroyed must come last in the segment
-        // so a checkpoint merge sees the destroy as the final word, not the stale value.
+        // An earlier-tick stale ComponentChanged (still pending) and a later-tick
+        // EntityDestroyed for the same entity, drained together. Written in tick order so
+        // the destroy comes last and a checkpoint merge sees it as the final word.
         var pending = new List<PendingValueChange> { new(new FakeCodec(), Tick: 1, entity, 1f) };
         var ready = new List<CapturedWalEntry> { new(WalRecordKind.EntityDestroyed, Tick: 2, entity, "", null, []) };
 

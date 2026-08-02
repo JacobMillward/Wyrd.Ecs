@@ -39,7 +39,7 @@ public class WalSegmentIOTests
     {
         foreach (var kind in Enum.GetValues<WalRecordKind>())
         {
-            if (kind is WalRecordKind.RelationLinked or WalRecordKind.RelationUnlinked) continue; // written via WriteRelationRecord instead — covered by its own tests
+            if (kind is WalRecordKind.RelationLinked or WalRecordKind.RelationUnlinked) continue; // written via WriteRelationRecord instead, covered by its own tests
 
             using var stream = new MemoryStream();
             WalSegmentIO.WriteRecord(stream, kind, tick: 1, EntityId.NewId(), "Position", null, []);

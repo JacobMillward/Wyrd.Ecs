@@ -1,14 +1,10 @@
 namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
-/// Implemented by a checkpoint-write <c>Stream</c> whose destination is only ever
-/// touched atomically. The default — disposing the stream normally — commits whatever
-/// was written; <see cref="Abort"/> tells a subsequent <c>Dispose()</c> to discard it
-/// instead, so a write that fails partway through (<c>World.Save</c>
-/// calls this from its own catch block) can never leave a truncated file where the
-/// previous good checkpoint used to be. A storage backend with nothing to make atomic
-/// simply doesn't implement this — callers probe for it via <c>is</c>, the same
-/// pattern <c>Stream.CanSeek</c>-style capability checks use.
+/// Implemented by a checkpoint-write <c>Stream</c> whose destination file is only ever
+/// updated atomically. Disposing normally commits what was written; <see cref="Abort"/>
+/// tells the next <c>Dispose()</c> to discard it instead, so a save that fails partway
+/// through never overwrites a good checkpoint with a truncated one.
 /// </summary>
 public interface ITransactionalWriteStream
 {

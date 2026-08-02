@@ -6,14 +6,7 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
 /// Measures <see cref="World.ReadChanges{T}"/>'s full-archetype scan cost at the
-/// ~20,000-entity scale validated in
-/// <c>docs/superpowers/specs/2026-07-19-persistence-primitives-design.md</c>: the
-/// number that decided tick-stamp-and-scan over an append log for this project's actual
-/// consumer shape (one background persistence reader, not many independently-lagging
-/// ones). Kept in the suite as the direct replacement for the retention-cost benchmark
-/// this design removes: that measured trim cost against a growing backlog, which no
-/// longer exists; this measures the cost the backlog existed to avoid, confirming it
-/// stays cheap without it.
+/// engine's ~20,000-entity target scale.
 /// </summary>
 [MemoryDiagnoser]
 public class ChangedComponentsScanBenchmarks

@@ -8,7 +8,7 @@ namespace Wyrd.Ecs;
 /// </summary>
 public readonly record struct EncodedRelation(Entity Source, Entity Target, string Discriminator, uint? SchemaHash, byte[] Data)
 {
-    /// <summary>Value equality over <see cref="Data"/>'s contents — see <see cref="EncodedComponent.Equals(EncodedComponent)"/> for why.</summary>
+    /// <summary>Value equality over <see cref="Data"/>'s contents. See <see cref="EncodedComponent.Equals(EncodedComponent)"/> for why.</summary>
     public bool Equals(EncodedRelation other) =>
         Source == other.Source &&
         Target == other.Target &&

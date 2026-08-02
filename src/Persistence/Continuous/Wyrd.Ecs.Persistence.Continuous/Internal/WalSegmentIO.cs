@@ -4,22 +4,15 @@ using System.Text;
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
-/// Reads and writes the WAL segment file header and individual WAL records. Mirrors
-/// <c>Wyrd.Ecs.Persistence.Internal.CheckpointRecordIO</c>'s framing (magic bytes plus
-/// version header, length-prefixed records with a CRC32 checksum, graceful
-/// truncation-tolerant reads) — deliberately duplicated rather than shared across the
-/// package boundary: <c>CheckpointRecordIO</c> is internal to
-/// <c>Wyrd.Ecs.Persistence</c>, and a WAL record needs two fields a checkpoint record
-/// doesn't — <see cref="WalRecordKind"/> and a tick. A <see cref="WalRecordKind.RelationLinked"/>/
-/// <see cref="WalRecordKind.RelationUnlinked"/> record carries a second <see cref="EntityId"/>
-/// (the edge's target) immediately after the first — written via <see cref="WriteRelationRecord(Stream, WalRecordKind, int, EntityId, EntityId, string, uint?, byte[])"/>,
-/// read back via the same <see cref="TryReadRecord"/> every other kind uses.
-/// <see cref="TryReadRecord"/> returns false (never throws) on any short read,
-/// checksum mismatch, or a length prefix claiming more data than the stream actually
-/// has left (a corrupted length field would otherwise try to allocate an implausibly
-/// large array), so a segment truncated or corrupted mid-record by a crash mid-write
-/// is detected and replay cleanly stops at the last complete, valid record instead of
-/// misreading garbage as data.
+/// Reads and writes the WAL segment file header and individual WAL records: magic bytes
+/// plus version header, length-prefixed records with a CRC32 checksum. A
+/// <see cref="WalRecordKind.RelationLinked"/>/<see cref="WalRecordKind.RelationUnlinked"/>
+/// record carries a second <see cref="EntityId"/> (the edge's target) right after the
+/// first, written via <see cref="WriteRelationRecord(Stream, WalRecordKind, int, EntityId, EntityId, string, uint?, byte[])"/>
+/// and read back via the same <see cref="TryReadRecord"/> every other kind uses.
+/// <see cref="TryReadRecord"/> returns false, never throws, on any short read, checksum
+/// mismatch, or corrupted length prefix, so replay stops cleanly at the last valid
+/// record instead of misreading garbage left by a crash mid-write.
 /// </summary>
 internal static class WalSegmentIO
 {
@@ -64,7 +57,7 @@ internal static class WalSegmentIO
             throw new InvalidDataException($"Unsupported WAL segment format version {version} (expected {FormatVersion}).");
     }
 
-    /// <summary>Writes one record using a freshly allocated buffer — a convenience for a caller with no reusable buffer of its own. <see cref="WalSegmentWriter"/>'s hot path uses the other overload instead.</summary>
+    /// <summary>Writes one record using a freshly allocated buffer, for a caller with no reusable buffer of its own. Use the other overload on a hot path, like <see cref="WalSegmentWriter"/> does, to avoid the per-call allocation.</summary>
     public static void WriteRecord(Stream stream, WalRecordKind kind, int tick, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)
     {
         using var recordBuffer = new MemoryStream();
@@ -74,9 +67,8 @@ internal static class WalSegmentIO
 
     /// <summary>
     /// Writes one record using <paramref name="recordBuffer"/>/<paramref name="recordWriter"/>
-    /// as scratch space, reused across calls by the caller rather than allocated fresh
-    /// each time. <paramref name="recordBuffer"/>'s contents are overwritten — the
-    /// caller must not rely on anything left in it after this returns.
+    /// as caller-owned, reused scratch space. Its contents are overwritten; don't rely on
+    /// anything left in it after this returns.
     /// </summary>
     public static void WriteRecord(Stream stream, MemoryStream recordBuffer, BinaryWriter recordWriter, WalRecordKind kind, int tick, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)
     {
@@ -88,7 +80,7 @@ internal static class WalSegmentIO
         FlushRecord(stream, recordBuffer, recordWriter);
     }
 
-    /// <summary>Same as <see cref="WriteRecord(Stream, WalRecordKind, int, EntityId, string, uint?, byte[])"/>, for a relation-edge record — carries a second <see cref="EntityId"/> for the edge's target.</summary>
+    /// <summary>Same as <see cref="WriteRecord(Stream, WalRecordKind, int, EntityId, string, uint?, byte[])"/>, for a relation-edge record: carries a second <see cref="EntityId"/> for the edge's target.</summary>
     public static void WriteRelationRecord(Stream stream, WalRecordKind kind, int tick, EntityId sourceId, EntityId targetId, string discriminator, uint? schemaHash, byte[] payload)
     {
         using var recordBuffer = new MemoryStream();

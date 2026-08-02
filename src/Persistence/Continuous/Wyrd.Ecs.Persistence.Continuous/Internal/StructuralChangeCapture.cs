@@ -2,16 +2,12 @@ namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
 /// Turns entity/component/relation lifecycle events into <see cref="CapturedWalEntry"/>
-/// values via <paramref name="onCaptured"/>. <see cref="OnEntityCreated"/>,
-/// <see cref="OnEntityDestroyed"/>, <see cref="OnComponentRemoved"/>,
-/// <see cref="OnRelationLinked"/>, and <see cref="OnRelationUnlinked"/> produce
-/// something — <see cref="OnComponentAdded"/> is a deliberate no-op, since
-/// <c>World.AddComponent</c> already marks a tracked type's storage dirty on add, so the
-/// next <see cref="World.Subscribe(IComponentCodec)"/> scan already captures the same
-/// data as an ordinary value change; a separate <c>ComponentAdded</c> WAL record would be
-/// redundant. Tag events are never captured — tags carry no data and are already
-/// skipped by <see cref="World.EnumerateAll"/> on checkpoint, and continuous persistence
-/// stays consistent with that policy.
+/// values via <paramref name="onCaptured"/>. <see cref="OnComponentAdded"/> is a
+/// deliberate no-op: <c>World.AddComponent</c> already marks storage dirty, so the next
+/// <see cref="World.Subscribe(IComponentCodec)"/> scan captures the same data as an
+/// ordinary value change, making a separate record redundant. Tag events are never
+/// captured: tags carry no data and are already skipped by
+/// <see cref="World.EnumerateAll"/> on checkpoint.
 /// </summary>
 internal sealed class StructuralChangeCapture(World world, ComponentCodecRegistry registry, Action<CapturedWalEntry> onCaptured) : IStructuralChangeObserver
 {

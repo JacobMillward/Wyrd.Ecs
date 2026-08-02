@@ -3,7 +3,7 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// A system plus the Before/After edges declared on it at registration time via
 /// <see cref="Order"/>. The implicit conversion from <see cref="EcsSystem"/> means a
-/// system with no edges needs no wrapping — every <c>WithSystems(a, b, c)</c> call
+/// system with no edges needs no wrapping: every <c>WithSystems(a, b, c)</c> call
 /// that names bare systems compiles exactly as if this type didn't exist.
 /// </summary>
 public readonly struct OrderedSystem

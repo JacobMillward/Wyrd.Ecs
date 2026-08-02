@@ -15,12 +15,9 @@ using Microsoft.CodeAnalysis.Formatting;
 namespace Wyrd.Ecs.Generators.Diagnostics;
 
 /// <summary>
-/// Offers "Generate Update method" on `WYRD002`'s "missing entirely" case — inserts a
-/// concrete stub, every data parameter defaulted to `ref` (the safe, maximally-permissive
-/// choice; downgrading an unused one to `in` afterward costs nothing and only affects
-/// dirty-marking/scheduler conservatism, never correctness), in `DefineQuery`'s declared
-/// order. Recovers most of the "IDE writes the stub for me" convenience `partial` used to
-/// provide before `Update`'s own modifiers became the source of truth for access mode.
+/// Offers "Generate Update method" on `WYRD002`'s "missing entirely" case. Inserts a
+/// concrete stub with every data parameter defaulted to `ref` (the safe,
+/// maximally-permissive choice), in `DefineQuery`'s declared order.
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp), Shared]
 public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
@@ -42,7 +39,7 @@ public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
             if (classDecl is null) continue;
             if (semanticModel.GetDeclaredSymbol(classDecl, context.CancellationToken) is not INamedTypeSymbol classSymbol) continue;
 
-            // Only handle "missing entirely" -- if Update already exists (a count/type/order
+            // Only handle "missing entirely": if Update already exists (a count/type/order
             // mismatch instead), there's an existing method to reconcile with by hand, not a
             // stub to generate from nothing.
             if (classSymbol.GetMembers("Update").OfType<IMethodSymbol>().Any(m => !m.IsStatic)) continue;
@@ -58,7 +55,7 @@ public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
 
             var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken);
             if (shape is null) continue;
-            var declaredComponents = shape.PendingDataElements; // already declaration order -- see ChainWalker.TryExtractShapeFromQueryType
+            var declaredComponents = shape.PendingDataElements; // already declaration order; see ChainWalker.TryExtractShapeFromQueryType
 
             foreach (var (title, key, includeWorld, includeEntityView) in Variants)
             {
@@ -72,7 +69,7 @@ public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
         }
     }
 
-    /// <summary>The four valid leading-parameter combinations, canonical order (Time -> World -> EntityView) -- see this feature's design doc.</summary>
+    /// <summary>The four valid leading-parameter combinations, canonical order (Time, World, EntityView).</summary>
     private static readonly (string Title, string Key, bool IncludeWorld, bool IncludeEntityView)[] Variants =
     [
         ("Generate Update method", "GenerateUpdateStub", false, false),

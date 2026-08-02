@@ -2,11 +2,10 @@ namespace Wyrd.Ecs.Generators.Tests;
 
 /// <summary>
 /// Regression test for <c>QueryChainEmitter.ParamName</c>: deriving a lambda parameter
-/// name from a generic component type's fully-qualified name used to find the *last* '.'
-/// anywhere in the string, which can land inside a generic argument's own namespace --
-/// producing a garbage identifier that includes the argument's closing '&gt;'. Exercises
-/// this directly with a small generic wrapper component, independent of any specific
-/// feature that happens to use one.
+/// name from the *last* '.' anywhere in a generic component type's fully-qualified name
+/// can land inside a generic argument's own namespace, producing a garbage identifier
+/// that includes the argument's closing '&gt;'. Exercises this directly with a small
+/// generic wrapper component, independent of any specific feature that happens to use one.
 /// </summary>
 public class QueryChainGeneratorGenericComponentTests
 {

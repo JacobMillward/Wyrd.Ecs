@@ -3,7 +3,7 @@ using Likes = Wyrd.Ecs.Tests.RelationQueryChainSugarLikes;
 namespace Wyrd.Ecs.Tests;
 
 // File-scoped, not nested private: the query-chain generator emits code in a separate
-// partial that can't see a private nested type -- matches QueryFluentBuilderTests.cs's
+// partial that can't see a private nested type. Matches QueryFluentBuilderTests.cs's
 // existing convention for any component type used with .With<T>().ForEach(...).
 struct RelationQueryChainSugarLikes : IRelation { public float Weight; }
 struct RelationQueryChainSugarPosition : IComponent { public float X; }
@@ -26,7 +26,7 @@ public class RelationQueryChainSugarTests
         world.Query().WithRelation<Likes>()
             .ForEach(0, (in int _, in RelationLinks<Likes> link) => count++);
 
-        count.Should().Be(2); // a and b, both matched purely by "has any Likes edge" -- untouched and c (backlinks only) are excluded
+        count.Should().Be(2); // a and b, both matched purely by "has any Likes edge": untouched and c (backlinks only) are excluded
     }
 
     [Fact]

@@ -2,11 +2,11 @@ namespace Wyrd.Ecs.Persistence.Internal;
 
 /// <summary>
 /// A <see cref="FileStream"/>-backed write stream that buffers into a sibling
-/// temporary file and only replaces the destination path on a normal <c>Dispose()</c>
-/// — <see cref="File.Move(string, string, bool)"/> is atomic on the same volume on
-/// every platform this targets, so a reader can never observe a half-written file.
+/// temporary file and only replaces the destination path on a normal <c>Dispose()</c>.
+/// <see cref="File.Move(string, string, bool)"/> is atomic on the same volume on every
+/// platform this targets, so a reader can never observe a half-written file.
 /// <see cref="Abort"/> flips that default: the next <c>Dispose()</c> deletes the temp
-/// file instead, leaving whatever was previously at the destination path untouched.
+/// file instead, leaving whatever is currently at the destination path untouched.
 /// </summary>
 internal sealed class AtomicFileWriteStream : Stream, ITransactionalWriteStream
 {

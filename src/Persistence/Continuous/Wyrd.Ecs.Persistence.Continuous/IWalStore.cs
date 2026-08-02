@@ -1,19 +1,10 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
-/// Where WAL segments physically live — deliberately not an extension of
-/// <c>Wyrd.Ecs.Persistence.IPersistenceStore</c>. A checkpoint is one coherent
-/// snapshot, correctly written via an atomic swap; a WAL segment is a stream that
-/// stays open for an entire session, accepting durable incremental appends, where a
-/// crash must preserve everything flushed so far rather than roll back to nothing —
-/// different enough storage shapes that one type shouldn't serve both. It's also not
-/// a capability probed for via <c>is</c> the way <c>ITransactionalWriteStream</c> is:
-/// the natural implementer of a WAL capability, <c>FileStore</c>, lives in
-/// <c>Wyrd.Ecs.Persistence</c>, a package this one depends on, so an interface defined
-/// here couldn't be implemented there without inverting the reference direction. A
-/// consumer wanting continuous persistence configures a separate <see cref="IWalStore"/>
-/// alongside their <c>IPersistenceStore</c>, not one object doing both jobs. Segments
-/// are identified by the tick they start at.
+/// Where WAL segments physically live, separate from <c>IPersistenceStore</c>: a
+/// checkpoint is one snapshot written and swapped in atomically, while a WAL segment
+/// stays open for a session, taking small incremental writes so recent changes survive
+/// a crash between checkpoints. Segments are identified by the tick they start at.
 /// </summary>
 public interface IWalStore
 {
@@ -30,10 +21,9 @@ public interface IWalStore
     void DeleteSegment(int startTick);
 
     /// <summary>
-    /// Durably flushes <paramref name="segment"/> to disk, not just to managed buffers —
-    /// the mechanism <c>WalOptions.FsyncInterval</c> relies on to bound crash-loss to a
-    /// known window. <paramref name="segment"/> must be a stream this store itself
-    /// returned from <see cref="OpenSegmentAppend"/>.
+    /// Flushes <paramref name="segment"/> all the way to disk, not just in-memory buffers,
+    /// so a crash right after this call can't lose what was just written. Must be a stream
+    /// this store returned from <see cref="OpenSegmentAppend"/>.
     /// </summary>
     void Flush(Stream segment);
 }

@@ -20,10 +20,7 @@ public class EndToEndTests
             entities[i] = world.Commands.CreateEntity(new Energy { Current = 100f, DrainPerSecond = 10f });
         world.ApplyCommands();
 
-        // Simulate one tick, reading and writing Energy directly through the chunk
-        // tier — the "no chunk/archetype vocabulary needed" ergonomic tier this
-        // comment used to reference (QueryRow's per-row Get<T>()) no longer exists;
-        // see the design's "Why .Enumerate() was dropped entirely".
+        // Simulate one tick, reading and writing Energy directly through the chunk tier.
         foreach (var chunk in ArchetypeQuery.Empty.Access<Mut<Energy>>().Resolve(world))
         {
             var energy = chunk.Access<Mut<Energy>>();

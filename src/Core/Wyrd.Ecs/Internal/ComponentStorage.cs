@@ -2,11 +2,9 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// Dense, growable, per-component-type storage backing one <see cref="Archetype"/>'s
-/// column for <typeparamref name="T"/>: a struct-of-arrays column plus a parallel,
-/// per-row last-marked-tick array. The last-marked-tick array is co-located with the
-/// dense array for cache locality and is the entire change-tracking mechanism. There is
-/// no separate log; a reader scans this array for rows whose tick is past its own
-/// watermark.
+/// column for <typeparamref name="T"/>: a struct-of-arrays column plus a parallel
+/// per-row last-marked-tick array. There is no separate change log; a reader scans this
+/// array for rows whose tick is past its own watermark.
 /// </summary>
 internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, IComponent
 {
@@ -50,20 +48,13 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
 
     public IComponentStorage CreateEmpty(int capacity) => new ComponentStorage<T>(capacity);
 
-    /// <summary>
-    /// Single-entity mark-dirty path used by <see cref="World.GetComponent{T}(Entity)"/>/
-    /// <see cref="World.AddComponent{T}(Entity)"/>: an unconditional stamp, no dedup, since
-    /// there is no log entry to avoid duplicating.
-    /// </summary>
+    /// <summary>Single-entity mark-dirty path: an unconditional stamp, no dedup needed since there's no log entry to duplicate.</summary>
     internal void MarkDirty(int row, int tick) => _lastMarkedTick[row] = tick;
 
     /// <summary>
     /// Writes <paramref name="value"/> to every row in <c>[startRow, startRow + count)</c>
-    /// in one <see cref="Span{T}.Fill"/> call: the actual "blitting" batch entity
-    /// creation exists for, replacing what would otherwise be <paramref name="count"/>
-    /// individual indexer writes. Caller (<see cref="World.PlaceReservedEntities{T0}"/>
-    /// and its higher-arity siblings) guarantees capacity already covers the range via
-    /// <see cref="Archetype.AddRows"/>'s own <see cref="EnsureCapacity"/> call.
+    /// in one <see cref="Span{T}.Fill"/> call instead of <paramref name="count"/> individual
+    /// writes. Caller must ensure capacity already covers the range.
     /// </summary>
     internal void Fill(int startRow, int count, T value) => _items.AsSpan(startRow, count).Fill(value);
 

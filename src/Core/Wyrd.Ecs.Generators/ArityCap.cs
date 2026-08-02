@@ -1,13 +1,10 @@
 namespace Wyrd.Ecs.Generators;
 
 /// <summary>
-/// The arity cap for the generated <c>WithSystems&lt;T0..T{Max-1}&gt;()</c> overloads
-/// (see <see cref="QueryChainEmitter.RenderWithSystemsExtensions"/>). Deliberately its
-/// own, separate constant from `Wyrd.Ecs.InternalGenerators.ArityCap` — same value
-/// today, independent generator projects targeting independent compilations, not
-/// shared via a project reference (one line to keep in sync if it ever needs to
-/// change, matching the "simplest thing that could work" precedent the original
-/// `QueryArity` was built on).
+/// Arity cap for the generated <c>WithSystems&lt;T0..T{Max-1}&gt;()</c> overloads (see
+/// <see cref="QueryChainEmitter.RenderWithSystemsExtensions"/>). Kept separate from
+/// <c>Wyrd.Ecs.InternalGenerators.ArityCap</c> since the two generator projects target
+/// independent compilations and aren't linked by a project reference.
 /// </summary>
 internal static class ArityCap
 {

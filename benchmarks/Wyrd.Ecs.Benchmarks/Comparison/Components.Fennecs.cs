@@ -30,8 +30,8 @@ public struct Frag14;
 public struct Frag15;
 
 // fennecs relations key the target entity out-of-band (Entity.Add<R>(value, target)) rather
-// than embedding it in the component, unlike Friflo's ILinkRelation — so this Link carries
-// no Target field.
+// than embedding it in the component, unlike Friflo's ILinkRelation. This Link carries no
+// Target field.
 public struct Link { public float Weight; }
 
 public static class Fragmentation

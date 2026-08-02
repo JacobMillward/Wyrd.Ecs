@@ -1,8 +1,8 @@
 using BenchmarkDotNet.Attributes;
 using Friflo.Engine.ECS;
 using Comparison.Friflo;
-// Friflo.Engine.ECS ships its own built-in Position type, colliding with our vocabulary's —
-// disambiguate in favor of ours everywhere in this file.
+// Friflo.Engine.ECS ships its own built-in Position type, colliding with our vocabulary's.
+// Disambiguate in favor of ours everywhere in this file.
 using Position = Comparison.Friflo.Position;
 
 namespace Comparison.QueryIteration;

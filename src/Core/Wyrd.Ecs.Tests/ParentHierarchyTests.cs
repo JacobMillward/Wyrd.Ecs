@@ -5,11 +5,8 @@ public class ParentHierarchyTests
     [Fact]
     public void Parent_IsExclusive()
     {
-        // Fully qualified, not the `Internal.X` shorthand: this file's namespace is plain
-        // `Wyrd.Ecs.Tests`, which also has its own `Wyrd.Ecs.Tests.Internal` sibling
-        // namespace (housing e.g. RelationTraitsTests) -- unqualified `Internal` would
-        // resolve to that one, not `Wyrd.Ecs.Internal`. See existing precedent in
-        // AccessorTests.cs/ComponentCodecRegistryTests.cs, which do the same.
+        // Fully qualified: this namespace has a sibling `Wyrd.Ecs.Tests.Internal`, so unqualified
+        // `Internal` would resolve there instead of `Wyrd.Ecs.Internal`.
         Wyrd.Ecs.Internal.RelationTraits<Parent>.IsExclusive.Should().BeTrue();
     }
 

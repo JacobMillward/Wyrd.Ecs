@@ -1,15 +1,11 @@
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
-/// A process-wide safety net for continuous persistence sessions whose caller never
-/// called <c>World.StopContinuousPersistence</c>. Registers one
-/// <see cref="AppDomain.ProcessExit"/> handler, lazily, the first time any session opts
-/// in, and force-stops every still-tracked session when it fires. This is a net for
-/// "the process exited and cleanup code never ran" (a crash, a forced quit, a missing
-/// try/finally) — not a substitute for calling Stop, and not a fix for a World
-/// abandoned mid-process while the game keeps running: that still leaks its two threads
-/// until the process itself exits, since World isn't IDisposable and nothing here can
-/// make it so.
+/// A process-wide safety net for continuous persistence sessions never explicitly
+/// stopped. Registers one <see cref="AppDomain.ProcessExit"/> handler, lazily, the first
+/// time any session opts in, and force-stops every still-tracked session when it fires.
+/// Not a substitute for calling Stop, and not a fix for a World abandoned mid-process
+/// while the game keeps running: that still leaks until the process itself exits.
 /// </summary>
 internal static class ProcessExitSafetyNet
 {
@@ -31,7 +27,7 @@ internal static class ProcessExitSafetyNet
         }
     }
 
-    /// <summary>Stops tracking <paramref name="world"/>'s session — called from StopContinuousPersistence regardless of whether that session opted in, so a manually-stopped session is never swept twice.</summary>
+    /// <summary>Stops tracking <paramref name="world"/>'s session. Called from StopContinuousPersistence regardless of whether that session opted in, so a manually-stopped session is never swept twice.</summary>
     internal static void Unregister(World world)
     {
         lock (Lock) TrackedStops.Remove(world);

@@ -6,12 +6,8 @@ using Wyrd.Ecs.Persistence.Continuous.Internal;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Isolates CheckpointBuilder.Build's merge cost specifically when a large fraction of
-/// the prior checkpoint's entities are destroyed in the WAL window being merged — the
-/// scenario the deferred-destroyed-set refactor (replacing an eager byEntity index)
-/// targeted. Run once before that refactor and once after (via git checkout, see
-/// docs/superpowers/plans/2026-08-02-relation-persistence-checkpoint-builder-merge.md's
-/// Task 1) to confirm the predicted complexity improvement.
+/// Isolates <c>CheckpointBuilder.Build</c>'s merge cost when a large fraction of the prior
+/// checkpoint's entities are destroyed in the WAL window being merged.
 /// </summary>
 [MemoryDiagnoser]
 public class CheckpointBuildDestructionHeavyBenchmarks

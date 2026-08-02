@@ -1,11 +1,9 @@
 namespace Wyrd.Ecs.Generators;
 
 /// <summary>
-/// Manual combine, not <c>System.HashCode</c> -- this project targets netstandard2.0,
-/// where that type doesn't exist. Order-sensitive, matching the order-sensitive
-/// <c>SequenceEqual</c> comparisons in each caller's own <c>Equals</c> override -- values
-/// needing order-independent identity (see <see cref="QueryShapeExtensions.DedupKey"/>,
-/// which sorts into a string key and hashes that separately) don't go through this type.
+/// Manual combine, not <c>System.HashCode</c>, since this project targets netstandard2.0.
+/// Order-sensitive, matching the order-sensitive <c>SequenceEqual</c> comparisons in each
+/// caller's own <c>Equals</c> override.
 /// </summary>
 internal readonly struct StableHashCode
 {

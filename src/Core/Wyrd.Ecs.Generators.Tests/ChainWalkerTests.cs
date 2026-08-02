@@ -93,7 +93,7 @@ public class ChainWalkerTests
 
         var shape = ChainWalker.TryExtractShape(terminal, model, default);
 
-        // .Has/.Without/.Any never touch TShape -- the walked shape only ever reflects
+        // .Has/.Without/.Any never touch TShape: the walked shape only ever reflects
         // .With<T>() data elements, regardless of how many filter calls were chained in
         // between or around them.
         shape.Should().NotBeNull();
@@ -209,7 +209,7 @@ public class ChainWalkerTests
         var shape1 = ChainWalker.TryExtractShape(terminals[0], model, default);
         var shape2 = ChainWalker.TryExtractShape(terminals[1], model, default);
 
-        // .Without<Dead>() and .Any<BuffA, BuffB>() both apply to Filter, never TShape -- so
+        // .Without<Dead>() and .Any<BuffA, BuffB>() both apply to Filter, never TShape, so
         // these two chains, differing only in which filter calls they made, resolve to the
         // exact same Query<TShape> closed type, and therefore share one generated backend
         // (same ExactShapeTypeName implies same HashName/DedupKey too).

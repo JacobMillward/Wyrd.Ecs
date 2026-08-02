@@ -1,9 +1,8 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// Constructs a <see cref="World"/>. Exists as the entry point future construction-time
-/// configuration (such as registering Systems) will extend, alongside the options
-/// already here.
+/// Configures and constructs a <see cref="World"/>: archetype capacity, the parallel
+/// dispatch threshold, and the systems it runs.
 /// </summary>
 public sealed class WorldBuilder
 {
@@ -13,13 +12,10 @@ public sealed class WorldBuilder
     private int _parallelThreshold = 1000;
 
     /// <summary>
-    /// Sets the entity capacity every archetype's dense arrays (its entity list and
-    /// each component column) start at and never shrink below. The right value is
-    /// specific to a game's actual entity/archetype-count distribution: too low means
-    /// paying for repeated doubling growth on every archetype that ends up with more
-    /// than a handful of entities; too high wastes memory on every archetype that
-    /// never gets close to it, multiplied by however many distinct archetypes the game
-    /// creates.
+    /// Sets the entity capacity every archetype's dense arrays start at and never shrink
+    /// below. Too low means repeated doubling growth on any archetype with more than a
+    /// handful of entities; too high wastes memory per archetype, multiplied by however
+    /// many distinct archetypes the game creates.
     /// </summary>
     public WorldBuilder WithArchetypeCapacity(int capacity)
     {
@@ -33,9 +29,8 @@ public sealed class WorldBuilder
     /// <summary>
     /// Raised once, immediately after <see cref="Build"/> constructs the
     /// <see cref="World"/>: the extensibility hook a package (such as
-    /// Wyrd.Ecs.Persistence) uses to associate configuration made on this builder
-    /// with the resulting World, since neither WorldBuilder nor World can gain new
-    /// fields from another assembly.
+    /// Wyrd.Ecs.Persistence) uses to associate its own configuration with the
+    /// resulting World.
     /// </summary>
     public event Action<World>? OnBuilt;
 
@@ -55,16 +50,14 @@ public sealed class WorldBuilder
     }
 
     /// <summary>
-    /// Registers the systems <see cref="Build"/> will schedule, along with
-    /// the generated <c>Type → SystemAccess</c> registry the query-chain generator
-    /// emits into the calling project (<c>Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries</c>),
-    /// passed explicitly by the caller, since <see cref="WorldBuilder"/> lives in
-    /// <c>Wyrd.Ecs</c> itself and can't reference a type generated into a consumer's
-    /// own compilation. Each <paramref name="systems"/> element converts implicitly from
-    /// a bare <see cref="EcsSystem"/> (see <see cref="OrderedSystem"/>) when it declares
-    /// no Before/After edges, or from <see cref="Order.For"/> when it does. Registration
-    /// order is the tiebreak among systems with no ordering relationship to each other;
-    /// declared edges take precedence over it.
+    /// Registers the systems <see cref="Build"/> will schedule, along with the generated
+    /// <c>Type -&gt; SystemAccess</c> registry the query-chain generator emits into the
+    /// calling project, passed explicitly since <see cref="WorldBuilder"/> can't
+    /// reference a type generated into a consumer's own compilation. Each
+    /// <paramref name="systems"/> element converts implicitly from a bare
+    /// <see cref="EcsSystem"/>, or from <see cref="Order.For"/> when it declares
+    /// Before/After edges. Registration order is the tiebreak among systems with no
+    /// ordering relationship; declared edges take precedence over it.
     /// </summary>
     public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params OrderedSystem[] systems)
     {
@@ -74,13 +67,10 @@ public sealed class WorldBuilder
     }
 
     /// <summary>
-    /// Overload for a caller that already has an assembled <see cref="EcsSystem"/>
-    /// collection (e.g. built programmatically, then <c>.ToArray()</c>'d) rather than
-    /// naming each system as its own call-site argument: the implicit
-    /// <see cref="OrderedSystem"/> conversion that keeps <c>WithSystems(a, b, c)</c>
-    /// compiling only applies per-argument, not across an entire array's element type,
-    /// so a plain <see cref="EcsSystem"/> collection needs this explicit overload
-    /// rather than falling through to the <c>params OrderedSystem[]</c> one above.
+    /// Same as the <c>params OrderedSystem[]</c> overload above, for a caller that
+    /// already has an assembled <see cref="EcsSystem"/> collection: the implicit
+    /// <see cref="OrderedSystem"/> conversion applies per-argument, not across an
+    /// array's element type, so a plain collection needs this explicit overload.
     /// </summary>
     public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, IReadOnlyList<EcsSystem> systems)
     {
@@ -92,10 +82,8 @@ public sealed class WorldBuilder
     /// <summary>
     /// Sets the minimum <see cref="World.TotalEntityCount"/> a stage needs before
     /// <see cref="ScheduledExecutor"/> dispatches it to the thread pool instead of
-    /// running it inline. A stage below this threshold runs sequentially even if it
-    /// has more than one system, since thread-pool dispatch overhead can outweigh the
-    /// parallelism gain at small world sizes. Defaults to 1000, a starting point, not
-    /// a benchmarked value.
+    /// running it inline, since dispatch overhead can outweigh the parallelism gain at
+    /// small world sizes. Defaults to 1000, a starting point, not a benchmarked value.
     /// </summary>
     public WorldBuilder WithParallelThreshold(int entityCount)
     {

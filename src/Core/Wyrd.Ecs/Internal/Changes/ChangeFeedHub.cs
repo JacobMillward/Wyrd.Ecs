@@ -10,32 +10,22 @@ namespace Wyrd.Ecs.Internal;
 /// shared retained log.
 ///
 /// <para>
-/// Every subscription is scoped to exactly one type index and one small, fixed set of
-/// <see cref="ChangeKind"/>s determined entirely by which <c>Subscribe*</c> entry point
-/// created it — <c>Subscribe&lt;T&gt;</c> always wants <see cref="ChangeKind.ValueChanged"/>
-/// + <see cref="ChangeKind.ComponentAdded"/>/<see cref="ChangeKind.ComponentRemoved"/> for
-/// <c>T</c>, <c>SubscribeTag&lt;T&gt;</c> always wants <see cref="ChangeKind.TagAdded"/>/
-/// <see cref="ChangeKind.TagRemoved"/> for <c>T</c>, and so on. The one exception is
-/// <see cref="World.SubscribeEntityLifecycle"/>, whose <c>TypeIndex</c> is <c>null</c> —
-/// an entity's creation/destruction isn't associated with any one type. This lets every
-/// event kind, structural or value, be matched and fanned out through exactly one path
-/// (<see cref="Subscriber.Matches"/>/<see cref="Publish"/>) instead of the two separate,
-/// differently-shaped paths (a global structural-events bool plus a relation-only
-/// special case) this hub used before.
+/// Each subscription is scoped to exactly one type index and one fixed set of
+/// <see cref="ChangeKind"/>s, set by whichever <c>Subscribe*</c> entry point created it.
+/// The one exception is <see cref="World.SubscribeEntityLifecycle"/>, whose
+/// <c>TypeIndex</c> is <c>null</c>, since entity creation/destruction isn't associated
+/// with any one type. Every event, structural or value, is matched and fanned out
+/// through one path (<see cref="Subscriber.Matches"/>/<see cref="Publish"/>).
 /// </para>
 ///
 /// <para>
-/// <see cref="ChangeSubscription.Drain"/> is documented as callable from any thread —
-/// the intended shape for a consumer like a background WAL-writer thread — so
+/// <see cref="ChangeSubscription.Drain"/> is callable from any thread, so
 /// <see cref="Subscribe{T}"/>/<see cref="Unsubscribe"/> and the tick-driven scan/fan-out
-/// path (both of which mutate or enumerate <see cref="_subscribers"/> and its sibling
-/// bookkeeping dictionaries) must be safe against running concurrently with a
-/// <c>Subscribe</c>/<c>Dispose</c> call from a different thread than the one advancing
-/// the tick. <see cref="_lock"/> guards all of that; each <see cref="Subscriber"/>'s own
-/// <see cref="Subscriber.Lock"/> is a separate, narrower lock guarding only that
-/// subscriber's own double-buffer, acquired only while <see cref="_lock"/> is already
-/// held (or, in <see cref="Drain"/>, after releasing it) — never the other way around,
-/// so the two never deadlock against each other.
+/// path must be safe against running concurrently with it. <see cref="_lock"/> guards
+/// the hub's own bookkeeping; each <see cref="Subscriber"/>'s own <see cref="Subscriber.Lock"/>
+/// is a narrower lock guarding only that subscriber's double-buffer, always acquired
+/// while <see cref="_lock"/> is already held or (in <see cref="Drain"/>) after releasing
+/// it, never the other way around, so the two never deadlock.
 /// </para>
 /// </summary>
 internal sealed class ChangeFeedHub
@@ -52,21 +42,20 @@ internal sealed class ChangeFeedHub
     private int _structuralSubscriberCount;
     private IDisposable? _structuralSubscription;
 
-    /// <summary>Every structural <see cref="ChangeKind"/> — a subscriber whose <see cref="Subscriber.WantedKinds"/> intersects this needs the raw <see cref="IStructuralChangeObserver"/> registered.</summary>
+    /// <summary>Every structural <see cref="ChangeKind"/>: a subscriber whose <see cref="Subscriber.WantedKinds"/> intersects this needs the raw <see cref="IStructuralChangeObserver"/> registered.</summary>
     private const ChangeKind StructuralKinds =
         ChangeKind.EntityCreated | ChangeKind.EntityDestroyed | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved |
         ChangeKind.TagAdded | ChangeKind.TagRemoved | ChangeKind.RelationLinked | ChangeKind.RelationUnlinked;
 
-    /// <summary>Test-only instrumentation: how many times <see cref="ScanType{T}"/> has run, i.e. once per distinct watched type per tick — not once per subscriber.</summary>
+    /// <summary>Test-only instrumentation: how many times <see cref="ScanType{T}"/> has run, i.e. once per distinct watched type per tick, not once per subscriber.</summary>
     internal int ScanCount;
 
     internal ChangeFeedHub(World world) => _world = world;
 
     /// <summary>
     /// One subscription: which type index it's scoped to (<c>null</c> only for
-    /// <see cref="World.SubscribeEntityLifecycle"/>, which isn't scoped to any type) and
-    /// which <see cref="ChangeKind"/>s it wants, fixed at creation by whichever
-    /// <c>Subscribe*</c> entry point built it.
+    /// <see cref="World.SubscribeEntityLifecycle"/>) and which <see cref="ChangeKind"/>s
+    /// it wants, fixed at creation by whichever <c>Subscribe*</c> entry point built it.
     /// </summary>
     private sealed class Subscriber(int? typeIndex, ChangeKind wantedKinds)
     {
@@ -80,7 +69,7 @@ internal sealed class ChangeFeedHub
         /// <summary>True if this subscriber wants any event that only the raw structural observer can produce (everything except <see cref="ChangeKind.ValueChanged"/>).</summary>
         internal bool WantsAnyStructuralKind => (WantedKinds & StructuralKinds) != 0;
 
-        /// <summary>True if <paramref name="entry"/> is one this subscriber asked for — the single matching path every event kind goes through, structural or value alike.</summary>
+        /// <summary>True if <paramref name="entry"/> is one this subscriber asked for: the single matching path every event kind goes through, structural or value alike.</summary>
         internal bool Matches(ChangeEntry entry) =>
             WantedKinds.HasFlag(entry.Kind) && (TypeIndex is null || TypeIndex == entry.TypeIndex);
     }

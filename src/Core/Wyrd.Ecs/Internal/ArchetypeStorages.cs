@@ -1,10 +1,9 @@
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Component storage for a single archetype, indexed directly by
-/// <see cref="TypeIndex{T}"/> value. Type indices are small integers assigned once
-/// per type, so every lookup here, on every query enumerator's archetype transition
-/// and every structural move, is a direct array index rather than a hash lookup.
+/// Component storage for a single archetype, indexed directly by <see cref="TypeIndex{T}"/>
+/// value (a small int) rather than hashed, since every lookup here is on the query and
+/// structural-move hot path.
 /// </summary>
 internal sealed class ArchetypeStorages
 {

@@ -10,22 +10,14 @@ namespace Wyrd.Ecs.Generators;
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.ITag</c> and emits
 /// <c>Wyrd.Ecs.Generated.TagAutoRegistration.RegisterAll</c>: one
 /// <c>ComponentCodecRegistry.RegisterTag&lt;T&gt;</c> call per match, using the bare type
-/// name (<c>nameof</c>) as the discriminator. Unlike
-/// <c>Wyrd.Ecs.Persistence.Json.Generators.JsonRegistrationGenerator</c> (which uses a
-/// fully-qualified name specifically to let same-simple-name types across namespaces
-/// coexist), a tag discriminator has no wire-format/schema-hash stakes — it only needs to
-/// be unique enough for a debug display label. Two tags sharing a simple name in
-/// different namespaces throw at <c>RegisterTag</c> call time (its own duplicate guard),
-/// surfaced immediately rather than silently colliding.
+/// name (<c>nameof</c>) as the discriminator, since a tag has no wire-format/schema-hash
+/// stakes. Two tags sharing a simple name in different namespaces throw at
+/// <c>RegisterTag</c> call time (its own duplicate guard).
 ///
 /// <para>
-/// A candidate that <c>RegisterAll</c> (a public top-level class) could never legally
-/// reference is silently skipped, not diagnosed: a private nested test-helper struct
-/// implementing <c>ITag</c> for some unrelated purpose is not a mistake the way a
-/// file-scoped component referenced directly in a query chain is (that case is
-/// <c>QueryChainGenerator</c>'s WYRD004) — it's simply not a candidate for this
-/// auto-discovery mechanism, the same "unregistered things don't appear" contract the
-/// rest of this feature already has.
+/// A candidate <c>RegisterAll</c> could never legally reference (e.g. a private nested
+/// test-helper struct) is silently skipped, not diagnosed: it simply isn't a candidate
+/// for this auto-discovery mechanism.
 /// </para>
 /// </summary>
 [Generator(LanguageNames.CSharp)]

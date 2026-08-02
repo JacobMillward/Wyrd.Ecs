@@ -107,13 +107,9 @@ public class ScheduledExecutorTests
     [Fact]
     public void TwoSystemsInTheSameParallelStage_BothCreatingEntitiesConcurrently_AllEntitiesSurvive()
     {
-        // WithParallelThreshold(0) forces RunStages's `stage.Count > 1 && world.TotalEntityCount
-        // >= _parallelThreshold` check to take the Parallel.ForEach branch (both spawner
-        // systems have disjoint writes, so the scheduler places them in one stage) -- unlike
-        // this file's other tests, which never clear the default threshold and so only ever
-        // exercise the sequential branch. Both systems hammer world.Commands concurrently, so
-        // this is the one test that actually runs real user systems through ScheduledExecutor's
-        // thread-pool dispatch against the shared CommandBuffer/EntityTable.
+        // WithParallelThreshold(0) forces the Parallel.ForEach branch (disjoint writes put both
+        // spawner systems in one stage); this is the only test in the file that exercises real
+        // concurrent dispatch through ScheduledExecutor's thread pool.
         var access = new Dictionary<Type, SystemAccess>
         {
             [typeof(SpawnerASystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),

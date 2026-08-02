@@ -9,36 +9,23 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c> and marked
 /// <c>[MemoryPackable]</c>, and emits two things into the referencing project's own
-/// compilation (this generator only sees that project's syntax, never
-/// <c>Wyrd.Ecs.Persistence.Binary</c>'s own — a library convenience calling this
-/// generator's output could never see a real consumer's component types, which is why
-/// both live here instead):
+/// compilation:
 /// <list type="bullet">
 /// <item><c>MemoryPackAutoRegistration.RegisterAll</c>: one
 /// <c>ComponentCodecRegistry.Register&lt;T&gt;</c> call per match, using
-/// <c>MemoryPackSerializer.Serialize</c>/<c>Deserialize&lt;T&gt;</c> wrapped in a
-/// lambda — confirmed directly that they don't method-group-convert to
-/// <c>ComponentEncoder&lt;T&gt;</c>/<c>ComponentDecoder&lt;T&gt;</c>, a plain
-/// assignment fails to compile.</item>
+/// <c>MemoryPackSerializer.Serialize</c>/<c>Deserialize&lt;T&gt;</c>.</item>
 /// <item>A one-argument <c>WorldBuilder.AddBinaryPersistence(IPersistenceStore)</c>/
-/// <c>AddBinaryPersistence(string)</c> pair that builds a registry, calls the
-/// <c>RegisterAll</c> just generated, and delegates to
-/// <c>Wyrd.Ecs.Persistence.Binary</c>'s own two-argument
-/// <c>AddBinaryPersistence(store, registry)</c> — the "just make it work" call a
-/// consumer with this generator wired in actually uses.</item>
+/// <c>AddBinaryPersistence(string)</c> pair that builds a registry, calls
+/// <c>RegisterAll</c>, and delegates to the two-argument
+/// <c>AddBinaryPersistence(store, registry)</c>.</item>
 /// </list>
-/// Only ever calls MemoryPack's public runtime API, never anything MemoryPack's own
-/// generator emits by name, so there is no cross-generator ordering risk here the way
-/// the JSON codec's auto-registration has. Discriminators are each type's fully
-/// qualified name — unique and stable at compile time, avoiding a collision between two
-/// same-named components in different namespaces, which a bare simple name would risk.
+/// Discriminators are each type's fully qualified name, so two same-named components in
+/// different namespaces don't collide.
 ///
-/// <see cref="TryExtract"/> pulls the one piece of data <see cref="Render"/> actually
-/// needs (the fully-qualified type name) out of the semantic model immediately, rather
-/// than carrying the <see cref="INamedTypeSymbol"/> itself through <c>Collect()</c> —
-/// symbols don't compare structurally equal across two compilations, so keeping one in
-/// the pipeline defeats incremental caching for the whole file even when the actual set
-/// of registered components hasn't changed.
+/// <see cref="TryExtract"/> pulls only the fully-qualified type name out of the semantic
+/// model immediately, rather than carrying <see cref="INamedTypeSymbol"/> through
+/// <c>Collect()</c>: symbols don't compare structurally equal across compilations, so
+/// keeping one in the pipeline defeats incremental caching for the whole file.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator

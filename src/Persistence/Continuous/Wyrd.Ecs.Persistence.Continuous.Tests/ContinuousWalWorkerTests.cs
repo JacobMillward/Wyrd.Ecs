@@ -87,9 +87,8 @@ public class ContinuousWalWorkerTests : IDisposable
     {
         var world = new World();
         using var capture = new ChangeCapture(world, BuildRegistry());
-        // Segment opening must succeed (it happens inside the constructor, outside any
-        // try/catch — a broken store should fail construction loudly, not be silently
-        // swallowed) but Flush, called every WalWriteCycle, is what this test breaks.
+        // Segment opening (in the constructor, outside any try/catch) must succeed; this
+        // test breaks Flush instead, which runs every WalWriteCycle.
         var flushThrowingWalStore = new FlushThrowingWalStore(WalBasePath);
         Exception? reported = null;
         var worker = new ContinuousWalWorker(world, capture, new FileStore(CheckpointPath), flushThrowingWalStore, WalOptions.Default, ex => reported = ex);
@@ -126,10 +125,9 @@ public class ContinuousWalWorkerTests : IDisposable
         worker.WalWriteCycle();
         var initialSegmentTick = walStore.ListSegmentStartTicks().Single();
 
-        // A dedicated Thread, not Task.Run: under xUnit's parallel test execution,
-        // many test classes competing for the throttled ThreadPool can starve a
-        // Task.Run work item well past this test's own polling deadline, causing
-        // flaky failures unrelated to the actual logic being tested.
+        // A dedicated Thread, not Task.Run: under xUnit's parallel execution, ThreadPool
+        // contention can starve a Task.Run item past this test's polling deadline, causing
+        // flaky failures unrelated to the logic under test.
         var mergeThread = new Thread(worker.CheckpointMergeCycle);
         mergeThread.Start();
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);

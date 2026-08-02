@@ -69,19 +69,9 @@ public class EntityTemplateFreezeTests
     }
 
     /// <summary>
-    /// One thread repeatedly reads <c>Signature</c>/<c>Setters</c> (what
-    /// <see cref="CommandBuffer.CreateEntity(EntityTemplate)"/> does internally, and is
-    /// itself documented safe to call from several threads at once) while another
-    /// repeatedly calls <see cref="EntityTemplate.AddComponent{T}"/> — the actual
-    /// concurrent race the freeze guard's own doc comment claims to close, not just the
-    /// sequential instantiate-then-mutate case the other tests in this file cover. Both
-    /// operations share one lock, so the only exception either thread should ever
-    /// observe is <see cref="InvalidOperationException"/> from
-    /// <c>ThrowIfFrozen</c> — never a torn-dictionary symptom
-    /// (<see cref="IndexOutOfRangeException"/>, a "Collection was modified"
-    /// <see cref="InvalidOperationException"/> from enumerating <c>_settersByType</c>
-    /// mid-mutation, etc.) from the freeze check and the mutation it guards racing
-    /// unsynchronized.
+    /// Reads Signature/Setters on one thread while AddComponent runs on another. The only
+    /// exception either thread should see is <see cref="InvalidOperationException"/> from
+    /// <c>ThrowIfFrozen</c>, never a torn-dictionary symptom.
     /// </summary>
     [Fact]
     public void ConcurrentReadAndMutate_NeverThrowsAnythingOtherThanFrozen()
@@ -136,7 +126,7 @@ public class EntityTemplateFreezeTests
 
         otherExceptions.Should().BeEmpty();
 
-        // By now the reader thread has frozen the template — confirm that deterministically.
+        // By now the reader thread has frozen the template: confirm that deterministically.
         var act = () => template.AddComponent(new Position { X = 0 });
         act.Should().Throw<InvalidOperationException>();
     }

@@ -27,8 +27,7 @@ public class SchedulableSystemTests
         (marker is SchedulableSystem).Should().BeTrue();
     }
 
-    // MarkerSystem and EcsSystem are declared as siblings under SchedulableSystem
-    // (Task 1), not related by inheritance -- the compiler already proves
-    // "marker is EcsSystem" false at compile time (CS0184 on any attempt to write
-    // that check at runtime), so there's no separate runtime assertion to make here.
+    // MarkerSystem and EcsSystem are sibling types under SchedulableSystem, not related by
+    // inheritance, so the compiler already proves "marker is EcsSystem" false (CS0184) - no
+    // runtime assertion needed here.
 }

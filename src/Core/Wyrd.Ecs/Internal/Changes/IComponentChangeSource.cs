@@ -3,12 +3,9 @@ namespace Wyrd.Ecs.Internal;
 /// <summary>
 /// The change-tracking half of a registered component's runtime view, split out of
 /// <see cref="IComponentCodec"/> (which stays pure serialization) since nothing outside
-/// <see cref="ChangeFeedHub"/> needs it — <see cref="IRelationCodec"/> never had this
-/// problem to begin with, since relation changes are captured via
-/// <see cref="IStructuralChangeObserver"/>, not a scan. Implemented by
-/// <see cref="ComponentCodec{T}"/> alongside the public <see cref="IComponentCodec"/>
-/// interface on the same instance; <see cref="ChangeFeedHub"/>, in the same assembly,
-/// casts a public <see cref="IComponentCodec"/> reference down to this when it needs
+/// <see cref="ChangeFeedHub"/> needs it. Implemented by <see cref="ComponentCodec{T}"/>
+/// alongside the public <see cref="IComponentCodec"/> interface on the same instance;
+/// <see cref="ChangeFeedHub"/>, in the same assembly, casts down to this when it needs
 /// tracking.
 /// </summary>
 internal interface IComponentChangeSource

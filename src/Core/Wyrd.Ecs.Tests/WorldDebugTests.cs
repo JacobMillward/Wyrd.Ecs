@@ -84,10 +84,8 @@ public class WorldDebugTests
     [Fact]
     public void EnumerateArchetypes_IsUnaffectedByAMutationThatReachesANewArchetypeAfterItReturns()
     {
-        // Regression test for the eager-materialization decision: EnumerateArchetypes
-        // must fully snapshot before returning, so a structural mutation applied after it
-        // returns (but before the caller finishes reading the result) must never throw
-        // "Collection was modified" against the live World.
+        // EnumerateArchetypes must fully snapshot before returning, so a structural mutation
+        // applied after it returns must never affect the already-captured result.
         var world = new World();
         var entity = world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();

@@ -22,12 +22,10 @@ internal static class WyrdDiagnostics
 
     /// <summary>
     /// Two <c>.ForEach</c>/<c>.ParallelForEach</c> call sites (or a <c>QuerySystem</c> and a
-    /// call site) share the exact same <c>Query&lt;TShape&gt;</c> closed type — same
-    /// <c>.With&lt;T&gt;()</c> set, same declaration order — but resolve a different
-    /// <c>ref</c>/<c>in</c> for the same component. Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c>
-    /// no longer affect <c>TShape</c>, this is now reachable by two otherwise-unrelated
-    /// queries (e.g. one writing a component, one only reading it) that happen to declare
-    /// the exact same <c>.With&lt;T&gt;()</c> set with nothing else distinguishing them.
+    /// call site) share the exact same <c>Query&lt;TShape&gt;</c> closed type but resolve a
+    /// different <c>ref</c>/<c>in</c> for the same component. Reachable because
+    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, so two
+    /// otherwise-unrelated queries with the same <c>.With&lt;T&gt;()</c> set can collide.
     /// </summary>
     internal static readonly DiagnosticDescriptor ConflictingAccessForSameShape = new(
         id: "WYRD003",
@@ -39,13 +37,10 @@ internal static class WyrdDiagnostics
 
     /// <summary>
     /// A `file`-scoped type (C# 11 `file` modifier) was used as a query component. This can
-    /// never work: the query-chain generator's `.ForEach`/`.ParallelForEach` extension methods
-    /// (and `QuerySystem` glue) are emitted into a *separate* generated source file, which
-    /// structurally cannot reference a `file`-scoped type declared in the consumer's own file
-    /// — regardless of whether any other type happens to share its name. Reported before shape
-    /// extraction succeeds, so a rejected shape never reaches the exact-shape/dedup pipeline at
-    /// all (see <c>QueryChainGenerator</c>), which also rules out it silently colliding with an
-    /// unrelated, ordinarily-scoped type of the same simple name elsewhere in the compilation.
+    /// never work: the generator's `.ForEach`/`.ParallelForEach` extensions (and
+    /// `QuerySystem` glue) are emitted into a separate generated source file, which cannot
+    /// reference a `file`-scoped type from the consumer's own file. Reported before shape
+    /// extraction succeeds, so a rejected shape never reaches the dedup pipeline.
     /// </summary>
     internal static readonly DiagnosticDescriptor FileLocalComponentType = new(
         id: "WYRD004",

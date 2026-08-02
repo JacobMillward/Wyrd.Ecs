@@ -3,9 +3,7 @@ namespace Wyrd.Ecs.Internal;
 /// <summary>
 /// Orders a node set so every <see cref="SystemOrderGraph.Edge"/>'s <c>Before</c> node
 /// precedes its <c>After</c> node, breaking ties by a caller-supplied order. With zero
-/// edges the result is exactly that tie-break order — this is what lets
-/// <see cref="SystemScheduler.BuildStages"/> reproduce its pre-ordering stage
-/// groupings exactly when no system declares any edge.
+/// edges the result is exactly that tie-break order.
 /// </summary>
 internal static class StableTopologicalSort
 {
@@ -65,13 +63,11 @@ internal static class StableTopologicalSort
     }
 
     /// <summary>
-    /// Finds one concrete cycle among <paramref name="stuck"/> (the nodes Kahn's
-    /// algorithm couldn't fully order). A stuck node isn't necessarily itself a cycle
-    /// member — it may only depend, directly or transitively, on one — so a single
-    /// forward walk from an arbitrary stuck node can reach a dead end (a node with no
-    /// outgoing edge back into the stuck set) before ever finding a repeat. This tries
-    /// each unexplored stuck node as a fresh starting point, marking every node a dead
-    /// end walk passed through as visited so it's never re-walked from a later start.
+    /// Finds one concrete cycle among <paramref name="stuck"/> (the nodes Kahn's algorithm
+    /// couldn't fully order). A stuck node isn't necessarily itself a cycle member, since it
+    /// may only depend on one, so a single forward walk can dead-end before finding a repeat.
+    /// This tries each unexplored stuck node as a fresh start, marking every node a dead-end
+    /// walk passed through as visited so it's never re-walked.
     /// </summary>
     private static List<OrderNode> FindCyclePath(
         List<OrderNode> stuck,
@@ -102,7 +98,7 @@ internal static class StableTopologicalSort
                     foundNext = true;
                     break;
                 }
-                if (!foundNext) goto NextStart; // dead end -- this walk found no cycle
+                if (!foundNext) goto NextStart; // dead end: this walk found no cycle
 
                 current = next;
             }

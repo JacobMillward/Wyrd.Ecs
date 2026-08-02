@@ -2,11 +2,9 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
 /// Stores WAL segments as separate files on the local filesystem, named
-/// <c>{basePath}.wal.{startTick}</c>. A fresh segment is always a brand-new file —
-/// <see cref="OpenSegmentAppend"/> throws if one already exists for a given tick. This
-/// store never resumes appending to a segment left over from a previous process run;
-/// a new run always starts a fresh segment, and whatever's left in an old one is read
-/// once during recovery, not appended to further.
+/// <c>{basePath}.wal.{startTick}</c>. A fresh segment is always a brand-new file:
+/// <see cref="OpenSegmentAppend"/> throws if one already exists for a given tick, and a
+/// segment left over from a previous run is only ever read, never appended to again.
 /// </summary>
 public sealed class FileWalStore(string basePath) : IWalStore
 {

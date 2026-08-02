@@ -8,12 +8,11 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Wyrd.Ecs.Generators.Diagnostics;
 
 /// <summary>
-/// Flags a data-component parameter with no `ref`/`in` modifier — in a
-/// `.ForEach`/`.ParallelForEach` lambda, or in a `QuerySystem.Update` method — as
-/// `WYRD001`. Runs independently of `ChainWalker`/`TryExtractQuerySystem`: those simply
-/// decline to recognize a shape they can't resolve access mode for (silently, so the
-/// generator doesn't emit anything for that call site) — this analyzer is what turns that
-/// silence into an actionable, located error.
+/// Flags a data-component parameter with no `ref`/`in` modifier (in a
+/// `.ForEach`/`.ParallelForEach` lambda, or in a `QuerySystem.Update` method) as
+/// `WYRD001`. Runs independently of `ChainWalker`, which just silently declines to
+/// recognize a shape it can't resolve access mode for; this analyzer turns that silence
+/// into an actionable, located error.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class BareDataParameterAnalyzer : DiagnosticAnalyzer
@@ -41,7 +40,7 @@ public sealed class BareDataParameterAnalyzer : DiagnosticAnalyzer
         if (lastArgument.Expression is not ParenthesizedLambdaExpressionSyntax lambda) return;
 
         // Every argument before the lambda is a leading uniform/state value the lambda
-        // receives as its own leading parameter(s) -- see ChainWalker.TryExtractShape's
+        // receives as its own leading parameter(s): see ChainWalker.TryExtractShape's
         // matching comment. Skip exactly that many of the lambda's own parameters before
         // treating the rest as data.
         var skipCount = invocation.ArgumentList.Arguments.Count - 1;

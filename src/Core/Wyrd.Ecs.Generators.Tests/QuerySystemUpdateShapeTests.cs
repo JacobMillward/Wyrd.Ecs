@@ -105,8 +105,8 @@ public class QuerySystemUpdateShapeTests
     {
         // Canonical order is Time -> World -> EntityView. EntityView declared before World
         // means classification only recognizes Time+EntityView; the World parameter that
-        // follows is left in the component range, where component-shape matching (Task 2/3)
-        // rejects it naturally since "World" never matches a declared component type name.
+        // follows is left in the component range, where component-shape matching rejects it
+        // since "World" never matches a declared component type name.
         var parameters = ParametersOf("""
             using Wyrd.Ecs;
             public struct Position : IComponent { public float X; }

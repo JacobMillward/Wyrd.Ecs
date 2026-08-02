@@ -1,30 +1,14 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
-/// Builds a checkpoint by merging the prior one with every WAL record since it —
-/// never touches a live <see cref="World"/>, never calls <c>EnumerateAll</c>, never
-/// interprets a payload's bytes. Since every WAL record already durably captures a
-/// component's encoded value (or a relation edge's) as of some tick, "take a
-/// checkpoint" reduces to: read the prior checkpoint as a baseline, apply every WAL
-/// record with a tick in <c>(priorTick, targetTick]</c> in order (keyed by entity and
-/// discriminator for components, by source/target/discriminator for relation edges;
-/// removal-kind records deleting entries instead of being skipped), and write the
-/// merged result back through the same atomic-swap <see cref="IPersistenceStore"/>
-/// path <c>World.Save</c> already uses. Runs entirely out of band — no
-/// synchronization with a sim thread is needed because nothing here ever touches live
-/// state, only bytes already durable on disk.
-///
-/// <para>
-/// A destroyed entity's entries are never removed eagerly from the working
-/// dictionaries — <c>EntityDestroyed</c> only adds to a plain <c>HashSet&lt;EntityId&gt;</c>
-/// (O(1), no index to maintain). The single write pass that has to run anyway (to
-/// serialize the merged result) filters against that set at zero additional asymptotic
-/// cost — a component entry by its owning entity, a relation entry by either its
-/// source or its target — instead of an eager per-destroy sweep needing its own index
-/// to stay fast. This is safe because <see cref="EntityId"/> is never reused — once an
-/// id is destroyed, no later WAL record in the same merge window can legitimately
-/// reference it again, so the set never needs to shrink.
-/// </para>
+/// Builds a checkpoint by merging the prior one with every WAL record since it. Never
+/// touches a live <see cref="World"/> or interprets a payload's bytes: every record
+/// already carries an encoded value, so merging reduces to replaying records with a
+/// tick in <c>(priorTick, targetTick]</c> over the prior checkpoint (keyed by entity and
+/// discriminator for components, by source/target/discriminator for relations; removal
+/// kinds delete rather than skip) and writing the result back via the same atomic-swap
+/// <see cref="IPersistenceStore"/> path <c>World.Save</c> uses. Runs entirely out of
+/// band, with no synchronization needed against a live sim thread.
 /// </summary>
 public static class CheckpointBuilder
 {
@@ -104,10 +88,8 @@ public static class CheckpointBuilder
         }
         catch (FileNotFoundException)
         {
-            // Required by IPersistenceStore.OpenCheckpointRead's documented contract:
-            // every implementation throws exactly this (or a subclass) for "no
-            // checkpoint written yet", so this catch is guaranteed to mean "empty
-            // store," not a real read failure being swallowed.
+            // IPersistenceStore.OpenCheckpointRead's contract: this exception (or a
+            // subclass) means "no checkpoint written yet," not a real read failure.
             return (0, [], []);
         }
 

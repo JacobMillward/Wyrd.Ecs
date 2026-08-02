@@ -5,15 +5,11 @@ using System.Text;
 namespace Wyrd.Ecs.InternalGenerators;
 
 /// <summary>
-/// Shared per-arity C# source templates used by <see cref="WorldQueryMembersGenerator"/>
-/// for multi-component entity creation (<c>PlaceReservedEntity</c>/<c>CreateEntityOp</c>/
-/// <c>CommandBuffer.CreateEntity</c>) and their supporting <c>QuerySignature</c> cache.
-/// Each arity N (component count) is a mechanical, additive extension of arity N-1, so
-/// these builders are parameterized by N rather than duplicated per arity. Previously
-/// also emitted the fluent <c>Query&lt;T0..TN-1&gt;</c>/<c>QueryRow&lt;T0..TN-1&gt;</c>
-/// family and <c>World</c>'s matching <c>Query&lt;T0..TN-1&gt;()</c>
-/// members; that family was removed when queries moved to the generator-backed
-/// unbounded query-shape design, which has no arity cap.
+/// Per-arity C# source templates used by <see cref="WorldQueryMembersGenerator"/> for
+/// multi-component entity creation (<c>PlaceReservedEntity</c>/<c>CreateEntityOp</c>/
+/// <c>CommandBuffer.CreateEntity</c>) and the supporting <c>QuerySignature</c> cache.
+/// Parameterized by arity N rather than duplicated per arity, since each is a
+/// mechanical extension of N-1.
 /// </summary>
 internal static class ArityTemplates
 {
@@ -27,19 +23,14 @@ internal static class ArityTemplates
     internal static string WhereClausesInline(int n) =>
         string.Join(" ", Indices(n).Select(i => $"where T{i} : struct, IComponent"));
 
-    /// <summary>Same as <see cref="WhereClausesInline"/> but without the <c>IComponent</c> constraint -- matches <c>Query&lt;TShape&gt;.With&lt;TMarker&gt;()</c>'s existing single-arg constraint (<c>where TMarker : struct</c>), since the arity-2+ `With`/`Without`/`Has`/`Any` overloads are sugar for that same call, not a new, stricter contract.</summary>
+    /// <summary>Same as <see cref="WhereClausesInline"/> but without the <c>IComponent</c> constraint: matches <c>Query&lt;TShape&gt;.With&lt;TMarker&gt;()</c>'s existing single-arg constraint (<c>where TMarker : struct</c>), since the arity-2+ `With`/`Without`/`Has`/`Any` overloads chain that same call, not a new, stricter contract.</summary>
     internal static string WhereClausesPlain(int n) =>
         string.Join(" ", Indices(n).Select(i => $"where T{i} : struct"));
 
     /// <summary>
-    /// Emits <c>QuerySignature&lt;T0..TN-1&gt;</c>: an archetype signature for a given
-    /// component set, resolved once per closed generic instantiation (the same pattern
-    /// <c>TypeIndex&lt;T&gt;</c> uses). Originally shared with the now-removed fluent
-    /// <c>Query&lt;T0..TN-1&gt;</c> family; the only remaining caller is
-    /// <see cref="PlaceReservedEntityMember"/>, which still needs a cached signature
-    /// lookup to find or create an entity's target archetype on multi-component
-    /// creation -- unrelated to querying, but this happened to already be the
-    /// signature-caching mechanism in place, so it stays rather than being duplicated.
+    /// Emits <c>QuerySignature&lt;T0..TN-1&gt;</c>: an archetype signature cached once per
+    /// closed generic instantiation (same pattern as <c>TypeIndex&lt;T&gt;</c>). Only used by
+    /// <see cref="PlaceReservedEntityMember"/> to find or create an entity's target archetype.
     /// </summary>
     internal static string QuerySignature(int n)
     {
@@ -60,10 +51,9 @@ internal static class ArityTemplates
 
     /// <summary>
     /// Emits the internal <c>World</c> method <c>PlaceReservedEntity&lt;T0..TN-1&gt;(Entity, T0, ...)</c>:
-    /// places a previously-reserved entity into the archetype matching
-    /// <c>T0..TN-1</c> (creating it if needed) and writes the given component values.
-    /// Used only by the matching generated <c>CommandBuffer.CreateEntity&lt;T0..TN-1&gt;</c>
-    /// overload's queued placement — see <see cref="CommandBufferCreateEntityMember"/>.
+    /// places a previously-reserved entity into the matching archetype (creating it if
+    /// needed) and writes the given component values. Used by the matching
+    /// <see cref="CommandBufferCreateEntityMember"/> overload's queued placement.
     /// </summary>
     internal static string PlaceReservedEntityMember(int n)
     {
@@ -97,12 +87,10 @@ internal static class ArityTemplates
 
     /// <summary>
     /// Emits the internal <c>World</c> method <c>PlaceReservedEntities&lt;T0..TN-1&gt;(Entity[], T0, ...)</c>:
-    /// batch counterpart of <see cref="PlaceReservedEntityMember"/> — places every entity
-    /// in the given array into the archetype matching <c>T0..TN-1</c> (creating it if
-    /// needed) and blits the given component values across every one of their rows in
-    /// one <see cref="Internal.ComponentStorage{T}.Fill"/> call per component type. Used
-    /// only by the matching generated <c>CommandBuffer.CreateEntity&lt;T0..TN-1&gt;(int, ...)</c>
-    /// overload's queued placement — see <see cref="CommandBufferBatchCreateEntityMember"/>.
+    /// batch counterpart of <see cref="PlaceReservedEntityMember"/>. Places every entity into
+    /// the matching archetype (creating it if needed) and blits the component values across
+    /// all rows with one <see cref="Internal.ComponentStorage{T}.Fill"/> call per component.
+    /// Used by <see cref="CommandBufferBatchCreateEntityMember"/>'s queued placement.
     /// </summary>
     internal static string PlaceReservedEntitiesMember(int n)
     {
@@ -136,13 +124,11 @@ internal static class ArityTemplates
     }
 
     /// <summary>
-    /// Emits <c>file static class CreateEntityOp&lt;T0..TN-1&gt;</c>: a cached,
-    /// non-capturing dispatcher delegate for <see cref="CommandBufferCreateEntityMember"/>'s
-    /// queued placement — one static instance per closed generic combination, created
-    /// once and reused across every queued call, instead of a fresh closure allocated
-    /// per call. For arity 1 the payload is boxed directly as <c>T0</c>; arity 2+ boxes
-    /// one value tuple holding every component, still a single allocation per queued
-    /// call regardless of arity.
+    /// Emits <c>file static class CreateEntityOp&lt;T0..TN-1&gt;</c>: a cached, non-capturing
+    /// dispatcher for <see cref="CommandBufferCreateEntityMember"/>'s queued placement, one
+    /// static instance per closed generic combination instead of a per-call closure. Arity 1
+    /// boxes the payload directly as <c>T0</c>; arity 2+ boxes one value tuple, still a single
+    /// allocation per queued call regardless of arity.
     /// </summary>
     internal static string CreateEntityOpClass(int n)
     {
@@ -173,12 +159,10 @@ internal static class ArityTemplates
     }
 
     /// <summary>
-    /// Emits <c>file static class BatchCreateEntityOp&lt;T0..TN-1&gt;</c>: the batch
-    /// counterpart of <see cref="CreateEntityOpClass"/> — one cached, non-capturing
-    /// dispatcher per closed generic combination, unboxing a
-    /// <c>(Entity[] Entities, T0 Component0, ...)</c> tuple (rather than a single value
-    /// or value-only tuple) and calling <see cref="PlaceReservedEntitiesMember"/>'s
-    /// emitted method.
+    /// Emits <c>file static class BatchCreateEntityOp&lt;T0..TN-1&gt;</c>: batch counterpart
+    /// of <see cref="CreateEntityOpClass"/>. Unboxes a
+    /// <c>(Entity[] Entities, T0 Component0, ...)</c> tuple and calls
+    /// <see cref="PlaceReservedEntitiesMember"/>'s emitted method.
     /// </summary>
     internal static string BatchCreateEntityOpClass(int n)
     {
@@ -204,11 +188,9 @@ internal static class ArityTemplates
 
     /// <summary>
     /// Emits the <c>CommandBuffer</c> method <c>CreateEntity&lt;T0..TN-1&gt;(T0, ...)</c>:
-    /// reserves a real entity id immediately (same as bare <c>CommandBuffer.CreateEntity()</c>)
-    /// and queues its placement with the given component values already set, going
-    /// directly to the matching archetype in one step instead of creating an empty
-    /// entity and queuing each component add afterward. Queues via the shared
-    /// <c>QueuedCommand</c> representation (see <c>CommandBuffer.cs</c>), dispatching through
+    /// reserves a real entity id immediately and queues its placement with the given
+    /// component values already set, going directly to the matching archetype instead of
+    /// creating an empty entity and queuing each component add afterward. Dispatches through
     /// the matching <see cref="CreateEntityOpClass"/> instead of a per-call closure.
     /// </summary>
     internal static string CommandBufferCreateEntityMember(int n)
@@ -239,13 +221,10 @@ internal static class ArityTemplates
 
     /// <summary>
     /// Emits the <c>CommandBuffer</c> method <c>CreateEntity&lt;T0..TN-1&gt;(int count, T0, ...)</c>:
-    /// reserves <c>count</c> real <see cref="Entity"/> ids immediately via
-    /// <c>World.ReserveEntityRange</c> (one bulk reservation, not <c>count</c> individual
-    /// ones) and queues their placement — all sharing the given component values — as a
-    /// single deferred command. The returned entities are not <c>World.IsAlive</c> until
-    /// <c>World.ApplyCommands()</c> runs. Returns <c>Array.Empty&lt;Entity&gt;()</c> for
-    /// <c>count == 0</c> without reserving or queuing anything; throws
-    /// <c>ArgumentOutOfRangeException</c> for a negative count.
+    /// reserves <c>count</c> entity ids in one bulk <c>World.ReserveEntityRange</c> call and
+    /// queues their placement, all sharing the given component values, as a single deferred
+    /// command. Returns <c>Array.Empty&lt;Entity&gt;()</c> for <c>count == 0</c> without
+    /// reserving or queuing anything; throws <c>ArgumentOutOfRangeException</c> for negative.
     /// </summary>
     internal static string CommandBufferBatchCreateEntityMember(int n)
     {
@@ -273,11 +252,10 @@ internal static class ArityTemplates
     }
 
     /// <summary>
-    /// Emits the `Query&lt;TShape&gt;.With&lt;T0..Tn-1&gt;()` overload: pure call-site sugar
-    /// for `n` chained single-arg `.With&lt;T&gt;()` calls, producing the identical
-    /// nested-tuple type -- T0 innermost (first-declared), T{n-1} outermost (last-declared) --
-    /// so `ChainWalker`'s declaration-order recovery needs no changes to support it.
-    /// `Filter` carries through unchanged, same as the hand-written single-arg `.With&lt;T&gt;()`.
+    /// Emits the `Query&lt;TShape&gt;.With&lt;T0..Tn-1&gt;()` overload: equivalent to `n`
+    /// chained single-arg `.With&lt;T&gt;()` calls, producing the identical nested-tuple type
+    /// (T0 innermost, T{n-1} outermost) so `ChainWalker`'s declaration-order recovery needs
+    /// no changes. `Filter` carries through unchanged.
     /// </summary>
     internal static string QueryWithMember(int n)
     {
@@ -294,7 +272,7 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
-    /// <summary>Emits the `Query&lt;TShape&gt;.Without&lt;T0..Tn-1&gt;()` overload for arity 2+ -- forwards to `Filter`, same shape (`Query&lt;TShape&gt;`, unchanged) regardless of arity, since `Without` never touches `TShape`.</summary>
+    /// <summary>Emits the `Query&lt;TShape&gt;.Without&lt;T0..Tn-1&gt;()` overload for arity 2+. Forwards to `Filter`, same shape (`Query&lt;TShape&gt;`, unchanged) regardless of arity, since `Without` never touches `TShape`.</summary>
     internal static string QueryWithoutMember(int n)
     {
         var tp = TypeParams(n);
@@ -308,7 +286,7 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
-    /// <summary>Emits the `Query&lt;TShape&gt;.Has&lt;T0..Tn-1&gt;()` overload for arity 2+ -- same shape as <see cref="QueryWithoutMember"/>.</summary>
+    /// <summary>Emits the `Query&lt;TShape&gt;.Has&lt;T0..Tn-1&gt;()` overload for arity 2+. Same shape as <see cref="QueryWithoutMember"/>.</summary>
     internal static string QueryHasMember(int n)
     {
         var tp = TypeParams(n);
@@ -322,7 +300,7 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
-    /// <summary>Emits the `Query&lt;TShape&gt;.Any&lt;T0..Tn-1&gt;()` overload for arity 3+ -- forwards to `Filter.Any&lt;T0..Tn-1&gt;()` (itself generated, see <see cref="ArchetypeFilterAnyMember"/>), same shape (`Query&lt;TShape&gt;`, unchanged) regardless of arity.</summary>
+    /// <summary>Emits the `Query&lt;TShape&gt;.Any&lt;T0..Tn-1&gt;()` overload for arity 3+. Forwards to `Filter.Any&lt;T0..Tn-1&gt;()` (itself generated, see <see cref="ArchetypeFilterAnyMember"/>), same shape (`Query&lt;TShape&gt;`, unchanged) regardless of arity.</summary>
     internal static string QueryAnyMember(int n)
     {
         var tp = TypeParams(n);

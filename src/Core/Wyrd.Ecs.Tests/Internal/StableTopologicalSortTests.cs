@@ -65,11 +65,9 @@ public class StableTopologicalSortTests
     [Fact]
     public void CycleWithALeafDependent_ThrowsNamingTheCycleWithoutCrashingOnTheDependent()
     {
-        // D depends on A (After A) but nothing depends on D -- D is stuck (A never
-        // resolves) without itself being part of the A<->B cycle. D is listed first
-        // so cycle-path reconstruction's arbitrary starting choice reaches it before
-        // any actual cycle member, and must recover by trying another start instead
-        // of crashing on D's empty successor list.
+        // D depends on A but nothing depends on D, so it's stuck without being part of
+        // the A/B cycle. Listing D first forces cycle-path reconstruction to start from
+        // a non-cycle node and recover, rather than crashing on D's empty successor list.
         var a = OrderNode.ForSystem(new NodeA());
         var b = OrderNode.ForSystem(new NodeB());
         var d = OrderNode.ForSystem(new NodeD());

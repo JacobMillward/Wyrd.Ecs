@@ -9,10 +9,10 @@ namespace Comparison;
 /// Builds and disposes every <see cref="ContextAttribute"/>-tagged private field on a
 /// benchmark instance uniformly, so each backend's per-scenario state (a <c>WyrdContext</c>,
 /// <c>FrifloContext</c>, <c>FennecsContext</c>, etc.) is constructed from the same shared
-/// arguments the scenario's <c>[Params]</c> declare — the mechanism that makes it
-/// structurally impossible for one backend to run a different <c>EntityCount</c>/arity than
-/// another. Only ever called from <c>[GlobalSetup]</c>/<c>[IterationSetup]</c>/
-/// <c>[GlobalCleanup]</c>/<c>[IterationCleanup]</c> — never from a <c>[Benchmark]</c> method.
+/// arguments the scenario's <c>[Params]</c> declare. This keeps it structurally impossible
+/// for one backend to run a different <c>EntityCount</c>/arity than another. Only call from
+/// <c>[GlobalSetup]</c>/<c>[IterationSetup]</c>/<c>[GlobalCleanup]</c>/<c>[IterationCleanup]</c>,
+/// never from a <c>[Benchmark]</c> method.
 /// </summary>
 internal static class BenchmarkOperations
 {

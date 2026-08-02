@@ -3,7 +3,7 @@ using Likes = Wyrd.Ecs.Tests.RelationQueryIntegrationLikes;
 namespace Wyrd.Ecs.Tests;
 
 // File-scoped, not nested private: the query-chain generator emits code in a separate
-// partial that can't see a private nested type -- matches QueryFluentBuilderTests.cs's
+// partial that can't see a private nested type. Matches QueryFluentBuilderTests.cs's
 // existing convention for any component type used with .With<T>().ForEach(...).
 struct RelationQueryIntegrationLikes : IRelation { public float Weight; }
 
@@ -37,7 +37,7 @@ public class RelationQueryIntegrationTests
         world.Query().With<RelationLinks<Likes>>()
             .ForEach(0, (in int _, in RelationLinks<Likes> link) => count++);
 
-        count.Should().Be(2); // a and b, both matched purely by "has any Likes edge" -- untouched and c (which only has backlinks) are excluded
+        count.Should().Be(2); // a and b, both matched purely by "has any Likes edge": untouched and c (which only has backlinks) are excluded
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class RelationQueryIntegrationTests
         using var subscription = world.ObserveStructuralChanges(observer);
 
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
-        world.Commands.AddRelation(a, c, new Likes { Weight = 2f }); // second edge on `a`, same relation type -- no archetype move
+        world.Commands.AddRelation(a, c, new Likes { Weight = 2f }); // second edge on `a`, same relation type: no archetype move
         world.ApplyCommands();
 
         var addedForA = observer.Events.Count(e => e.StartsWith($"Added:{a.Id}:"));
@@ -89,7 +89,7 @@ public class RelationQueryIntegrationTests
         var observer = new RecordingObserver();
         using var subscription = world.ObserveStructuralChanges(observer);
 
-        world.Commands.RemoveRelation<Likes>(a, b); // one of two -- RelationLinks<Likes> itself survives
+        world.Commands.RemoveRelation<Likes>(a, b); // one of two: RelationLinks<Likes> itself survives
 
         world.ApplyCommands();
 

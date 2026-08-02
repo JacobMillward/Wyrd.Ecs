@@ -3,14 +3,11 @@ namespace Wyrd.Ecs;
 public sealed partial class ComponentCodecRegistry
 {
     /// <summary>
-    /// Registers <typeparamref name="T"/> — a tag, carrying no data — under
+    /// Registers <typeparamref name="T"/> (a tag, carrying no data) under
     /// <paramref name="discriminator"/> so it can be named in debug/inspection output.
     /// Throws under the same conditions as <see cref="Register{T}"/>: a duplicate
-    /// discriminator, or the same type registered twice under different discriminators.
-    /// Kept as a separate dictionary pair from the component-codec ones (not merged into
-    /// <see cref="IComponentCodec"/>) since a tag has no encode/decode/schema-hash to
-    /// give it, and a tag discriminator is allowed to collide with a component
-    /// discriminator.
+    /// discriminator, or the same type registered twice under different discriminators. A
+    /// tag discriminator is allowed to collide with a component discriminator.
     /// </summary>
     public void RegisterTag<T>(string discriminator) where T : struct, ITag
     {

@@ -6,12 +6,10 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
 /// Confirms relation-edge capture cost is per-edge (O(1)), not proportional to a hub
-/// entity's existing edge count — the core performance claim of
-/// docs/superpowers/specs/2026-08-01-relation-persistence-design.md: link/unlink events
-/// flow through IStructuralChangeObserver as a per-edge delta, never a whole
-/// RelationLinks{T} dictionary re-encode. ExistingEdgeCount at 0 vs 10,000 should cost
-/// about the same to add one more edge; a regression toward whole-dictionary re-encode
-/// would show up as a cost that grows with ExistingEdgeCount instead.
+/// entity's existing edge count: link/unlink events flow through
+/// <see cref="IStructuralChangeObserver"/> as a per-edge delta, never a whole
+/// <c>RelationLinks{T}</c> re-encode. Cost at <c>ExistingEdgeCount</c> 0 and 10,000 should
+/// be about the same; a regression would show cost growing with <c>ExistingEdgeCount</c>.
 /// </summary>
 [MemoryDiagnoser]
 public class RelationCaptureBenchmarks

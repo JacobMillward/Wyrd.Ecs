@@ -10,16 +10,8 @@ public class ChangeFeedHubConcurrencyTests
     }
 
     /// <summary>
-    /// <see cref="ChangeSubscription.Drain"/> is documented as callable from any
-    /// thread — the design's own stated goal is future consumers like a background
-    /// WAL-writer thread or a network client subscribing independently of the sim
-    /// thread. This stresses exactly that: one thread repeatedly advancing the tick
-    /// (mutating the hub's internal scan/watermark state) while several others
-    /// concurrently subscribe, drain, and dispose (mutating the hub's subscriber
-    /// bookkeeping) — none of it should ever throw. Before the hub's subscriber
-    /// dictionaries were lock-protected, this reliably threw
-    /// <c>InvalidOperationException</c> ("Collection was modified") within the first
-    /// few hundred iterations.
+    /// Stresses <see cref="ChangeSubscription.Drain"/>'s documented any-thread contract: one
+    /// thread advances the tick while others concurrently subscribe, drain, and dispose.
     /// </summary>
     [Fact]
     public void ConcurrentSubscribeDrainDisposeAgainstAConcurrentlyTickingWorld_NeverThrows()

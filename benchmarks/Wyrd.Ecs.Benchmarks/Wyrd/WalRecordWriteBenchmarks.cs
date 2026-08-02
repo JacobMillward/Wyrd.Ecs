@@ -7,9 +7,8 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 /// <summary>
 /// Isolated measurement of the WAL record write path
 /// (<c>WalSegmentWriter.WriteRecords</c>), kept separate from
-/// <see cref="ContinuousPersistenceTickBenchmarks"/> (which measures the sim-thread
-/// capture cost) so a combined number can't hide a regression in either. Standing
-/// regression guard for the pooled buffer's allocation cost.
+/// <see cref="ContinuousPersistenceTickBenchmarks"/> so a combined number can't hide a
+/// regression in either.
 /// </summary>
 [MemoryDiagnoser]
 public class WalRecordWriteBenchmarks

@@ -6,24 +6,18 @@ namespace Wyrd.Ecs.Internal;
 /// The world's entity identity table: generation-checked ids for liveness, permanent
 /// opaque ids (see <see cref="EntityId"/>), and each live entity's current archetype
 /// and row. Owns id allocation and recycling. A mutable struct, embedded directly in
-/// <see cref="World"/> rather than a class, so hot-path location lookups don't pay for
-/// an extra heap indirection: it's never referenced from anywhere but its owning
-/// <see cref="World"/>, so it doesn't need reference semantics.
+/// <see cref="World"/> rather than a class, so hot-path location lookups avoid an extra
+/// heap indirection.
 ///
 /// <para>
-/// <see cref="Reserve"/> is the one method here callable concurrently from several
-/// threads at once (via <see cref="CommandBuffer.CreateEntity()"/>, from several systems
-/// in the same <c>ScheduledExecutor</c> stage). Every other method assumes
-/// single-threaded, pre-/post-stage access. Rather than a lock, it mirrors Bevy's
+/// <see cref="Reserve"/> is the only method safe to call concurrently from several
+/// threads at once (e.g. several systems in the same stage, via
+/// <see cref="CommandBuffer.CreateEntity()"/>). It mirrors Bevy's
 /// <c>Entities::reserve_entity</c>: an atomic cursor (<see cref="_freeCursor"/>) into
-/// the recycled-id list (<see cref="_pending"/>), falling back to minting a brand-new
-/// id once the cursor goes negative. No CAS retry loop, no lock, and no two concurrent
-/// callers can ever be handed the same id. <see cref="_pending"/> (via
-/// <see cref="Retire"/>) and <see cref="_nextId"/>/<see cref="_freeCursor"/> (via
-/// <see cref="Place"/>/<see cref="FlushReservations"/>) are still only ever mutated
-/// single-threaded, since those three only ever run at the join point after a stage's
-/// systems have all returned, never concurrently with a <see cref="Reserve"/> call
-/// from that same stage.
+/// the recycled-id list (<see cref="_pending"/>), falling back to minting a new id once
+/// the cursor goes negative, with no lock and no two callers ever handed the same id.
+/// Every other method assumes single-threaded access, running only at the join point
+/// after a stage's systems have all returned.
 /// </para>
 /// </summary>
 internal struct EntityTable
@@ -44,22 +38,15 @@ internal struct EntityTable
     internal EntityId PermanentId(int id) => _permanentIds[id];
 
     /// <summary>
-    /// A direct array index, not a <c>HashSet&lt;int&gt;</c>: this is called on every
-    /// single structural mutation (<see cref="CommandBuffer"/> checks it before almost
-    /// every queued operation) plus every direct component read/write, so it's the
-    /// hottest correctness check in the engine. A bounds-checked array read costs a
-    /// fraction of a hash lookup on this path.
+    /// A direct array index, not a <c>HashSet&lt;int&gt;</c>, since this runs on every
+    /// structural mutation and every direct component read/write, the hottest correctness
+    /// check in the engine.
     ///
     /// <para>
-    /// <c>id &lt; _reserved.Length</c>, not <c>id &lt; _nextId</c>: a purely capacity
-    /// bounds check, doubling as the guard against reading an index nothing has ever
-    /// touched. Liveness comes entirely from <see cref="_reserved"/>: every slot
-    /// defaults to <c>true</c> (not alive) the moment its capacity exists, whether from
-    /// <see cref="EntityTable"/>'s own construction or from <see cref="EnsureCapacity"/>
-    /// growing into it, and <see cref="Place"/> is the only thing that ever clears one
-    /// to <c>false</c>. That makes each id's liveness independent of every other id's,
-    /// including a same-batch sibling that happens to share newly-grown capacity by
-    /// coincidence (see <see cref="Place"/>'s own doc for why that matters).
+    /// Liveness comes entirely from <see cref="_reserved"/>: every slot defaults to
+    /// <c>true</c> (not alive) the moment its capacity exists, and <see cref="Place"/> is
+    /// the only thing that ever clears one to <c>false</c>. That keeps each id's liveness
+    /// independent of a same-batch sibling that happens to share newly-grown capacity.
     /// </para>
     /// </summary>
     internal bool IsAlive(int id, int generation) =>
@@ -67,11 +54,10 @@ internal struct EntityTable
 
     /// <summary>
     /// Reserves a fresh entity id without placing it into any archetype: not
-    /// <see cref="IsAlive"/> until <see cref="Place"/> runs. Lets a caller (currently
-    /// only <see cref="CommandBuffer"/>) hand back a real, usable <see cref="Entity"/>
-    /// immediately for chaining further deferred commands against it, while the actual
-    /// archetype placement happens later, at apply time. Safe to call concurrently
-    /// from several threads at once; see the class doc for the lock-free scheme.
+    /// <see cref="IsAlive"/> until <see cref="Place"/> runs. Lets a caller hand back a
+    /// usable <see cref="Entity"/> immediately for chaining further deferred commands,
+    /// with actual archetype placement happening later, at apply time. Safe to call
+    /// concurrently from several threads; see the class doc for the scheme.
     /// </summary>
     internal Entity Reserve()
     {
@@ -87,13 +73,11 @@ internal struct EntityTable
         }
         else
         {
-            // No recycled id available (or the recycled pool is exhausted mid-batch):
-            // mint a brand-new id. _nextId only ever changes single-threaded (in
-            // Place), never concurrently with this branch, so every concurrent caller
-            // in this batch reads the same stable value and lands on a distinct,
-            // increasing id with no CAS retry needed. A never-before-used id's
-            // generation is always 0; array capacity for it is grown later, in Place.
-            // See Place's own doc for why _reserved doesn't need touching here.
+            // No recycled id available: mint a new id. _nextId only ever changes
+            // single-threaded (in Place), so every concurrent caller here reads the
+            // same stable value and lands on a distinct, increasing id with no CAS
+            // retry needed. Generation is always 0 for a never-before-used id; capacity
+            // is grown later, in Place.
             var id = _nextId - cursor - 1;
             return new Entity(id, 0);
         }
@@ -102,14 +86,9 @@ internal struct EntityTable
     /// <summary>
     /// Bulk counterpart to <see cref="Reserve"/>: claims a contiguous range of
     /// <see cref="_freeCursor"/> cursor slots in one <see cref="Interlocked.Add(ref int, int)"/>
-    /// instead of <c>destination.Length</c> separate <see cref="Interlocked.Decrement(ref int)"/>
-    /// calls, the same lock-free, no-CAS-retry, order-independent scheme
-    /// <see cref="Reserve"/> already documents for a single id, just claiming many slots
-    /// at once. Produces exactly the id sequence <c>destination.Length</c> sequential
-    /// <see cref="Reserve"/> calls would (verified directly against that arithmetic in
-    /// <c>EntityTableTests.ReserveRange_ProducesTheSameIdsAsSequentialReserveCalls</c>).
-    /// Used by batch entity creation so reserving a batch of N ids costs one atomic op,
-    /// not N of them, keeping the whole batch-creation path O(1) per call regardless of N.
+    /// instead of <c>destination.Length</c> separate decrements, using the same lock-free
+    /// scheme. Produces exactly the id sequence that many sequential <see cref="Reserve"/>
+    /// calls would, at O(1) per call regardless of count.
     /// </summary>
     internal void ReserveRange(Span<Entity> destination)
     {
@@ -135,12 +114,9 @@ internal struct EntityTable
     /// <summary>
     /// Places a previously-<see cref="Reserve"/>d entity into <paramref name="archetype"/>,
     /// making it <see cref="IsAlive"/> from this point on. Implemented as
-    /// <see cref="Archetype.AddRow"/> (reserves this entity's row) followed by
-    /// <see cref="PlaceAt"/> (the id-table bookkeeping), split out so batch placement
-    /// (<see cref="PlaceBatch"/>) can reuse the bookkeeping half against rows already
-    /// bulk-reserved via <see cref="Archetype.AddRows"/>, without a second per-entity
-    /// <c>AddRow</c> call. See <see cref="PlaceAt"/>'s own doc for the concurrency and
-    /// liveness invariants this relies on.
+    /// <see cref="Archetype.AddRow"/> followed by <see cref="PlaceAt"/>'s id-table
+    /// bookkeeping, split out so <see cref="PlaceBatch"/> can reuse the bookkeeping half
+    /// against rows already bulk-reserved via <see cref="Archetype.AddRows"/>.
     /// </summary>
     internal int Place(Entity entity, Archetype archetype)
     {
@@ -152,29 +128,18 @@ internal struct EntityTable
     /// <summary>
     /// The id-table bookkeeping half of <see cref="Place"/>: grows backing array capacity
     /// for <paramref name="entity"/>'s id, assigns its permanent id, and clears
-    /// <see cref="_reserved"/>'s bit for it. The row itself is reserved separately, by
-    /// the caller (via <see cref="Archetype.AddRow"/> for a single entity, or
-    /// <see cref="Archetype.AddRows"/> for a batch). Only ever runs single-threaded, from
-    /// <see cref="CommandBuffer.Apply"/>'s command loop.
+    /// <see cref="_reserved"/>'s bit for it. The row itself is reserved separately, by the
+    /// caller. Only ever runs single-threaded, from <see cref="CommandBuffer.Apply"/>'s
+    /// command loop.
     ///
     /// <para>
-    /// Clearing <see cref="_reserved"/>'s bit for this id is what actually makes it
-    /// <see cref="IsAlive"/>, immediately, regardless of placement order: a queued
-    /// <c>AddComponent</c> for the same entity <c>CreateEntity</c> just reserved, in the
-    /// same batch, checks <see cref="IsAlive"/> before that batch's
-    /// <see cref="CommandBuffer.Apply"/> call returns, so it needs this entity already
-    /// alive mid-batch, not just by the time the whole batch is done. <see cref="_nextId"/>
-    /// also advances here, for <see cref="Reserve"/>'s own bookkeeping, so the next
-    /// batch never mints an id this one already used; that bump plays no part in this
-    /// id's own liveness or any other id's. Two concurrently-reserved new ids in the
-    /// same batch can have their <see cref="Place"/>/<see cref="PlaceAt"/> calls run in
-    /// either order (a race in which thread's <see cref="CommandBuffer.Enqueue"/> call
-    /// wins the queue position first), and it's order-independent by construction:
-    /// whichever runs first only ever clears its own id's bit, never a sibling's, so a
-    /// lower, not-yet-placed sibling that happens to share newly-grown capacity
-    /// (because <see cref="EnsureCapacity"/> just grew arrays to cover this higher id)
-    /// still reads <c>true</c> (reserved, not alive) until its own <see cref="PlaceAt"/>
-    /// call runs.
+    /// Clearing <see cref="_reserved"/>'s bit is what makes this id <see cref="IsAlive"/>,
+    /// immediately, which a same-batch queued <c>AddComponent</c> right after
+    /// <c>CreateEntity</c> relies on. <see cref="_nextId"/> also advances here so a later
+    /// batch never mints an id this one already used. Two ids placed in either order within
+    /// the same batch stay independent: each call only ever clears its own id's bit, so a
+    /// not-yet-placed sibling that shares newly-grown capacity still reads reserved until
+    /// its own <see cref="PlaceAt"/> call runs.
     /// </para>
     /// </summary>
     internal void PlaceAt(Entity entity, Archetype archetype, int row)
@@ -188,12 +153,10 @@ internal struct EntityTable
 
     /// <summary>
     /// Bulk counterpart to <see cref="Place"/>: runs <see cref="PlaceAt"/>'s bookkeeping
-    /// for every entity in <paramref name="entities"/> against the rows
-    /// <see cref="Archetype.AddRows"/> already bulk-reserved for them, starting at
-    /// <paramref name="startRow"/>. This loop is unavoidable, since each id has its own
-    /// generation/permanent-id/reserved-bit slot to update, but it's int/struct
-    /// bookkeeping, not field-by-field component copying, so it doesn't undercut the
-    /// point of batching.
+    /// for every entity in <paramref name="entities"/> against rows already bulk-reserved
+    /// via <see cref="Archetype.AddRows"/>, starting at <paramref name="startRow"/>. The
+    /// per-entity loop is unavoidable but is only int/struct bookkeeping, not component
+    /// copying.
     /// </summary>
     internal void PlaceBatch(ReadOnlySpan<Entity> entities, Archetype archetype, int startRow)
     {
@@ -218,20 +181,13 @@ internal struct EntityTable
 
     /// <summary>
     /// Retires <paramref name="id"/> for reuse, bumping its generation so stale handles
-    /// report dead. Only ever called single-threaded (from <see cref="Destroy"/>, from
-    /// <see cref="CommandBuffer.Apply"/>'s command loop), so it's safe to read
-    /// <see cref="_freeCursor"/> directly here (not via <c>Interlocked</c>) even though
-    /// <see cref="Reserve"/> also touches it: the two never run concurrently. Writes at
-    /// whatever index <see cref="_freeCursor"/> currently names as the first
-    /// no-longer-needed slot. If it's still non-negative, that's the first entry past
-    /// however many of <see cref="_pending"/>'s existing entries remain genuinely
-    /// available (everything at or after that index is stale, already consumed by an
-    /// earlier <see cref="Reserve"/> this same stage, safe to overwrite). If it went
-    /// negative (the whole recycled pool was consumed, plus some brand-new ids minted
-    /// beyond it), there's nothing left to preserve, so this writes at index 0. Either
-    /// way this is also exactly where the next <see cref="Reserve"/> call should find
-    /// this id, which is why bumping <see cref="_freeCursor"/> to one past it here is
-    /// correct without any separate count to reconcile.
+    /// report dead. Only ever called single-threaded (from <see cref="Destroy"/>), so
+    /// it's safe to read <see cref="_freeCursor"/> directly here, without
+    /// <c>Interlocked</c>, even though <see cref="Reserve"/> also touches it. Writes
+    /// <paramref name="id"/> at whatever index <see cref="_freeCursor"/> names as the
+    /// first no-longer-needed slot (clamped to 0 if negative), then bumps
+    /// <see cref="_freeCursor"/> to one past it, exactly where the next
+    /// <see cref="Reserve"/> call should find this id.
     /// </summary>
     private void Retire(int id)
     {
@@ -243,20 +199,15 @@ internal struct EntityTable
     }
 
     /// <summary>
-    /// Clamps a negative <see cref="_freeCursor"/> (this batch's recycled pool was
-    /// fully consumed, plus some brand-new ids minted beyond it) back to zero, so the
-    /// next batch of concurrent <see cref="Reserve"/> calls starts from a clean
-    /// "nothing available yet" state instead of continuing to dig a deeper hole from
-    /// wherever this batch's cursor excursion left off (which would both skip ids in
-    /// the brand-new-id formula and never rediscover entries <see cref="Retire"/> adds
-    /// later). A non-negative <see cref="_freeCursor"/> already correctly reflects how
-    /// many entries are available, nothing to do in that case. Called once per
-    /// <see cref="World.ApplyCommands()"/>, after <see cref="CommandBuffer.Apply"/>'s
-    /// whole queue (hence every <see cref="Place"/>/<see cref="Retire"/> call it could
-    /// produce) has already run. Doesn't touch <see cref="_nextId"/> or
-    /// <see cref="_reserved"/>: <see cref="Place"/> already updates both immediately,
-    /// per entity, precisely so a same-batch <c>AddComponent</c> right after
-    /// <c>CreateEntity</c> sees the entity alive without waiting for this reconciliation.
+    /// Clamps a negative <see cref="_freeCursor"/> back to zero after a batch fully
+    /// consumed the recycled pool and minted new ids beyond it, so the next batch of
+    /// concurrent <see cref="Reserve"/> calls starts clean instead of digging a deeper
+    /// hole (which would skip ids and never rediscover entries <see cref="Retire"/> adds
+    /// later). A non-negative cursor already reflects available entries correctly, so
+    /// there's nothing to do in that case. Called once per <see cref="World.ApplyCommands()"/>,
+    /// after the whole command queue has run. Doesn't touch <see cref="_nextId"/> or
+    /// <see cref="_reserved"/>: <see cref="Place"/> already updates both immediately per
+    /// entity.
     /// </summary>
     internal void FlushReservations()
     {
@@ -265,15 +216,12 @@ internal struct EntityTable
 
     /// <summary>
     /// Grows every parallel array to cover <paramref name="id"/>. <see cref="_reserved"/>
-    /// needs one thing the others don't: <c>Array.Resize</c> zero-fills new slots to
-    /// <c>false</c>, which for every other array is fine (not yet meaningful), but for
-    /// <see cref="_reserved"/>, <c>false</c> means "alive." Growing past some higher id
-    /// (<paramref name="id"/> itself, mid-<see cref="Place"/>) would otherwise silently
-    /// make a lower, not-yet-placed sibling's still-untouched slot read as alive the
-    /// instant its capacity happens to exist, precisely the gap <see cref="IsAlive"/>'s
-    /// own doc describes. Explicitly filling the newly-added region with <c>true</c>
-    /// keeps every id "reserved" (not alive) by default until its own <see cref="Place"/>
-    /// call says otherwise.
+    /// needs special handling: <c>Array.Resize</c> zero-fills new slots to <c>false</c>,
+    /// which means "alive" for this array. Left alone, growing past a higher id mid-
+    /// <see cref="Place"/> would make a lower, not-yet-placed sibling's untouched slot
+    /// read as alive the instant its capacity exists. Explicitly filling the newly-added
+    /// region with <c>true</c> keeps every id reserved (not alive) by default until its
+    /// own <see cref="Place"/> call says otherwise.
     /// </summary>
     private void EnsureCapacity(int id)
     {

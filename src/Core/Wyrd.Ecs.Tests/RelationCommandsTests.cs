@@ -106,7 +106,7 @@ public class RelationCommandsTests
         world.Commands.RemoveRelation<Likes>(a, b);
         world.ApplyCommands();
 
-        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse(); // last edge removed -- component gone entirely
+        world.HasComponent<RelationLinks<Likes>>(a).Should().BeFalse(); // last edge removed: component gone entirely
         world.HasComponent<RelationBacklinks<Likes>>(b).Should().BeFalse();
     }
 
@@ -181,7 +181,7 @@ public class RelationCommandsTests
         Entity b = world.Commands.CreateEntity();
         world.ApplyCommands();
 
-        world.Commands.AddRelation<Follows>(a, b); // no value argument -- convenience for a marker-only relation type
+        world.Commands.AddRelation<Follows>(a, b); // no value argument: for a marker-only relation type
         world.ApplyCommands();
 
         world.HasComponent<RelationLinks<Follows>>(a).Should().BeTrue();
@@ -208,10 +208,9 @@ public class RelationCommandsTests
     [Fact]
     public void RelationBuffers_SharedAcrossDifferentRelationTypes_DoNotCrossWires()
     {
-        // Regression guard: RelationTargetBuffer (used by RemoveRelation<T> regardless of
-        // T) and separate per-T AddRelationBuffer<T> instances are queued in the same
-        // batch here for two different relation types -- each queued command's own
-        // captured (buffer, slot) must still resolve to its own, correct target.
+        // RelationTargetBuffer (shared across all T for RemoveRelation) and per-T
+        // AddRelationBuffer<T> are queued together here for two relation types; each queued
+        // command's own captured (buffer, slot) must still resolve to its own target.
         var world = new World();
         Entity a = world.Commands.CreateEntity();
         Entity b = world.Commands.CreateEntity();
