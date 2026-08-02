@@ -39,10 +39,22 @@ internal sealed class ChangeFeedHub
 
     internal ChangeFeedHub(World world) => _world = world;
 
-    private sealed class Subscriber(bool wantsStructuralEvents)
+    private sealed class Subscriber(bool wantsStructuralEvents, int? relationTypeIndexFilter = null)
     {
         internal readonly HashSet<int> TypeIndexes = [];
         internal readonly bool WantsStructuralEvents = wantsStructuralEvents;
+
+        /// <summary>
+        /// Set only by <see cref="SubscribeRelation{T}"/>: this subscriber wants
+        /// <see cref="ChangeKind.RelationLinked"/>/<see cref="ChangeKind.RelationUnlinked"/>
+        /// entries for exactly this relation type's <see cref="Internal.TypeIndex{T}"/>,
+        /// and nothing else — narrower than <see cref="WantsStructuralEvents"/>, which
+        /// delivers every structural event kind for every type.
+        /// </summary>
+        internal readonly int? RelationTypeIndexFilter = relationTypeIndexFilter;
+
+        internal bool ConsumesStructuralSlot => WantsStructuralEvents || RelationTypeIndexFilter is not null;
+
         internal readonly object Lock = new();
         internal List<ChangeEntry> Front = [];
         internal List<ChangeEntry> Back = [];
@@ -84,6 +96,29 @@ internal sealed class ChangeFeedHub
         }
     }
 
+    /// <summary>
+    /// Subscribes to just <typeparamref name="T"/>'s own relation link/unlink events —
+    /// no value-change tracking (relation edges aren't scanned; they're already
+    /// pushed synchronously via <see cref="AppendStructural"/>), and no other
+    /// structural event kind or relation type. Cheaper and more targeted than
+    /// <see cref="Subscribe{T}"/>'s <c>structuralEvents: true</c>, which delivers every
+    /// structural event kind for every type and requires an unrelated tracked
+    /// component type just to open the subscription.
+    /// </summary>
+    internal ChangeSubscription SubscribeRelation<T>() where T : struct, IRelation
+    {
+        lock (_lock)
+        {
+            var id = _nextId++;
+            var subscriber = new Subscriber(wantsStructuralEvents: false, relationTypeIndexFilter: TypeIndex<T>.Value);
+            _subscribers[id] = subscriber;
+
+            EnsureStructuralSubscribed();
+
+            return new ChangeSubscription(this, id);
+        }
+    }
+
     private void EnsureTypeTracked<T>(int typeIndex) where T : struct, IComponent
     {
         _typeInterestCount[typeIndex] = _typeInterestCount.GetValueOrDefault(typeIndex) + 1;
@@ -114,8 +149,13 @@ internal sealed class ChangeFeedHub
         lock (_lock)
         {
             foreach (var subscriber in _subscribers.Values)
-                if (subscriber.WantsStructuralEvents)
+            {
+                var wants = subscriber.WantsStructuralEvents ||
+                    (subscriber.RelationTypeIndexFilter == entry.TypeIndex &&
+                     entry.Kind is ChangeKind.RelationLinked or ChangeKind.RelationUnlinked);
+                if (wants)
                     lock (subscriber.Lock) subscriber.Front.Add(entry);
+            }
         }
     }
 
@@ -199,7 +239,7 @@ internal sealed class ChangeFeedHub
                 _scanners.Remove(typeIndex);
             }
 
-            if (!subscriber.WantsStructuralEvents) return;
+            if (!subscriber.ConsumesStructuralSlot) return;
             _structuralSubscriberCount--;
             if (_structuralSubscriberCount > 0) return;
             _structuralSubscription?.Dispose();

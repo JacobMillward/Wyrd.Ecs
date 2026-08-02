@@ -748,6 +748,19 @@ public sealed partial class World
         GetOrCreateChangeFeedHub().Subscribe(codec, structuralEvents);
 
     /// <summary>
+    /// Subscribes to just <typeparamref name="T"/>'s own link/unlink events — no other
+    /// structural event kind, no other relation type, and no component value tracking
+    /// (a relation edge's mutation is never scanned; it's pushed synchronously the
+    /// moment it happens). The narrower, more direct alternative to
+    /// <c>Subscribe&lt;SomeComponent&gt;(structuralEvents: true)</c> for a consumer that
+    /// only cares about one relation type: that path delivers every structural event
+    /// for every type and needs an unrelated tracked component just to open the
+    /// subscription in the first place.
+    /// </summary>
+    public ChangeSubscription SubscribeRelation<T>() where T : struct, IRelation =>
+        GetOrCreateChangeFeedHub().SubscribeRelation<T>();
+
+    /// <summary>
     /// Thread-safe lazy init — <see cref="Subscribe{T}"/> and
     /// <see cref="Subscribe(IComponentCodec, bool)"/> are meant to be callable from any
     /// thread (a background WAL-writer thread, for one), so a plain
