@@ -48,6 +48,12 @@ sealed class SpawnerBSystem : EcsSystem
     }
 }
 
+sealed class RecordingSystem : EcsSystem
+{
+    public int ExecuteCallCount;
+    protected override void Execute(World world, Time time) => ExecuteCallCount++;
+}
+
 public class ScheduledExecutorTests
 {
     /// <summary>None of this file's fixture systems declare <c>[RunBefore]</c>/<c>[RunAfter]</c>, so every call site here needs an empty edges dictionary, not a real generated one.</summary>
@@ -150,5 +156,32 @@ public class ScheduledExecutorTests
         world.Update(TimeSpan.FromSeconds(2));
 
         world.CurrentTick.Should().Be(3, "it starts at 1 (World's own default), advanced once per Update call");
+    }
+
+    [Fact]
+    public void RunStages_SkipsExecuteForDisabledSystem()
+    {
+        var system = new RecordingSystem();
+        var stages = new List<IReadOnlyList<EcsSystem>> { new List<EcsSystem> { system } };
+        var executor = new ScheduledExecutor(stages, parallelThreshold: 1000);
+        var world = new World();
+
+        system.Enabled = false;
+        executor.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+
+        system.ExecuteCallCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void RunStages_RunsExecuteForEnabledSystem()
+    {
+        var system = new RecordingSystem();
+        var stages = new List<IReadOnlyList<EcsSystem>> { new List<EcsSystem> { system } };
+        var executor = new ScheduledExecutor(stages, parallelThreshold: 1000);
+        var world = new World();
+
+        executor.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+
+        system.ExecuteCallCount.Should().Be(1, "Enabled defaults to true");
     }
 }

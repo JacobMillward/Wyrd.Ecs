@@ -23,9 +23,9 @@ public sealed class ScheduledExecutor
         foreach (var stage in _stages)
         {
             if (stage.Count > 1 && world.TotalEntityCount >= _parallelThreshold)
-                System.Threading.Tasks.Parallel.ForEach(stage, system => system.InvokeExecute(world, time));
+                System.Threading.Tasks.Parallel.ForEach(stage, system => { if (system.Enabled) system.InvokeExecute(world, time); });
             else
-                foreach (var system in stage) system.InvokeExecute(world, time);
+                foreach (var system in stage) { if (system.Enabled) system.InvokeExecute(world, time); }
 
             world.ApplyCommands();
         }

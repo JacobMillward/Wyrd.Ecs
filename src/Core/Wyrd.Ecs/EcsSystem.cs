@@ -9,6 +9,14 @@ namespace Wyrd.Ecs;
 public abstract class EcsSystem : SchedulableSystem
 {
     /// <summary>
+    /// Whether <see cref="ScheduledExecutor.RunStages"/> invokes this system's
+    /// <see cref="Execute"/> on the current tick. Cheap and immediate: toggling this
+    /// never touches the schedule itself, unlike removing a system entirely. The
+    /// recommended default for routine pause/resume.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
     /// Runs one iteration. <paramref name="time"/> is built by <see cref="World.Update"/>/
     /// <see cref="World.RunOnce"/> from the caller-supplied delta. It's unrelated to
     /// <see cref="World.CurrentTick"/>, the separate internal counter change-tracking
