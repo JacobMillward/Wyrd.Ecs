@@ -735,7 +735,7 @@ public sealed partial class World
     /// how many subscribers are watching it; see <see cref="ChangeSubscription"/>'s own doc.
     /// </summary>
     public ChangeSubscription Subscribe<T>(bool structuralEvents = false) where T : struct, IComponent =>
-        (_changeFeedHub ??= new Internal.ChangeFeedHub(this)).Subscribe<T>(structuralEvents);
+        GetOrCreateChangeFeedHub().Subscribe<T>(structuralEvents);
 
     /// <summary>
     /// Same as <see cref="Subscribe{T}"/>, for a caller that doesn't know its component
@@ -745,7 +745,23 @@ public sealed partial class World
     /// the same type; neither path knows or cares which the other used.
     /// </summary>
     public ChangeSubscription Subscribe(IComponentCodec codec, bool structuralEvents = false) =>
-        (_changeFeedHub ??= new Internal.ChangeFeedHub(this)).Subscribe(codec, structuralEvents);
+        GetOrCreateChangeFeedHub().Subscribe(codec, structuralEvents);
+
+    /// <summary>
+    /// Thread-safe lazy init — <see cref="Subscribe{T}"/> and
+    /// <see cref="Subscribe(IComponentCodec, bool)"/> are meant to be callable from any
+    /// thread (a background WAL-writer thread, for one), so a plain
+    /// <c>_changeFeedHub ??= new(...)</c> isn't safe here: two threads racing the very
+    /// first subscribe could each construct their own hub, and the loser's — even
+    /// though never published to <see cref="_changeFeedHub"/> — would still register its
+    /// own independent structural observer, racing the winner's for
+    /// <see cref="_structuralObservers"/> access with no shared lock between them.
+    /// <see cref="LazyInitializer"/>'s <c>EnsureInitialized</c> guarantees at most one
+    /// instance is ever published and returned to any caller, discarding a losing
+    /// candidate before it's ever used.
+    /// </summary>
+    private Internal.ChangeFeedHub GetOrCreateChangeFeedHub() =>
+        LazyInitializer.EnsureInitialized(ref _changeFeedHub, () => new Internal.ChangeFeedHub(this));
 
     private sealed class TrackingHandle : IDisposable
     {

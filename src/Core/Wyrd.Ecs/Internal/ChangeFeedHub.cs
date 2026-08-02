@@ -5,10 +5,25 @@ namespace Wyrd.Ecs.Internal;
 /// distinct type at most once per tick no matter how many subscribers are watching it,
 /// fanning each result out to every interested subscriber's own private buffer. See
 /// <see cref="ChangeSubscription"/>'s own doc for why there's no shared retained log.
+///
+/// <para>
+/// <see cref="ChangeSubscription.Drain"/> is documented as callable from any thread —
+/// the intended shape for a consumer like a background WAL-writer thread — so
+/// <see cref="Subscribe{T}"/>/<see cref="Unsubscribe"/> and the tick-driven scan/fan-out
+/// path (both of which mutate or enumerate <see cref="_subscribers"/> and its sibling
+/// bookkeeping dictionaries) must be safe against running concurrently with a
+/// <c>Subscribe</c>/<c>Dispose</c> call from a different thread than the one advancing
+/// the tick. <see cref="_lock"/> guards all of that; each <see cref="Subscriber"/>'s own
+/// <see cref="Subscriber.Lock"/> is a separate, narrower lock guarding only that
+/// subscriber's own double-buffer, acquired only while <see cref="_lock"/> is already
+/// held (or, in <see cref="Drain"/>, after releasing it) — never the other way around,
+/// so the two never deadlock against each other.
+/// </para>
 /// </summary>
 internal sealed class ChangeFeedHub
 {
     private readonly World _world;
+    private readonly object _lock = new();
     private readonly Dictionary<int, Subscriber> _subscribers = [];
     private readonly Dictionary<int, int> _typeInterestCount = [];
     private readonly Dictionary<int, IDisposable> _trackingHandles = [];
@@ -35,32 +50,38 @@ internal sealed class ChangeFeedHub
 
     internal ChangeSubscription Subscribe<T>(bool structuralEvents) where T : struct, IComponent
     {
-        var id = _nextId++;
-        var subscriber = new Subscriber(structuralEvents);
-        var typeIndex = TypeIndex<T>.Value;
-        subscriber.TypeIndexes.Add(typeIndex);
-        _subscribers[id] = subscriber;
+        lock (_lock)
+        {
+            var id = _nextId++;
+            var subscriber = new Subscriber(structuralEvents);
+            var typeIndex = TypeIndex<T>.Value;
+            subscriber.TypeIndexes.Add(typeIndex);
+            _subscribers[id] = subscriber;
 
-        EnsureTypeTracked<T>(typeIndex);
-        if (structuralEvents) EnsureStructuralSubscribed();
-        EnsureTickSubscribed();
+            EnsureTypeTracked<T>(typeIndex);
+            if (structuralEvents) EnsureStructuralSubscribed();
+            EnsureTickSubscribed();
 
-        return new ChangeSubscription(this, id);
+            return new ChangeSubscription(this, id);
+        }
     }
 
     internal ChangeSubscription Subscribe(IComponentCodec codec, bool structuralEvents)
     {
-        var id = _nextId++;
-        var subscriber = new Subscriber(structuralEvents);
-        var typeIndex = codec.TypeIndex;
-        subscriber.TypeIndexes.Add(typeIndex);
-        _subscribers[id] = subscriber;
+        lock (_lock)
+        {
+            var id = _nextId++;
+            var subscriber = new Subscriber(structuralEvents);
+            var typeIndex = codec.TypeIndex;
+            subscriber.TypeIndexes.Add(typeIndex);
+            _subscribers[id] = subscriber;
 
-        EnsureTypeTrackedErased(codec, typeIndex);
-        if (structuralEvents) EnsureStructuralSubscribed();
-        EnsureTickSubscribed();
+            EnsureTypeTrackedErased(codec, typeIndex);
+            if (structuralEvents) EnsureStructuralSubscribed();
+            EnsureTickSubscribed();
 
-        return new ChangeSubscription(this, id);
+            return new ChangeSubscription(this, id);
+        }
     }
 
     private void EnsureTypeTracked<T>(int typeIndex) where T : struct, IComponent
@@ -90,9 +111,12 @@ internal sealed class ChangeFeedHub
 
     internal void AppendStructural(ChangeEntry entry)
     {
-        foreach (var subscriber in _subscribers.Values)
-            if (subscriber.WantsStructuralEvents)
-                lock (subscriber.Lock) subscriber.Front.Add(entry);
+        lock (_lock)
+        {
+            foreach (var subscriber in _subscribers.Values)
+                if (subscriber.WantsStructuralEvents)
+                    lock (subscriber.Lock) subscriber.Front.Add(entry);
+        }
     }
 
     private void ScanType<T>(int typeIndex, int sinceTick) where T : struct, IComponent
@@ -112,9 +136,12 @@ internal sealed class ChangeFeedHub
     private void FanOutValueChange(int typeIndex, Entity entity, int tick, object value)
     {
         var entry = new ChangeEntry(entity, Entity.Null, typeIndex, tick, ChangeKind.ValueChanged, value);
-        foreach (var subscriber in _subscribers.Values)
-            if (subscriber.TypeIndexes.Contains(typeIndex))
-                lock (subscriber.Lock) subscriber.Front.Add(entry);
+        lock (_lock)
+        {
+            foreach (var subscriber in _subscribers.Values)
+                if (subscriber.TypeIndexes.Contains(typeIndex))
+                    lock (subscriber.Lock) subscriber.Front.Add(entry);
+        }
     }
 
     private void EnsureTickSubscribed()
@@ -127,16 +154,22 @@ internal sealed class ChangeFeedHub
 
     private void OnTickAdvanced(int tick)
     {
-        foreach (var scan in _scanners.Values)
-            scan(_sinceTick);
-        ResetWatermark(tick);
+        lock (_lock)
+        {
+            foreach (var scan in _scanners.Values)
+                scan(_sinceTick);
+            ResetWatermark(tick);
+        }
     }
 
     private void ResetWatermark(int tick) => _sinceTick = tick - 1;
 
     internal IReadOnlyList<ChangeEntry> Drain(int id)
     {
-        var subscriber = _subscribers[id];
+        Subscriber subscriber;
+        lock (_lock)
+            subscriber = _subscribers[id];
+
         lock (subscriber.Lock)
         {
             subscriber.Back.Clear();
@@ -147,28 +180,31 @@ internal sealed class ChangeFeedHub
 
     internal void Unsubscribe(int id)
     {
-        if (!_subscribers.Remove(id, out var subscriber)) return;
-
-        foreach (var typeIndex in subscriber.TypeIndexes)
+        lock (_lock)
         {
-            var remaining = _typeInterestCount[typeIndex] - 1;
-            if (remaining > 0)
+            if (!_subscribers.Remove(id, out var subscriber)) return;
+
+            foreach (var typeIndex in subscriber.TypeIndexes)
             {
-                _typeInterestCount[typeIndex] = remaining;
-                continue;
+                var remaining = _typeInterestCount[typeIndex] - 1;
+                if (remaining > 0)
+                {
+                    _typeInterestCount[typeIndex] = remaining;
+                    continue;
+                }
+
+                _typeInterestCount.Remove(typeIndex);
+                _trackingHandles[typeIndex].Dispose();
+                _trackingHandles.Remove(typeIndex);
+                _scanners.Remove(typeIndex);
             }
 
-            _typeInterestCount.Remove(typeIndex);
-            _trackingHandles[typeIndex].Dispose();
-            _trackingHandles.Remove(typeIndex);
-            _scanners.Remove(typeIndex);
+            if (!subscriber.WantsStructuralEvents) return;
+            _structuralSubscriberCount--;
+            if (_structuralSubscriberCount > 0) return;
+            _structuralSubscription?.Dispose();
+            _structuralSubscription = null;
         }
-
-        if (!subscriber.WantsStructuralEvents) return;
-        _structuralSubscriberCount--;
-        if (_structuralSubscriberCount > 0) return;
-        _structuralSubscription?.Dispose();
-        _structuralSubscription = null;
     }
 
     private sealed class HubObserver(ChangeFeedHub hub) : IStructuralChangeObserver
