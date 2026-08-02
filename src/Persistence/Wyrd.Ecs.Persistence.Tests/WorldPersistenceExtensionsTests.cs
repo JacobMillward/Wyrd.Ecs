@@ -252,7 +252,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         foreach (var snapshot in target.EnumerateEntities(registry))
         {
             if (target.HasComponent<RelationLinks<Likes>>(snapshot.Entity)) hasLinks = true;
-            if (target.HasComponent<RelationBacklinks<Likes>>(snapshot.Entity)) hasBacklinks = true;
+            if (target.Sources<Likes>(snapshot.Entity).Any()) hasBacklinks = true;
         }
 
         hasLinks.Should().BeTrue("the source side of the edge must exist after load");
@@ -703,7 +703,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         foreach (var snapshot in target.EnumerateEntities(loadRegistry))
         {
             if (target.HasComponent<RelationLinks<LikesV2>>(snapshot.Entity)) loadedA = snapshot.Entity;
-            if (target.HasComponent<RelationBacklinks<LikesV2>>(snapshot.Entity)) loadedB = snapshot.Entity;
+            if (target.Sources<LikesV2>(snapshot.Entity).Any()) loadedB = snapshot.Entity;
         }
 
         loadedA.Should().NotBeNull();

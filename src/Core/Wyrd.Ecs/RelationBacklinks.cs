@@ -8,7 +8,7 @@ namespace Wyrd.Ecs;
 /// can find "who points at me" in O(1) instead of scanning every entity in the world.
 /// Same construction/mutation discipline as <see cref="RelationLinks{T}"/> — see its doc.
 /// </summary>
-public readonly struct RelationBacklinks<T> : IComponent where T : struct, IRelation
+internal readonly struct RelationBacklinks<T> : IComponent where T : struct, IRelation
 {
     private readonly HashSet<Entity>? _sources;
 
