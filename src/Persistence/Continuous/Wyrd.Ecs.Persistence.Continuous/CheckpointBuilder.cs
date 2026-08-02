@@ -12,6 +12,17 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 /// path <c>World.Save</c> already uses. Runs entirely out of band — no
 /// synchronization with a sim thread is needed because nothing here ever touches live
 /// state, only bytes already durable on disk.
+///
+/// <para>
+/// A destroyed entity's entries are never removed eagerly from the working
+/// dictionaries — <c>EntityDestroyed</c> only adds to a plain <c>HashSet&lt;EntityId&gt;</c>
+/// (O(1), no index to maintain). The single write pass that has to run anyway (to
+/// serialize the merged result) filters against that set at zero additional asymptotic
+/// cost, instead of an eager per-destroy sweep needing its own index to stay fast.
+/// This is safe because <see cref="EntityId"/> is never reused — once an id is
+/// destroyed, no later WAL record in the same merge window can legitimately reference
+/// it again, so the set never needs to shrink.
+/// </para>
 /// </summary>
 public static class CheckpointBuilder
 {
@@ -25,13 +36,7 @@ public static class CheckpointBuilder
     public static void Build(IPersistenceStore checkpointStore, IWalStore walStore, int targetTick)
     {
         var (priorTick, entries) = ReadCheckpoint(checkpointStore);
-        var byEntity = new Dictionary<EntityId, HashSet<string>>();
-        foreach (var (entityId, discriminator) in entries.Keys)
-        {
-            if (!byEntity.TryGetValue(entityId, out var set))
-                byEntity[entityId] = set = [];
-            set.Add(discriminator);
-        }
+        var destroyed = new HashSet<EntityId>();
 
         foreach (var startTick in walStore.ListSegmentStartTicks())
         {
@@ -43,16 +48,16 @@ public static class CheckpointBuilder
             while (Internal.WalSegmentIO.TryReadRecord(segmentStream, out var kind, out var tick, out var entityId, out _, out var discriminator, out var schemaHash, out var payload))
             {
                 if (tick <= priorTick || tick > targetTick) continue;
-                Apply(entries, byEntity, kind, entityId, discriminator, schemaHash, payload);
+                Apply(entries, destroyed, kind, entityId, discriminator, schemaHash, payload);
             }
         }
 
-        WriteCheckpoint(checkpointStore, targetTick, entries);
+        WriteCheckpoint(checkpointStore, targetTick, entries, destroyed);
     }
 
     private static void Apply(
         Dictionary<(EntityId EntityId, string Discriminator), (uint? SchemaHash, byte[] Payload)> entries,
-        Dictionary<EntityId, HashSet<string>> byEntity,
+        HashSet<EntityId> destroyed,
         WalRecordKind kind, EntityId entityId, string discriminator, uint? schemaHash, byte[] payload)
     {
         switch (kind)
@@ -61,23 +66,16 @@ public static class CheckpointBuilder
                 break;
 
             case WalRecordKind.EntityDestroyed:
-                if (byEntity.Remove(entityId, out var discriminators))
-                    foreach (var d in discriminators)
-                        entries.Remove((entityId, d));
+                destroyed.Add(entityId);
                 break;
 
             case WalRecordKind.ComponentRemoved:
                 entries.Remove((entityId, discriminator));
-                if (byEntity.TryGetValue(entityId, out var forRemoval))
-                    forRemoval.Remove(discriminator);
                 break;
 
             case WalRecordKind.ComponentChanged:
             case WalRecordKind.ComponentAdded:
                 entries[(entityId, discriminator)] = (schemaHash, payload);
-                if (!byEntity.TryGetValue(entityId, out var forEntity))
-                    byEntity[entityId] = forEntity = [];
-                forEntity.Add(discriminator);
                 break;
         }
     }
@@ -108,14 +106,20 @@ public static class CheckpointBuilder
         }
     }
 
-    private static void WriteCheckpoint(IPersistenceStore checkpointStore, int tick, Dictionary<(EntityId EntityId, string Discriminator), (uint? SchemaHash, byte[] Payload)> entries)
+    private static void WriteCheckpoint(
+        IPersistenceStore checkpointStore, int tick,
+        Dictionary<(EntityId EntityId, string Discriminator), (uint? SchemaHash, byte[] Payload)> entries,
+        HashSet<EntityId> destroyed)
     {
         var stream = checkpointStore.OpenCheckpointWrite();
         try
         {
             Persistence.Internal.CheckpointRecordIO.WriteHeader(stream, tick);
             foreach (var ((entityId, discriminator), (schemaHash, payload)) in entries)
+            {
+                if (destroyed.Contains(entityId)) continue;
                 Persistence.Internal.CheckpointRecordIO.WriteRecord(stream, entityId, discriminator, schemaHash, payload);
+            }
         }
         catch
         {
