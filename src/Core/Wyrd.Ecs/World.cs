@@ -700,8 +700,13 @@ public sealed partial class World
             action(chunk.Access<TAccess0>(), chunk.Access<TAccess1>());
     }
 
-    // Query<T0..T{QueryArity.Max-1}>() implementations are generated. See
-    // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
+    // World.Query<TAccess0>/Query<TAccess0,TAccess1> above are deliberately hand-written
+    // and capped at arity 2, not generator-emitted: this is the zero-codegen chunk-callback
+    // tier, meant to work with no consumer-side generator setup at all, unlike the fluent
+    // Query<TShape> chain (Query.cs), which requires one. See
+    // docs/superpowers/specs/2026-07-25-generator-backed-unbounded-query-shape-design.md,
+    // "Packaging implication", for why that property matters. For 3+ components, use the
+    // fluent chain instead.
 
     /// <summary>Turns change tracking on for <typeparamref name="T"/>. Dispose the returned handle to turn it back off once nothing else needs it. The only way to make <see cref="ReadChanges{T}"/> observe anything.</summary>
     internal IDisposable TrackChanges<T>() where T : struct, IComponent
