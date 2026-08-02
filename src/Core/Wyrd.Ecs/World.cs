@@ -709,15 +709,15 @@ public sealed partial class World
     // src/Wyrd.Ecs.Generators/WorldQueryMembersGenerator.cs.
 
     /// <summary>Turns change tracking on for <typeparamref name="T"/>. Dispose the returned handle to turn it back off once nothing else needs it. The only way to make <see cref="ReadChanges{T}"/> observe anything.</summary>
-    public IDisposable TrackChanges<T>() where T : struct, IComponent
+    internal IDisposable TrackChanges<T>() where T : struct, IComponent
     {
         var typeIndex = TypeIndex<T>.Value;
         _tracking.Register(typeIndex);
         return new TrackingHandle(this, typeIndex);
     }
 
-    /// <summary>Every row of <typeparamref name="T"/> touched since <paramref name="sinceTick"/>, across every archetype containing it. Only observes writes made while <see cref="TrackChanges{T}"/> was registered.</summary>
-    public ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent =>
+    /// <summary>Every row of <typeparamref name="T"/> touched since <paramref name="sinceTick"/>, across every archetype containing it. Only observes writes made while <see cref="TrackChanges{T}"/> was registered. Internal — the primitive-tier value-change scan feeding <see cref="Subscribe{T}"/>; a consumer wanting "process only what changed" should use tag-based filtering (One-Frame Components), not this.</summary>
+    internal ChangedComponents<T> ReadChanges<T>(int sinceTick) where T : struct, IComponent =>
         new(GetMatchingArchetypes(Internal.QuerySignature<Ref<T>>.Value), sinceTick);
 
     private void UntrackChanges(int typeIndex) => _tracking.Unregister(typeIndex);
@@ -728,14 +728,15 @@ public sealed partial class World
     internal Internal.ChangeFeedHub? DebugChangeFeedHub => _changeFeedHub;
 
     /// <summary>
-    /// Subscribes to every <typeparamref name="T"/> value change, and — if
-    /// <paramref name="structuralEvents"/> is true — every structural and relation event
-    /// too, reported through a private <see cref="ChangeSubscription"/> only this caller
-    /// drains. The scan for <typeparamref name="T"/> runs at most once per tick no matter
-    /// how many subscribers are watching it; see <see cref="ChangeSubscription"/>'s own doc.
+    /// Subscribes to every <typeparamref name="T"/> value change plus <typeparamref name="T"/>
+    /// being added to or removed from an already-existing entity, reported through a
+    /// private <see cref="ChangeSubscription"/> only this caller drains. The scan for
+    /// <typeparamref name="T"/> runs at most once per tick no matter how many subscribers
+    /// are watching it; see <see cref="ChangeSubscription"/>'s own doc. For structural
+    /// events with no buffering delay, see <see cref="ObserveStructuralChanges"/> instead.
     /// </summary>
-    public ChangeSubscription Subscribe<T>(bool structuralEvents = false) where T : struct, IComponent =>
-        GetOrCreateChangeFeedHub().Subscribe<T>(structuralEvents);
+    public ChangeSubscription Subscribe<T>() where T : struct, IComponent =>
+        GetOrCreateChangeFeedHub().Subscribe<T>();
 
     /// <summary>
     /// Same as <see cref="Subscribe{T}"/>, for a caller that doesn't know its component
@@ -744,26 +745,36 @@ public sealed partial class World
     /// scan-per-type-per-tick with any <see cref="Subscribe{T}"/> call already watching
     /// the same type; neither path knows or cares which the other used.
     /// </summary>
-    public ChangeSubscription Subscribe(IComponentCodec codec, bool structuralEvents = false) =>
-        GetOrCreateChangeFeedHub().Subscribe(codec, structuralEvents);
+    public ChangeSubscription Subscribe(IComponentCodec codec) =>
+        GetOrCreateChangeFeedHub().Subscribe(codec);
+
+    /// <summary>
+    /// Subscribes to just <typeparamref name="T"/>'s own add/remove events. Unlike
+    /// <see cref="Subscribe{T}"/>, a tag carries no value, so there's nothing to report
+    /// but presence changing.
+    /// </summary>
+    public ChangeSubscription SubscribeTag<T>() where T : struct, ITag =>
+        GetOrCreateChangeFeedHub().SubscribeTag<T>();
 
     /// <summary>
     /// Subscribes to just <typeparamref name="T"/>'s own link/unlink events — no other
-    /// structural event kind, no other relation type, and no component value tracking
-    /// (a relation edge's mutation is never scanned; it's pushed synchronously the
-    /// moment it happens). The narrower, more direct alternative to
-    /// <c>Subscribe&lt;SomeComponent&gt;(structuralEvents: true)</c> for a consumer that
-    /// only cares about one relation type: that path delivers every structural event
-    /// for every type and needs an unrelated tracked component just to open the
-    /// subscription in the first place.
+    /// relation type, no component value tracking (a relation edge's mutation is never
+    /// scanned; it's pushed synchronously the moment it happens).
     /// </summary>
     public ChangeSubscription SubscribeRelation<T>() where T : struct, IRelation =>
         GetOrCreateChangeFeedHub().SubscribeRelation<T>();
 
     /// <summary>
-    /// Thread-safe lazy init — <see cref="Subscribe{T}"/> and
-    /// <see cref="Subscribe(IComponentCodec, bool)"/> are meant to be callable from any
-    /// thread (a background WAL-writer thread, for one), so a plain
+    /// Subscribes to entity creation/destruction, world-scoped rather than type-scoped —
+    /// an entity being created or destroyed isn't associated with any one component/tag/
+    /// relation type, unlike every other <c>Subscribe*</c> entry point.
+    /// </summary>
+    public ChangeSubscription SubscribeEntityLifecycle() =>
+        GetOrCreateChangeFeedHub().SubscribeEntityLifecycle();
+
+    /// <summary>
+    /// Thread-safe lazy init — every <c>Subscribe*</c> entry point is meant to be
+    /// callable from any thread (a background WAL-writer thread, for one), so a plain
     /// <c>_changeFeedHub ??= new(...)</c> isn't safe here: two threads racing the very
     /// first subscribe could each construct their own hub, and the loser's — even
     /// though never published to <see cref="_changeFeedHub"/> — would still register its

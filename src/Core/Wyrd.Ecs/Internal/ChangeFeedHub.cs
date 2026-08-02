@@ -1,10 +1,28 @@
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Per-<see cref="World"/> hub behind <see cref="World.Subscribe{T}"/>: scans each
-/// distinct type at most once per tick no matter how many subscribers are watching it,
-/// fanning each result out to every interested subscriber's own private buffer. See
-/// <see cref="ChangeSubscription"/>'s own doc for why there's no shared retained log.
+/// Per-<see cref="World"/> hub behind <see cref="World.Subscribe{T}"/> and its siblings
+/// (<see cref="World.SubscribeTag{T}"/>, <see cref="World.SubscribeRelation{T}"/>,
+/// <see cref="World.SubscribeEntityLifecycle"/>, <see cref="World.Subscribe(IComponentCodec)"/>):
+/// scans each distinct component type at most once per tick no matter how many
+/// subscribers are watching it, fanning each result out to every interested subscriber's
+/// own private buffer. See <see cref="ChangeSubscription"/>'s own doc for why there's no
+/// shared retained log.
+///
+/// <para>
+/// Every subscription is scoped to exactly one type index and one small, fixed set of
+/// <see cref="ChangeKind"/>s determined entirely by which <c>Subscribe*</c> entry point
+/// created it — <c>Subscribe&lt;T&gt;</c> always wants <see cref="ChangeKind.ValueChanged"/>
+/// + <see cref="ChangeKind.ComponentAdded"/>/<see cref="ChangeKind.ComponentRemoved"/> for
+/// <c>T</c>, <c>SubscribeTag&lt;T&gt;</c> always wants <see cref="ChangeKind.TagAdded"/>/
+/// <see cref="ChangeKind.TagRemoved"/> for <c>T</c>, and so on. The one exception is
+/// <see cref="World.SubscribeEntityLifecycle"/>, whose <c>TypeIndex</c> is <c>null</c> —
+/// an entity's creation/destruction isn't associated with any one type. This lets every
+/// event kind, structural or value, be matched and fanned out through exactly one path
+/// (<see cref="Subscriber.Matches"/>/<see cref="Publish"/>) instead of the two separate,
+/// differently-shaped paths (a global structural-events bool plus a relation-only
+/// special case) this hub used before.
+/// </para>
 ///
 /// <para>
 /// <see cref="ChangeSubscription.Drain"/> is documented as callable from any thread —
@@ -34,86 +52,109 @@ internal sealed class ChangeFeedHub
     private int _structuralSubscriberCount;
     private IDisposable? _structuralSubscription;
 
+    /// <summary>Every structural <see cref="ChangeKind"/> — a subscriber whose <see cref="Subscriber.WantedKinds"/> intersects this needs the raw <see cref="IStructuralChangeObserver"/> registered.</summary>
+    private const ChangeKind StructuralKinds =
+        ChangeKind.EntityCreated | ChangeKind.EntityDestroyed | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved |
+        ChangeKind.TagAdded | ChangeKind.TagRemoved | ChangeKind.RelationLinked | ChangeKind.RelationUnlinked;
+
     /// <summary>Test-only instrumentation: how many times <see cref="ScanType{T}"/> has run, i.e. once per distinct watched type per tick — not once per subscriber.</summary>
     internal int ScanCount;
 
     internal ChangeFeedHub(World world) => _world = world;
 
-    private sealed class Subscriber(bool wantsStructuralEvents, int? relationTypeIndexFilter = null)
+    /// <summary>
+    /// One subscription: which type index it's scoped to (<c>null</c> only for
+    /// <see cref="World.SubscribeEntityLifecycle"/>, which isn't scoped to any type) and
+    /// which <see cref="ChangeKind"/>s it wants, fixed at creation by whichever
+    /// <c>Subscribe*</c> entry point built it.
+    /// </summary>
+    private sealed class Subscriber(int? typeIndex, ChangeKind wantedKinds)
     {
-        internal readonly HashSet<int> TypeIndexes = [];
-        internal readonly bool WantsStructuralEvents = wantsStructuralEvents;
-
-        /// <summary>
-        /// Set only by <see cref="SubscribeRelation{T}"/>: this subscriber wants
-        /// <see cref="ChangeKind.RelationLinked"/>/<see cref="ChangeKind.RelationUnlinked"/>
-        /// entries for exactly this relation type's <see cref="Internal.TypeIndex{T}"/>,
-        /// and nothing else — narrower than <see cref="WantsStructuralEvents"/>, which
-        /// delivers every structural event kind for every type.
-        /// </summary>
-        internal readonly int? RelationTypeIndexFilter = relationTypeIndexFilter;
-
-        internal bool ConsumesStructuralSlot => WantsStructuralEvents || RelationTypeIndexFilter is not null;
+        internal readonly int? TypeIndex = typeIndex;
+        internal readonly ChangeKind WantedKinds = wantedKinds;
 
         internal readonly object Lock = new();
         internal List<ChangeEntry> Front = [];
         internal List<ChangeEntry> Back = [];
+
+        /// <summary>True if this subscriber wants any event that only the raw structural observer can produce (everything except <see cref="ChangeKind.ValueChanged"/>).</summary>
+        internal bool WantsAnyStructuralKind => (WantedKinds & StructuralKinds) != 0;
+
+        /// <summary>True if <paramref name="entry"/> is one this subscriber asked for — the single matching path every event kind goes through, structural or value alike.</summary>
+        internal bool Matches(ChangeEntry entry) =>
+            WantedKinds.HasFlag(entry.Kind) && (TypeIndex is null || TypeIndex == entry.TypeIndex);
     }
 
-    internal ChangeSubscription Subscribe<T>(bool structuralEvents) where T : struct, IComponent
+    internal ChangeSubscription Subscribe<T>() where T : struct, IComponent
     {
+        var typeIndex = TypeIndex<T>.Value;
         lock (_lock)
         {
             var id = _nextId++;
-            var subscriber = new Subscriber(structuralEvents);
-            var typeIndex = TypeIndex<T>.Value;
-            subscriber.TypeIndexes.Add(typeIndex);
+            var subscriber = new Subscriber(typeIndex, ChangeKind.ValueChanged | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved);
             _subscribers[id] = subscriber;
 
             EnsureTypeTracked<T>(typeIndex);
-            if (structuralEvents) EnsureStructuralSubscribed();
+            EnsureStructuralSubscribed(subscriber);
             EnsureTickSubscribed();
 
             return new ChangeSubscription(this, id);
         }
     }
 
-    internal ChangeSubscription Subscribe(IComponentCodec codec, bool structuralEvents)
+    internal ChangeSubscription Subscribe(IComponentCodec codec)
     {
         lock (_lock)
         {
             var id = _nextId++;
-            var subscriber = new Subscriber(structuralEvents);
-            var typeIndex = codec.TypeIndex;
-            subscriber.TypeIndexes.Add(typeIndex);
+            var subscriber = new Subscriber(codec.TypeIndex, ChangeKind.ValueChanged | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved);
             _subscribers[id] = subscriber;
 
-            EnsureTypeTrackedErased(codec, typeIndex);
-            if (structuralEvents) EnsureStructuralSubscribed();
+            EnsureTypeTrackedErased(codec, codec.TypeIndex);
+            EnsureStructuralSubscribed(subscriber);
             EnsureTickSubscribed();
 
             return new ChangeSubscription(this, id);
         }
     }
 
-    /// <summary>
-    /// Subscribes to just <typeparamref name="T"/>'s own relation link/unlink events —
-    /// no value-change tracking (relation edges aren't scanned; they're already
-    /// pushed synchronously via <see cref="AppendStructural"/>), and no other
-    /// structural event kind or relation type. Cheaper and more targeted than
-    /// <see cref="Subscribe{T}"/>'s <c>structuralEvents: true</c>, which delivers every
-    /// structural event kind for every type and requires an unrelated tracked
-    /// component type just to open the subscription.
-    /// </summary>
+    internal ChangeSubscription SubscribeTag<T>() where T : struct, ITag
+    {
+        lock (_lock)
+        {
+            var id = _nextId++;
+            var subscriber = new Subscriber(TypeIndex<T>.Value, ChangeKind.TagAdded | ChangeKind.TagRemoved);
+            _subscribers[id] = subscriber;
+
+            EnsureStructuralSubscribed(subscriber);
+
+            return new ChangeSubscription(this, id);
+        }
+    }
+
     internal ChangeSubscription SubscribeRelation<T>() where T : struct, IRelation
     {
         lock (_lock)
         {
             var id = _nextId++;
-            var subscriber = new Subscriber(wantsStructuralEvents: false, relationTypeIndexFilter: TypeIndex<T>.Value);
+            var subscriber = new Subscriber(TypeIndex<T>.Value, ChangeKind.RelationLinked | ChangeKind.RelationUnlinked);
             _subscribers[id] = subscriber;
 
-            EnsureStructuralSubscribed();
+            EnsureStructuralSubscribed(subscriber);
+
+            return new ChangeSubscription(this, id);
+        }
+    }
+
+    internal ChangeSubscription SubscribeEntityLifecycle()
+    {
+        lock (_lock)
+        {
+            var id = _nextId++;
+            var subscriber = new Subscriber(typeIndex: null, ChangeKind.EntityCreated | ChangeKind.EntityDestroyed);
+            _subscribers[id] = subscriber;
+
+            EnsureStructuralSubscribed(subscriber);
 
             return new ChangeSubscription(this, id);
         }
@@ -137,25 +178,24 @@ internal sealed class ChangeFeedHub
         _scanners[typeIndex] = sinceTick => ScanTypeErased(codec, typeIndex, sinceTick);
     }
 
-    private void EnsureStructuralSubscribed()
+    /// <summary>Registers the raw structural observer, if not already registered, the first time any subscriber wants a non-<see cref="ChangeKind.ValueChanged"/> kind.</summary>
+    private void EnsureStructuralSubscribed(Subscriber subscriber)
     {
+        if (!subscriber.WantsAnyStructuralKind) return;
+
         if (_structuralSubscriberCount == 0)
             _structuralSubscription = _world.ObserveStructuralChanges(new HubObserver(this));
         _structuralSubscriberCount++;
     }
 
-    internal void AppendStructural(ChangeEntry entry)
+    /// <summary>The single fan-out path every <see cref="ChangeEntry"/> goes through, structural or value alike.</summary>
+    internal void Publish(ChangeEntry entry)
     {
         lock (_lock)
         {
             foreach (var subscriber in _subscribers.Values)
-            {
-                var wants = subscriber.WantsStructuralEvents ||
-                    (subscriber.RelationTypeIndexFilter == entry.TypeIndex &&
-                     entry.Kind is ChangeKind.RelationLinked or ChangeKind.RelationUnlinked);
-                if (wants)
+                if (subscriber.Matches(entry))
                     lock (subscriber.Lock) subscriber.Front.Add(entry);
-            }
         }
     }
 
@@ -163,25 +203,14 @@ internal sealed class ChangeFeedHub
     {
         ScanCount++;
         foreach (var change in _world.ReadChanges<T>(sinceTick))
-            FanOutValueChange(typeIndex, change.Entity, change.Tick, change.Value);
+            Publish(new ChangeEntry(change.Entity, Entity.Null, typeIndex, change.Tick, ChangeKind.ValueChanged, change.Value));
     }
 
     private void ScanTypeErased(IComponentCodec codec, int typeIndex, int sinceTick)
     {
         ScanCount++;
         foreach (var change in codec.ReadRawChanges(_world, sinceTick))
-            FanOutValueChange(typeIndex, change.Entity, change.Tick, change.Value);
-    }
-
-    private void FanOutValueChange(int typeIndex, Entity entity, int tick, object value)
-    {
-        var entry = new ChangeEntry(entity, Entity.Null, typeIndex, tick, ChangeKind.ValueChanged, value);
-        lock (_lock)
-        {
-            foreach (var subscriber in _subscribers.Values)
-                if (subscriber.TypeIndexes.Contains(typeIndex))
-                    lock (subscriber.Lock) subscriber.Front.Add(entry);
-        }
+            Publish(new ChangeEntry(change.Entity, Entity.Null, typeIndex, change.Tick, ChangeKind.ValueChanged, change.Value));
     }
 
     private void EnsureTickSubscribed()
@@ -224,22 +253,24 @@ internal sealed class ChangeFeedHub
         {
             if (!_subscribers.Remove(id, out var subscriber)) return;
 
-            foreach (var typeIndex in subscriber.TypeIndexes)
+            if (subscriber.TypeIndex is { } typeIndex && (subscriber.WantedKinds & (ChangeKind.ValueChanged | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved)) != 0
+                && _trackingHandles.ContainsKey(typeIndex))
             {
                 var remaining = _typeInterestCount[typeIndex] - 1;
                 if (remaining > 0)
                 {
                     _typeInterestCount[typeIndex] = remaining;
-                    continue;
                 }
-
-                _typeInterestCount.Remove(typeIndex);
-                _trackingHandles[typeIndex].Dispose();
-                _trackingHandles.Remove(typeIndex);
-                _scanners.Remove(typeIndex);
+                else
+                {
+                    _typeInterestCount.Remove(typeIndex);
+                    _trackingHandles[typeIndex].Dispose();
+                    _trackingHandles.Remove(typeIndex);
+                    _scanners.Remove(typeIndex);
+                }
             }
 
-            if (!subscriber.ConsumesStructuralSlot) return;
+            if (!subscriber.WantsAnyStructuralKind) return;
             _structuralSubscriberCount--;
             if (_structuralSubscriberCount > 0) return;
             _structuralSubscription?.Dispose();
@@ -250,24 +281,27 @@ internal sealed class ChangeFeedHub
     private sealed class HubObserver(ChangeFeedHub hub) : IStructuralChangeObserver
     {
         public void OnEntityCreated(Entity entity) =>
-            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, null, hub._world.CurrentTick, ChangeKind.EntityCreated));
+            hub.Publish(new ChangeEntry(entity, Entity.Null, null, hub._world.CurrentTick, ChangeKind.EntityCreated));
 
         public void OnEntityDestroyed(Entity entity) =>
-            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, null, hub._world.CurrentTick, ChangeKind.EntityDestroyed));
+            hub.Publish(new ChangeEntry(entity, Entity.Null, null, hub._world.CurrentTick, ChangeKind.EntityDestroyed));
 
         public void OnComponentAdded(Entity entity, int typeIndex) =>
-            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentAdded));
+            hub.Publish(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentAdded));
 
         public void OnComponentRemoved(Entity entity, int typeIndex) =>
-            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentRemoved));
+            hub.Publish(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentRemoved));
 
-        public void OnTagAdded(Entity entity, int typeIndex) { }
-        public void OnTagRemoved(Entity entity, int typeIndex) { }
+        public void OnTagAdded(Entity entity, int typeIndex) =>
+            hub.Publish(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.TagAdded));
+
+        public void OnTagRemoved(Entity entity, int typeIndex) =>
+            hub.Publish(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.TagRemoved));
 
         public void OnRelationLinked(Entity source, Entity target, int typeIndex) =>
-            hub.AppendStructural(new ChangeEntry(source, target, typeIndex, hub._world.CurrentTick, ChangeKind.RelationLinked));
+            hub.Publish(new ChangeEntry(source, target, typeIndex, hub._world.CurrentTick, ChangeKind.RelationLinked));
 
         public void OnRelationUnlinked(Entity source, Entity target, int typeIndex) =>
-            hub.AppendStructural(new ChangeEntry(source, target, typeIndex, hub._world.CurrentTick, ChangeKind.RelationUnlinked));
+            hub.Publish(new ChangeEntry(source, target, typeIndex, hub._world.CurrentTick, ChangeKind.RelationUnlinked));
     }
 }

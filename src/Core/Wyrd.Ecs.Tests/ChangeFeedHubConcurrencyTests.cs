@@ -50,7 +50,7 @@ public class ChangeFeedHubConcurrencyTests
             {
                 for (var i = 0; i < 2_000; i++)
                 {
-                    using var subscription = world.Subscribe<Position>(structuralEvents: true);
+                    using var subscription = world.Subscribe<Position>();
                     subscription.Drain();
                 }
             }

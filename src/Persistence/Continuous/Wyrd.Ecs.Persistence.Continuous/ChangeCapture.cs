@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
 /// Owns the tick-driven capture step: subscribes to every type in the given
-/// <see cref="ComponentCodecRegistry"/> via <see cref="World.Subscribe(IComponentCodec, bool)"/>
+/// <see cref="ComponentCodecRegistry"/> via <see cref="World.Subscribe(IComponentCodec)"/>
 /// (sharing the underlying scan with any other subscriber already watching the same
 /// type — see <c>Wyrd.Ecs.Internal.ChangeFeedHub</c>), observes structural and relation
 /// changes via <see cref="Internal.StructuralChangeCapture"/>, and appends every result
@@ -56,9 +56,17 @@ internal sealed class ChangeCapture : IDisposable
         var batch = new List<PendingValueChange>();
         foreach (var (codec, subscription) in _valueSubscriptions)
             foreach (var entry in subscription.Drain())
-                // entry.Value is never null here: this subscription only ever tracks
-                // ChangeKind.ValueChanged, and the hub always populates Value for that kind.
+            {
+                // Subscribe(codec) also reports ComponentAdded/ComponentRemoved (Value is
+                // null for those) alongside ValueChanged — only the latter belongs here.
+                // A component add is already redundant with the value it carries, captured
+                // via this same ValueChanged scan next tick (see
+                // Internal.StructuralChangeCapture.OnComponentAdded's own doc); a component
+                // remove is captured separately, as its own WAL record, by that same
+                // structural observer.
+                if (entry.Kind != ChangeKind.ValueChanged) continue;
                 batch.Add(new PendingValueChange(codec, entry.Tick, _world.GetPermanentId(entry.Entity), entry.Value!));
+            }
 
         if (batch.Count > 0)
             lock (_lock) _frontPending.AddRange(batch);
