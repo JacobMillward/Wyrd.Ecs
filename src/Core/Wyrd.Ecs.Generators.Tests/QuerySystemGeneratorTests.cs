@@ -35,8 +35,8 @@ public class QuerySystemGeneratorTests
                 return total;
             }
 
-            public static bool RegistersGeneratedSystemAccess() =>
-                GeneratedSystemAccess.Entries.TryGetValue(typeof(MovementSystem), out var access)
+            public static bool RegistersSystemRegistryAccess() =>
+                SystemRegistry.Access.TryGetValue(typeof(MovementSystem), out var access)
                 && access.Writes.Count == 1 && access.Writes[0] == typeof(Position)
                 && access.Reads.Count == 1 && access.Reads[0] == typeof(Velocity);
         }
@@ -53,11 +53,11 @@ public class QuerySystemGeneratorTests
     }
 
     [Fact]
-    public void QuerySystem_RegistersGeneratedSystemAccessTheSameAsAnAdHocChainWould()
+    public void QuerySystem_RegistersSystemRegistryAccessTheSameAsAnAdHocChainWould()
     {
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
 
-        var result = (bool)assembly.GetType("Harness")!.GetMethod("RegistersGeneratedSystemAccess")!.Invoke(null, null)!;
+        var result = (bool)assembly.GetType("Harness")!.GetMethod("RegistersSystemRegistryAccess")!.Invoke(null, null)!;
 
         result.Should().BeTrue();
     }

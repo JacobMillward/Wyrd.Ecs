@@ -31,10 +31,10 @@ public class QueryChainGeneratorSystemAccessTests
         {
             public static (Type[] Keys, Type[] MovementReads, Type[] MovementWrites, Type[] MultiReads, Type[] MultiWrites) Run()
             {
-                var keys = new List<Type>(GeneratedSystemAccess.Entries.Keys).ToArray();
+                var keys = new List<Type>(SystemRegistry.Access.Keys).ToArray();
 
-                var movement = GeneratedSystemAccess.Entries[typeof(MovementSystem)];
-                var multi = GeneratedSystemAccess.Entries[typeof(MultiQuerySystem)];
+                var movement = SystemRegistry.Access[typeof(MovementSystem)];
+                var multi = SystemRegistry.Access[typeof(MultiQuerySystem)];
 
                 return (keys,
                     new List<Type>(movement.Reads).ToArray(), new List<Type>(movement.Writes).ToArray(),
@@ -45,7 +45,7 @@ public class QueryChainGeneratorSystemAccessTests
             {
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
-                return GeneratedSystemAccess.Entries.Count == 2; // only MovementSystem and MultiQuerySystem: this ad-hoc call adds nothing
+                return SystemRegistry.Access.Count == 2; // only MovementSystem and MultiQuerySystem: this ad-hoc call adds nothing
             }
         }
         """;

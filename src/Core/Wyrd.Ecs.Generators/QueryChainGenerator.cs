@@ -11,7 +11,7 @@ namespace Wyrd.Ecs.Generators;
 /// Finds every `.ForEach`/`.ParallelForEach` terminal call on a fluent query chain, and
 /// every `QuerySystem` subclass's `DefineQuery` override, anywhere in the consuming
 /// project's source. Extracts each one's shape (<see cref="ChainWalker"/>) and emits
-/// terminal methods, `QuerySystem` glue, and a `GeneratedSystemAccess` registry entry.
+/// terminal methods, `QuerySystem` glue, and a `SystemRegistry` registry entry.
 /// Groups chain terminals two levels deep: exact declaration-order tuple type (one
 /// overload each) nested inside logical shape (one shared backend each).
 /// </summary>
@@ -172,7 +172,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 Writes: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList()))
             .ToList();
 
-        spc.AddSource("GeneratedSystemAccess.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
+        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
     }
 
     /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/>: only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent.</summary>

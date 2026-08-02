@@ -40,12 +40,12 @@ public partial class NestedSystemTests
     }
 
     [Fact]
-    public void TwoDeclaredSystems_EachRegistersItsOwnGeneratedSystemAccessEntry()
+    public void TwoDeclaredSystems_EachRegistersItsOwnSystemRegistryAccessEntry()
     {
-        Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries.Should().ContainKey(typeof(MovementSystem));
-        Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries.Should().ContainKey(typeof(BoundsClampSystem));
+        Wyrd.Ecs.Generated.SystemRegistry.Access.Should().ContainKey(typeof(MovementSystem));
+        Wyrd.Ecs.Generated.SystemRegistry.Access.Should().ContainKey(typeof(BoundsClampSystem));
 
-        var movementAccess = Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries[typeof(MovementSystem)];
+        var movementAccess = Wyrd.Ecs.Generated.SystemRegistry.Access[typeof(MovementSystem)];
         movementAccess.Writes.Should().Equal(typeof(NestedPosition));
         movementAccess.Reads.Should().Equal(typeof(NestedVelocity));
     }

@@ -233,7 +233,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("    }");
     }
 
-    /// <summary>Emits the <c>GeneratedSystemAccess</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>
+    /// <summary>Emits the <c>SystemRegistry</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>
     internal static string RenderSystemAccessRegistry(IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems)
     {
         var sb = new StringBuilder();
@@ -243,9 +243,9 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs.Generated;");
         sb.AppendLine();
-        sb.AppendLine("public static class GeneratedSystemAccess");
+        sb.AppendLine("public static class SystemRegistry");
         sb.AppendLine("{");
-        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemAccess> Entries = new Dictionary<Type, SystemAccess>");
+        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemAccess> Access = new Dictionary<Type, SystemAccess>");
         sb.AppendLine("    {");
         foreach (var system in systems)
         {
@@ -254,13 +254,16 @@ internal static class QueryChainEmitter
             sb.AppendLine($"        [typeof(global::{system.SystemTypeName})] = new(Reads: new Type[] {{ {reads} }}, Writes: new Type[] {{ {writes} }}),");
         }
         sb.AppendLine("    };");
+        sb.AppendLine();
+        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> Edges =");
+        sb.AppendLine("        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();");
         sb.AppendLine("}");
         return sb.ToString();
     }
 
     /// <summary>
     /// Emits `WithSystems` overloads so a consumer never has to spell out
-    /// `Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries` by hand: a `params
+    /// `Wyrd.Ecs.Generated.SystemRegistry.Access` by hand: a `params
     /// OrderedSystem[]` overload for call-site systems, an
     /// `IReadOnlyList&lt;EcsSystem&gt;` overload for a caller with a pre-built array (the
     /// implicit `EcsSystem`-to-`OrderedSystem` conversion doesn't apply across an array's
@@ -278,10 +281,10 @@ internal static class QueryChainEmitter
         sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
         sb.AppendLine("{");
         sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params OrderedSystem[] systems) =>");
-        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, systems);");
+        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, systems);");
         sb.AppendLine();
         sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, IReadOnlyList<EcsSystem> systems) =>");
-        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, systems);");
+        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, systems);");
         sb.AppendLine();
 
         for (var n = 1; n <= ArityCap.Max; n++)
@@ -291,7 +294,7 @@ internal static class QueryChainEmitter
             var instances = string.Join(", ", Enumerable.Range(0, n).Select(i => $"new T{i}()"));
 
             sb.AppendLine($"    public static WorldBuilder WithSystems<{typeParams}>(this WorldBuilder builder) {constraints} =>");
-            sb.AppendLine($"        builder.WithSystems(Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries, {instances});");
+            sb.AppendLine($"        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, {instances});");
             sb.AppendLine();
         }
 

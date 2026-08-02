@@ -79,10 +79,10 @@ public class QuerySystemTests
     }
 
     [Fact]
-    public void DeclaredSystem_RegistersGeneratedSystemAccess()
+    public void DeclaredSystem_RegistersSystemRegistryAccess()
     {
-        Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries.Should().ContainKey(typeof(DrainSystem));
-        var access = Wyrd.Ecs.Generated.GeneratedSystemAccess.Entries[typeof(DrainSystem)];
+        Wyrd.Ecs.Generated.SystemRegistry.Access.Should().ContainKey(typeof(DrainSystem));
+        var access = Wyrd.Ecs.Generated.SystemRegistry.Access[typeof(DrainSystem)];
         access.Writes.Should().Equal(typeof(Energy));
         access.Reads.Should().BeEmpty();
     }
