@@ -126,7 +126,6 @@ public class EntityTemplate
         {
             var storage = archetype.GetOrCreateStorage<T>();
             storage.Fill(startRow, count, value);
-            if (world.IsTracked(Internal.TypeIndex<T>.Value))
-                storage.MarkDirtyRange(startRow, count, world.CurrentTick);
+            world.MarkDirtyRangeIfTracked(storage, startRow, count);
         };
 }

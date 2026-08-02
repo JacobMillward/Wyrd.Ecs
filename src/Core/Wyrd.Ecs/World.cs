@@ -320,8 +320,7 @@ public sealed partial class World
         var target = MoveViaAddEdge(entity, source.Archetype, source.Row, typeIndex);
 
         var storage = target.Archetype.GetOrCreateStorage<T>();
-        if (IsTracked(typeIndex))
-            storage.MarkDirty(target.Row, _currentTick);
+        MarkDirtyIfTracked(storage, target.Row);
         NotifyComponentAdded(entity, typeIndex);
         return ref storage[target.Row];
     }
@@ -345,8 +344,7 @@ public sealed partial class World
             throw new InvalidOperationException($"Entity {entity} does not have component {typeof(T)}.");
 
         var typed = (ComponentStorage<T>)storage;
-        if (IsTracked(TypeIndex<T>.Value))
-            typed.MarkDirty(location.Row, _currentTick);
+        MarkDirtyIfTracked(typed, location.Row);
         return ref typed[location.Row];
     }
 
@@ -370,8 +368,7 @@ public sealed partial class World
 
         found = true;
         var typed = (ComponentStorage<T>)storage;
-        if (IsTracked(TypeIndex<T>.Value))
-            typed.MarkDirty(row, _currentTick);
+        MarkDirtyIfTracked(typed, row);
         return ref typed[row];
     }
 
@@ -588,8 +585,7 @@ public sealed partial class World
         var typed = (ComponentStorage<RelationLinks<T>>)storage;
         ref var edgeValue = ref CollectionsMarshal.GetValueRefOrNullRef(typed[row].Targets!, target);
         found = !Unsafe.IsNullRef(ref edgeValue);
-        if (found && IsTracked(TypeIndex<RelationLinks<T>>.Value))
-            typed.MarkDirty(row, _currentTick);
+        if (found) MarkDirtyIfTracked(typed, row);
         return ref edgeValue;
     }
 
@@ -612,8 +608,7 @@ public sealed partial class World
         if (Unsafe.IsNullRef(ref edgeValue))
             throw new InvalidOperationException($"Entity {source} has no {typeof(T)} edge to {target}.");
 
-        if (IsTracked(TypeIndex<RelationLinks<T>>.Value))
-            typed.MarkDirty(row, _currentTick);
+        MarkDirtyIfTracked(typed, row);
         return ref edgeValue;
     }
 
@@ -809,6 +804,28 @@ public sealed partial class World
 
     /// <summary>True when change tracking is currently on for <paramref name="typeIndex"/>.</summary>
     internal bool IsTracked(int typeIndex) => _tracking.IsTracked(typeIndex);
+
+    /// <summary>
+    /// Marks <paramref name="storage"/>'s row <paramref name="row"/> dirty if
+    /// <typeparamref name="T"/> is currently tracked, no-op otherwise — the single
+    /// implementation of the "check tracked, then mark" idiom every tracked-access path
+    /// (<see cref="AddComponent{T}(Entity, EntityLocation)"/>, <see cref="GetComponent{T}(Entity, EntityLocation)"/>,
+    /// <see cref="TryGetComponent{T}"/>, <see cref="GetRelation{T}"/>,
+    /// <see cref="TryGetRelation{T}"/>, and <see cref="EntityTemplate.MakeSetter{T}"/>)
+    /// otherwise repeated by hand.
+    /// </summary>
+    internal void MarkDirtyIfTracked<T>(ComponentStorage<T> storage, int row) where T : struct, IComponent
+    {
+        if (IsTracked(TypeIndex<T>.Value))
+            storage.MarkDirty(row, _currentTick);
+    }
+
+    /// <summary>Range counterpart to <see cref="MarkDirtyIfTracked{T}(ComponentStorage{T}, int)"/>, used by <see cref="EntityTemplate.MakeSetter{T}"/>'s batch instantiation path.</summary>
+    internal void MarkDirtyRangeIfTracked<T>(ComponentStorage<T> storage, int startRow, int count) where T : struct, IComponent
+    {
+        if (IsTracked(TypeIndex<T>.Value))
+            storage.MarkDirtyRange(startRow, count, _currentTick);
+    }
 
     private void RequireAlive(Entity entity)
     {
