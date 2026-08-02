@@ -250,10 +250,10 @@ internal sealed class ChangeFeedHub
     private sealed class HubObserver(ChangeFeedHub hub) : IStructuralChangeObserver
     {
         public void OnEntityCreated(Entity entity) =>
-            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, 0, hub._world.CurrentTick, ChangeKind.EntityCreated));
+            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, null, hub._world.CurrentTick, ChangeKind.EntityCreated));
 
         public void OnEntityDestroyed(Entity entity) =>
-            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, 0, hub._world.CurrentTick, ChangeKind.EntityDestroyed));
+            hub.AppendStructural(new ChangeEntry(entity, Entity.Null, null, hub._world.CurrentTick, ChangeKind.EntityDestroyed));
 
         public void OnComponentAdded(Entity entity, int typeIndex) =>
             hub.AppendStructural(new ChangeEntry(entity, Entity.Null, typeIndex, hub._world.CurrentTick, ChangeKind.ComponentAdded));
