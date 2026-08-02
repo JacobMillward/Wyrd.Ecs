@@ -122,6 +122,7 @@ public sealed partial class World
     public void AdvanceTick()
     {
         _currentTick++;
+        foreach (var channel in _activeEventChannels) channel.Swap();
         OnTickAdvanced?.Invoke(_currentTick);
     }
 

@@ -62,4 +62,34 @@ public class EventTests
 
         channels.Should().OnlyContain(c => ReferenceEquals(c, channels[0]), "every concurrent first-use call for the same never-before-used type must resolve to exactly one EventChannel<Damage> instance, not a distinct one per racing thread");
     }
+
+    [Fact]
+    public void Read_MissesASameTickLateEmission_ButCatchesItNextTick()
+    {
+        var world = new World();
+        var reader = world.CreateEventReader<Damage>();
+
+        _ = reader.Read(); // this reader's one read this tick — its stage ran before the emitter's
+        world.Emit(new Damage(1)); // emitter's stage runs later, same tick — too late for the read above to catch
+
+        world.AdvanceTick(); // moves to the next tick; exactly one Swap() has now happened
+
+        reader.Read().Should().BeEquivalentTo([new Damage(1)], "one AdvanceTick() since the emission is still within the two-swap retention window");
+    }
+
+    [Fact]
+    public void Read_SkippingAnEntireTickBetweenCallsSilentlyLosesWhatWasEmittedBeforeTheGap()
+    {
+        var world = new World();
+        var reader = world.CreateEventReader<Damage>();
+
+        _ = reader.Read();
+        world.Emit(new Damage(1)); // same tick, too late for the read above to catch
+
+        world.AdvanceTick(); // tick N -> N+1 (first Swap())
+        // reader does NOT call Read() here — this is the skipped tick
+        world.AdvanceTick(); // tick N+1 -> N+2 (second Swap() retires it)
+
+        reader.Read().Should().BeEmpty("the reader skipped a full tick between calls, so the second AdvanceTick()'s Swap() retired the emission before this Read() ever ran — this is NOT safe to rely on as \"poll every other tick\"");
+    }
 }
