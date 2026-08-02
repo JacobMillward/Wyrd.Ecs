@@ -6,4 +6,4 @@ namespace Wyrd.Ecs;
 /// since there is no historical log, so an entity touched more than once since the
 /// caller's watermark is reported once, with its latest value).
 /// </summary>
-public readonly record struct ChangedComponent<T>(Entity Entity, int Tick, T Value) where T : struct, IComponent;
+internal readonly record struct ChangedComponent<T>(Entity Entity, int Tick, T Value) where T : struct, IComponent;

@@ -9,7 +9,7 @@ namespace Wyrd.Ecs;
 /// their own watermark at any time, since reading never mutates anything, so there's
 /// no coordination needed between them.
 /// </summary>
-public readonly ref struct ChangedComponents<T> where T : struct, IComponent
+internal readonly ref struct ChangedComponents<T> where T : struct, IComponent
 {
     private readonly Archetype[] _archetypes;
     private readonly int _sinceTick;
