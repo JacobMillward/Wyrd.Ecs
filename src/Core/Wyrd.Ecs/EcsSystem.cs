@@ -9,7 +9,7 @@ namespace Wyrd.Ecs;
 public abstract class EcsSystem : SchedulableSystem
 {
     /// <summary>
-    /// Whether <see cref="ScheduledExecutor.RunStages"/> invokes this system's
+    /// Whether <see cref="ISystemScheduler.RunStages"/> invokes this system's
     /// <see cref="Execute"/> on the current tick. Cheap and immediate: toggling this
     /// never touches the schedule itself, unlike removing a system entirely. The
     /// recommended default for routine pause/resume.
@@ -25,7 +25,7 @@ public abstract class EcsSystem : SchedulableSystem
     protected abstract void Execute(World world, Time time);
 
     /// <summary>
-    /// The only way <see cref="World"/>/<see cref="ScheduledExecutor"/> reach
+    /// The only way <see cref="World"/>/<see cref="ISystemScheduler"/> reach
     /// <see cref="Execute"/>. Kept as a plain, non-virtual <c>internal</c> forwarder rather
     /// than making <see cref="Execute"/> itself <c>protected internal</c>, since the required
     /// override modifier for a <c>protected internal</c> member depends on whether the

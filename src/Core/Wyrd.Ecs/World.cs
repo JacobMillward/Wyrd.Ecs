@@ -28,13 +28,13 @@ public sealed partial class World
     private EntityTable _entityTable = new();
     private int _currentTick = 1;
 
-    private ScheduledExecutor _executor;
+    private readonly ISystemScheduler _executor;
     private TimeSpan _totalElapsed;
 
     /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>. Use <see cref="WorldBuilder"/> to configure it.</summary>
-    public World() : this(DefaultArchetypeCapacity, new ScheduledExecutor([], 1000)) { }
+    public World() : this(DefaultArchetypeCapacity, new ParallelSystemScheduler(1000)) { }
 
-    internal World(int archetypeCapacity, ScheduledExecutor executor)
+    internal World(int archetypeCapacity, ISystemScheduler executor)
     {
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(ArchetypeSignature.Empty, archetypeCapacity);
@@ -42,16 +42,6 @@ public sealed partial class World
         _commands = new CommandBuffer(this);
         _executor = executor;
     }
-
-    /// <summary>
-    /// Replaces the schedule <see cref="Update"/> runs. Called exactly once, by
-    /// <see cref="WorldBuilder.Build"/>, after every registered system's instance
-    /// exists (construction needs <see cref="World"/> to already exist for a
-    /// <c>ctor(World)</c> system, so the schedule — which needs those instances — can
-    /// only be computed afterward).
-    /// </summary>
-    internal void SetStages(IReadOnlyList<IReadOnlyList<EcsSystem>> stages) =>
-        _executor = new ScheduledExecutor(stages, _executor.ParallelThreshold);
 
     /// <summary>The built-in deferred-mutation buffer for structural changes. See <see cref="CommandBuffer"/>.</summary>
     public CommandBuffer Commands => _commands;

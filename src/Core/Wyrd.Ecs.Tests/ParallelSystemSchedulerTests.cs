@@ -54,7 +54,7 @@ sealed class RecordingSystem : EcsSystem
     protected override void Execute(World world, Time time) => ExecuteCallCount++;
 }
 
-public class ScheduledExecutorTests
+public class ParallelSystemSchedulerTests
 {
     [Fact]
     public void DisjointSystems_BothRun_EachStageInSequence()
@@ -112,7 +112,7 @@ public class ScheduledExecutorTests
     {
         // WithParallelThreshold(0) forces the Parallel.ForEach branch (disjoint writes put both
         // spawner systems in one stage); this is the only test in the file that exercises real
-        // concurrent dispatch through ScheduledExecutor's thread pool.
+        // concurrent dispatch through ParallelSystemScheduler's thread pool.
         var builder = new WorldBuilder();
         builder.AddSystemCore(typeof(SpawnerASystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new SpawnerASystem(), [], []);
         builder.AddSystemCore(typeof(SpawnerBSystem), new(Reads: [], Writes: [typeof(ScheduledHealth)]), _ => new SpawnerBSystem(), [], []);
@@ -149,11 +149,12 @@ public class ScheduledExecutorTests
     {
         var system = new RecordingSystem();
         var stages = new List<IReadOnlyList<EcsSystem>> { new List<EcsSystem> { system } };
-        var executor = new ScheduledExecutor(stages, parallelThreshold: 1000);
+        var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
+        scheduler.AttachStages(stages);
         var world = new World();
 
         system.Enabled = false;
-        executor.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
         system.ExecuteCallCount.Should().Be(0);
     }
@@ -163,10 +164,11 @@ public class ScheduledExecutorTests
     {
         var system = new RecordingSystem();
         var stages = new List<IReadOnlyList<EcsSystem>> { new List<EcsSystem> { system } };
-        var executor = new ScheduledExecutor(stages, parallelThreshold: 1000);
+        var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
+        scheduler.AttachStages(stages);
         var world = new World();
 
-        executor.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
         system.ExecuteCallCount.Should().Be(1, "Enabled defaults to true");
     }

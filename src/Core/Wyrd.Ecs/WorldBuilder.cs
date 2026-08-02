@@ -9,6 +9,7 @@ public sealed class WorldBuilder
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
     private readonly List<Internal.SystemEntry> _pending = [];
     private int _parallelThreshold = 1000;
+    private ISystemScheduler? _scheduler;
 
     /// <summary>
     /// Sets the entity capacity every archetype's dense arrays start at and never shrink
@@ -41,15 +42,15 @@ public sealed class WorldBuilder
     /// </summary>
     public World Build()
     {
-        var world = new World(_archetypeCapacity, new ScheduledExecutor([], _parallelThreshold));
+        var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
+        var world = new World(_archetypeCapacity, scheduler);
         foreach (var entry in _pending)
         {
             entry.Instance = entry.Construct(world);
             entry.Instance.Enabled = entry.StartEnabled;
         }
 
-        var stages = Internal.StagePlanner.BuildStages(_pending);
-        world.SetStages(stages);
+        scheduler.AttachStages(Internal.StagePlanner.BuildStages(_pending));
 
         OnBuilt?.Invoke(world);
         return world;
@@ -102,13 +103,25 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Sets the minimum <see cref="World.TotalEntityCount"/> a stage needs before
-    /// <see cref="ScheduledExecutor"/> dispatches it to the thread pool instead of
+    /// <see cref="ParallelSystemScheduler"/> dispatches it to the thread pool instead of
     /// running it inline, since dispatch overhead can outweigh the parallelism gain at
     /// small world sizes. Defaults to 1000, a starting point, not a benchmarked value.
+    /// No effect if <see cref="WithScheduler"/> supplied a different <see cref="ISystemScheduler"/>.
     /// </summary>
     public WorldBuilder WithParallelThreshold(int entityCount)
     {
         _parallelThreshold = entityCount;
+        return this;
+    }
+
+    /// <summary>
+    /// Overrides the default <see cref="ParallelSystemScheduler"/> — the extensibility
+    /// hook for a custom <see cref="ISystemScheduler"/> (e.g. a deterministic,
+    /// non-parallel implementation for lockstep/replay netcode).
+    /// </summary>
+    public WorldBuilder WithScheduler(ISystemScheduler scheduler)
+    {
+        _scheduler = scheduler;
         return this;
     }
 }

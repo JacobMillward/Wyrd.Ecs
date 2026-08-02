@@ -7,7 +7,7 @@ namespace Wyrd.Ecs;
 /// declaration (<c>public sealed class EndOfPhysics : MarkerSystem { }</c>). It is never
 /// registered or instantiated: the ordering graph tracks a marker purely by its
 /// <see cref="Type"/>, and it never appears in the schedule
-/// <see cref="ScheduledExecutor"/> runs; it only shapes stage boundaries.
+/// <see cref="ISystemScheduler"/> runs; it only shapes stage boundaries.
 /// </summary>
 public abstract class MarkerSystem : SchedulableSystem
 {
