@@ -32,4 +32,15 @@ public abstract class EcsSystem : SchedulableSystem
     /// overriding assembly has an <c>InternalsVisibleTo</c> grant.
     /// </summary>
     internal void InvokeExecute(World world, Time time) => Execute(world, time);
+
+    /// <summary>
+    /// Called exactly once, by <see cref="World.RemoveSystem(EcsSystem)"/>, when this
+    /// system is removed from a <see cref="World"/>. The constructor is this type's
+    /// create hook (it only ever runs once, wherever construction happens); this is its
+    /// counterpart for teardown. No-op by default.
+    /// </summary>
+    protected virtual void OnDestroy() { }
+
+    /// <summary>The only way <see cref="World.RemoveSystem(EcsSystem)"/> reaches <see cref="OnDestroy"/> — same rationale as <see cref="InvokeExecute"/>.</summary>
+    internal void InvokeOnDestroy() => OnDestroy();
 }
