@@ -8,7 +8,7 @@ namespace Wyrd.Ecs.Internal;
 /// <see cref="OrderedSystem"/>'s fluent wrapper, into a graph over
 /// <see cref="OrderNode"/>s: every registered <see cref="EcsSystem"/> instance, plus
 /// one node per distinct <see cref="MarkerSystem"/> type an edge actually references
-/// (never an instance of it). Consumed by <see cref="SystemScheduler.BuildStages"/>.
+/// (never an instance of it). Consumed by <see cref="StagePlanner.BuildStages"/>.
 /// </summary>
 internal static class SystemOrderGraph
 {

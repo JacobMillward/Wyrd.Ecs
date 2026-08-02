@@ -6,7 +6,7 @@ namespace Wyrd.Ecs;
 /// elements. <c>Has</c>/<c>Without</c>/<c>Any</c> elements never appear here since they're
 /// filter-only, never a data dependency. Populated by the query-chain generator's
 /// <c>GeneratedSystemAccess.Entries</c> registry, consumed by
-/// <see cref="Internal.SystemScheduler"/>'s conflict-graph construction.
+/// <see cref="Internal.StagePlanner"/>'s conflict-graph construction.
 /// </summary>
 public sealed class SystemAccess : IEquatable<SystemAccess>
 {

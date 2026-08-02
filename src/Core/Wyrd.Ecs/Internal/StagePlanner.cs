@@ -7,7 +7,7 @@ namespace Wyrd.Ecs.Internal;
 /// edges declared via <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/>/
 /// <see cref="OrderedSystem"/>. Computed once, not re-evaluated per tick.
 /// </summary>
-internal static class SystemScheduler
+internal static class StagePlanner
 {
     /// <summary>
     /// Resolves every ordering edge across <paramref name="orderedSystems"/>, stably

@@ -43,7 +43,7 @@ public sealed class WorldBuilder
     /// </summary>
     public World Build()
     {
-        var stages = Internal.SystemScheduler.BuildStages(_systems, _generatedAccess ?? new Dictionary<Type, SystemAccess>());
+        var stages = Internal.StagePlanner.BuildStages(_systems, _generatedAccess ?? new Dictionary<Type, SystemAccess>());
         var world = new World(_archetypeCapacity, new ScheduledExecutor(stages, _parallelThreshold));
         OnBuilt?.Invoke(world);
         return world;

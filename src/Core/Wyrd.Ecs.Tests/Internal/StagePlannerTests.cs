@@ -11,7 +11,7 @@ file sealed class WriterB : EcsSystem { protected override void Execute(World wo
 file sealed class ReaderC : EcsSystem { protected override void Execute(World world, Time time) { } }
 file sealed class UnknownSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
 
-public class SystemSchedulerTests
+public class StagePlannerTests
 {
     [Fact]
     public void TwoSystemsWritingTheSameComponent_LandInDifferentStages()
@@ -23,7 +23,7 @@ public class SystemSchedulerTests
         };
         var systems = new OrderedSystem[] { new WriterA(), new WriterB() };
 
-        var stages = SystemScheduler.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access);
 
         stages.Should().HaveCount(2);
         stages[0].Should().ContainSingle();
@@ -40,7 +40,7 @@ public class SystemSchedulerTests
         };
         var systems = new OrderedSystem[] { new WriterA(), new WriterB() };
 
-        var stages = SystemScheduler.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access);
 
         stages.Should().ContainSingle();
         stages[0].Should().HaveCount(2);
@@ -56,7 +56,7 @@ public class SystemSchedulerTests
         };
         var systems = new OrderedSystem[] { new WriterA(), new ReaderC() };
 
-        var stages = SystemScheduler.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access);
 
         stages.Should().HaveCount(2);
     }
@@ -70,7 +70,7 @@ public class SystemSchedulerTests
         };
         var systems = new OrderedSystem[] { new WriterA(), new UnknownSystem() };
 
-        var stages = SystemScheduler.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access);
 
         stages.Should().HaveCount(2);
         stages.Should().Contain(stage => stage.Count == 1 && stage[0] is UnknownSystem);
@@ -86,7 +86,7 @@ public class SystemSchedulerTests
         var dynamicSystem = new DynamicHealthWriter();
         var systems = new OrderedSystem[] { new WriterA(), dynamicSystem };
 
-        var stages = SystemScheduler.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access);
 
         stages.Should().HaveCount(2, "dynamicSystem also writes Health -> conflicts with WriterA");
     }
