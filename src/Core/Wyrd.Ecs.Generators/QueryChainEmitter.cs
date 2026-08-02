@@ -281,9 +281,9 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `AddSystem&lt;T&gt;()` overloads on both `WorldBuilder` and
-    /// `SystemRegistration` so a consumer never spells out
-    /// `Wyrd.Ecs.Generated.SystemRegistry` by hand, and a fluent chain
+    /// Emits `AddSystem&lt;T&gt;()` overloads on `WorldBuilder`, `World` (the runtime,
+    /// already-built-and-running counterpart), and `SystemRegistration` so a consumer
+    /// never spells out `Wyrd.Ecs.Generated.SystemRegistry` by hand, and a fluent chain
     /// (`builder.AddSystem&lt;A&gt;().AddSystem&lt;B&gt;()`) keeps working regardless of
     /// which one the previous call returned. `Access` degrades gracefully via
     /// `AccessOrNull` — a system whose `Execute` never calls `.ForEach`/isn't a
@@ -321,6 +321,12 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration, Func<World, T> configure) where T : EcsSystem =>");
         sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine();
+        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this World world) where T : EcsSystem =>");
+        sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine();
+        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this World world, Func<World, T> configure) where T : EcsSystem =>");
+        sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
         sb.AppendLine();
         sb.AppendLine("    private static SystemAccess? AccessOrNull(Type systemType) =>");
         sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Access.TryGetValue(systemType, out var access) ? access : null;");
