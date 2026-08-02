@@ -26,10 +26,11 @@ public interface IComponentCodec
     byte[] EncodeRow(Array rawItems, int row);
 
     /// <summary>
-    /// Encodes <paramref name="value"/>, a previously-boxed value obtained from
-    /// <see cref="Internal.IComponentChangeSource.ReadRawChanges"/>. <paramref name="value"/> must be a boxed instance
-    /// of this registration's concrete component type — passing anything else throws
-    /// an <see cref="InvalidCastException"/>.
+    /// Encodes <paramref name="value"/>, a previously-boxed value of this registration's
+    /// concrete component type (as produced internally by the change-tracking scan
+    /// feeding <see cref="World.Subscribe(IComponentCodec)"/>). <paramref name="value"/>
+    /// must be a boxed instance of that type — passing anything else throws an
+    /// <see cref="InvalidCastException"/>.
     /// </summary>
     byte[] EncodeValue(object value);
 

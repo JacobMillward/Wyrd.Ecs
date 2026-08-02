@@ -18,19 +18,23 @@ internal delegate void TemplateComponentSetter(World world, Internal.Archetype a
 /// (<c>new EntityTemplate().AddComponent(...)</c>) for runtime-composed shapes, or
 /// subclassed with a constructor calling the same members, for named, hand-authored
 /// prefabs. See the design doc's section A for why there's no separate builder type and no
-/// callback overload. Conventionally treated as read-only once used to instantiate — not
-/// runtime-enforced, the same trust-the-caller stance <see cref="RelationLinks{T}"/>'s own
-/// doc comment takes for its invariants.
+/// callback overload. Frozen after first instantiation — see <see cref="ThrowIfFrozen"/> —
+/// so mutating a shared/reused template after (or concurrently with) instantiating it
+/// throws instead of silently corrupting <see cref="_settersByType"/>.
 /// </summary>
 public class EntityTemplate
 {
+    private readonly Lock _gate = new();
     private Internal.ArchetypeSignature _signature = Internal.ArchetypeSignature.Empty;
     private readonly Dictionary<int, TemplateComponentSetter> _settersByType = new();
     private TemplateComponentSetter[]? _cachedSetters;
     private bool _frozen;
 
     /// <summary>The archetype signature every instance of this template lands in (components + tags). Computed incrementally as <see cref="AddComponent{T}"/>/<see cref="AddTag{T}"/> are called. Reading this freezes the template — see <see cref="ThrowIfFrozen"/>.</summary>
-    internal Internal.ArchetypeSignature Signature { get { _frozen = true; return _signature; } }
+    internal Internal.ArchetypeSignature Signature
+    {
+        get { lock (_gate) { _frozen = true; return _signature; } }
+    }
 
     /// <summary>
     /// Every component setter on this template. Backed by <see cref="_settersByType"/> (keyed
@@ -44,14 +48,20 @@ public class EntityTemplate
     /// <c>TemplateComponentSetter[]</c> directly doesn't. Reading this freezes the template —
     /// see <see cref="ThrowIfFrozen"/>.
     /// </summary>
-    internal TemplateComponentSetter[] Setters { get { _frozen = true; return _cachedSetters ??= [.. _settersByType.Values]; } }
+    internal TemplateComponentSetter[] Setters
+    {
+        get { lock (_gate) { _frozen = true; return _cachedSetters ??= [.. _settersByType.Values]; } }
+    }
 
     /// <summary>
     /// Throws if this template has already been read for instantiation (via
-    /// <see cref="Signature"/> or <see cref="Setters"/>) — turns the "conventionally
-    /// treated as read-only once used" trust-the-caller convention into an immediate,
-    /// loud failure instead of silent corruption if a shared/reused template is mutated
-    /// concurrently with, or after, its own instantiation.
+    /// <see cref="Signature"/> or <see cref="Setters"/>). Caller must already hold
+    /// <see cref="_gate"/>: every mutator below takes the same lock <see cref="Signature"/>/
+    /// <see cref="Setters"/> freeze under, so a mutation can never interleave with an
+    /// in-progress freeze-and-read on another thread — this is a real concurrency guard,
+    /// not just a same-thread sequencing check, since template instantiation
+    /// (<see cref="CommandBuffer.CreateEntity(EntityTemplate)"/>) is itself documented safe
+    /// to call from several threads at once.
     /// </summary>
     private void ThrowIfFrozen()
     {
@@ -67,11 +77,14 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddComponent<T>(T value) where T : struct, IComponent
     {
-        ThrowIfFrozen();
-        var typeIndex = Internal.TypeIndex<T>.Value;
-        _signature = _signature.With(typeIndex);
-        _settersByType[typeIndex] = MakeSetter(value);
-        _cachedSetters = null;
+        lock (_gate)
+        {
+            ThrowIfFrozen();
+            var typeIndex = Internal.TypeIndex<T>.Value;
+            _signature = _signature.With(typeIndex);
+            _settersByType[typeIndex] = MakeSetter(value);
+            _cachedSetters = null;
+        }
         return this;
     }
 
@@ -84,8 +97,11 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddTag<T>() where T : struct, ITag
     {
-        ThrowIfFrozen();
-        _signature = _signature.With(Internal.TypeIndex<T>.Value);
+        lock (_gate)
+        {
+            ThrowIfFrozen();
+            _signature = _signature.With(Internal.TypeIndex<T>.Value);
+        }
         return this;
     }
 
@@ -106,8 +122,11 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddChild(EntityTemplate child)
     {
-        ThrowIfFrozen();
-        _children.Add(child);
+        lock (_gate)
+        {
+            ThrowIfFrozen();
+            _children.Add(child);
+        }
         return this;
     }
 
@@ -135,8 +154,11 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddParent(Entity parent)
     {
-        ThrowIfFrozen();
-        ExplicitParent = parent;
+        lock (_gate)
+        {
+            ThrowIfFrozen();
+            ExplicitParent = parent;
+        }
         return this;
     }
 

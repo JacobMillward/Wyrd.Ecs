@@ -5,13 +5,25 @@ namespace Wyrd.Ecs;
 
 public sealed partial class World
 {
+    /// <summary>
+    /// Not synchronized: <see cref="ObserveStructuralChanges"/>/dispose of the returned
+    /// handle only ever race safely against each other if the caller serializes them
+    /// itself. <see cref="Internal.ChangeFeedHub"/> is a safe caller of this because it
+    /// only ever registers once, itself under its own lock, no matter how many
+    /// <c>Subscribe*</c> callers ask for it — a second, independent caller of
+    /// <see cref="ObserveStructuralChanges"/> directly (bypassing <c>Subscribe*</c>) from a
+    /// different thread than another such caller is not safe against this list without
+    /// external synchronization of its own.
+    /// </summary>
     private readonly List<IStructuralChangeObserver> _structuralObservers = new();
 
     /// <summary>
     /// Registers <paramref name="observer"/> for every structural change from this point
     /// on. Dispose the returned handle to unregister. This is tier 0 — synchronous,
     /// zero-buffer, fires inline at the exact moment of mutation. For a buffered,
-    /// per-type-scoped alternative, see <see cref="Subscribe{T}"/> and its siblings.
+    /// per-type-scoped alternative, see <see cref="Subscribe{T}"/> and its siblings. Not
+    /// synchronized against another independent caller of this same method from a
+    /// different thread — see <see cref="_structuralObservers"/>'s own doc.
     /// </summary>
     public IDisposable ObserveStructuralChanges(IStructuralChangeObserver observer)
     {
