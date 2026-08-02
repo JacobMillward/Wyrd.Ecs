@@ -1,4 +1,4 @@
-namespace Wyrd.Ecs;
+namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// One component change, not yet encoded: the entity, the tick it was touched on, and

@@ -1,6 +1,4 @@
-using Wyrd.Ecs.Internal;
-
-namespace Wyrd.Ecs;
+namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// A stateless scan over every archetype containing <typeparamref name="T"/>, yielding

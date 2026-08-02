@@ -1,4 +1,4 @@
-namespace Wyrd.Ecs;
+namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// One component change observed by <see cref="World.ReadChanges{T}"/>: the entity,
