@@ -27,9 +27,10 @@ public class EntityTemplate
     private Internal.ArchetypeSignature _signature = Internal.ArchetypeSignature.Empty;
     private readonly Dictionary<int, TemplateComponentSetter> _settersByType = new();
     private TemplateComponentSetter[]? _cachedSetters;
+    private bool _frozen;
 
-    /// <summary>The archetype signature every instance of this template lands in (components + tags). Computed incrementally as <see cref="AddComponent{T}"/>/<see cref="AddTag{T}"/> are called.</summary>
-    internal Internal.ArchetypeSignature Signature => _signature;
+    /// <summary>The archetype signature every instance of this template lands in (components + tags). Computed incrementally as <see cref="AddComponent{T}"/>/<see cref="AddTag{T}"/> are called. Reading this freezes the template — see <see cref="ThrowIfFrozen"/>.</summary>
+    internal Internal.ArchetypeSignature Signature { get { _frozen = true; return _signature; } }
 
     /// <summary>
     /// Every component setter on this template. Backed by <see cref="_settersByType"/> (keyed
@@ -40,9 +41,23 @@ public class EntityTemplate
     /// materialization cost once, not per instantiate. The concrete array type matters, not
     /// just the caching: an interface-typed <c>foreach</c> (as this used to be) forces a
     /// boxed, virtually-dispatched enumerator on every hot-path instantiate call; iterating a
-    /// <c>TemplateComponentSetter[]</c> directly doesn't.
+    /// <c>TemplateComponentSetter[]</c> directly doesn't. Reading this freezes the template —
+    /// see <see cref="ThrowIfFrozen"/>.
     /// </summary>
-    internal TemplateComponentSetter[] Setters => _cachedSetters ??= [.. _settersByType.Values];
+    internal TemplateComponentSetter[] Setters { get { _frozen = true; return _cachedSetters ??= [.. _settersByType.Values]; } }
+
+    /// <summary>
+    /// Throws if this template has already been read for instantiation (via
+    /// <see cref="Signature"/> or <see cref="Setters"/>) — turns the "conventionally
+    /// treated as read-only once used" trust-the-caller convention into an immediate,
+    /// loud failure instead of silent corruption if a shared/reused template is mutated
+    /// concurrently with, or after, its own instantiation.
+    /// </summary>
+    private void ThrowIfFrozen()
+    {
+        if (_frozen)
+            throw new InvalidOperationException("This EntityTemplate has already been instantiated and can no longer be modified.");
+    }
 
     /// <summary>
     /// Adds <paramref name="value"/> as this template's <typeparamref name="T"/>. Calling
@@ -52,6 +67,7 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddComponent<T>(T value) where T : struct, IComponent
     {
+        ThrowIfFrozen();
         var typeIndex = Internal.TypeIndex<T>.Value;
         _signature = _signature.With(typeIndex);
         _settersByType[typeIndex] = MakeSetter(value);
@@ -68,6 +84,7 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddTag<T>() where T : struct, ITag
     {
+        ThrowIfFrozen();
         _signature = _signature.With(Internal.TypeIndex<T>.Value);
         return this;
     }
@@ -89,6 +106,7 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddChild(EntityTemplate child)
     {
+        ThrowIfFrozen();
         _children.Add(child);
         return this;
     }
@@ -117,6 +135,7 @@ public class EntityTemplate
     /// </summary>
     public EntityTemplate AddParent(Entity parent)
     {
+        ThrowIfFrozen();
         ExplicitParent = parent;
         return this;
     }
