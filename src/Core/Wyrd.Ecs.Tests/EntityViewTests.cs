@@ -169,6 +169,100 @@ public class EntityViewTests
     }
 
     [Fact]
+    public void TryGetParent_HasParent_ReturnsTrueAndTheParent()
+    {
+        var world = new World();
+        Entity parent = world.Commands.CreateEntity();
+        Entity child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        world[child].SetParent(parent);
+        world.ApplyCommands();
+
+        world[child].TryGetParent(out var found).Should().BeTrue();
+        found.Should().Be(parent);
+    }
+
+    [Fact]
+    public void TryGetParent_NoParent_ReturnsFalse()
+    {
+        var world = new World();
+        Entity entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world[entity].TryGetParent(out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetParent_HasParent_ReturnsIt()
+    {
+        var world = new World();
+        Entity parent = world.Commands.CreateEntity();
+        Entity child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        world[child].SetParent(parent);
+        world.ApplyCommands();
+
+        world[child].GetParent().Should().Be(parent);
+    }
+
+    [Fact]
+    public void GetParent_NoParent_Throws()
+    {
+        var world = new World();
+        Entity entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var act = () => world[entity].GetParent();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Children_ReturnsEveryDirectChild()
+    {
+        var world = new World();
+        Entity parent = world.Commands.CreateEntity();
+        Entity childA = world.Commands.CreateEntity();
+        Entity childB = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        world[childA].SetParent(parent);
+        world[childB].SetParent(parent);
+        world.ApplyCommands();
+
+        world[parent].Children().Should().BeEquivalentTo([childA, childB]);
+    }
+
+    [Fact]
+    public void Ancestors_ReturnsTheParentChainClosestFirst()
+    {
+        var world = new World();
+        Entity grandparent = world.Commands.CreateEntity();
+        Entity parent = world.Commands.CreateEntity();
+        Entity child = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        world[parent].SetParent(grandparent);
+        world[child].SetParent(parent);
+        world.ApplyCommands();
+
+        world[child].Ancestors().Should().Equal([parent, grandparent]);
+    }
+
+    [Fact]
+    public void Descendants_ReturnsEveryDescendantDepthFirst()
+    {
+        var world = new World();
+        Entity root = world.Commands.CreateEntity();
+        Entity child = world.Commands.CreateEntity();
+        Entity grandchild = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        world[child].SetParent(root);
+        world[grandchild].SetParent(child);
+        world.ApplyCommands();
+
+        world[root].Descendants().Should().Equal([child, grandchild]);
+    }
+
+    [Fact]
     public void HasRelation_EdgePresent_ReturnsTrue()
     {
         var world = new World();

@@ -140,6 +140,21 @@ public readonly ref struct EntityView
         return this;
     }
 
+    /// <summary>Same as <see cref="World.TryGetParent(Entity, out Entity)"/>, without repeating the entity.</summary>
+    public bool TryGetParent(out Entity parent) => _world.TryGetParent(_entity, out parent);
+
+    /// <summary>Same as <see cref="World.GetParent(Entity)"/>, without repeating the entity.</summary>
+    public Entity GetParent() => _world.GetParent(_entity);
+
+    /// <summary>Every direct child of this entity — see <see cref="World.Children(Entity)"/>.</summary>
+    public IReadOnlyCollection<Entity> Children() => _world.Children(_entity);
+
+    /// <summary>This entity's parent chain, closest parent first — see <see cref="World.Ancestors(Entity)"/>.</summary>
+    public IEnumerable<Entity> Ancestors() => _world.Ancestors(_entity);
+
+    /// <summary>Every descendant of this entity, depth-first — see <see cref="World.Descendants(Entity)"/>.</summary>
+    public IEnumerable<Entity> Descendants() => _world.Descendants(_entity);
+
     /// <summary>Every target this entity has a <typeparamref name="T"/> edge to, and each edge's payload — see <see cref="World.Targets{T}(Entity)"/>.</summary>
     public IReadOnlyDictionary<Entity, T> Targets<T>() where T : struct, IRelation => _world.Targets<T>(_entity);
 
