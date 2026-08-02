@@ -12,23 +12,29 @@ file sealed class SchedulerTestMarker : MarkerSystem { }
 
 public class StagePlannerOrderingTests
 {
-    private static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)> NoEdges =
-        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
-
+    private static SystemEntry EntryFor(EcsSystem instance, SystemAccess access, IReadOnlyList<Type>? before = null, IReadOnlyList<Type>? after = null) =>
+        new()
+        {
+            SystemType = instance.GetType(),
+            Construct = _ => instance,
+            Access = access,
+            Instance = instance,
+            BeforeTargets = before is null ? [] : [.. before],
+            AfterTargets = after is null ? [] : [.. after],
+        };
 
     [Fact]
     public void EdgeWithNoDataConflict_StillForcesSeparateStages()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-            [typeof(OrderedSystemQ)] = new(Reads: [], Writes: [typeof(OrderingComponentB)]),
-        };
         var p = new OrderedSystemP();
         var q = new OrderedSystemQ();
-        OrderedSystem[] systems = [p, Order.For(q).After<OrderedSystemP>()];
+        SystemEntry[] entries =
+        [
+            EntryFor(p, new(Reads: [], Writes: [typeof(OrderingComponentA)])),
+            EntryFor(q, new(Reads: [], Writes: [typeof(OrderingComponentB)]), after: [typeof(OrderedSystemP)]),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().HaveCount(2);
         stages[0].Should().ContainSingle(s => s == p);
@@ -38,14 +44,13 @@ public class StagePlannerOrderingTests
     [Fact]
     public void NoEdgeAndNoConflict_StillPackIntoOneStage()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-            [typeof(OrderedSystemQ)] = new(Reads: [], Writes: [typeof(OrderingComponentB)]),
-        };
-        OrderedSystem[] systems = [new OrderedSystemP(), new OrderedSystemQ()];
+        SystemEntry[] entries =
+        [
+            EntryFor(new OrderedSystemP(), new(Reads: [], Writes: [typeof(OrderingComponentA)])),
+            EntryFor(new OrderedSystemQ(), new(Reads: [], Writes: [typeof(OrderingComponentB)])),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().ContainSingle();
         stages[0].Should().HaveCount(2);
@@ -57,17 +62,14 @@ public class StagePlannerOrderingTests
         // Q has no data conflict with P but an explicit After<P> edge; R has a data conflict
         // with P but no edge. Both must still separate from P, via different mechanisms.
         var p = new OrderedSystemP();
-        var q = Order.For(new OrderedSystemQ()).After<OrderedSystemP>();
-        var r = new OrderedSystemR();
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-            [typeof(OrderedSystemQ)] = new(Reads: [], Writes: [typeof(OrderingComponentB)]),
-            [typeof(OrderedSystemR)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-        };
-        OrderedSystem[] systems = [p, q, r];
+        SystemEntry[] entries =
+        [
+            EntryFor(p, new(Reads: [], Writes: [typeof(OrderingComponentA)])),
+            EntryFor(new OrderedSystemQ(), new(Reads: [], Writes: [typeof(OrderingComponentB)]), after: [typeof(OrderedSystemP)]),
+            EntryFor(new OrderedSystemR(), new(Reads: [], Writes: [typeof(OrderingComponentA)])),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         var pStage = stages.Single(s => s.Contains(p));
         var qStage = stages.Single(s => s.Any(sys => sys.GetType() == typeof(OrderedSystemQ)));
@@ -80,18 +82,14 @@ public class StagePlannerOrderingTests
     [Fact]
     public void ThreeHopChain_AllLandInStrictlyIncreasingStages()
     {
-        var p = new OrderedSystemP();
-        var q = Order.For(new OrderedSystemQ()).After<OrderedSystemP>();
-        var r = Order.For(new OrderedSystemR()).After<OrderedSystemQ>();
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-            [typeof(OrderedSystemQ)] = new(Reads: [], Writes: [typeof(OrderingComponentB)]),
-            [typeof(OrderedSystemR)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-        };
-        OrderedSystem[] systems = [p, q, r];
+        SystemEntry[] entries =
+        [
+            EntryFor(new OrderedSystemP(), new(Reads: [], Writes: [typeof(OrderingComponentA)])),
+            EntryFor(new OrderedSystemQ(), new(Reads: [], Writes: [typeof(OrderingComponentB)]), after: [typeof(OrderedSystemP)]),
+            EntryFor(new OrderedSystemR(), new(Reads: [], Writes: [typeof(OrderingComponentA)]), after: [typeof(OrderedSystemQ)]),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         int StageIndexOf(Type systemType) =>
             Enumerable.Range(0, stages.Count).First(i => stages[i].Any(s => s.GetType() == systemType));
@@ -107,16 +105,13 @@ public class StagePlannerOrderingTests
     [Fact]
     public void MarkerNode_NeverAppearsInTheMaterializedStages()
     {
-        var x = Order.For(new OrderedSystemP()).Before<SchedulerTestMarker>();
-        var y = Order.For(new OrderedSystemQ()).After<SchedulerTestMarker>();
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-            [typeof(OrderedSystemQ)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-        };
-        OrderedSystem[] systems = [x, y];
+        SystemEntry[] entries =
+        [
+            EntryFor(new OrderedSystemP(), new(Reads: [], Writes: [typeof(OrderingComponentA)]), before: [typeof(SchedulerTestMarker)]),
+            EntryFor(new OrderedSystemQ(), new(Reads: [], Writes: [typeof(OrderingComponentA)]), after: [typeof(SchedulerTestMarker)]),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.SelectMany(s => s).Should().HaveCount(2, "MarkerSystem is a sibling of EcsSystem, not a subtype, so a marker can never appear here as a matter of the type system; this only confirms no phantom entry snuck in some other way");
     }
@@ -124,14 +119,12 @@ public class StagePlannerOrderingTests
     [Fact]
     public void MarkerAloneInAStage_DoesNotProduceAnEmptyMaterializedStage()
     {
-        var x = Order.For(new OrderedSystemP()).Before<SchedulerTestMarker>();
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(OrderedSystemP)] = new(Reads: [], Writes: [typeof(OrderingComponentA)]),
-        };
-        OrderedSystem[] systems = [x];
+        SystemEntry[] entries =
+        [
+            EntryFor(new OrderedSystemP(), new(Reads: [], Writes: [typeof(OrderingComponentA)]), before: [typeof(SchedulerTestMarker)]),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().ContainSingle("the marker is only an edge target, and with nothing registered after it, it contributes no stage of its own to the materialized output");
         stages[0].Should().ContainSingle(s => s.GetType() == typeof(OrderedSystemP));

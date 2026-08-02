@@ -21,7 +21,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         context.RegisterPostInitializationOutput(ctx =>
-            ctx.AddSource("WithSystemsExtensions.g.cs", QueryChainEmitter.RenderWithSystemsExtensions()));
+            ctx.AddSource("AddSystemExtensions.g.cs", QueryChainEmitter.RenderAddSystemExtensions()));
 
         var chainCandidates = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is InvocationExpressionSyntax

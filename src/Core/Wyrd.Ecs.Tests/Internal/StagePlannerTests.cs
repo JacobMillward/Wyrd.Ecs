@@ -13,21 +13,21 @@ file sealed class UnknownSystem : EcsSystem { protected override void Execute(Wo
 
 public class StagePlannerTests
 {
-    private static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)> NoEdges =
-        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
-
+    private static SystemEntry EntryFor(EcsSystem instance, SystemAccess? access) =>
+        new() { SystemType = instance.GetType(), Construct = _ => instance, Access = access, Instance = instance };
 
     [Fact]
     public void TwoSystemsWritingTheSameComponent_LandInDifferentStages()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Position)]),
-            [typeof(WriterB)] = new(Reads: [], Writes: [typeof(Position)]),
-        };
-        var systems = new OrderedSystem[] { new WriterA(), new WriterB() };
+        var writerA = new WriterA();
+        var writerB = new WriterB();
+        SystemEntry[] entries =
+        [
+            EntryFor(writerA, new(Reads: [], Writes: [typeof(Position)])),
+            EntryFor(writerB, new(Reads: [], Writes: [typeof(Position)])),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().HaveCount(2);
         stages[0].Should().ContainSingle();
@@ -37,14 +37,15 @@ public class StagePlannerTests
     [Fact]
     public void DisjointComponentSets_LandInTheSameStage()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Position)]),
-            [typeof(WriterB)] = new(Reads: [], Writes: [typeof(Health)]),
-        };
-        var systems = new OrderedSystem[] { new WriterA(), new WriterB() };
+        var writerA = new WriterA();
+        var writerB = new WriterB();
+        SystemEntry[] entries =
+        [
+            EntryFor(writerA, new(Reads: [], Writes: [typeof(Position)])),
+            EntryFor(writerB, new(Reads: [], Writes: [typeof(Health)])),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().ContainSingle();
         stages[0].Should().HaveCount(2);
@@ -53,14 +54,15 @@ public class StagePlannerTests
     [Fact]
     public void WriteAndReadOfTheSameComponent_Conflict()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Velocity)]),
-            [typeof(ReaderC)] = new(Reads: [typeof(Velocity)], Writes: []),
-        };
-        var systems = new OrderedSystem[] { new WriterA(), new ReaderC() };
+        var writerA = new WriterA();
+        var readerC = new ReaderC();
+        SystemEntry[] entries =
+        [
+            EntryFor(writerA, new(Reads: [], Writes: [typeof(Velocity)])),
+            EntryFor(readerC, new(Reads: [typeof(Velocity)], Writes: [])),
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().HaveCount(2);
     }
@@ -68,13 +70,15 @@ public class StagePlannerTests
     [Fact]
     public void UnknownSystem_AlwaysGetsItsOwnExclusiveStage()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Health)]),
-        };
-        var systems = new OrderedSystem[] { new WriterA(), new UnknownSystem() };
+        var writerA = new WriterA();
+        var unknown = new UnknownSystem();
+        SystemEntry[] entries =
+        [
+            EntryFor(writerA, new(Reads: [], Writes: [typeof(Health)])),
+            EntryFor(unknown, access: null), // no generated entry at all -> conservative exclusive-stage fallback
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().HaveCount(2);
         stages.Should().Contain(stage => stage.Count == 1 && stage[0] is UnknownSystem);
@@ -83,14 +87,15 @@ public class StagePlannerTests
     [Fact]
     public void DynamicDescriptor_ParticipatesInTheSameGraph()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(WriterA)] = new(Reads: [], Writes: [typeof(Health)]),
-        };
+        var writerA = new WriterA();
         var dynamicSystem = new DynamicHealthWriter();
-        var systems = new OrderedSystem[] { new WriterA(), dynamicSystem };
+        SystemEntry[] entries =
+        [
+            EntryFor(writerA, new(Reads: [], Writes: [typeof(Health)])),
+            EntryFor(dynamicSystem, access: null), // no generated entry -> falls through to IQueryAccessDescriptor
+        ];
 
-        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
+        var stages = StagePlanner.BuildStages(entries);
 
         stages.Should().HaveCount(2, "dynamicSystem also writes Health -> conflicts with WriterA");
     }

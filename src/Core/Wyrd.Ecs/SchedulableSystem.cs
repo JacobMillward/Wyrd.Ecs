@@ -5,7 +5,7 @@ namespace Wyrd.Ecs;
 /// executable <see cref="EcsSystem"/>, or a non-executable <see cref="MarkerSystem"/>
 /// anchor used only to express Before/After relationships. Carries no members of its
 /// own; it exists purely so ordering edges (<see cref="RunBeforeAttribute"/>,
-/// <see cref="RunAfterAttribute"/>, <see cref="OrderedSystem"/>) can target either kind
+/// <see cref="RunAfterAttribute"/>, <see cref="SystemRegistration"/>) can target either kind
 /// through one constraint.
 /// </summary>
 public abstract class SchedulableSystem

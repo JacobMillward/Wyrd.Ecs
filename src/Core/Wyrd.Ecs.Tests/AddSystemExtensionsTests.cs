@@ -32,12 +32,12 @@ sealed partial class SugarConstructedSystem : QuerySystem
     public void Update(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += _amount;
 }
 
-public class WithSystemsExtensionsTests
+public class AddSystemExtensionsTests
 {
     [Fact]
-    public void WithSystemsGeneric_RegistersAParameterlessSystemWithoutTheGeneratedDictionary()
+    public void AddSystemGeneric_RegistersAParameterlessSystemWithoutTheGeneratedDictionary()
     {
-        var world = new WorldBuilder().WithSystems<SugarMoveSystem>().Build();
+        var world = new WorldBuilder().AddSystem<SugarMoveSystem>().Build();
         Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
@@ -47,9 +47,12 @@ public class WithSystemsExtensionsTests
     }
 
     [Fact]
-    public void WithSystemsInstances_RegistersAConstructorArgSystemWithoutTheGeneratedDictionary()
+    public void AddSystemWithConfigure_RegistersAConstructorArgSystemWithoutTheGeneratedDictionary()
     {
-        var world = new WorldBuilder().WithSystems(new SugarConstructedSystem(5f)).Build();
+        // SugarConstructedSystem's ctor(float) is neither ctor(World) nor parameterless,
+        // so the generator emits no Construct entry for it — the Func<World, T> overload
+        // is the only way to register it via AddSystem<T>().
+        var world = new WorldBuilder().AddSystem<SugarConstructedSystem>(_ => new SugarConstructedSystem(5f)).Build();
         Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
         world.ApplyCommands();
 
@@ -59,33 +62,19 @@ public class WithSystemsExtensionsTests
     }
 
     [Fact]
-    public void WithSystemsInstances_RegistersAPreBuiltEcsSystemArrayVariable()
+    public void AddSystemCore_RegistersAPreBuiltInstanceViaTheManualEscapeHatch()
     {
-        // The implicit EcsSystem -> OrderedSystem conversion applies per argument, not across
-        // an array's element type, so a pre-built EcsSystem[] needs the explicit
-        // IReadOnlyList<EcsSystem> overload, not the params one.
-        EcsSystem[] preBuilt = [new SugarConstructedSystem(5f)];
+        // AddSystemCore is the non-generic, manual entry point AddSystem<T>() itself
+        // closes over — exercised directly here for a type the generator never
+        // discovered access for (an explicit access dictionary supplied by hand,
+        // mirroring what a runtime-loaded system with no compile-time generator pass
+        // would need).
+        var access = new SystemAccess(Reads: [], Writes: [typeof(ScheduledPosition)]);
+        var preBuilt = new MoveSystem();
 
-        var world = new WorldBuilder().WithSystems(preBuilt).Build();
-        Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
-        world.ApplyCommands();
-
-        world.Update(TimeSpan.Zero);
-
-        world.GetComponent<SugarPosition>(entity).X.Should().Be(5f);
-    }
-
-    [Fact]
-    public void WithSystemsDictionaryOverload_RegistersAPreBuiltEcsSystemArrayVariable()
-    {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
-        };
-        var edges = new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
-        EcsSystem[] preBuilt = [new MoveSystem()];
-
-        var world = new WorldBuilder().WithSystems(access, edges, preBuilt).Build();
+        var world = new WorldBuilder()
+            .AddSystemCore(typeof(MoveSystem), access, _ => preBuilt, [], [])
+            .Build();
         Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
@@ -96,13 +85,17 @@ public class WithSystemsExtensionsTests
     }
 
     [Fact]
-    public void WithSystemsParamsOverload_ResolvesAMarkerWithNoExplicitDictionary()
+    public void AddSystem_ChainedBeforeAfter_ResolvesAMarkerAlongsideAGeneratedRunAfterEdge()
     {
         SugarBeforeAnchorSystem.Ran = false;
         SugarAfterAnchorSystem.Ran = false;
 
+        // SugarAfterAnchorSystem's [RunAfter(typeof(SugarMarkerAnchor))] is seeded by the
+        // generator automatically; SugarBeforeAnchorSystem's edge is declared fluently
+        // instead, exercising both edge sources landing in the same graph.
         var world = new WorldBuilder()
-            .WithSystems(Order.For(new SugarBeforeAnchorSystem()).Before<SugarMarkerAnchor>(), new SugarAfterAnchorSystem())
+            .AddSystem<SugarBeforeAnchorSystem>().Before<SugarMarkerAnchor>()
+            .AddSystem<SugarAfterAnchorSystem>()
             .Build();
 
         world.Update(TimeSpan.Zero);

@@ -17,6 +17,9 @@ public sealed class ScheduledExecutor
         _parallelThreshold = parallelThreshold;
     }
 
+    /// <summary>The dispatch threshold this instance was built with — read back by <see cref="World.SetStages"/> when replacing the stage list without changing it.</summary>
+    internal int ParallelThreshold => _parallelThreshold;
+
     /// <summary>Runs every stage once, in order, applying <see cref="World.Commands"/> at each stage's boundary. Called only by <see cref="World.Update"/>.</summary>
     internal void RunStages(World world, Time time)
     {

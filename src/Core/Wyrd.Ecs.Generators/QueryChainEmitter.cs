@@ -281,42 +281,52 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `WithSystems` overloads so a consumer never has to spell out
-    /// `Wyrd.Ecs.Generated.SystemRegistry.Access` by hand: a `params
-    /// OrderedSystem[]` overload for call-site systems, an
-    /// `IReadOnlyList&lt;EcsSystem&gt;` overload for a caller with a pre-built array (the
-    /// implicit `EcsSystem`-to-`OrderedSystem` conversion doesn't apply across an array's
-    /// element type), plus `WithSystems&lt;T0..T{ArityCap.Max}&gt;()` for the parameterless
-    /// case. Emitted into `Wyrd.Ecs` itself so it's visible without an extra `using`.
-    /// Unconditional: fixed output regardless of what a consumer's compilation contains.
+    /// Emits `AddSystem&lt;T&gt;()` overloads on both `WorldBuilder` and
+    /// `SystemRegistration` so a consumer never spells out
+    /// `Wyrd.Ecs.Generated.SystemRegistry` by hand, and a fluent chain
+    /// (`builder.AddSystem&lt;A&gt;().AddSystem&lt;B&gt;()`) keeps working regardless of
+    /// which one the previous call returned. `Access` degrades gracefully via
+    /// `AccessOrNull` — a system whose `Execute` never calls `.ForEach`/isn't a
+    /// `QuerySystem` (e.g. a purely structural system) legitimately has no generated
+    /// footprint, and `StagePlanner` already treats that as "give it its own exclusive
+    /// stage," not an error. `Construct`, by contrast, uses the plain indexer: a type the
+    /// generator gave no entry to (see `QueryChainGenerator.ExtractConstructorShape`)
+    /// throws `KeyNotFoundException` at this call — a real gap (no way to make this a
+    /// compile-time failure without a call-site-aware analyzer, deferred rather than
+    /// built here) — the caller should use the `Func&lt;World, T&gt;` overload for that
+    /// type instead. `Edges` folds into the call via `EdgesOrEmpty`, seeding the entry
+    /// before whatever `.Before&lt;T&gt;()`/`.After&lt;T&gt;()` gets chained afterward
+    /// unions in more. Unconditional, fixed-shape emission — no iteration over
+    /// discovered candidates required, since these methods are generic over any
+    /// `T : EcsSystem` and work for every system type the same way.
     /// </summary>
-    internal static string RenderWithSystemsExtensions()
+    internal static string RenderAddSystemExtensions()
     {
         var sb = new StringBuilder();
+        sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
-        sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
+        sb.AppendLine("public static class GeneratedSystemRegistrationExtensions");
         sb.AppendLine("{");
-        sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params OrderedSystem[] systems) =>");
-        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, Wyrd.Ecs.Generated.SystemRegistry.Edges, systems);");
+        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder) where T : EcsSystem =>");
+        sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
         sb.AppendLine();
-        sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, IReadOnlyList<EcsSystem> systems) =>");
-        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, Wyrd.Ecs.Generated.SystemRegistry.Edges, systems);");
+        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder, Func<World, T> configure) where T : EcsSystem =>");
+        sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
         sb.AppendLine();
-
-        for (var n = 1; n <= ArityCap.Max; n++)
-        {
-            var typeParams = string.Join(", ", Enumerable.Range(0, n).Select(i => $"T{i}"));
-            var constraints = string.Join(" ", Enumerable.Range(0, n).Select(i => $"where T{i} : EcsSystem, new()"));
-            var instances = string.Join(", ", Enumerable.Range(0, n).Select(i => $"new T{i}()"));
-
-            sb.AppendLine($"    public static WorldBuilder WithSystems<{typeParams}>(this WorldBuilder builder) {constraints} =>");
-            sb.AppendLine($"        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, Wyrd.Ecs.Generated.SystemRegistry.Edges, {instances});");
-            sb.AppendLine();
-        }
-
+        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration) where T : EcsSystem =>");
+        sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine();
+        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration, Func<World, T> configure) where T : EcsSystem =>");
+        sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine();
+        sb.AppendLine("    private static SystemAccess? AccessOrNull(Type systemType) =>");
+        sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Access.TryGetValue(systemType, out var access) ? access : null;");
+        sb.AppendLine();
+        sb.AppendLine("    private static (IReadOnlyList<Type> Before, IReadOnlyList<Type> After) EdgesOrEmpty(Type systemType) =>");
+        sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Edges.TryGetValue(systemType, out var declared) ? declared : (Array.Empty<Type>(), Array.Empty<Type>());");
         sb.AppendLine("}");
         return sb.ToString();
     }

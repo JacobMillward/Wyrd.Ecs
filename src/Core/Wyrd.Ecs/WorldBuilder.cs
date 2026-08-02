@@ -7,9 +7,7 @@ namespace Wyrd.Ecs;
 public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
-    private IReadOnlyDictionary<Type, SystemAccess>? _generatedAccess;
-    private IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)>? _generatedEdges;
-    private OrderedSystem[] _systems = [];
+    private readonly List<Internal.SystemEntry> _pending = [];
     private int _parallelThreshold = 1000;
 
     /// <summary>
@@ -37,57 +35,69 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Builds a new <see cref="World"/> with the configured options, including whatever
-    /// <c>WithSystems</c> registered. The returned <see cref="World"/> already owns a
-    /// static parallel schedule (empty if no systems were registered) and drives it
-    /// itself via <see cref="World.Update"/>.
+    /// <c>AddSystem&lt;T&gt;()</c> registered. The returned <see cref="World"/> already
+    /// owns a static parallel schedule (empty if no systems were registered) and drives
+    /// it itself via <see cref="World.Update"/>.
     /// </summary>
     public World Build()
     {
-        var stages = Internal.StagePlanner.BuildStages(
-            _systems,
-            _generatedAccess ?? new Dictionary<Type, SystemAccess>(),
-            _generatedEdges ?? new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>());
-        var world = new World(_archetypeCapacity, new ScheduledExecutor(stages, _parallelThreshold));
+        var world = new World(_archetypeCapacity, new ScheduledExecutor([], _parallelThreshold));
+        foreach (var entry in _pending)
+        {
+            entry.Instance = entry.Construct(world);
+            entry.Instance.Enabled = entry.StartEnabled;
+        }
+
+        var stages = Internal.StagePlanner.BuildStages(_pending);
+        world.SetStages(stages);
+
         OnBuilt?.Invoke(world);
         return world;
     }
 
     /// <summary>
-    /// Registers the systems <see cref="Build"/> will schedule, along with the generated
-    /// <c>Type -&gt; SystemAccess</c> registry and <c>Type -&gt; Before/After edges</c>
-    /// registry the query-chain generator emits into the calling project, passed
-    /// explicitly since <see cref="WorldBuilder"/> can't reference a type generated into
-    /// a consumer's own compilation. Each <paramref name="systems"/> element converts
-    /// implicitly from a bare <see cref="EcsSystem"/>, or from <see cref="Order.For"/>
-    /// when it declares Before/After edges. Registration order is the tiebreak among
-    /// systems with no ordering relationship; declared edges take precedence over it.
+    /// Registers one system, deferring its construction until <see cref="Build"/> (so a
+    /// <c>ctor(World)</c> can receive the <see cref="World"/> being built). Not called
+    /// directly by consumer code — the generator emits a strongly-typed
+    /// <c>AddSystem&lt;T&gt;()</c> overload closing over this, resolving
+    /// <paramref name="access"/>/<paramref name="construct"/>/<paramref name="generatedBeforeTargets"/>/
+    /// <paramref name="generatedAfterTargets"/> from <c>Wyrd.Ecs.Generated.SystemRegistry</c>
+    /// so none of them are ever spelled out by hand. <paramref name="generatedBeforeTargets"/>/
+    /// <paramref name="generatedAfterTargets"/> seed the entry's edges (from
+    /// <c>[RunBefore]</c>/<c>[RunAfter]</c>) before any <see cref="SystemRegistration.Before{T}"/>/
+    /// <see cref="SystemRegistration.After{T}"/> chained afterward adds more — both sets
+    /// union into the same list. This has to happen inside the core assembly (here),
+    /// not in the generated extension method that calls it: <see cref="SystemRegistration"/>'s
+    /// underlying <see cref="Internal.SystemEntry"/> is `internal`, unreachable from a
+    /// consumer assembly generated code lives in (which gets no
+    /// <c>InternalsVisibleTo</c> grant), so seeding can't happen by reaching into
+    /// <see cref="SystemRegistration"/> from outside — it has to happen here, where the
+    /// entry is directly available. Returns a chainable <see cref="SystemRegistration"/>
+    /// for declaring further ordering edges or starting the system disabled.
     /// </summary>
-    public WorldBuilder WithSystems(
-        IReadOnlyDictionary<Type, SystemAccess> generatedAccess,
-        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges,
-        params OrderedSystem[] systems)
+    public SystemRegistration AddSystemCore(
+        Type systemType,
+        SystemAccess? access,
+        Func<World, EcsSystem> construct,
+        IReadOnlyList<Type> generatedBeforeTargets,
+        IReadOnlyList<Type> generatedAfterTargets)
     {
-        _generatedAccess = generatedAccess;
-        _generatedEdges = generatedEdges;
-        _systems = systems;
-        return this;
+        var entry = RegisterEntry(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets);
+        return new SystemRegistration(RegisterEntry, Build, entry);
     }
 
-    /// <summary>
-    /// Same as the <c>params OrderedSystem[]</c> overload above, for a caller that
-    /// already has an assembled <see cref="EcsSystem"/> collection: the implicit
-    /// <see cref="OrderedSystem"/> conversion applies per-argument, not across an
-    /// array's element type, so a plain collection needs this explicit overload.
-    /// </summary>
-    public WorldBuilder WithSystems(
-        IReadOnlyDictionary<Type, SystemAccess> generatedAccess,
-        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges,
-        IReadOnlyList<EcsSystem> systems)
+    private Internal.SystemEntry RegisterEntry(
+        Type systemType,
+        SystemAccess? access,
+        Func<World, EcsSystem> construct,
+        IReadOnlyList<Type> generatedBeforeTargets,
+        IReadOnlyList<Type> generatedAfterTargets)
     {
-        _generatedAccess = generatedAccess;
-        _generatedEdges = generatedEdges;
-        _systems = [.. systems.Select(s => (OrderedSystem)s)];
-        return this;
+        var entry = new Internal.SystemEntry { SystemType = systemType, Construct = construct, Access = access };
+        entry.BeforeTargets.AddRange(generatedBeforeTargets);
+        entry.AfterTargets.AddRange(generatedAfterTargets);
+        _pending.Add(entry);
+        return entry;
     }
 
     /// <summary>

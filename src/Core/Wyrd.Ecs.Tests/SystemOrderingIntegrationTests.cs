@@ -36,17 +36,31 @@ public class SystemOrderingIntegrationTests
         // Physics and RenderPrep share no component access, so only the
         // RunAfter(EndOfPhysics) edge, never a data conflict, can force them into separate,
         // ordered stages. Network shares the anchor with neither and stays unconstrained.
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(IntegrationPhysicsSystem)] = new(Reads: [], Writes: [typeof(IntegrationPhysicsData)]),
-            [typeof(IntegrationRenderPrepSystem)] = new(Reads: [], Writes: [typeof(IntegrationRenderPrepData)]),
-            [typeof(IntegrationNetworkSystem)] = new(Reads: [], Writes: []),
-        };
-        var physics = Order.For(new IntegrationPhysicsSystem()).Before<EndOfPhysics>();
-        var renderPrep = new IntegrationRenderPrepSystem();
-        var network = new IntegrationNetworkSystem();
+        // IntegrationRenderPrepSystem's [RunAfter(typeof(EndOfPhysics))] is real, generator-seeded
+        // data (Wyrd.Ecs.Generated.SystemRegistry.Edges), not a hand-built stand-in — this is the
+        // one integration point in the suite proving that path end-to-end.
+        Wyrd.Ecs.Generated.SystemRegistry.Edges.TryGetValue(typeof(IntegrationRenderPrepSystem), out var renderPrepEdges);
 
-        var world = new WorldBuilder().WithSystems(access, Wyrd.Ecs.Generated.SystemRegistry.Edges, physics, renderPrep, network).Build();
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(
+            typeof(IntegrationPhysicsSystem),
+            new(Reads: [], Writes: [typeof(IntegrationPhysicsData)]),
+            _ => new IntegrationPhysicsSystem(),
+            generatedBeforeTargets: [typeof(EndOfPhysics)],
+            generatedAfterTargets: []);
+        builder.AddSystemCore(
+            typeof(IntegrationRenderPrepSystem),
+            new(Reads: [], Writes: [typeof(IntegrationRenderPrepData)]),
+            _ => new IntegrationRenderPrepSystem(),
+            generatedBeforeTargets: renderPrepEdges.Before ?? [],
+            generatedAfterTargets: renderPrepEdges.After ?? []);
+        builder.AddSystemCore(
+            typeof(IntegrationNetworkSystem),
+            new(Reads: [], Writes: []),
+            _ => new IntegrationNetworkSystem(),
+            generatedBeforeTargets: [],
+            generatedAfterTargets: []);
+        var world = builder.Build();
 
         world.Update(TimeSpan.Zero);
 

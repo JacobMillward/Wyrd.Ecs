@@ -1,12 +1,13 @@
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Resolves every Before/After edge declared across a system list, via
-/// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> and
-/// <see cref="OrderedSystem"/>'s fluent wrapper, into a graph over
-/// <see cref="OrderNode"/>s: every registered <see cref="EcsSystem"/> instance, plus
-/// one node per distinct <see cref="MarkerSystem"/> type an edge actually references
-/// (never an instance of it). Consumed by <see cref="StagePlanner.BuildStages"/>.
+/// Resolves every Before/After edge declared across a system list — both fluent
+/// <see cref="SystemRegistration"/> edges and generator-seeded
+/// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> edges, already
+/// unioned into each <see cref="SystemEntry"/>'s own lists by the time this runs — into
+/// a graph over <see cref="OrderNode"/>s: every registered system instance, plus one
+/// node per distinct <see cref="MarkerSystem"/> type an edge actually references (never
+/// an instance of it). Consumed by <see cref="StagePlanner.BuildStages"/>.
 /// </summary>
 internal static class SystemOrderGraph
 {
@@ -14,17 +15,15 @@ internal static class SystemOrderGraph
 
     internal readonly record struct Result(IReadOnlyList<OrderNode> Nodes, IReadOnlyList<Edge> Edges);
 
-    internal static Result Resolve(
-        IReadOnlyList<OrderedSystem> orderedSystems,
-        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges)
+    internal static Result Resolve(IReadOnlyList<SystemEntry> entries)
     {
         var instancesByType = new Dictionary<Type, List<EcsSystem>>();
-        foreach (var ordered in orderedSystems)
+        foreach (var entry in entries)
         {
-            var type = ordered.System.GetType();
+            var type = entry.SystemType;
             if (!instancesByType.TryGetValue(type, out var list))
                 instancesByType[type] = list = [];
-            list.Add(ordered.System);
+            list.Add(entry.Instance!);
         }
 
         var markerNodes = new HashSet<OrderNode>();
@@ -53,27 +52,19 @@ internal static class SystemOrderGraph
             return OrderNode.ForSystem(matches[0]);
         }
 
-        foreach (var ordered in orderedSystems)
+        foreach (var entry in entries)
         {
-            var self = OrderNode.ForSystem(ordered.System);
+            var self = OrderNode.ForSystem(entry.Instance!);
 
-            foreach (var beforeTarget in ordered.BeforeTargets)
+            foreach (var beforeTarget in entry.BeforeTargets)
                 edges.Add(new Edge(self, ResolveTarget(beforeTarget)));
-            foreach (var afterTarget in ordered.AfterTargets)
+            foreach (var afterTarget in entry.AfterTargets)
                 edges.Add(new Edge(ResolveTarget(afterTarget), self));
-
-            if (generatedEdges.TryGetValue(ordered.System.GetType(), out var declared))
-            {
-                foreach (var beforeTarget in declared.Before)
-                    edges.Add(new Edge(self, ResolveTarget(beforeTarget)));
-                foreach (var afterTarget in declared.After)
-                    edges.Add(new Edge(ResolveTarget(afterTarget), self));
-            }
         }
 
         IReadOnlyList<OrderNode> nodes =
         [
-            .. orderedSystems.Select(o => OrderNode.ForSystem(o.System)),
+            .. entries.Select(e => OrderNode.ForSystem(e.Instance!)),
             .. markerNodes,
         ];
 

@@ -56,19 +56,14 @@ sealed class RecordingSystem : EcsSystem
 
 public class ScheduledExecutorTests
 {
-    /// <summary>None of this file's fixture systems declare <c>[RunBefore]</c>/<c>[RunAfter]</c>, so every call site here needs an empty edges dictionary, not a real generated one.</summary>
-    private static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)> NoEdges =
-        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
-
     [Fact]
     public void DisjointSystems_BothRun_EachStageInSequence()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
-            [typeof(DamageSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
-        };
-        var world = new WorldBuilder().WithSystems(access, NoEdges,new MoveSystem(), new DamageSystem()).Build();
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+        builder.AddSystemCore(typeof(DamageSystem), new(Reads: [], Writes: [typeof(ScheduledHealth)]), _ => new DamageSystem(), [], []);
+        var world = builder.Build();
+
         Entity e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.Commands.AddComponent(e, new ScheduledHealth { Value = 5 });
@@ -83,11 +78,9 @@ public class ScheduledExecutorTests
     [Fact]
     public void StructuralChangesFromASystem_AreVisibleAfterUpdate()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(SpawnerSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
-        };
-        var world = new WorldBuilder().WithSystems(access, NoEdges,new SpawnerSystem()).Build();
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(typeof(SpawnerSystem), new(Reads: [], Writes: [typeof(ScheduledHealth)]), _ => new SpawnerSystem(), [], []);
+        var world = builder.Build();
 
         world.Update(TimeSpan.Zero);
 
@@ -100,11 +93,11 @@ public class ScheduledExecutorTests
     [Fact]
     public void ConflictingSystems_BothStillRun_JustInSeparateStages()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
-        };
-        var world = new WorldBuilder().WithSystems(access, NoEdges,new MoveSystem(), new MoveSystem()).Build();
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+        builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+        var world = builder.Build();
+
         Entity e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
@@ -120,15 +113,10 @@ public class ScheduledExecutorTests
         // WithParallelThreshold(0) forces the Parallel.ForEach branch (disjoint writes put both
         // spawner systems in one stage); this is the only test in the file that exercises real
         // concurrent dispatch through ScheduledExecutor's thread pool.
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(SpawnerASystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
-            [typeof(SpawnerBSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
-        };
-        var world = new WorldBuilder()
-            .WithSystems(access, NoEdges,new SpawnerASystem(), new SpawnerBSystem())
-            .WithParallelThreshold(0)
-            .Build();
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(typeof(SpawnerASystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new SpawnerASystem(), [], []);
+        builder.AddSystemCore(typeof(SpawnerBSystem), new(Reads: [], Writes: [typeof(ScheduledHealth)]), _ => new SpawnerBSystem(), [], []);
+        var world = builder.WithParallelThreshold(0).Build();
 
         world.Update(TimeSpan.Zero);
 
@@ -146,11 +134,9 @@ public class ScheduledExecutorTests
     [Fact]
     public void Update_AdvancesCurrentTickEachCall()
     {
-        var access = new Dictionary<Type, SystemAccess>
-        {
-            [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
-        };
-        var world = new WorldBuilder().WithSystems(access, NoEdges,new MoveSystem()).Build();
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+        var world = builder.Build();
 
         world.Update(TimeSpan.FromSeconds(1));
         world.Update(TimeSpan.FromSeconds(2));

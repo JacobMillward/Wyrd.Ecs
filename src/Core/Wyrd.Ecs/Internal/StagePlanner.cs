@@ -5,28 +5,28 @@ namespace Wyrd.Ecs.Internal;
 /// stages honoring two constraints: the conflict rule (no two systems in the same
 /// stage share a component type where at least one side writes it) and any Before/After
 /// edges declared via <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/>/
-/// <see cref="OrderedSystem"/>. Computed once, not re-evaluated per tick.
+/// <see cref="SystemRegistration"/>. Computed once per call — a caller that needs a
+/// fresh schedule after a structural change (see <see cref="ParallelSystemScheduler"/>)
+/// simply calls this again over the current full entry list, rather than patching a
+/// previous result.
 /// </summary>
 internal static class StagePlanner
 {
     /// <summary>
-    /// Resolves every ordering edge across <paramref name="orderedSystems"/>, stably
+    /// Resolves every ordering edge across <paramref name="entries"/>, stably
     /// topologically sorts the combined node set (tie-broken by registration order), then
     /// packs each node into the first stage at-or-after its minimum-allowed index whose
     /// contents don't conflict with it. Drops marker nodes (see <see cref="OrderNode"/>)
     /// from the result and collapses any stage left with zero real systems.
     /// </summary>
-    internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(
-        IReadOnlyList<OrderedSystem> orderedSystems,
-        IReadOnlyDictionary<Type, SystemAccess> generatedAccess,
-        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges)
+    internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(IReadOnlyList<SystemEntry> entries)
     {
-        var graph = SystemOrderGraph.Resolve(orderedSystems, generatedEdges);
+        var graph = SystemOrderGraph.Resolve(entries);
 
         var tieBreak = new Dictionary<OrderNode, int>();
-        for (var i = 0; i < orderedSystems.Count; i++)
-            tieBreak[OrderNode.ForSystem(orderedSystems[i].System)] = i;
-        var syntheticIndex = orderedSystems.Count;
+        for (var i = 0; i < entries.Count; i++)
+            tieBreak[OrderNode.ForSystem(entries[i].Instance!)] = i;
+        var syntheticIndex = entries.Count;
         foreach (var node in graph.Nodes)
             if (!tieBreak.ContainsKey(node))
                 tieBreak[node] = syntheticIndex++;
@@ -36,6 +36,16 @@ internal static class StagePlanner
         var predecessors = new Dictionary<OrderNode, List<OrderNode>>();
         foreach (var node in graph.Nodes) predecessors[node] = [];
         foreach (var edge in graph.Edges) predecessors[edge.After].Add(edge.Before);
+
+        // Built via indexer assignment, not ToDictionary: multiple instances of the same
+        // system Type are valid (only ambiguous if an edge names that Type as a target —
+        // SystemOrderGraph.ResolveTarget is what rejects that case), and they always share
+        // the same generated access footprint, so a later duplicate just overwrites with
+        // an identical value rather than needing to be rejected here.
+        var accessByType = new Dictionary<Type, SystemAccess>();
+        foreach (var entry in entries)
+            if (entry.Access is not null)
+                accessByType[entry.SystemType] = entry.Access;
 
         var stages = new List<List<OrderNode>>();
         var stageAccess = new List<(HashSet<Type> Reads, HashSet<Type> Writes)>();
@@ -53,7 +63,7 @@ internal static class StagePlanner
 
             var (reads, writes, exclusive) = node.System is null
                 ? ([], [], false)
-                : ResolveAccess(node.System, generatedAccess);
+                : ResolveAccess(node.System, accessByType);
 
             var placedAt = -1;
             if (!exclusive)
@@ -91,9 +101,9 @@ internal static class StagePlanner
             .ToList();
     }
 
-    private static (HashSet<Type> Reads, HashSet<Type> Writes, bool Exclusive) ResolveAccess(EcsSystem system, IReadOnlyDictionary<Type, SystemAccess> generatedAccess)
+    private static (HashSet<Type> Reads, HashSet<Type> Writes, bool Exclusive) ResolveAccess(EcsSystem system, IReadOnlyDictionary<Type, SystemAccess> accessByType)
     {
-        if (generatedAccess.TryGetValue(system.GetType(), out var access))
+        if (accessByType.TryGetValue(system.GetType(), out var access))
             return ([.. access.Reads], [.. access.Writes], false);
         if (system is IQueryAccessDescriptor descriptor)
         {
