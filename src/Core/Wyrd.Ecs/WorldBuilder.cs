@@ -7,7 +7,7 @@ namespace Wyrd.Ecs;
 public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
-    private readonly List<Internal.SystemEntry> _pending = [];
+    private readonly List<SystemEntry> _pending = [];
     private int _parallelThreshold = 1000;
     private ISystemScheduler? _scheduler;
 
@@ -44,13 +44,7 @@ public sealed class WorldBuilder
     {
         var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
         var world = new World(_archetypeCapacity, scheduler);
-        foreach (var entry in _pending)
-        {
-            entry.Instance = entry.Construct(world);
-            entry.Instance.Enabled = entry.StartEnabled;
-        }
-
-        scheduler.AttachStages(Internal.StagePlanner.BuildStages(_pending));
+        scheduler.InitialRegister(_pending, world);
 
         OnBuilt?.Invoke(world);
         return world;
@@ -68,13 +62,14 @@ public sealed class WorldBuilder
     /// <c>[RunBefore]</c>/<c>[RunAfter]</c>) before any <see cref="SystemRegistration.Before{T}"/>/
     /// <see cref="SystemRegistration.After{T}"/> chained afterward adds more — both sets
     /// union into the same list. This has to happen inside the core assembly (here),
-    /// not in the generated extension method that calls it: <see cref="SystemRegistration"/>'s
-    /// underlying <see cref="Internal.SystemEntry"/> is `internal`, unreachable from a
-    /// consumer assembly generated code lives in (which gets no
-    /// <c>InternalsVisibleTo</c> grant), so seeding can't happen by reaching into
-    /// <see cref="SystemRegistration"/> from outside — it has to happen here, where the
-    /// entry is directly available. Returns a chainable <see cref="SystemRegistration"/>
-    /// for declaring further ordering edges or starting the system disabled.
+    /// not in the generated extension method that calls it: <see cref="SystemRegistration"/>
+    /// exposes its underlying <see cref="SystemEntry"/> only as `internal` (test-only
+    /// introspection), unreachable from a consumer assembly generated code lives in
+    /// (which gets no <c>InternalsVisibleTo</c> grant), so seeding can't happen by
+    /// reaching into <see cref="SystemRegistration"/> from outside — it has to happen
+    /// here, where the entry is directly available. Returns a chainable
+    /// <see cref="SystemRegistration"/> for declaring further ordering edges or starting
+    /// the system disabled.
     /// </summary>
     public SystemRegistration AddSystemCore(
         Type systemType,
@@ -87,14 +82,14 @@ public sealed class WorldBuilder
         return new SystemRegistration(RegisterEntry, Build, entry);
     }
 
-    private Internal.SystemEntry RegisterEntry(
+    private SystemEntry RegisterEntry(
         Type systemType,
         SystemAccess? access,
         Func<World, EcsSystem> construct,
         IReadOnlyList<Type> generatedBeforeTargets,
         IReadOnlyList<Type> generatedAfterTargets)
     {
-        var entry = new Internal.SystemEntry { SystemType = systemType, Construct = construct, Access = access };
+        var entry = new SystemEntry { SystemType = systemType, Construct = construct, Access = access };
         entry.BeforeTargets.AddRange(generatedBeforeTargets);
         entry.AfterTargets.AddRange(generatedAfterTargets);
         _pending.Add(entry);

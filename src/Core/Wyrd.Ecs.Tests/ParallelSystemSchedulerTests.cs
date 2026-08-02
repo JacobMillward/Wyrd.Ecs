@@ -54,6 +54,12 @@ sealed class RecordingSystem : EcsSystem
     protected override void Execute(World world, Time time) => ExecuteCallCount++;
 }
 
+sealed class RecordingSystemA : EcsSystem { public int ExecuteCallCount; protected override void Execute(World world, Time time) => ExecuteCallCount++; }
+sealed class RecordingSystemB : EcsSystem { public int ExecuteCallCount; protected override void Execute(World world, Time time) => ExecuteCallCount++; }
+sealed class RecordingSystemC : EcsSystem { public int ExecuteCallCount; protected override void Execute(World world, Time time) => ExecuteCallCount++; }
+sealed class RecordingSystemD : EcsSystem { public int ExecuteCallCount; protected override void Execute(World world, Time time) => ExecuteCallCount++; }
+sealed class RecordingSystemE : EcsSystem { public int ExecuteCallCount; protected override void Execute(World world, Time time) => ExecuteCallCount++; }
+
 public class ParallelSystemSchedulerTests
 {
     [Fact]
@@ -147,13 +153,13 @@ public class ParallelSystemSchedulerTests
     [Fact]
     public void RunStages_SkipsExecuteForDisabledSystem()
     {
-        var system = new RecordingSystem();
-        var stages = new List<IReadOnlyList<EcsSystem>> { new List<EcsSystem> { system } };
+        RecordingSystem? system = null;
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        scheduler.AttachStages(stages);
-        var world = new World();
+        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var entry = new SystemEntry { SystemType = typeof(RecordingSystem), Construct = _ => system = new RecordingSystem(), Access = null };
+        scheduler.InitialRegister([entry], world);
 
-        system.Enabled = false;
+        system!.Enabled = false;
         scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
         system.ExecuteCallCount.Should().Be(0);
@@ -162,14 +168,74 @@ public class ParallelSystemSchedulerTests
     [Fact]
     public void RunStages_RunsExecuteForEnabledSystem()
     {
-        var system = new RecordingSystem();
-        var stages = new List<IReadOnlyList<EcsSystem>> { new List<EcsSystem> { system } };
+        RecordingSystem? system = null;
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        scheduler.AttachStages(stages);
-        var world = new World();
+        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var entry = new SystemEntry { SystemType = typeof(RecordingSystem), Construct = _ => system = new RecordingSystem(), Access = null };
+        scheduler.InitialRegister([entry], world);
 
         scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
 
-        system.ExecuteCallCount.Should().Be(1, "Enabled defaults to true");
+        system!.ExecuteCallCount.Should().Be(1, "Enabled defaults to true");
+    }
+
+    [Fact]
+    public void Register_MarksDirty_RecomputeHappensOnNextRunStagesNotImmediately()
+    {
+        var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var entry = new SystemEntry { SystemType = typeof(RecordingSystemA), Construct = _ => new RecordingSystemA(), Access = null };
+
+        scheduler.Register(entry, world);
+        // No RunStages call yet: Find still reflects the instance immediately, independent
+        // of whether a recompute has happened.
+        scheduler.Find(typeof(RecordingSystemA)).Should().BeSameAs(entry.Instance);
+
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        ((RecordingSystemA)entry.Instance!).ExecuteCallCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void Remove_TakesEffectByTheNextRunStages()
+    {
+        var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var entry = new SystemEntry { SystemType = typeof(RecordingSystemB), Construct = _ => new RecordingSystemB(), Access = null };
+        scheduler.Register(entry, world);
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+
+        scheduler.Remove(entry.Instance!).Should().BeTrue();
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+
+        ((RecordingSystemB)entry.Instance!).ExecuteCallCount.Should().Be(1, "not incremented again after removal");
+    }
+
+    [Fact]
+    public void MultipleMutationsBetweenRunStagesCallsCoalesceIntoOneRecompute()
+    {
+        var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        SystemEntry EntryFor(Type type, Func<World, EcsSystem> construct) => new() { SystemType = type, Construct = construct, Access = null };
+
+        var entries = new[]
+        {
+            EntryFor(typeof(RecordingSystemA), _ => new RecordingSystemA()),
+            EntryFor(typeof(RecordingSystemB), _ => new RecordingSystemB()),
+            EntryFor(typeof(RecordingSystemC), _ => new RecordingSystemC()),
+            EntryFor(typeof(RecordingSystemD), _ => new RecordingSystemD()),
+            EntryFor(typeof(RecordingSystemE), _ => new RecordingSystemE()),
+        };
+        foreach (var entry in entries) scheduler.Register(entry, world);
+
+        // Five Register calls happened since the last (nonexistent) RunStages call; only
+        // one recompute should be needed to place all five correctly before this call runs
+        // them.
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+
+        ((RecordingSystemA)entries[0].Instance!).ExecuteCallCount.Should().Be(1);
+        ((RecordingSystemB)entries[1].Instance!).ExecuteCallCount.Should().Be(1);
+        ((RecordingSystemC)entries[2].Instance!).ExecuteCallCount.Should().Be(1);
+        ((RecordingSystemD)entries[3].Instance!).ExecuteCallCount.Should().Be(1);
+        ((RecordingSystemE)entries[4].Instance!).ExecuteCallCount.Should().Be(1);
     }
 }

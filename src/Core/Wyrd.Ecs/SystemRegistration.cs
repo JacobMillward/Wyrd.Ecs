@@ -15,17 +15,17 @@ namespace Wyrd.Ecs;
 /// </summary>
 public sealed class SystemRegistration
 {
-    private readonly Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, Internal.SystemEntry> _register;
+    private readonly Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemEntry> _register;
     private readonly Func<World>? _build;
-    private readonly Internal.SystemEntry _entry;
+    private readonly SystemEntry _entry;
 
     /// <summary>Test-only introspection (reachable within the core solution via <c>InternalsVisibleTo</c>) — never referenced by generated code, which lives in an arbitrary consumer assembly with no such grant.</summary>
-    internal Internal.SystemEntry Entry => _entry;
+    internal SystemEntry Entry => _entry;
 
     internal SystemRegistration(
-        Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, Internal.SystemEntry> register,
+        Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemEntry> register,
         Func<World>? build,
-        Internal.SystemEntry entry)
+        SystemEntry entry)
     {
         _register = register;
         _build = build;
