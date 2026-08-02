@@ -236,7 +236,8 @@ internal static class QueryChainEmitter
     /// <summary>Emits the <c>SystemRegistry</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>
     internal static string RenderSystemAccessRegistry(
         IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems,
-        IReadOnlyList<(string SystemTypeName, List<string> Before, List<string> After)> edges)
+        IReadOnlyList<(string SystemTypeName, List<string> Before, List<string> After)> edges,
+        IReadOnlyList<(string SystemTypeName, bool TakesWorld)> constructors)
     {
         var sb = new StringBuilder();
         sb.AppendLine("using System;");
@@ -264,6 +265,15 @@ internal static class QueryChainEmitter
             var before = string.Join(", ", edge.Before.Select(t => $"typeof(global::{t})"));
             var after = string.Join(", ", edge.After.Select(t => $"typeof(global::{t})"));
             sb.AppendLine($"        [typeof(global::{edge.SystemTypeName})] = (new Type[] {{ {before} }}, new Type[] {{ {after} }}),");
+        }
+        sb.AppendLine("    };");
+        sb.AppendLine();
+        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, Func<World, EcsSystem>> Construct = new Dictionary<Type, Func<World, EcsSystem>>");
+        sb.AppendLine("    {");
+        foreach (var ctor in constructors)
+        {
+            var factory = ctor.TakesWorld ? $"world => new global::{ctor.SystemTypeName}(world)" : $"world => new global::{ctor.SystemTypeName}()";
+            sb.AppendLine($"        [typeof(global::{ctor.SystemTypeName})] = {factory},");
         }
         sb.AppendLine("    };");
         sb.AppendLine("}");

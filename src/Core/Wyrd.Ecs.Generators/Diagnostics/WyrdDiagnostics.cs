@@ -49,4 +49,20 @@ internal static class WyrdDiagnostics
         category: "Wyrd.Ecs.QueryChain",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    /// <summary>
+    /// A system type has no constructor shape <c>AddSystem&lt;T&gt;()</c> can use: neither a
+    /// public <c>ctor(World)</c> nor a public parameterless constructor, or more than one
+    /// public constructor (ambiguous which to prefer). No <c>SystemRegistry.Construct</c>
+    /// entry is emitted for it, so <c>AddSystem&lt;T&gt;()</c> for it is a compile error at
+    /// the call site, not a runtime one — use <c>AddSystem&lt;T&gt;(Func&lt;World, T&gt;)</c>
+    /// instead.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor UnconstructableSystem = new(
+        id: "WYRD005",
+        title: "System type has no usable constructor for AddSystem<T>()",
+        messageFormat: "'{0}' has no public ctor(World) and no public parameterless constructor (or has more than one public constructor), so AddSystem<{0}>() cannot construct it. Register it with AddSystem<{0}>(Func<World, {0}> configure) instead.",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

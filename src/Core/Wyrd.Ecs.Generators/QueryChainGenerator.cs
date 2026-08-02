@@ -47,14 +47,21 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Where(static e => e.SystemTypeName is not null)
             .WithTrackingName("SystemEdges");
 
+        var constructorCandidates = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is ClassDeclarationSyntax,
+                transform: static (ctx, ct) => ExtractConstructorShape((ClassDeclarationSyntax)ctx.Node, ctx.SemanticModel, ct))
+            .Where(static c => c is not null)
+            .WithTrackingName("ConstructorShape");
+
         var collectedChains = chainCandidates.Collect();
         var collectedQuerySystems = querySystemCandidates.Collect();
         var collectedEdges = edgeCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges);
+        var collectedConstructors = constructorCandidates.Collect();
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors);
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var ((chainResults, querySystemResults), edgeResults) = input;
+            var (((chainResults, querySystemResults), edgeResults), constructorResults) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -75,8 +82,78 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             EmitBackends(spc, byDedupKey);
             EmitOverloads(spc, byExactShape);
             EmitQuerySystemGlue(spc, querySystems);
-            EmitSystemAccessRegistry(spc, chains, querySystems, edgeResults);
+
+            // Unsupported is silently skipped here, not diagnosed: unlike a bare AddSystem<T>()
+            // call site (which doesn't exist as a concept until the AddSystem<T>() extension
+            // itself is introduced), a class declaration alone doesn't say anything about
+            // whether anyone ever tries to construct it that way — plenty of systems are
+            // legitimately always hand-constructed and passed as an instance, never through a
+            // parameterless/World-only factory. Diagnosing every such declaration would flag
+            // valid code. AddSystemCore (see WorldBuilder/World) is the actual point that knows
+            // a bare AddSystem<T>() was attempted for a type with no Construct entry, and gives
+            // a clear runtime error there instead.
+            var constructors = constructorResults
+                .Where(c => c!.Value.Shape != ConstructorShape.Unsupported)
+                .Select(c => (c!.Value.SystemTypeName, TakesWorld: c.Value.Shape == ConstructorShape.WorldParameter))
+                .ToList();
+
+            EmitSystemAccessRegistry(spc, chains, querySystems, edgeResults, constructors);
         });
+    }
+
+    private enum ConstructorShape { Parameterless, WorldParameter, Unsupported }
+
+    /// <summary>One <c>EcsSystem</c>-derived class's constructor classification for <c>AddSystem&lt;T&gt;()</c>: which factory shape the generator can emit, or <see cref="ConstructorShape.Unsupported"/> if none applies (no <c>Construct</c> entry emitted for it; see the caller in <see cref="Initialize"/> for why this stays silent here rather than reporting <see cref="WyrdDiagnostics.UnconstructableSystem"/> unconditionally).</summary>
+    private readonly record struct ConstructorCandidate(string SystemTypeName, ConstructorShape Shape, Location DiagnosticLocation);
+
+    /// <summary>
+    /// Classifies <paramref name="classDecl"/>'s constructor shape for the generator's
+    /// per-type <c>SystemRegistry.Construct</c> factory: an explicit <c>ctor(World)</c> is
+    /// preferred; no explicit constructor at all (the compiler synthesizes a public
+    /// parameterless one) or an explicit public parameterless constructor both fall back
+    /// to it; anything else (private-only, extra required parameters, more than one
+    /// public constructor) is <see cref="ConstructorShape.Unsupported"/>. Only classes
+    /// actually deriving from <c>Wyrd.Ecs.EcsSystem</c> are classified — everything else
+    /// returns <c>null</c>, filtered out by the caller's <c>.Where</c>.
+    /// </summary>
+    private static ConstructorCandidate? ExtractConstructorShape(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return null;
+        if (classSymbol.IsAbstract) return null;
+        if (classSymbol.IsFileLocal) return null; // same reasoning as ExtractEdges: a file-local type can never be referenced from the separate generated file Construct lives in
+        if (classSymbol.ContainingType is not null) return null; // nested classes not supported, same restriction and reason as QuerySystemCandidate: a private/protected nested type is inaccessible from the separate generated file Construct lives in
+        if (!InheritsFromEcsSystem(classSymbol)) return null;
+
+        var publicCtors = classSymbol.Constructors
+            .Where(c => c.DeclaredAccessibility == Accessibility.Public && !c.IsStatic)
+            .ToList();
+
+        // No explicit constructor at all: the compiler synthesizes a public parameterless one.
+        if (classSymbol.Constructors.Length == 0)
+            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Parameterless, classDecl.Identifier.GetLocation());
+
+        if (publicCtors.Count != 1)
+            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Unsupported, classDecl.Identifier.GetLocation());
+
+        var ctor = publicCtors[0];
+        if (ctor.Parameters.Length == 0)
+            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Parameterless, classDecl.Identifier.GetLocation());
+
+        if (ctor.Parameters.Length == 1
+            && ctor.Parameters[0].Type is INamedTypeSymbol { Name: "World" } worldType
+            && worldType.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
+            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.WorldParameter, classDecl.Identifier.GetLocation());
+
+        return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Unsupported, classDecl.Identifier.GetLocation());
+    }
+
+    /// <summary>True if <paramref name="type"/> derives (directly or transitively) from <c>Wyrd.Ecs.EcsSystem</c>.</summary>
+    private static bool InheritsFromEcsSystem(INamedTypeSymbol type)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+            if (current is { Name: "EcsSystem", ContainingNamespace.Name: "Ecs" } && current.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
+                return true;
+        return false;
     }
 
     /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c> edges, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
@@ -213,7 +290,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         SourceProductionContext spc,
         ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
         ImmutableArray<QuerySystemCandidate> querySystems,
-        ImmutableArray<EdgeResult> edges)
+        ImmutableArray<EdgeResult> edges,
+        IReadOnlyList<(string SystemTypeName, bool TakesWorld)> constructors)
     {
         var accessFromChains = chains
             .Where(c => c.SystemTypeName is not null)
@@ -233,7 +311,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Select(e => (SystemTypeName: e.SystemTypeName!, e.Before, e.After))
             .ToList();
 
-        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType, byEdgeSystemType));
+        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType, byEdgeSystemType, constructors));
     }
 
     /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/>: only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent.</summary>

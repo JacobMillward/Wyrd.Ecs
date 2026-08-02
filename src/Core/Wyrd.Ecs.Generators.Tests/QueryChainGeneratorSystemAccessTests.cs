@@ -39,6 +39,19 @@ public class QueryChainGeneratorSystemAccessTests
             protected override void Execute(World world, Time time) { }
         }
 
+        public sealed class WorldCtorSystem : EcsSystem
+        {
+            public readonly World ReceivedWorld;
+            public WorldCtorSystem(World world) => ReceivedWorld = world;
+            protected override void Execute(World world, Time time) { }
+        }
+
+        public sealed class UnconstructableSystem : EcsSystem
+        {
+            public UnconstructableSystem(int amount) { }
+            protected override void Execute(World world, Time time) { }
+        }
+
         public static class Harness
         {
             public static (Type[] Keys, Type[] MovementReads, Type[] MovementWrites, Type[] MultiReads, Type[] MultiWrites) Run()
@@ -65,6 +78,19 @@ public class QueryChainGeneratorSystemAccessTests
                 var edges = SystemRegistry.Edges[typeof(DecoratedSystem)];
                 return (new List<Type>(edges.Before).ToArray(), new List<Type>(edges.After).ToArray());
             }
+
+            public static (bool ParameterlessConstructed, bool WorldCtorConstructed, bool WorldCtorReceivedTheSameWorld) Construct()
+            {
+                var world = new World();
+
+                var parameterless = SystemRegistry.Construct[typeof(MovementSystem)](world);
+                var worldCtor = (WorldCtorSystem)SystemRegistry.Construct[typeof(WorldCtorSystem)](world);
+
+                return (parameterless is MovementSystem, worldCtor is WorldCtorSystem, ReferenceEquals(worldCtor.ReceivedWorld, world));
+            }
+
+            public static bool UnconstructableSystem_GetsNoConstructEntry() =>
+                !SystemRegistry.Construct.ContainsKey(typeof(UnconstructableSystem));
         }
         """;
 
@@ -113,5 +139,28 @@ public class QueryChainGeneratorSystemAccessTests
 
         ((Type[])tuple[0]!).Should().BeEquivalentTo([assembly.GetType("OtherSystem")]);
         ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("OtherSystem")]);
+    }
+
+    [Fact]
+    public void ConstructorShapes_EmitMatchingFactoriesIntoSystemRegistryConstruct()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = assembly.GetType("Harness")!.GetMethod("Construct")!.Invoke(null, null)!;
+        var tuple = (System.Runtime.CompilerServices.ITuple)result;
+
+        ((bool)tuple[0]!).Should().BeTrue("MovementSystem has no explicit ctor, so a public parameterless one is synthesized and used");
+        ((bool)tuple[1]!).Should().BeTrue("WorldCtorSystem's ctor(World) is detected and used");
+        ((bool)tuple[2]!).Should().BeTrue("the exact World instance passed to the factory must reach the constructor");
+    }
+
+    [Fact]
+    public void UnconstructableSystem_GetsNoConstructEntry()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (bool)assembly.GetType("Harness")!.GetMethod("UnconstructableSystem_GetsNoConstructEntry")!.Invoke(null, null)!;
+
+        result.Should().BeTrue("a ctor(int) is neither ctor(World) nor parameterless, so no factory can be emitted for it — silently skipped, not diagnosed, since nothing here says whether it's ever used via bare AddSystem<T>()");
     }
 }
