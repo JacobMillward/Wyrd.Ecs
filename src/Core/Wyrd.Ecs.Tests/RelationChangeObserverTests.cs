@@ -132,6 +132,32 @@ public class RelationChangeObserverTests
     }
 
     [Fact]
+    public void DestroyingTheRootOfAThreeLevelParentHierarchy_DestroysTheWholeSubtreeAndNotifiesEachEdgeUnlinkedExactlyOnce()
+    {
+        var world = new World();
+        Entity grandparent = world.Commands.CreateEntity();
+        Entity parent = world.Commands.CreateEntity();
+        Entity child = world.Commands.CreateEntity();
+        world.Commands.AddRelation<Parent>(parent, grandparent);
+        world.Commands.AddRelation<Parent>(child, parent);
+        world.ApplyCommands();
+
+        var observer = new RecordingObserver();
+        using var subscription = world.ObserveStructuralChanges(observer);
+
+        world.Commands.DestroyEntity(grandparent);
+        world.ApplyCommands();
+
+        world.IsAlive(grandparent).Should().BeFalse();
+        world.IsAlive(parent).Should().BeFalse();
+        world.IsAlive(child).Should().BeFalse();
+
+        observer.Unlinked.Should().HaveCount(2);
+        observer.Unlinked.Should().Contain((parent, grandparent, Wyrd.Ecs.Internal.TypeIndex<Parent>.Value));
+        observer.Unlinked.Should().Contain((child, parent, Wyrd.Ecs.Internal.TypeIndex<Parent>.Value));
+    }
+
+    [Fact]
     public void NotOverridingRelationCallbacks_StillCompilesAndDoesNothing()
     {
         var world = new World();

@@ -660,6 +660,60 @@ public class WorldPersistenceExtensionsTests : IDisposable
         found.Should().BeTrue();
     }
 
+    private struct LikesV1 : IRelation
+    {
+        public float Weight;
+    }
+
+    private struct LikesV2 : IRelation
+    {
+        public float Weight;
+        public bool Mutual;
+    }
+
+    [Fact]
+    public void Load_WithAMismatchedSchemaHashOnARelation_AppliesTheRegisteredMigrationAndReconstructsCorrectly()
+    {
+        var saveRegistry = BuildRegistry();
+        saveRegistry.RegisterRelation<LikesV1>("Likes", v => BitConverter.GetBytes(v.Weight), d => new LikesV1 { Weight = BitConverter.ToSingle(d) }, schemaHash: 100u);
+        var source = new World();
+        source.DefaultComponentCodecRegistry = saveRegistry;
+        Entity a = source.Commands.CreateEntity(new Position { X = 1f });
+        Entity b = source.Commands.CreateEntity(new Position { X = 2f });
+        source.ApplyCommands();
+        source.Commands.AddRelation(a, b, new LikesV1 { Weight = 5f });
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+        source.Save(store);
+
+        var loadRegistry = BuildRegistry();
+        loadRegistry.RegisterRelation<LikesV2>("Likes",
+            v => BitConverter.GetBytes(v.Weight).Concat(BitConverter.GetBytes(v.Mutual)).ToArray(),
+            d => new LikesV2 { Weight = BitConverter.ToSingle(d, 0), Mutual = BitConverter.ToBoolean(d, 4) },
+            schemaHash: 200u);
+        loadRegistry.RegisterMigration("Likes", fromSchemaHash: 100u, toSchemaHash: 200u,
+            oldBytes => BitConverter.GetBytes(BitConverter.ToSingle(oldBytes)).Concat(BitConverter.GetBytes(false)).ToArray());
+        var target = new World();
+        target.DefaultComponentCodecRegistry = loadRegistry;
+
+        target.Load(store);
+
+        Entity? loadedA = null;
+        Entity? loadedB = null;
+        foreach (var snapshot in target.EnumerateEntities(loadRegistry))
+        {
+            if (target.HasComponent<RelationLinks<LikesV2>>(snapshot.Entity)) loadedA = snapshot.Entity;
+            if (target.HasComponent<RelationBacklinks<LikesV2>>(snapshot.Entity)) loadedB = snapshot.Entity;
+        }
+
+        loadedA.Should().NotBeNull();
+        loadedB.Should().NotBeNull();
+        var likesTargets = target.Targets<LikesV2>(loadedA!.Value);
+        likesTargets.Should().ContainKey(loadedB!.Value);
+        likesTargets[loadedB.Value].Weight.Should().Be(5f);
+        likesTargets[loadedB.Value].Mutual.Should().BeFalse();
+    }
+
     [Fact]
     public void Load_WhenNoSchemaHashWasRegisteredAtSaveTime_NeverTriggersAMismatchCheck()
     {
