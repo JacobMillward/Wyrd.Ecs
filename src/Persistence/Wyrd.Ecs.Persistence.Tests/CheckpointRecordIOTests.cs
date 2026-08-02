@@ -157,6 +157,22 @@ public class CheckpointRecordIOTests
     }
 
     [Fact]
+    public void TryReadRecord_WithACorruptedLengthPrefixClaimingMoreDataThanTheStreamHas_ReturnsFalseWithoutThrowing()
+    {
+        using var fullStream = new MemoryStream();
+        CheckpointRecordIO.WriteRecord(fullStream, EntityId.NewId(), "Position", null, [1, 2, 3]);
+        var bytes = fullStream.ToArray();
+        BitConverter.GetBytes(int.MaxValue).CopyTo(bytes, 0); // corrupt the length prefix itself, not the body
+
+        using var corruptedStream = new MemoryStream(bytes);
+        var act = () => CheckpointRecordIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _);
+
+        act.Should().NotThrow();
+        corruptedStream.Position = 0;
+        CheckpointRecordIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+    }
+
+    [Fact]
     public void WriteHeader_ThenReadHeader_RoundTripsTheTick()
     {
         using var stream = new MemoryStream();

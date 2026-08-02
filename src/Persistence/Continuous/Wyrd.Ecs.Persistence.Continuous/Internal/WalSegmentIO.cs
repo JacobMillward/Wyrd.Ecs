@@ -14,8 +14,10 @@ namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 /// <see cref="WalRecordKind.RelationUnlinked"/> record carries a second <see cref="EntityId"/>
 /// (the edge's target) immediately after the first — written via <see cref="WriteRelationRecord(Stream, WalRecordKind, int, EntityId, EntityId, string, uint?, byte[])"/>,
 /// read back via the same <see cref="TryReadRecord"/> every other kind uses.
-/// <see cref="TryReadRecord"/> returns false (never throws) on any short read or
-/// checksum mismatch, so a segment truncated or corrupted mid-record by a crash mid-write
+/// <see cref="TryReadRecord"/> returns false (never throws) on any short read,
+/// checksum mismatch, or a length prefix claiming more data than the stream actually
+/// has left (a corrupted length field would otherwise try to allocate an implausibly
+/// large array), so a segment truncated or corrupted mid-record by a crash mid-write
 /// is detected and replay cleanly stops at the last complete, valid record instead of
 /// misreading garbage as data.
 /// </summary>
@@ -148,6 +150,7 @@ internal static class WalSegmentIO
         if (!TryReadFully(stream, lengthBuffer)) return false;
         var recordLength = BitConverter.ToInt32(lengthBuffer);
         if (recordLength < 0) return false;
+        if (stream.CanSeek && recordLength > stream.Length - stream.Position) return false;
 
         var recordBytes = new byte[recordLength];
         if (!TryReadFully(stream, recordBytes)) return false;

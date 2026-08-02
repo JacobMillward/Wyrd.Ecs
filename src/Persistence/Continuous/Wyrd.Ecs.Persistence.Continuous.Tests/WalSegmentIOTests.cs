@@ -155,6 +155,22 @@ public class WalSegmentIOTests
     }
 
     [Fact]
+    public void TryReadRecord_WithACorruptedLengthPrefixClaimingMoreDataThanTheStreamHas_ReturnsFalseWithoutThrowing()
+    {
+        using var fullStream = new MemoryStream();
+        WalSegmentIO.WriteRecord(fullStream, WalRecordKind.ComponentChanged, tick: 1, EntityId.NewId(), "Position", null, [1, 2, 3]);
+        var bytes = fullStream.ToArray();
+        BitConverter.GetBytes(int.MaxValue).CopyTo(bytes, 0); // corrupt the length prefix itself, not the body
+
+        using var corruptedStream = new MemoryStream(bytes);
+        var act = () => WalSegmentIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _, out _);
+
+        act.Should().NotThrow();
+        corruptedStream.Position = 0;
+        WalSegmentIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+    }
+
+    [Fact]
     public void WriteHeader_ThenReadHeader_Succeeds()
     {
         using var stream = new MemoryStream();

@@ -16,7 +16,9 @@ namespace Wyrd.Ecs.Persistence.Internal;
 /// record is the same, plus a second <see cref="EntityId"/> for the edge's target,
 /// written immediately after the first. All framed as a length-prefixed block plus a
 /// CRC32 checksum. <see cref="TryReadRecord"/> returns false (never throws) on any
-/// short read or checksum mismatch, so a file truncated or corrupted mid-record by a
+/// short read, checksum mismatch, or a length prefix claiming more data than the
+/// stream actually has left (a corrupted length field would otherwise try to allocate
+/// an implausibly large array), so a file truncated or corrupted mid-record by a
 /// crash mid-write is detected and replay cleanly stops at the last complete, valid
 /// record instead of misreading garbage as data.
 /// </summary>
@@ -139,6 +141,7 @@ internal static class CheckpointRecordIO
         if (!TryReadFully(stream, lengthBuffer)) return false;
         var recordLength = BitConverter.ToInt32(lengthBuffer);
         if (recordLength < 0) return false;
+        if (stream.CanSeek && recordLength > stream.Length - stream.Position) return false;
 
         var recordBytes = new byte[recordLength];
         if (!TryReadFully(stream, recordBytes)) return false;
