@@ -234,7 +234,9 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>Emits the <c>SystemRegistry</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>
-    internal static string RenderSystemAccessRegistry(IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems)
+    internal static string RenderSystemAccessRegistry(
+        IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems,
+        IReadOnlyList<(string SystemTypeName, List<string> Before, List<string> After)> edges)
     {
         var sb = new StringBuilder();
         sb.AppendLine("using System;");
@@ -255,8 +257,15 @@ internal static class QueryChainEmitter
         }
         sb.AppendLine("    };");
         sb.AppendLine();
-        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> Edges =");
-        sb.AppendLine("        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();");
+        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> Edges = new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>");
+        sb.AppendLine("    {");
+        foreach (var edge in edges)
+        {
+            var before = string.Join(", ", edge.Before.Select(t => $"typeof(global::{t})"));
+            var after = string.Join(", ", edge.After.Select(t => $"typeof(global::{t})"));
+            sb.AppendLine($"        [typeof(global::{edge.SystemTypeName})] = (new Type[] {{ {before} }}, new Type[] {{ {after} }}),");
+        }
+        sb.AppendLine("    };");
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -281,10 +290,10 @@ internal static class QueryChainEmitter
         sb.AppendLine("public static class GeneratedWorldBuilderExtensions");
         sb.AppendLine("{");
         sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, params OrderedSystem[] systems) =>");
-        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, systems);");
+        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, Wyrd.Ecs.Generated.SystemRegistry.Edges, systems);");
         sb.AppendLine();
         sb.AppendLine("    public static WorldBuilder WithSystems(this WorldBuilder builder, IReadOnlyList<EcsSystem> systems) =>");
-        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, systems);");
+        sb.AppendLine("        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, Wyrd.Ecs.Generated.SystemRegistry.Edges, systems);");
         sb.AppendLine();
 
         for (var n = 1; n <= ArityCap.Max; n++)
@@ -294,7 +303,7 @@ internal static class QueryChainEmitter
             var instances = string.Join(", ", Enumerable.Range(0, n).Select(i => $"new T{i}()"));
 
             sb.AppendLine($"    public static WorldBuilder WithSystems<{typeParams}>(this WorldBuilder builder) {constraints} =>");
-            sb.AppendLine($"        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, {instances});");
+            sb.AppendLine($"        builder.WithSystems(Wyrd.Ecs.Generated.SystemRegistry.Access, Wyrd.Ecs.Generated.SystemRegistry.Edges, {instances});");
             sb.AppendLine();
         }
 

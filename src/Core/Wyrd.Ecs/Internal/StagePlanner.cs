@@ -18,9 +18,10 @@ internal static class StagePlanner
     /// </summary>
     internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(
         IReadOnlyList<OrderedSystem> orderedSystems,
-        IReadOnlyDictionary<Type, SystemAccess> generatedAccess)
+        IReadOnlyDictionary<Type, SystemAccess> generatedAccess,
+        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges)
     {
-        var graph = SystemOrderGraph.Resolve(orderedSystems);
+        var graph = SystemOrderGraph.Resolve(orderedSystems, generatedEdges);
 
         var tieBreak = new Dictionary<OrderNode, int>();
         for (var i = 0; i < orderedSystems.Count; i++)

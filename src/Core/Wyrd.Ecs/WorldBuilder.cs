@@ -8,6 +8,7 @@ public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
     private IReadOnlyDictionary<Type, SystemAccess>? _generatedAccess;
+    private IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)>? _generatedEdges;
     private OrderedSystem[] _systems = [];
     private int _parallelThreshold = 1000;
 
@@ -36,14 +37,16 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Builds a new <see cref="World"/> with the configured options, including whatever
-    /// <see cref="WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>
-    /// registered. The returned <see cref="World"/> already owns a static parallel
-    /// schedule (empty if no systems were registered) and drives it itself via
-    /// <see cref="World.Update"/>.
+    /// <c>WithSystems</c> registered. The returned <see cref="World"/> already owns a
+    /// static parallel schedule (empty if no systems were registered) and drives it
+    /// itself via <see cref="World.Update"/>.
     /// </summary>
     public World Build()
     {
-        var stages = Internal.StagePlanner.BuildStages(_systems, _generatedAccess ?? new Dictionary<Type, SystemAccess>());
+        var stages = Internal.StagePlanner.BuildStages(
+            _systems,
+            _generatedAccess ?? new Dictionary<Type, SystemAccess>(),
+            _generatedEdges ?? new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>());
         var world = new World(_archetypeCapacity, new ScheduledExecutor(stages, _parallelThreshold));
         OnBuilt?.Invoke(world);
         return world;
@@ -51,17 +54,21 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Registers the systems <see cref="Build"/> will schedule, along with the generated
-    /// <c>Type -&gt; SystemAccess</c> registry the query-chain generator emits into the
-    /// calling project, passed explicitly since <see cref="WorldBuilder"/> can't
-    /// reference a type generated into a consumer's own compilation. Each
-    /// <paramref name="systems"/> element converts implicitly from a bare
-    /// <see cref="EcsSystem"/>, or from <see cref="Order.For"/> when it declares
-    /// Before/After edges. Registration order is the tiebreak among systems with no
-    /// ordering relationship; declared edges take precedence over it.
+    /// <c>Type -&gt; SystemAccess</c> registry and <c>Type -&gt; Before/After edges</c>
+    /// registry the query-chain generator emits into the calling project, passed
+    /// explicitly since <see cref="WorldBuilder"/> can't reference a type generated into
+    /// a consumer's own compilation. Each <paramref name="systems"/> element converts
+    /// implicitly from a bare <see cref="EcsSystem"/>, or from <see cref="Order.For"/>
+    /// when it declares Before/After edges. Registration order is the tiebreak among
+    /// systems with no ordering relationship; declared edges take precedence over it.
     /// </summary>
-    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, params OrderedSystem[] systems)
+    public WorldBuilder WithSystems(
+        IReadOnlyDictionary<Type, SystemAccess> generatedAccess,
+        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges,
+        params OrderedSystem[] systems)
     {
         _generatedAccess = generatedAccess;
+        _generatedEdges = generatedEdges;
         _systems = systems;
         return this;
     }
@@ -72,9 +79,13 @@ public sealed class WorldBuilder
     /// <see cref="OrderedSystem"/> conversion applies per-argument, not across an
     /// array's element type, so a plain collection needs this explicit overload.
     /// </summary>
-    public WorldBuilder WithSystems(IReadOnlyDictionary<Type, SystemAccess> generatedAccess, IReadOnlyList<EcsSystem> systems)
+    public WorldBuilder WithSystems(
+        IReadOnlyDictionary<Type, SystemAccess> generatedAccess,
+        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges,
+        IReadOnlyList<EcsSystem> systems)
     {
         _generatedAccess = generatedAccess;
+        _generatedEdges = generatedEdges;
         _systems = [.. systems.Select(s => (OrderedSystem)s)];
         return this;
     }

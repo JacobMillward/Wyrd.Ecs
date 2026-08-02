@@ -50,6 +50,10 @@ sealed class SpawnerBSystem : EcsSystem
 
 public class ScheduledExecutorTests
 {
+    /// <summary>None of this file's fixture systems declare <c>[RunBefore]</c>/<c>[RunAfter]</c>, so every call site here needs an empty edges dictionary, not a real generated one.</summary>
+    private static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)> NoEdges =
+        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
+
     [Fact]
     public void DisjointSystems_BothRun_EachStageInSequence()
     {
@@ -58,7 +62,7 @@ public class ScheduledExecutorTests
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
             [typeof(DamageSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
-        var world = new WorldBuilder().WithSystems(access, new MoveSystem(), new DamageSystem()).Build();
+        var world = new WorldBuilder().WithSystems(access, NoEdges,new MoveSystem(), new DamageSystem()).Build();
         Entity e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.Commands.AddComponent(e, new ScheduledHealth { Value = 5 });
@@ -77,7 +81,7 @@ public class ScheduledExecutorTests
         {
             [typeof(SpawnerSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
-        var world = new WorldBuilder().WithSystems(access, new SpawnerSystem()).Build();
+        var world = new WorldBuilder().WithSystems(access, NoEdges,new SpawnerSystem()).Build();
 
         world.Update(TimeSpan.Zero);
 
@@ -94,7 +98,7 @@ public class ScheduledExecutorTests
         {
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
         };
-        var world = new WorldBuilder().WithSystems(access, new MoveSystem(), new MoveSystem()).Build();
+        var world = new WorldBuilder().WithSystems(access, NoEdges,new MoveSystem(), new MoveSystem()).Build();
         Entity e = world.Commands.CreateEntity();
         world.Commands.AddComponent(e, new ScheduledPosition { X = 0f });
         world.ApplyCommands();
@@ -116,7 +120,7 @@ public class ScheduledExecutorTests
             [typeof(SpawnerBSystem)] = new(Reads: [], Writes: [typeof(ScheduledHealth)]),
         };
         var world = new WorldBuilder()
-            .WithSystems(access, new SpawnerASystem(), new SpawnerBSystem())
+            .WithSystems(access, NoEdges,new SpawnerASystem(), new SpawnerBSystem())
             .WithParallelThreshold(0)
             .Build();
 
@@ -140,7 +144,7 @@ public class ScheduledExecutorTests
         {
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
         };
-        var world = new WorldBuilder().WithSystems(access, new MoveSystem()).Build();
+        var world = new WorldBuilder().WithSystems(access, NoEdges,new MoveSystem()).Build();
 
         world.Update(TimeSpan.FromSeconds(1));
         world.Update(TimeSpan.FromSeconds(2));

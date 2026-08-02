@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
@@ -16,7 +14,9 @@ internal static class SystemOrderGraph
 
     internal readonly record struct Result(IReadOnlyList<OrderNode> Nodes, IReadOnlyList<Edge> Edges);
 
-    internal static Result Resolve(IReadOnlyList<OrderedSystem> orderedSystems)
+    internal static Result Resolve(
+        IReadOnlyList<OrderedSystem> orderedSystems,
+        IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> generatedEdges)
     {
         var instancesByType = new Dictionary<Type, List<EcsSystem>>();
         foreach (var ordered in orderedSystems)
@@ -62,10 +62,13 @@ internal static class SystemOrderGraph
             foreach (var afterTarget in ordered.AfterTargets)
                 edges.Add(new Edge(ResolveTarget(afterTarget), self));
 
-            foreach (var attribute in ordered.System.GetType().GetCustomAttributes<RunBeforeAttribute>())
-                edges.Add(new Edge(self, ResolveTarget(attribute.Target)));
-            foreach (var attribute in ordered.System.GetType().GetCustomAttributes<RunAfterAttribute>())
-                edges.Add(new Edge(ResolveTarget(attribute.Target), self));
+            if (generatedEdges.TryGetValue(ordered.System.GetType(), out var declared))
+            {
+                foreach (var beforeTarget in declared.Before)
+                    edges.Add(new Edge(self, ResolveTarget(beforeTarget)));
+                foreach (var afterTarget in declared.After)
+                    edges.Add(new Edge(ResolveTarget(afterTarget), self));
+            }
         }
 
         IReadOnlyList<OrderNode> nodes =

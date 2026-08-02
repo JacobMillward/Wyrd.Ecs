@@ -12,6 +12,10 @@ file sealed class SchedulerTestMarker : MarkerSystem { }
 
 public class StagePlannerOrderingTests
 {
+    private static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)> NoEdges =
+        new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
+
+
     [Fact]
     public void EdgeWithNoDataConflict_StillForcesSeparateStages()
     {
@@ -24,7 +28,7 @@ public class StagePlannerOrderingTests
         var q = new OrderedSystemQ();
         OrderedSystem[] systems = [p, Order.For(q).After<OrderedSystemP>()];
 
-        var stages = StagePlanner.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
 
         stages.Should().HaveCount(2);
         stages[0].Should().ContainSingle(s => s == p);
@@ -41,7 +45,7 @@ public class StagePlannerOrderingTests
         };
         OrderedSystem[] systems = [new OrderedSystemP(), new OrderedSystemQ()];
 
-        var stages = StagePlanner.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
 
         stages.Should().ContainSingle();
         stages[0].Should().HaveCount(2);
@@ -63,7 +67,7 @@ public class StagePlannerOrderingTests
         };
         OrderedSystem[] systems = [p, q, r];
 
-        var stages = StagePlanner.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
 
         var pStage = stages.Single(s => s.Contains(p));
         var qStage = stages.Single(s => s.Any(sys => sys.GetType() == typeof(OrderedSystemQ)));
@@ -87,7 +91,7 @@ public class StagePlannerOrderingTests
         };
         OrderedSystem[] systems = [p, q, r];
 
-        var stages = StagePlanner.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
 
         int StageIndexOf(Type systemType) =>
             Enumerable.Range(0, stages.Count).First(i => stages[i].Any(s => s.GetType() == systemType));
@@ -112,7 +116,7 @@ public class StagePlannerOrderingTests
         };
         OrderedSystem[] systems = [x, y];
 
-        var stages = StagePlanner.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
 
         stages.SelectMany(s => s).Should().HaveCount(2, "MarkerSystem is a sibling of EcsSystem, not a subtype, so a marker can never appear here as a matter of the type system; this only confirms no phantom entry snuck in some other way");
     }
@@ -127,7 +131,7 @@ public class StagePlannerOrderingTests
         };
         OrderedSystem[] systems = [x];
 
-        var stages = StagePlanner.BuildStages(systems, access);
+        var stages = StagePlanner.BuildStages(systems, access, NoEdges);
 
         stages.Should().ContainSingle("the marker is only an edge target, and with nothing registered after it, it contributes no stage of its own to the materialized output");
         stages[0].Should().ContainSingle(s => s.GetType() == typeof(OrderedSystemP));

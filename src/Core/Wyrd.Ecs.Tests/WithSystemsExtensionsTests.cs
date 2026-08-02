@@ -82,9 +82,10 @@ public class WithSystemsExtensionsTests
         {
             [typeof(MoveSystem)] = new(Reads: [], Writes: [typeof(ScheduledPosition)]),
         };
+        var edges = new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>();
         EcsSystem[] preBuilt = [new MoveSystem()];
 
-        var world = new WorldBuilder().WithSystems(access, preBuilt).Build();
+        var world = new WorldBuilder().WithSystems(access, edges, preBuilt).Build();
         Entity entity = world.Commands.CreateEntity();
         world.Commands.AddComponent(entity, new ScheduledPosition { X = 0f });
         world.ApplyCommands();

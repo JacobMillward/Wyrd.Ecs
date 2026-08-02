@@ -46,7 +46,7 @@ public class SystemOrderingIntegrationTests
         var renderPrep = new IntegrationRenderPrepSystem();
         var network = new IntegrationNetworkSystem();
 
-        var world = new WorldBuilder().WithSystems(access, physics, renderPrep, network).Build();
+        var world = new WorldBuilder().WithSystems(access, Wyrd.Ecs.Generated.SystemRegistry.Edges, physics, renderPrep, network).Build();
 
         world.Update(TimeSpan.Zero);
 

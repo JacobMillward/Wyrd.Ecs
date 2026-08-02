@@ -41,13 +41,20 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Where(static c => c.Candidate is not null || c.Diagnostic is not null)
             .WithTrackingName("QuerySystemCandidate");
 
+        var edgeCandidates = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is ClassDeclarationSyntax { AttributeLists.Count: > 0 },
+                transform: static (ctx, ct) => ExtractEdges((ClassDeclarationSyntax)ctx.Node, ctx.SemanticModel, ct))
+            .Where(static e => e.SystemTypeName is not null)
+            .WithTrackingName("SystemEdges");
+
         var collectedChains = chainCandidates.Collect();
         var collectedQuerySystems = querySystemCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems);
+        var collectedEdges = edgeCandidates.Collect();
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges);
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var (chainResults, querySystemResults) = input;
+            var ((chainResults, querySystemResults), edgeResults) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -68,8 +75,57 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             EmitBackends(spc, byDedupKey);
             EmitOverloads(spc, byExactShape);
             EmitQuerySystemGlue(spc, querySystems);
-            EmitSystemAccessRegistry(spc, chains, querySystems);
+            EmitSystemAccessRegistry(spc, chains, querySystems, edgeResults);
         });
+    }
+
+    /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c> edges, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
+    private readonly record struct EdgeResult(string? SystemTypeName, List<string> Before, List<string> After);
+
+    /// <summary>
+    /// Reads <c>[RunBefore(typeof(X))]</c>/<c>[RunAfter(typeof(X))]</c> off a class
+    /// declaration via the semantic model, at compile time — the compile-time
+    /// counterpart of what <see cref="Internal.SystemOrderGraph"/> used to discover via
+    /// <c>GetCustomAttributes&lt;T&gt;()</c> at runtime. Not limited to <c>EcsSystem</c>
+    /// subclasses: a <c>MarkerSystem</c> can't declare these itself (nothing points
+    /// "before/after" a marker from the marker's own side), but nothing here needs to
+    /// assume the base type either — any class carrying the attributes is a real edge to
+    /// capture, and non-<c>EcsSystem</c>/<c>MarkerSystem</c> targets are already rejected
+    /// downstream at graph-resolution time.
+    /// </summary>
+    /// <remarks>
+    /// A <c>file</c>-scoped class (or a <c>file</c>-scoped edge target) can never work
+    /// here, same underlying reason as <see cref="WyrdDiagnostics.FileLocalComponentType"/>:
+    /// the emitted <c>SystemRegistry.Edges</c> entry lives in a separate generated file,
+    /// which can never reference a type scoped to a different file. Silently skipped
+    /// (whole class if it's file-local itself, one edge at a time if only a target is) —
+    /// matches every other unrecognized-shape path in this generator, which stays silent
+    /// rather than diagnosing every possible reason a shape doesn't resolve.
+    /// </remarks>
+    private static EdgeResult ExtractEdges(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return default;
+        if (classSymbol.IsFileLocal) return default;
+
+        var before = new List<string>();
+        var after = new List<string>();
+
+        foreach (var attributeList in classDecl.AttributeLists)
+        foreach (var attribute in attributeList.Attributes)
+        {
+            if (semanticModel.GetTypeInfo(attribute, ct).Type is not { } attributeType) continue;
+            var attributeName = attributeType.ToDisplayString();
+            if (attributeName is not ("Wyrd.Ecs.RunBeforeAttribute" or "Wyrd.Ecs.RunAfterAttribute")) continue;
+            if (attribute.ArgumentList is not { Arguments: [{ Expression: TypeOfExpressionSyntax { Type: var targetTypeSyntax } }] }) continue;
+            if (semanticModel.GetTypeInfo(targetTypeSyntax, ct).Type is not INamedTypeSymbol { IsFileLocal: false } targetType) continue;
+
+            var targetName = targetType.ToDisplayString();
+            if (attributeName == "Wyrd.Ecs.RunBeforeAttribute") before.Add(targetName);
+            else after.Add(targetName);
+        }
+
+        if (before.Count == 0 && after.Count == 0) return default;
+        return new EdgeResult(classSymbol.ToDisplayString(), before, after);
     }
 
     /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
@@ -156,7 +212,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     private static void EmitSystemAccessRegistry(
         SourceProductionContext spc,
         ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
-        ImmutableArray<QuerySystemCandidate> querySystems)
+        ImmutableArray<QuerySystemCandidate> querySystems,
+        ImmutableArray<EdgeResult> edges)
     {
         var accessFromChains = chains
             .Where(c => c.SystemTypeName is not null)
@@ -172,7 +229,11 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 Writes: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList()))
             .ToList();
 
-        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType));
+        var byEdgeSystemType = edges
+            .Select(e => (SystemTypeName: e.SystemTypeName!, e.Before, e.After))
+            .ToList();
+
+        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType, byEdgeSystemType));
     }
 
     /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/>: only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent.</summary>

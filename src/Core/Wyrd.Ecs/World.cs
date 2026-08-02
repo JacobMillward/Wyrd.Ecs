@@ -126,7 +126,7 @@ public sealed partial class World
         OnTickAdvanced?.Invoke(_currentTick);
     }
 
-    /// <summary>Runs one iteration of every registered system (see <see cref="WorldBuilder.WithSystems(IReadOnlyDictionary{Type, SystemAccess}, OrderedSystem[])"/>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
+    /// <summary>Runs one iteration of every registered system (see <c>WorldBuilder.WithSystems</c>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
     public void Update(TimeSpan delta)
     {
         AdvanceTick();

@@ -5,8 +5,8 @@ namespace Wyrd.Ecs;
 /// <see cref="Target"/> (an <see cref="EcsSystem"/> or <see cref="MarkerSystem"/>
 /// type). Stackable: a class may carry more than one, one per target. Not inherited:
 /// a subclass of an annotated system does not pick up its base class's edges; each
-/// class states its own. Read once via reflection at <c>WorldBuilder.Build()</c>,
-/// never per tick.
+/// class states its own. Read at compile time by the query-chain generator into
+/// <c>Wyrd.Ecs.Generated.SystemRegistry.Edges</c>, not via runtime reflection.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class RunAfterAttribute(Type target) : Attribute

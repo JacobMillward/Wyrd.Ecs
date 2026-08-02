@@ -27,6 +27,18 @@ public class QueryChainGeneratorSystemAccessTests
             }
         }
 
+        public sealed class OtherSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time) { }
+        }
+
+        [RunBefore(typeof(OtherSystem))]
+        [RunAfter(typeof(OtherSystem))]
+        public sealed class DecoratedSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time) { }
+        }
+
         public static class Harness
         {
             public static (Type[] Keys, Type[] MovementReads, Type[] MovementWrites, Type[] MultiReads, Type[] MultiWrites) Run()
@@ -46,6 +58,12 @@ public class QueryChainGeneratorSystemAccessTests
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
                 return SystemRegistry.Access.Count == 2; // only MovementSystem and MultiQuerySystem: this ad-hoc call adds nothing
+            }
+
+            public static (Type[] Before, Type[] After) Edges()
+            {
+                var edges = SystemRegistry.Edges[typeof(DecoratedSystem)];
+                return (new List<Type>(edges.Before).ToArray(), new List<Type>(edges.After).ToArray());
             }
         }
         """;
@@ -83,5 +101,17 @@ public class QueryChainGeneratorSystemAccessTests
         var result = (bool)assembly.GetType("Harness")!.GetMethod("AdHocChain_GetsNoEntry")!.Invoke(null, null)!;
 
         result.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RunBeforeAndRunAfterAttributes_AreCapturedIntoSystemRegistryEdges()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = assembly.GetType("Harness")!.GetMethod("Edges")!.Invoke(null, null)!;
+        var tuple = (System.Runtime.CompilerServices.ITuple)result;
+
+        ((Type[])tuple[0]!).Should().BeEquivalentTo([assembly.GetType("OtherSystem")]);
+        ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("OtherSystem")]);
     }
 }
