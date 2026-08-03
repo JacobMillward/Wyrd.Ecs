@@ -40,4 +40,15 @@ public sealed class SystemEntry
 
     /// <summary>Whether <see cref="EcsSystem.Enabled"/> is set to true (the default) or false the moment <see cref="Instance"/> is constructed. See <see cref="SystemRegistration.StartDisabled"/>.</summary>
     public bool StartEnabled = true;
+
+    /// <summary>
+    /// Whether this system runs at <see cref="SystemCadence.Variable"/> (the default —
+    /// exactly once per <see cref="World.Update"/> call) or <see cref="SystemCadence.Fixed"/>
+    /// (zero or more times per call, at a constant interval). Populated from
+    /// <see cref="FixedTimestepAttribute"/> by the generator, or explicitly by a hand-built
+    /// entry. <see cref="Internal.StagePlanner"/> is only ever called with entries of one
+    /// cadence at a time (see <see cref="ParallelSystemScheduler"/>) — this field is what
+    /// each partition is filtered by.
+    /// </summary>
+    public SystemCadence Cadence = SystemCadence.Variable;
 }
