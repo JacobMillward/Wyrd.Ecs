@@ -46,6 +46,9 @@ sealed class SequentialScheduler : ISystemScheduler
 
     public EcsSystem? Find(Type systemType) => _entries.FirstOrDefault(e => e.SystemType == systemType)?.Instance;
 
+    /// <summary>No-op: this fixture recomputes immediately on every structural change, so there's never anything deferred to flush.</summary>
+    public void Flush() { }
+
     public void RunStages(World world, Time time)
     {
         foreach (var stage in _stages)

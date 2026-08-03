@@ -7,8 +7,17 @@ namespace Wyrd.Ecs;
 /// strictly sequential, for deterministic lockstep/replay netcode) drops in without
 /// needing any other change to <see cref="World"/>/<see cref="WorldBuilder"/>.
 /// <see cref="ParallelSystemScheduler"/> is the default. Registration/removal both mark
-/// the schedule dirty rather than recomputing immediately — see <see cref="RunStages"/>.
+/// the schedule dirty rather than recomputing immediately — see <see cref="RunStages"/>/
+/// <see cref="Flush"/>.
 /// </summary>
+/// <remarks>
+/// A custom implementation must be safe to call <see cref="Register"/>/<see cref="Remove"/>/
+/// <see cref="Find"/> from within a system's own <see cref="EcsSystem.Execute"/> — including
+/// concurrently, from more than one system in the same parallel stage. This is the whole
+/// reason <see cref="ParallelSystemScheduler"/> guards its registration state with a lock
+/// rather than a plain collection: a system adding/removing another system mid-tick is a
+/// supported, expected use, not an edge case to leave undefined.
+/// </remarks>
 public interface ISystemScheduler
 {
     /// <summary>
@@ -24,15 +33,19 @@ public interface ISystemScheduler
     /// <summary>
     /// Constructs and registers one system immediately (so <see cref="World.GetSystem{T}"/>
     /// reflects it right away), marking the schedule dirty — actual stage placement is
-    /// deferred to the next <see cref="RunStages"/> call. Returns a chainable
-    /// <see cref="SystemRegistration"/> for the just-added entry.
+    /// deferred to the next <see cref="RunStages"/>/<see cref="Flush"/> call. Returns a
+    /// chainable <see cref="SystemRegistration"/> for the just-added entry. Throws
+    /// <see cref="InvalidOperationException"/> if a system of <see cref="SystemEntry.SystemType"/>
+    /// is already registered — at most one instance per system Type is supported, since
+    /// <see cref="Find"/>/<see cref="World.GetSystem{T}"/>/<see cref="World.RemoveSystem{T}"/>
+    /// and Type-targeted ordering edges all assume it.
     /// </summary>
     SystemRegistration Register(SystemEntry entry, World world);
 
     /// <summary>
     /// Bulk registration path used once by <see cref="WorldBuilder.Build"/>: constructs
     /// every entry's instance, adds them all, then recomputes stages exactly once — not
-    /// once per entry.
+    /// once per entry. Same duplicate-Type rejection as <see cref="Register"/>.
     /// </summary>
     void InitialRegister(IReadOnlyList<SystemEntry> entries, World world);
 
@@ -48,4 +61,14 @@ public interface ISystemScheduler
     /// pending.
     /// </summary>
     EcsSystem? Find(Type systemType);
+
+    /// <summary>
+    /// Forces an immediate recompute if the schedule is currently dirty — otherwise a
+    /// no-op. <see cref="RunStages"/> already does this automatically at the start of
+    /// every tick; call this directly only when you want validation errors (an ordering
+    /// edge naming a type that never registered, a cycle, an ambiguous target) to surface
+    /// right after a batch of runtime <see cref="Register"/>/<see cref="Remove"/> calls,
+    /// rather than waiting for the next <see cref="World.Update"/>.
+    /// </summary>
+    void Flush();
 }

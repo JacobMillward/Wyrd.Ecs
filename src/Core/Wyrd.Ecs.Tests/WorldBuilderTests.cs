@@ -86,4 +86,59 @@ public class WorldBuilderTests
 
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Build_CalledTwice_ThrowsInsteadOfCorruptingTheFirstWorld()
+    {
+        var builder = new WorldBuilder();
+        builder.Build();
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
+
+    [Fact]
+    public void WithArchetypeCapacity_AfterBuild_Throws()
+    {
+        var builder = new WorldBuilder();
+        builder.Build();
+
+        var act = () => builder.WithArchetypeCapacity(32);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
+
+    [Fact]
+    public void WithParallelThreshold_AfterBuild_Throws()
+    {
+        var builder = new WorldBuilder();
+        builder.Build();
+
+        var act = () => builder.WithParallelThreshold(0);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
+
+    [Fact]
+    public void WithScheduler_AfterBuild_Throws()
+    {
+        var builder = new WorldBuilder();
+        builder.Build();
+
+        var act = () => builder.WithScheduler(new ParallelSystemScheduler(1000));
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
+
+    [Fact]
+    public void AddSystemCore_AfterBuild_Throws()
+    {
+        var builder = new WorldBuilder();
+        builder.Build();
+
+        var act = () => builder.AddSystemCore(typeof(RecordingSystem), null, _ => new RecordingSystem(), [], []);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
 }

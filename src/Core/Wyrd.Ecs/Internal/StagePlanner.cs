@@ -37,11 +37,16 @@ internal static class StagePlanner
         foreach (var node in graph.Nodes) predecessors[node] = [];
         foreach (var edge in graph.Edges) predecessors[edge.After].Add(edge.Before);
 
-        // Built via indexer assignment, not ToDictionary: multiple instances of the same
-        // system Type are valid (only ambiguous if an edge names that Type as a target —
-        // SystemOrderGraph.ResolveTarget is what rejects that case), and they always share
-        // the same generated access footprint, so a later duplicate just overwrites with
-        // an identical value rather than needing to be rejected here.
+        // Built via indexer assignment, not ToDictionary: every real registration path
+        // (WorldBuilder/World's AddSystemCore, ParallelSystemScheduler.Register) now
+        // rejects a second instance of the same system Type at registration time, so in
+        // practice this dictionary never sees two different Access values for one Type.
+        // The one place a duplicate Type can still legitimately reach here is a test
+        // exercising this algorithm directly against hand-built SystemEntry arrays
+        // (StagePlannerTests) — for that case, indexer assignment (last one wins) is a
+        // deliberately permissive default rather than a defensive check this pure
+        // function has no way to act on anyway (it can't reject anything; it can only
+        // return a schedule).
         var accessByType = new Dictionary<Type, SystemAccess>();
         foreach (var entry in entries)
             if (entry.Access is not null)

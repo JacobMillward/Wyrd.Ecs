@@ -166,6 +166,16 @@ public sealed partial class World
         return _executor.Register(entry, this);
     }
 
+    /// <summary>
+    /// Forces an immediate recompute if the schedule is currently dirty from a runtime
+    /// <see cref="AddSystemCore"/>/<see cref="RemoveSystem(EcsSystem)"/> call — otherwise a
+    /// no-op. <see cref="Update"/> already does this automatically at the start of every
+    /// tick; call this directly right after a batch of runtime registrations if you want
+    /// a bad edge (naming a type that never registered), a cycle, or an ambiguous target
+    /// to throw immediately, at this call site, instead of waiting for the next <see cref="Update"/>.
+    /// </summary>
+    public void FlushSystemChanges() => _executor.Flush();
+
     /// <summary>The live instance registered for <typeparamref name="T"/>. Throws if none is registered — use <see cref="TryGetSystem{T}"/> if that's expected.</summary>
     public T GetSystem<T>() where T : EcsSystem =>
         _executor.Find(typeof(T)) as T ?? throw new InvalidOperationException($"No system of type {typeof(T)} is registered.");

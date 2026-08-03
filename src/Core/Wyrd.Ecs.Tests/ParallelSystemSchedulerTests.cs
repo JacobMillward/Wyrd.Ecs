@@ -9,6 +9,13 @@ sealed class MoveSystem : EcsSystem
         world.Query().With<ScheduledPosition>().ForEach(0, (in int _, ref ScheduledPosition p) => p.X += 1f);
 }
 
+/// <summary>A second, distinct type also writing ScheduledPosition — used to keep testing "two conflicting systems still both run, in separate stages" now that registering the same Type twice is rejected.</summary>
+sealed class MoveSystemDuplicateWriter : EcsSystem
+{
+    protected override void Execute(World world, Time time) =>
+        world.Query().With<ScheduledPosition>().ForEach(0, (in int _, ref ScheduledPosition p) => p.X += 1f);
+}
+
 sealed class DamageSystem : EcsSystem
 {
     protected override void Execute(World world, Time time) =>
@@ -101,7 +108,7 @@ public class ParallelSystemSchedulerTests
     {
         var builder = new WorldBuilder();
         builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
-        builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+        builder.AddSystemCore(typeof(MoveSystemDuplicateWriter), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystemDuplicateWriter(), [], []);
         var world = builder.Build();
 
         Entity e = world.Commands.CreateEntity();
@@ -110,7 +117,18 @@ public class ParallelSystemSchedulerTests
 
         world.Update(TimeSpan.Zero);
 
-        world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f, "both MoveSystem instances ran, one per stage");
+        world.GetComponent<ScheduledPosition>(e).X.Should().Be(2f, "both systems ran, one per stage, despite writing the same component");
+    }
+
+    [Fact]
+    public void DuplicateSystemType_ThrowsAtRegistration()
+    {
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+
+        var act = () => builder.AddSystemCore(typeof(MoveSystem), new(Reads: [], Writes: [typeof(ScheduledPosition)]), _ => new MoveSystem(), [], []);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MoveSystem*already registered*");
     }
 
     [Fact]

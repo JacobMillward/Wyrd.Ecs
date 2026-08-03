@@ -44,7 +44,10 @@ internal static class SystemOrderGraph
 
             if (!instancesByType.TryGetValue(target, out var matches) || matches.Count == 0)
                 throw new InvalidOperationException(
-                    $"A system-ordering edge targets '{target}', but no instance of that type is registered.");
+                    $"A system-ordering edge targets '{target}', but no instance of that type is currently registered. " +
+                    "This check runs whenever the schedule is recomputed (the next World.Update() call, or an explicit " +
+                    "World.FlushSystemChanges()), not at the moment the edge was declared — if this system was meant to " +
+                    "register later, make sure it actually does before the next recompute; if it never will, the edge itself is the mistake.");
             if (matches.Count > 1)
                 throw new InvalidOperationException(
                     $"A system-ordering edge targets '{target}', but {matches.Count} instances of that type are registered — which one is meant is ambiguous.");

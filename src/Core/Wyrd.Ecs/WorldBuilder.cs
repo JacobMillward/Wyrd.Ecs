@@ -2,7 +2,10 @@ namespace Wyrd.Ecs;
 
 /// <summary>
 /// Configures and constructs a <see cref="World"/>: archetype capacity, the parallel
-/// dispatch threshold, and the systems it runs.
+/// dispatch threshold, and the systems it runs. Single-use: call <see cref="Build"/>
+/// exactly once. Building twice (or configuring further afterward) throws — see
+/// <see cref="ThrowIfAlreadyBuilt"/>'s doc comment for why silently allowing it would be
+/// worse than rejecting it.
 /// </summary>
 public sealed class WorldBuilder
 {
@@ -10,6 +13,7 @@ public sealed class WorldBuilder
     private readonly List<SystemEntry> _pending = [];
     private int _parallelThreshold = 1000;
     private ISystemScheduler? _scheduler;
+    private bool _built;
 
     /// <summary>
     /// Sets the entity capacity every archetype's dense arrays start at and never shrink
@@ -19,6 +23,7 @@ public sealed class WorldBuilder
     /// </summary>
     public WorldBuilder WithArchetypeCapacity(int capacity)
     {
+        ThrowIfAlreadyBuilt();
         if (capacity <= 0)
             throw new ArgumentOutOfRangeException(nameof(capacity), capacity, "Archetype capacity must be positive.");
 
@@ -38,10 +43,14 @@ public sealed class WorldBuilder
     /// Builds a new <see cref="World"/> with the configured options, including whatever
     /// <c>AddSystem&lt;T&gt;()</c> registered. The returned <see cref="World"/> already
     /// owns a static parallel schedule (empty if no systems were registered) and drives
-    /// it itself via <see cref="World.Update"/>.
+    /// it itself via <see cref="World.Update"/>. Throws if called more than once on the
+    /// same builder — see <see cref="ThrowIfAlreadyBuilt"/>.
     /// </summary>
     public World Build()
     {
+        ThrowIfAlreadyBuilt();
+        _built = true;
+
         var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
         var world = new World(_archetypeCapacity, scheduler);
         scheduler.InitialRegister(_pending, world);
@@ -69,7 +78,11 @@ public sealed class WorldBuilder
     /// reaching into <see cref="SystemRegistration"/> from outside — it has to happen
     /// here, where the entry is directly available. Returns a chainable
     /// <see cref="SystemRegistration"/> for declaring further ordering edges or starting
-    /// the system disabled.
+    /// the system disabled. Throws if a system of <paramref name="systemType"/> is
+    /// already registered on this builder (at most one instance per Type is supported —
+    /// same rule <see cref="ParallelSystemScheduler.Register"/> enforces at runtime,
+    /// checked here too so a duplicate at <c>Build()</c> time is diagnosed at the exact
+    /// <c>AddSystem&lt;T&gt;()</c> call site that caused it, not later).
     /// </summary>
     public SystemRegistration AddSystemCore(
         Type systemType,
@@ -78,6 +91,7 @@ public sealed class WorldBuilder
         IReadOnlyList<Type> generatedBeforeTargets,
         IReadOnlyList<Type> generatedAfterTargets)
     {
+        ThrowIfAlreadyBuilt();
         var entry = RegisterEntry(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets);
         return new SystemRegistration(RegisterEntry, Build, entry);
     }
@@ -89,6 +103,11 @@ public sealed class WorldBuilder
         IReadOnlyList<Type> generatedBeforeTargets,
         IReadOnlyList<Type> generatedAfterTargets)
     {
+        ThrowIfAlreadyBuilt();
+        if (_pending.Exists(e => e.SystemType == systemType))
+            throw new InvalidOperationException(
+                $"A system of type '{systemType}' is already registered on this WorldBuilder. At most one instance per system Type is supported.");
+
         var entry = new SystemEntry { SystemType = systemType, Construct = construct, Access = access };
         entry.BeforeTargets.AddRange(generatedBeforeTargets);
         entry.AfterTargets.AddRange(generatedAfterTargets);
@@ -105,6 +124,7 @@ public sealed class WorldBuilder
     /// </summary>
     public WorldBuilder WithParallelThreshold(int entityCount)
     {
+        ThrowIfAlreadyBuilt();
         _parallelThreshold = entityCount;
         return this;
     }
@@ -116,7 +136,27 @@ public sealed class WorldBuilder
     /// </summary>
     public WorldBuilder WithScheduler(ISystemScheduler scheduler)
     {
+        ThrowIfAlreadyBuilt();
         _scheduler = scheduler;
         return this;
+    }
+
+    /// <summary>
+    /// Every <see cref="SystemEntry"/> this builder accumulates is a mutable object
+    /// (<see cref="SystemEntry.Instance"/> gets written the moment it's actually
+    /// constructed) that the resulting <see cref="World"/>'s <see cref="ISystemScheduler"/>
+    /// then holds by reference, not by copy. Allowing a second <see cref="Build"/> call
+    /// (or any further configuration after one) would mean re-running
+    /// <see cref="SystemEntry.Construct"/> against those same shared objects for a new
+    /// <see cref="World"/>, silently overwriting <see cref="SystemEntry.Instance"/> out
+    /// from under the *first* World's scheduler — no exception, just a system quietly
+    /// pointing at the wrong World from then on. Throwing here instead makes a
+    /// <see cref="WorldBuilder"/> strictly single-use: construct one, configure it, call
+    /// <see cref="Build"/> once, discard it.
+    /// </summary>
+    private void ThrowIfAlreadyBuilt()
+    {
+        if (_built)
+            throw new InvalidOperationException("This WorldBuilder has already built a World. Each WorldBuilder is single-use — create a new one for another World.");
     }
 }
