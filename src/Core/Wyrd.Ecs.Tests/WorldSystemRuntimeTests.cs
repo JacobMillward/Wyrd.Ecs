@@ -170,4 +170,15 @@ public class WorldSystemRuntimeTests
         world.TryGetSystem<SpawnedSystem<Slot8>>(out _).Should().BeTrue();
         world.TryGetSystem<SpawnedSystem<Slot9>>(out _).Should().BeTrue();
     }
+
+    [Fact]
+    public void World_AddSystemCore_WithFixedCadence_SetsEntryCadenceToFixed()
+    {
+        var world = new World();
+        var registration = world.AddSystemCore(typeof(RuntimeCadenceProbeSystem), access: null, _ => new RuntimeCadenceProbeSystem(), [], [], cadence: SystemCadence.Fixed);
+
+        registration.Entry.Cadence.Should().Be(SystemCadence.Fixed);
+    }
 }
+
+file sealed class RuntimeCadenceProbeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }

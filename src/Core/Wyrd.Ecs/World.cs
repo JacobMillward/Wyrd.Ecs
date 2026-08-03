@@ -158,9 +158,10 @@ public sealed partial class World
         SystemAccess? access,
         Func<World, EcsSystem> construct,
         IReadOnlyList<Type> generatedBeforeTargets,
-        IReadOnlyList<Type> generatedAfterTargets)
+        IReadOnlyList<Type> generatedAfterTargets,
+        SystemCadence cadence = SystemCadence.Variable)
     {
-        var entry = new SystemEntry { SystemType = systemType, Construct = construct, Access = access };
+        var entry = new SystemEntry { SystemType = systemType, Construct = construct, Access = access, Cadence = cadence };
         entry.BeforeTargets.AddRange(generatedBeforeTargets);
         entry.AfterTargets.AddRange(generatedAfterTargets);
         return _executor.Register(entry, this);

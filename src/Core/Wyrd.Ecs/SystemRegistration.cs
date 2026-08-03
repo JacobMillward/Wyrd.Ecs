@@ -15,7 +15,7 @@ namespace Wyrd.Ecs;
 /// </summary>
 public sealed class SystemRegistration
 {
-    private readonly Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemEntry> _register;
+    private readonly Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemCadence, SystemEntry> _register;
     private readonly Func<World>? _build;
     private readonly SystemEntry _entry;
 
@@ -23,7 +23,7 @@ public sealed class SystemRegistration
     internal SystemEntry Entry => _entry;
 
     internal SystemRegistration(
-        Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemEntry> register,
+        Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemCadence, SystemEntry> register,
         Func<World>? build,
         SystemEntry entry)
     {
@@ -60,7 +60,8 @@ public sealed class SystemRegistration
     /// <c>builder.AddSystem&lt;A&gt;().AddSystem&lt;B&gt;()</c> keeps registering onto the
     /// same builder/world without ever needing to re-reference it by name.
     /// <paramref name="generatedBeforeTargets"/>/<paramref name="generatedAfterTargets"/>
-    /// seed the new entry's edges the same way <see cref="WorldBuilder.AddSystemCore"/>'s
+    /// seed the new entry's edges, and <paramref name="cadence"/> seeds its
+    /// <see cref="SystemEntry.Cadence"/>, the same way <see cref="WorldBuilder.AddSystemCore"/>'s
     /// own parameters do.
     /// </summary>
     public SystemRegistration RegisterNext(
@@ -68,8 +69,9 @@ public sealed class SystemRegistration
         SystemAccess? access,
         Func<World, EcsSystem> construct,
         IReadOnlyList<Type> generatedBeforeTargets,
-        IReadOnlyList<Type> generatedAfterTargets) =>
-        new(_register, _build, _register(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets));
+        IReadOnlyList<Type> generatedAfterTargets,
+        SystemCadence cadence = SystemCadence.Variable) =>
+        new(_register, _build, _register(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets, cadence));
 
     /// <summary>
     /// Finishes a <see cref="WorldBuilder"/>-originated chain — equivalent to calling

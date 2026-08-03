@@ -89,10 +89,11 @@ public sealed class WorldBuilder
         SystemAccess? access,
         Func<World, EcsSystem> construct,
         IReadOnlyList<Type> generatedBeforeTargets,
-        IReadOnlyList<Type> generatedAfterTargets)
+        IReadOnlyList<Type> generatedAfterTargets,
+        SystemCadence cadence = SystemCadence.Variable)
     {
         ThrowIfAlreadyBuilt();
-        var entry = RegisterEntry(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets);
+        var entry = RegisterEntry(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets, cadence);
         return new SystemRegistration(RegisterEntry, Build, entry);
     }
 
@@ -101,14 +102,15 @@ public sealed class WorldBuilder
         SystemAccess? access,
         Func<World, EcsSystem> construct,
         IReadOnlyList<Type> generatedBeforeTargets,
-        IReadOnlyList<Type> generatedAfterTargets)
+        IReadOnlyList<Type> generatedAfterTargets,
+        SystemCadence cadence = SystemCadence.Variable)
     {
         ThrowIfAlreadyBuilt();
         if (_pending.Exists(e => e.SystemType == systemType))
             throw new InvalidOperationException(
                 $"A system of type '{systemType}' is already registered on this WorldBuilder. At most one instance per system Type is supported.");
 
-        var entry = new SystemEntry { SystemType = systemType, Construct = construct, Access = access };
+        var entry = new SystemEntry { SystemType = systemType, Construct = construct, Access = access, Cadence = cadence };
         entry.BeforeTargets.AddRange(generatedBeforeTargets);
         entry.AfterTargets.AddRange(generatedAfterTargets);
         _pending.Add(entry);

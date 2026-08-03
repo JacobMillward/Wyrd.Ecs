@@ -121,10 +121,10 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     }
 
     /// <summary>Adapter matching <see cref="SystemRegistration"/>'s stored delegate shape, so a chained <c>.AddSystem&lt;T&gt;()</c> off a runtime registration keeps registering onto this same scheduler.</summary>
-    private Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemEntry> RegisterFromParts(World world) =>
-        (systemType, access, construct, before, after) =>
+    private Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemCadence, SystemEntry> RegisterFromParts(World world) =>
+        (systemType, access, construct, before, after, cadence) =>
         {
-            var next = new SystemEntry { SystemType = systemType, Construct = construct, Access = access };
+            var next = new SystemEntry { SystemType = systemType, Construct = construct, Access = access, Cadence = cadence };
             next.BeforeTargets.AddRange(before);
             next.AfterTargets.AddRange(after);
             lock (_lock) RegisterLocked(next, world);

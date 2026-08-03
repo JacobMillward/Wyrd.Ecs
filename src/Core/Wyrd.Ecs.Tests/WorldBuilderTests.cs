@@ -1,5 +1,7 @@
 namespace Wyrd.Ecs.Tests;
 
+file sealed class CadenceProbeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
+
 public class WorldBuilderTests
 {
     private struct Position : IComponent
@@ -140,5 +142,23 @@ public class WorldBuilderTests
         var act = () => builder.AddSystemCore(typeof(RecordingSystem), null, _ => new RecordingSystem(), [], []);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
+
+    [Fact]
+    public void AddSystemCore_WithFixedCadence_SetsEntryCadenceToFixed()
+    {
+        var builder = new WorldBuilder();
+        var registration = builder.AddSystemCore(typeof(CadenceProbeSystem), access: null, _ => new CadenceProbeSystem(), [], [], cadence: SystemCadence.Fixed);
+
+        registration.Entry.Cadence.Should().Be(SystemCadence.Fixed);
+    }
+
+    [Fact]
+    public void AddSystemCore_WithoutCadenceArgument_DefaultsToVariable()
+    {
+        var builder = new WorldBuilder();
+        var registration = builder.AddSystemCore(typeof(CadenceProbeSystem), access: null, _ => new CadenceProbeSystem(), [], []);
+
+        registration.Entry.Cadence.Should().Be(SystemCadence.Variable);
     }
 }

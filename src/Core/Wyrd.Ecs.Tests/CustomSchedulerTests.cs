@@ -68,10 +68,10 @@ sealed class SequentialScheduler : ISystemScheduler
         if (recompute) Recompute();
     }
 
-    private Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemEntry> RegisterFromParts(World world) =>
-        (systemType, access, construct, before, after) =>
+    private Func<Type, SystemAccess?, Func<World, EcsSystem>, IReadOnlyList<Type>, IReadOnlyList<Type>, SystemCadence, SystemEntry> RegisterFromParts(World world) =>
+        (systemType, access, construct, before, after, cadence) =>
         {
-            var next = new SystemEntry { SystemType = systemType, Construct = construct, Access = access };
+            var next = new SystemEntry { SystemType = systemType, Construct = construct, Access = access, Cadence = cadence };
             next.BeforeTargets.AddRange(before);
             next.AfterTargets.AddRange(after);
             ConstructAndAdd(next, world);
