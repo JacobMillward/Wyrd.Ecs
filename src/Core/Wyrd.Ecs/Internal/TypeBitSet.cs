@@ -168,20 +168,23 @@ internal readonly struct TypeBitSet : IEquatable<TypeBitSet>
     /// <summary>The bitwise union of this bitset and <paramref name="other"/>: every bit set in either.</summary>
     internal TypeBitSet Union(TypeBitSet other)
     {
-        var length = Math.Max(TotalWordCount, other.TotalWordCount);
-        var result = this;
-        for (var word = 0; word < length; word++)
+        var w0 = _w0 | other._w0;
+        var w1 = _w1 | other._w1;
+        var w2 = _w2 | other._w2;
+        var w3 = _w3 | other._w3;
+
+        var mineLength = OverflowLength;
+        var theirsLength = other.OverflowLength;
+        if (mineLength == 0 && theirsLength == 0) return new TypeBitSet(w0, w1, w2, w3, null);
+
+        var overflow = new ulong[Math.Max(mineLength, theirsLength)];
+        for (var i = 0; i < overflow.Length; i++)
         {
-            var bits = other.GetWord(word) & ~GetWord(word);
-            var bitIndex = 0;
-            while (bits != 0)
-            {
-                if ((bits & 1UL) != 0) result = result.With(word * 64 + bitIndex);
-                bits >>= 1;
-                bitIndex++;
-            }
+            var mine = i < mineLength ? _overflow![i] : 0UL;
+            var theirs = i < theirsLength ? other._overflow![i] : 0UL;
+            overflow[i] = mine | theirs;
         }
-        return result;
+        return new TypeBitSet(w0, w1, w2, w3, overflow);
     }
 
     public bool Equals(TypeBitSet other)
