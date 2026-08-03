@@ -284,7 +284,7 @@ public sealed partial class CommandBuffer
     {
         internal static readonly Action<World, Entity, object?, int> Apply = (w, e, buffer, _) =>
         {
-            var (signature, setters) = ((Internal.ArchetypeSignature, TemplateComponentSetter[]))buffer!;
+            var (signature, setters) = ((Internal.TypeBitSet, TemplateComponentSetter[]))buffer!;
             w.PlaceReservedEntityFromTemplate(e, signature, setters);
         };
     }

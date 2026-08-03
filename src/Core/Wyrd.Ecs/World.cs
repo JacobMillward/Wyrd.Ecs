@@ -18,9 +18,9 @@ public sealed partial class World
     /// </summary>
     internal const int DefaultArchetypeCapacity = 64;
 
-    private readonly Dictionary<ArchetypeSignature, Archetype> _archetypes = new();
-    private readonly Dictionary<ArchetypeSignature, Archetype[]> _queryCache = new();
-    private readonly Dictionary<(ArchetypeSignature Required, ArchetypeFilter Filter), Archetype[]> _filteredQueryCache = new();
+    private readonly Dictionary<TypeBitSet, Archetype> _archetypes = new();
+    private readonly Dictionary<TypeBitSet, Archetype[]> _queryCache = new();
+    private readonly Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> _filteredQueryCache = new();
     private readonly Archetype _emptyArchetype;
     private readonly int _archetypeCapacity;
     private readonly CommandBuffer _commands;
@@ -37,8 +37,8 @@ public sealed partial class World
     internal World(int archetypeCapacity, ISystemScheduler executor)
     {
         _archetypeCapacity = archetypeCapacity;
-        _emptyArchetype = new Archetype(ArchetypeSignature.Empty, archetypeCapacity);
-        _archetypes[ArchetypeSignature.Empty] = _emptyArchetype;
+        _emptyArchetype = new Archetype(TypeBitSet.Empty, archetypeCapacity);
+        _archetypes[TypeBitSet.Empty] = _emptyArchetype;
         _commands = new CommandBuffer(this);
         _executor = executor;
     }
@@ -233,7 +233,7 @@ public sealed partial class World
     /// <c>PlaceReservedEntity&lt;T0..Tn&gt;</c> family, working from a pre-built
     /// signature/setter list instead of a closed generic.
     /// </summary>
-    internal void PlaceReservedEntityFromTemplate(Entity entity, Internal.ArchetypeSignature signature, TemplateComponentSetter[] setters)
+    internal void PlaceReservedEntityFromTemplate(Entity entity, Internal.TypeBitSet signature, TemplateComponentSetter[] setters)
     {
         if (!_archetypes.TryGetValue(signature, out var target))
             target = CreateArchetype(signature);
@@ -256,7 +256,7 @@ public sealed partial class World
     /// needed, then invokes every setter once for the whole batch (each setter blits via
     /// <see cref="Internal.ComponentStorage{T}.Fill"/>) rather than once per entity.
     /// </summary>
-    internal void PlaceReservedEntitiesFromTemplate(Entity[] entities, Internal.ArchetypeSignature signature, TemplateComponentSetter[] setters)
+    internal void PlaceReservedEntitiesFromTemplate(Entity[] entities, Internal.TypeBitSet signature, TemplateComponentSetter[] setters)
     {
         if (!_archetypes.TryGetValue(signature, out var target))
             target = CreateArchetype(signature);
@@ -694,7 +694,7 @@ public sealed partial class World
     }
 
     /// <summary>Only copies a storage when <paramref name="signature"/> still contains its type, so a just-removed component's storage is naturally excluded. Each clone is sized to the new archetype's capacity directly, matching the invariant <see cref="Archetype.EnsureCapacity"/> relies on.</summary>
-    private Archetype GetOrCreateArchetype(ArchetypeSignature signature, Archetype templateSource)
+    private Archetype GetOrCreateArchetype(TypeBitSet signature, Archetype templateSource)
     {
         if (_archetypes.TryGetValue(signature, out var existing)) return existing;
 
@@ -709,7 +709,7 @@ public sealed partial class World
     }
 
     /// <summary>Registers a brand-new, storage-less archetype and invalidates every archetype-set cache. Callers populate the returned archetype's storages themselves.</summary>
-    private Archetype CreateArchetype(ArchetypeSignature signature)
+    private Archetype CreateArchetype(TypeBitSet signature)
     {
         var created = new Archetype(signature, _archetypeCapacity);
         _archetypes[signature] = created;
@@ -722,7 +722,7 @@ public sealed partial class World
     internal int TotalEntityCount => _archetypes.Values.Sum(a => a.Count);
 
     /// <summary>Every archetype whose signature contains all of <paramref name="required"/>'s bits, cached per required set and invalidated whenever a new archetype is created.</summary>
-    internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required)
+    internal Archetype[] GetMatchingArchetypes(TypeBitSet required)
     {
         if (_queryCache.TryGetValue(required, out var cached)) return cached;
 
@@ -738,8 +738,8 @@ public sealed partial class World
         return result;
     }
 
-    /// <summary>Same as <see cref="GetMatchingArchetypes(ArchetypeSignature)"/>, plus <paramref name="filter"/>'s Without/Any checks. A separate cache so callers that never filter (chunk queries, <see cref="ReadChanges{T}"/>) don't pay for an always-empty cache key.</summary>
-    internal Archetype[] GetMatchingArchetypes(ArchetypeSignature required, ArchetypeFilter filter)
+    /// <summary>Same as <see cref="GetMatchingArchetypes(TypeBitSet)"/>, plus <paramref name="filter"/>'s Without/Any checks. A separate cache so callers that never filter (chunk queries, <see cref="ReadChanges{T}"/>) don't pay for an always-empty cache key.</summary>
+    internal Archetype[] GetMatchingArchetypes(TypeBitSet required, ArchetypeFilter filter)
     {
         var key = (required, filter);
         if (_filteredQueryCache.TryGetValue(key, out var cached)) return cached;

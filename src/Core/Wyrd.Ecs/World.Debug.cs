@@ -42,7 +42,7 @@ public sealed partial class World
     /// once per archetype by each caller, not once per entity row, since the answer is
     /// identical for every entity in the same archetype.
     /// </summary>
-    private static List<string> ResolveTagDiscriminators(Internal.ArchetypeSignature signature, ComponentCodecRegistry registry)
+    private static List<string> ResolveTagDiscriminators(Internal.TypeBitSet signature, ComponentCodecRegistry registry)
     {
         var tags = new List<string>();
         foreach (var typeIndex in signature.SetBits)

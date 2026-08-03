@@ -12,7 +12,7 @@ public class ArchetypeFilterTests
     [Fact]
     public void Empty_MatchesAnyArchetype()
     {
-        var signature = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+        var signature = TypeBitSet.Empty.With(TypeIndex<Alpha>.Value);
 
         ArchetypeFilter.Empty.Matches(signature).Should().BeTrue();
     }
@@ -21,8 +21,8 @@ public class ArchetypeFilterTests
     public void Has_RequiresPresence()
     {
         var filter = ArchetypeFilter.Empty.Has<Gamma>();
-        var withGamma = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
-        var withoutGamma = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+        var withGamma = TypeBitSet.Empty.With(TypeIndex<Gamma>.Value);
+        var withoutGamma = TypeBitSet.Empty.With(TypeIndex<Alpha>.Value);
 
         filter.Matches(withGamma).Should().BeTrue();
         filter.Matches(withoutGamma).Should().BeFalse();
@@ -32,8 +32,8 @@ public class ArchetypeFilterTests
     public void Without_ExcludesPresence()
     {
         var filter = ArchetypeFilter.Empty.Without<Delta>();
-        var withDelta = ArchetypeSignature.Empty.With(TypeIndex<Delta>.Value);
-        var withoutDelta = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+        var withDelta = TypeBitSet.Empty.With(TypeIndex<Delta>.Value);
+        var withoutDelta = TypeBitSet.Empty.With(TypeIndex<Alpha>.Value);
 
         filter.Matches(withDelta).Should().BeFalse();
         filter.Matches(withoutDelta).Should().BeTrue();
@@ -43,8 +43,8 @@ public class ArchetypeFilterTests
     public void Any_RequiresAtLeastOne()
     {
         var filter = ArchetypeFilter.Empty.Any<Gamma, Delta>();
-        var withGammaOnly = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
-        var withNeither = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value);
+        var withGammaOnly = TypeBitSet.Empty.With(TypeIndex<Gamma>.Value);
+        var withNeither = TypeBitSet.Empty.With(TypeIndex<Alpha>.Value);
 
         filter.Matches(withGammaOnly).Should().BeTrue();
         filter.Matches(withNeither).Should().BeFalse();
@@ -55,8 +55,8 @@ public class ArchetypeFilterTests
     {
         var filter = ArchetypeFilter.Empty.Any<Gamma, Delta>().Any<Alpha, Epsilon>();
 
-        var satisfiesOnlyFirstGroup = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
-        var satisfiesBothGroups = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value).With(TypeIndex<Alpha>.Value);
+        var satisfiesOnlyFirstGroup = TypeBitSet.Empty.With(TypeIndex<Gamma>.Value);
+        var satisfiesBothGroups = TypeBitSet.Empty.With(TypeIndex<Gamma>.Value).With(TypeIndex<Alpha>.Value);
 
         filter.Matches(satisfiesOnlyFirstGroup).Should().BeFalse();
         filter.Matches(satisfiesBothGroups).Should().BeTrue();
@@ -66,9 +66,9 @@ public class ArchetypeFilterTests
     public void CombinedHasWithoutAny_AllMustHold()
     {
         var filter = ArchetypeFilter.Empty.Has<Alpha>().Without<Delta>().Any<Gamma, Delta>();
-        var violatesWithout = ArchetypeSignature.Empty
+        var violatesWithout = TypeBitSet.Empty
             .With(TypeIndex<Alpha>.Value).With(TypeIndex<Delta>.Value);
-        var satisfiesAll = ArchetypeSignature.Empty
+        var satisfiesAll = TypeBitSet.Empty
             .With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value);
 
         filter.Matches(violatesWithout).Should().BeFalse();
@@ -84,9 +84,9 @@ public class ArchetypeFilterTests
         var b = ArchetypeFilter.Empty.Without<Epsilon>().Any<Alpha, Epsilon>();
         var combined = a.Combine(b);
 
-        var satisfiesAll = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value);
-        var missingRequiredAlpha = ArchetypeSignature.Empty.With(TypeIndex<Gamma>.Value);
-        var violatesExcludedEpsilon = ArchetypeSignature.Empty.With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value).With(TypeIndex<Epsilon>.Value);
+        var satisfiesAll = TypeBitSet.Empty.With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value);
+        var missingRequiredAlpha = TypeBitSet.Empty.With(TypeIndex<Gamma>.Value);
+        var violatesExcludedEpsilon = TypeBitSet.Empty.With(TypeIndex<Alpha>.Value).With(TypeIndex<Gamma>.Value).With(TypeIndex<Epsilon>.Value);
 
         combined.Matches(satisfiesAll).Should().BeTrue();
         combined.Matches(missingRequiredAlpha).Should().BeFalse();

@@ -8,7 +8,7 @@ public class EntityTableTests
     public void Place_OutOfOrderWithinABatch_DoesNotPrematurelyExposeAnEarlierReservedIdAsAlive()
     {
         var table = new EntityTable();
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         var a = table.Reserve();
         var b = table.Reserve();
@@ -66,7 +66,7 @@ public class EntityTableTests
     public void ReserveRange_UsesRecycledIdsBeforeMintingNewOnes()
     {
         var table = new EntityTable();
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         var a = table.Reserve();
         var b = table.Reserve();
         table.Place(a, archetype);
@@ -87,7 +87,7 @@ public class EntityTableTests
     public void PlaceBatch_MakesEveryEntityAliveAtItsAssignedRow()
     {
         var table = new EntityTable();
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         var a = table.Reserve();
         var b = table.Reserve();
         var c = table.Reserve();
@@ -103,7 +103,7 @@ public class EntityTableTests
     public void PlaceBatch_AssignsSequentialRowsStartingAtStartRow()
     {
         var table = new EntityTable();
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         var a = table.Reserve();
         var b = table.Reserve();
 

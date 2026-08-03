@@ -20,12 +20,12 @@ internal sealed class Archetype
     /// </summary>
     private Archetype?[] _edges = [];
 
-    internal ArchetypeSignature Signature { get; }
+    internal TypeBitSet Signature { get; }
     internal ArchetypeStorages Storages { get; } = new();
     internal Entity[] Entities => _entities;
     internal int Count { get; private set; }
 
-    internal Archetype(ArchetypeSignature signature, int initialCapacity)
+    internal Archetype(TypeBitSet signature, int initialCapacity)
     {
         Signature = signature;
         _entities = new Entity[initialCapacity];

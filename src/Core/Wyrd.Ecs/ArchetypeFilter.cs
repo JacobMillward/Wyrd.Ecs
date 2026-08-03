@@ -13,13 +13,13 @@ namespace Wyrd.Ecs;
 public readonly partial struct ArchetypeFilter : IEquatable<ArchetypeFilter>
 {
     /// <summary>The filter with nothing required, excluded, or any-of'd: matches every archetype.</summary>
-    public static readonly ArchetypeFilter Empty = new(ArchetypeSignature.Empty, ArchetypeSignature.Empty, ImmutableArray<ArchetypeSignature>.Empty);
+    public static readonly ArchetypeFilter Empty = new(TypeBitSet.Empty, TypeBitSet.Empty, ImmutableArray<TypeBitSet>.Empty);
 
-    internal ArchetypeSignature Required { get; }
-    internal ArchetypeSignature Excluded { get; }
-    internal ImmutableArray<ArchetypeSignature> AnyGroups { get; }
+    internal TypeBitSet Required { get; }
+    internal TypeBitSet Excluded { get; }
+    internal ImmutableArray<TypeBitSet> AnyGroups { get; }
 
-    private ArchetypeFilter(ArchetypeSignature required, ArchetypeSignature excluded, ImmutableArray<ArchetypeSignature> anyGroups)
+    private ArchetypeFilter(TypeBitSet required, TypeBitSet excluded, ImmutableArray<TypeBitSet> anyGroups)
     {
         Required = required;
         Excluded = excluded;
@@ -44,10 +44,10 @@ public readonly partial struct ArchetypeFilter : IEquatable<ArchetypeFilter>
     /// more than once ANDs each group's own "any of" requirement together.
     /// </summary>
     public ArchetypeFilter Any<T0, T1>() where T0 : struct where T1 : struct =>
-        new(Required, Excluded, AnyGroups.Add(ArchetypeSignature.Empty.With(TypeIndex<T0>.Value).With(TypeIndex<T1>.Value)));
+        new(Required, Excluded, AnyGroups.Add(TypeBitSet.Empty.With(TypeIndex<T0>.Value).With(TypeIndex<T1>.Value)));
 
-    /// <summary>True when <paramref name="archetypeSignature"/> satisfies every requirement: has everything in <see cref="Required"/>, nothing in <see cref="Excluded"/>, and at least one bit from every group in <see cref="AnyGroups"/>. Internal, not public: <see cref="ArchetypeSignature"/> itself stays internal, and the only caller is <see cref="World.GetMatchingArchetypes(ArchetypeSignature, ArchetypeFilter)"/>, in the same assembly.</summary>
-    internal bool Matches(ArchetypeSignature archetypeSignature) =>
+    /// <summary>True when <paramref name="archetypeSignature"/> satisfies every requirement: has everything in <see cref="Required"/>, nothing in <see cref="Excluded"/>, and at least one bit from every group in <see cref="AnyGroups"/>. Internal, not public: <see cref="TypeBitSet"/> itself stays internal, and the only caller is <see cref="World.GetMatchingArchetypes(TypeBitSet, ArchetypeFilter)"/>, in the same assembly.</summary>
+    internal bool Matches(TypeBitSet archetypeSignature) =>
         Required.IsSubsetOf(archetypeSignature)
         && !Excluded.Intersects(archetypeSignature)
         && AnyGroups.All(group => group.Intersects(archetypeSignature));

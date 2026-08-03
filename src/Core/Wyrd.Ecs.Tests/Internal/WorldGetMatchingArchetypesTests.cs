@@ -15,7 +15,7 @@ public class WorldGetMatchingArchetypesTests
         Entity untagged = world.Commands.CreateEntity();
         world.ApplyCommands();
 
-        var required = ArchetypeSignature.Empty;
+        var required = TypeBitSet.Empty;
         var withoutMarker = ArchetypeFilter.Empty.Without<Marker>();
 
         var everyoneMatches = world.GetMatchingArchetypes(required, ArchetypeFilter.Empty);

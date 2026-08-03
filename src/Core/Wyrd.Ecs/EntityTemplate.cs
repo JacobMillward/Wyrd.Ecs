@@ -18,13 +18,13 @@ internal delegate void TemplateComponentSetter(World world, Internal.Archetype a
 public class EntityTemplate
 {
     private readonly Lock _gate = new();
-    private Internal.ArchetypeSignature _signature = Internal.ArchetypeSignature.Empty;
+    private Internal.TypeBitSet _signature = Internal.TypeBitSet.Empty;
     private readonly Dictionary<int, TemplateComponentSetter> _settersByType = new();
     private TemplateComponentSetter[]? _cachedSetters;
     private bool _frozen;
 
     /// <summary>The archetype signature every instance of this template lands in (components + tags). Computed incrementally as <see cref="AddComponent{T}"/>/<see cref="AddTag{T}"/> are called. Reading this freezes the template, see <see cref="ThrowIfFrozen"/>.</summary>
-    internal Internal.ArchetypeSignature Signature
+    internal Internal.TypeBitSet Signature
     {
         get { lock (_gate) { _frozen = true; return _signature; } }
     }

@@ -45,5 +45,5 @@ public sealed partial class ArchetypeQuery
 
     /// <summary>Every archetype in <paramref name="world"/> currently matching this query.</summary>
     public ArchetypeChunks Resolve(World world) =>
-        new(world.GetMatchingArchetypes(ArchetypeSignature.Empty, _filter), world);
+        new(world.GetMatchingArchetypes(TypeBitSet.Empty, _filter), world);
 }

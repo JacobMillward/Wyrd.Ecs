@@ -52,8 +52,49 @@ internal static class StagePlanner
             if (entry.Access is not null)
                 accessByType[entry.SystemType] = entry.Access;
 
+        // Every Reads/Writes Type gets a bit index, scoped to this one BuildStages call —
+        // never shared across calls or with the *component* TypeIndex<T> space archetypes
+        // use elsewhere in this assembly, deliberately: a system's declared access can
+        // legitimately include tag types or (in tests) arbitrary marker types with no
+        // archetype meaning at all, and a call-scoped mapping needs no invalidation story.
+        // This turns the conflict check's previous dominant cost — a fresh HashSet<Type>
+        // allocated per node (via `[.. access.Reads]`) plus up to three HashSet.Overlaps
+        // calls per (node, candidate-stage) pair — into a handful of bitwise ANDs over
+        // TypeBitSet's inline ulong words, with no allocation at all for the realistic
+        // case (a schedule touching under 256 distinct Reads/Writes types).
+        var typeIndices = new Dictionary<Type, int>();
+
+        int IndexOf(Type type)
+        {
+            if (typeIndices.TryGetValue(type, out var index)) return index;
+            return typeIndices[type] = typeIndices.Count;
+        }
+
+        TypeBitSet SignatureOf(IReadOnlyList<Type> types)
+        {
+            var signature = TypeBitSet.Empty;
+            foreach (var type in types) signature = signature.With(IndexOf(type));
+            return signature;
+        }
+
+        (TypeBitSet Reads, TypeBitSet Writes, bool Exclusive) ResolveAccess(EcsSystem system)
+        {
+            if (accessByType.TryGetValue(system.GetType(), out var access))
+                return (SignatureOf(access.Reads), SignatureOf(access.Writes), false);
+            if (system is IQueryAccessDescriptor descriptor)
+            {
+                var described = descriptor.DescribeAccess();
+                return (SignatureOf(described.Reads), SignatureOf(described.Writes), false);
+            }
+
+            // Conservative default: a system with no generated entry or hand-written
+            // descriptor never joins an existing stage and never accepts another system
+            // into its own.
+            return (TypeBitSet.Empty, TypeBitSet.Empty, true);
+        }
+
         var stages = new List<List<OrderNode>>();
-        var stageAccess = new List<(HashSet<Type> Reads, HashSet<Type> Writes)>();
+        var stageAccess = new List<(TypeBitSet Reads, TypeBitSet Writes)>();
         var stageExclusive = new List<bool>();
         var assignedStage = new Dictionary<OrderNode, int>();
 
@@ -67,8 +108,8 @@ internal static class StagePlanner
                 : predecessors[node].Max(p => assignedStage[p]) + 1;
 
             var (reads, writes, exclusive) = node.System is null
-                ? ([], [], false)
-                : ResolveAccess(node.System, accessByType);
+                ? (TypeBitSet.Empty, TypeBitSet.Empty, false)
+                : ResolveAccess(node.System);
 
             var placedAt = -1;
             if (!exclusive)
@@ -78,12 +119,11 @@ internal static class StagePlanner
                     if (stageExclusive[stageIndex]) continue; // an exclusive stage never accepts a second system
 
                     var (stageReads, stageWrites) = stageAccess[stageIndex];
-                    var conflicts = writes.Overlaps(stageReads) || writes.Overlaps(stageWrites) || reads.Overlaps(stageWrites);
+                    var conflicts = writes.Intersects(stageReads) || writes.Intersects(stageWrites) || reads.Intersects(stageWrites);
                     if (conflicts) continue;
 
                     stages[stageIndex].Add(node);
-                    stageReads.UnionWith(reads);
-                    stageWrites.UnionWith(writes);
+                    stageAccess[stageIndex] = (stageReads.Union(reads), stageWrites.Union(writes));
                     placedAt = stageIndex;
                     break;
                 }
@@ -92,7 +132,7 @@ internal static class StagePlanner
             if (placedAt < 0)
             {
                 stages.Add([node]);
-                stageAccess.Add(([.. reads], [.. writes]));
+                stageAccess.Add((reads, writes));
                 stageExclusive.Add(exclusive);
                 placedAt = stages.Count - 1;
             }
@@ -104,21 +144,5 @@ internal static class StagePlanner
             .Select(stage => (IReadOnlyList<EcsSystem>)stage.Where(n => n.System is not null).Select(n => n.System!).ToList())
             .Where(stage => stage.Count > 0)
             .ToList();
-    }
-
-    private static (HashSet<Type> Reads, HashSet<Type> Writes, bool Exclusive) ResolveAccess(EcsSystem system, IReadOnlyDictionary<Type, SystemAccess> accessByType)
-    {
-        if (accessByType.TryGetValue(system.GetType(), out var access))
-            return ([.. access.Reads], [.. access.Writes], false);
-        if (system is IQueryAccessDescriptor descriptor)
-        {
-            var described = descriptor.DescribeAccess();
-            return ([.. described.Reads], [.. described.Writes], false);
-        }
-
-        // Conservative default: a system with no generated entry or hand-written
-        // descriptor never joins an existing stage and never accepts another system
-        // into its own.
-        return ([], [], true);
     }
 }

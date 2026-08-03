@@ -44,7 +44,7 @@ internal static class ArityTemplates
         sb.AppendLine(WhereClauses(n, "    "));
         sb.AppendLine("{");
         var withChain = string.Join("", Indices(n).Select(i => $".With(TypeIndex<T{i}>.Value)"));
-        sb.AppendLine($"    internal static readonly ArchetypeSignature Value = ArchetypeSignature.Empty{withChain};");
+        sb.AppendLine($"    internal static readonly TypeBitSet Value = TypeBitSet.Empty{withChain};");
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -331,7 +331,7 @@ internal static class ArityTemplates
         var sb = new StringBuilder();
         sb.AppendLine("    /// <inheritdoc cref=\"Any{T0, T1}\"/>");
         sb.AppendLine($"    public ArchetypeFilter Any<{tp}>() {where} =>");
-        sb.AppendLine($"        new(Required, Excluded, AnyGroups.Add(ArchetypeSignature.Empty{withChain}));");
+        sb.AppendLine($"        new(Required, Excluded, AnyGroups.Add(TypeBitSet.Empty{withChain}));");
         return sb.ToString();
     }
 }

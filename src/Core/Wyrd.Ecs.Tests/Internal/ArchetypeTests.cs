@@ -12,7 +12,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRow_ReturnsSequentialRowIndices()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         archetype.AddRow(new Entity(1, 0)).Should().Be(0);
         archetype.AddRow(new Entity(2, 0)).Should().Be(1);
@@ -22,7 +22,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRow_RecordsTheEntityAtThatRow()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         var row = archetype.AddRow(new Entity(7, 0));
 
@@ -32,7 +32,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRow_GrowsPastInitialCapacity()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         for (var i = 0; i < 200; i++)
             archetype.AddRow(new Entity(i + 1, 0));
@@ -44,7 +44,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRows_ReturnsTheStartingRow()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         archetype.AddRow(new Entity(1, 0));
 
         var startRow = archetype.AddRows([new Entity(2, 0), new Entity(3, 0)]);
@@ -55,7 +55,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRows_RecordsEveryEntityAtItsSequentialRow()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         var startRow = archetype.AddRows([new Entity(10, 0), new Entity(20, 0), new Entity(30, 0)]);
 
@@ -67,7 +67,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRows_IncrementsCountByTheBatchSize()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         archetype.AddRows([new Entity(1, 0), new Entity(2, 0), new Entity(3, 0)]);
 
@@ -77,7 +77,7 @@ public class ArchetypeTests
     [Fact]
     public void AddRows_GrowsPastInitialCapacityInOneCall()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         var batch = Enumerable.Range(1, 200).Select(i => new Entity(i, 0)).ToArray();
 
         archetype.AddRows(batch);
@@ -89,7 +89,7 @@ public class ArchetypeTests
     [Fact]
     public void RemoveRow_LastRow_ReturnsNull_AndDecrementsCount()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         archetype.AddRow(new Entity(1, 0));
 
         var moved = archetype.RemoveRow(0);
@@ -101,7 +101,7 @@ public class ArchetypeTests
     [Fact]
     public void RemoveRow_MiddleRow_ReturnsTheMovedEntity_AndSwapsItIn()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
         archetype.AddRow(new Entity(1, 0));
         archetype.AddRow(new Entity(2, 0));
         archetype.AddRow(new Entity(3, 0));
@@ -116,7 +116,7 @@ public class ArchetypeTests
     [Fact]
     public void RemoveRow_AlsoSwapRemovesEveryComponentStorage()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty.With(TypeIndex<Value>.Value), 4);
+        var archetype = new Archetype(TypeBitSet.Empty.With(TypeIndex<Value>.Value), 4);
         var storage = archetype.GetOrCreateStorage<Value>();
         var rowA = archetype.AddRow(new Entity(1, 0));
         storage[rowA].Number = 11;
@@ -131,7 +131,7 @@ public class ArchetypeTests
     [Fact]
     public void GetOrCreateStorage_ReturnsTheSameInstanceOnRepeatedCalls()
     {
-        var archetype = new Archetype(ArchetypeSignature.Empty, 4);
+        var archetype = new Archetype(TypeBitSet.Empty, 4);
 
         var first = archetype.GetOrCreateStorage<Value>();
         var second = archetype.GetOrCreateStorage<Value>();
