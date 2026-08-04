@@ -30,8 +30,10 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     private readonly Lock _lock = new();
     private readonly Dictionary<Type, SystemEntry> _entriesByType = [];
     private readonly List<SystemEntry> _entries = [];
-    private IReadOnlyList<IReadOnlyList<EcsSystem>> _stages = [];
-    private bool _dirty;
+    private IReadOnlyList<IReadOnlyList<EcsSystem>> _fixedStages = [];
+    private IReadOnlyList<IReadOnlyList<EcsSystem>> _variableStages = [];
+    private bool _fixedDirty;
+    private bool _variableDirty;
 
     /// <summary>Starts with an empty schedule — the first <see cref="InitialRegister"/>/<see cref="Register"/> call populates it. <paramref name="parallelThreshold"/> is the minimum <see cref="World.TotalEntityCount"/> a stage needs before <see cref="RunStages"/> dispatches it to the thread pool instead of running it inline.</summary>
     public ParallelSystemScheduler(int parallelThreshold) => _parallelThreshold = parallelThreshold;
@@ -50,8 +52,11 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
         {
             foreach (var entry in entries)
                 RegisterLocked(entry, world);
-            Recompute();
-            _dirty = false; // Build() hands back a World that's immediately ready to run, not merely marked dirty for the first Update() to discover.
+            RecomputeFixed();
+            RecomputeVariable();
+            // Build() hands back a World that's immediately ready to run, not merely marked dirty for the first Update() to discover.
+            _fixedDirty = false;
+            _variableDirty = false;
         }
     }
 
@@ -65,7 +70,7 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
 
             _entriesByType.Remove(system.GetType());
             _entries.Remove(entry);
-            _dirty = true;
+            if (entry.Cadence == SystemCadence.Fixed) _fixedDirty = true; else _variableDirty = true;
             return true;
         }
     }
@@ -82,8 +87,8 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
         IReadOnlyList<IReadOnlyList<EcsSystem>> stages;
         lock (_lock)
         {
-            if (_dirty) { Recompute(); _dirty = false; }
-            stages = _stages;
+            if (_variableDirty) { RecomputeVariable(); _variableDirty = false; }
+            stages = _variableStages;
         }
 
         foreach (var stage in stages)
@@ -102,7 +107,8 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     {
         lock (_lock)
         {
-            if (_dirty) { Recompute(); _dirty = false; }
+            if (_fixedDirty) { RecomputeFixed(); _fixedDirty = false; }
+            if (_variableDirty) { RecomputeVariable(); _variableDirty = false; }
         }
     }
 
@@ -117,7 +123,7 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
         entry.Instance.Enabled = entry.StartEnabled;
         _entriesByType.Add(entry.SystemType, entry);
         _entries.Add(entry);
-        _dirty = true;
+        if (entry.Cadence == SystemCadence.Fixed) _fixedDirty = true; else _variableDirty = true;
     }
 
     /// <summary>Adapter matching <see cref="SystemRegistration"/>'s stored delegate shape, so a chained <c>.AddSystem&lt;T&gt;()</c> off a runtime registration keeps registering onto this same scheduler.</summary>
@@ -132,5 +138,18 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
         };
 
     /// <summary>Must be called with <c>_lock</c> already held.</summary>
-    private void Recompute() => _stages = Internal.StagePlanner.BuildStages(_entries);
+    private void RecomputeFixed()
+    {
+        var fixedEntries = _entries.Where(e => e.Cadence == SystemCadence.Fixed).ToList();
+        var allTypes = _entries.Select(e => e.SystemType).ToList();
+        _fixedStages = Internal.StagePlanner.BuildStages(fixedEntries, allTypes);
+    }
+
+    /// <summary>Must be called with <c>_lock</c> already held.</summary>
+    private void RecomputeVariable()
+    {
+        var variableEntries = _entries.Where(e => e.Cadence == SystemCadence.Variable).ToList();
+        var allTypes = _entries.Select(e => e.SystemType).ToList();
+        _variableStages = Internal.StagePlanner.BuildStages(variableEntries, allTypes);
+    }
 }
