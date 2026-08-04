@@ -173,7 +173,7 @@ public class ParallelSystemSchedulerTests
     {
         RecordingSystem? system = null;
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
         var entry = new SystemEntry { SystemType = typeof(RecordingSystem), Construct = _ => system = new RecordingSystem(), Access = null };
         scheduler.InitialRegister([entry], world);
 
@@ -188,7 +188,7 @@ public class ParallelSystemSchedulerTests
     {
         RecordingSystem? system = null;
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
         var entry = new SystemEntry { SystemType = typeof(RecordingSystem), Construct = _ => system = new RecordingSystem(), Access = null };
         scheduler.InitialRegister([entry], world);
 
@@ -201,7 +201,7 @@ public class ParallelSystemSchedulerTests
     public void Register_MarksDirty_RecomputeHappensOnNextRunStagesNotImmediately()
     {
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
         var entry = new SystemEntry { SystemType = typeof(RecordingSystemA), Construct = _ => new RecordingSystemA(), Access = null };
 
         scheduler.Register(entry, world);
@@ -217,7 +217,7 @@ public class ParallelSystemSchedulerTests
     public void Remove_TakesEffectByTheNextRunStages()
     {
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
         var entry = new SystemEntry { SystemType = typeof(RecordingSystemB), Construct = _ => new RecordingSystemB(), Access = null };
         scheduler.Register(entry, world);
         scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
@@ -232,7 +232,7 @@ public class ParallelSystemSchedulerTests
     public void MultipleMutationsBetweenRunStagesCallsCoalesceIntoOneRecompute()
     {
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
         SystemEntry EntryFor(Type type, Func<World, EcsSystem> construct) => new() { SystemType = type, Construct = construct, Access = null };
 
         var entries = new[]

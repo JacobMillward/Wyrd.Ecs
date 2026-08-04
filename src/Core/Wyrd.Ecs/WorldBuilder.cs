@@ -14,6 +14,8 @@ public sealed class WorldBuilder
     private int _parallelThreshold = 1000;
     private ISystemScheduler? _scheduler;
     private bool _built;
+    private TimeSpan _fixedStep = TimeSpan.FromSeconds(1.0 / 60.0);
+    private int _maxSubstepsPerUpdate = 5;
 
     /// <summary>
     /// Sets the entity capacity every archetype's dense arrays start at and never shrink
@@ -52,7 +54,7 @@ public sealed class WorldBuilder
         _built = true;
 
         var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
-        var world = new World(_archetypeCapacity, scheduler);
+        var world = new World(_archetypeCapacity, scheduler, _fixedStep, _maxSubstepsPerUpdate);
         scheduler.InitialRegister(_pending, world);
 
         OnBuilt?.Invoke(world);
@@ -140,6 +142,29 @@ public sealed class WorldBuilder
     {
         ThrowIfAlreadyBuilt();
         _scheduler = scheduler;
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the interval and catch-up bound for <see cref="SystemCadence.Fixed"/>
+    /// systems. Defaults to <c>1/60s</c> and <c>5</c> substeps if never called — a
+    /// <see cref="FixedTimestepAttribute"/> system works out of the box without this call.
+    /// <paramref name="maxSubstepsPerUpdate"/> bounds how many fixed steps a single
+    /// <see cref="World.Update"/> call can run: the accumulator itself is clamped to at most
+    /// <c>maxSubstepsPerUpdate * step</c> after each call's contribution is added, so a
+    /// backlog from one slow frame can never grow across repeated slow calls — excess
+    /// accumulated time is dropped, not deferred.
+    /// </summary>
+    public WorldBuilder WithFixedTimestep(TimeSpan step, int maxSubstepsPerUpdate = 5)
+    {
+        ThrowIfAlreadyBuilt();
+        if (step <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(step), step, "Fixed timestep must be positive.");
+        if (maxSubstepsPerUpdate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxSubstepsPerUpdate), maxSubstepsPerUpdate, "maxSubstepsPerUpdate must be positive.");
+
+        _fixedStep = step;
+        _maxSubstepsPerUpdate = maxSubstepsPerUpdate;
         return this;
     }
 

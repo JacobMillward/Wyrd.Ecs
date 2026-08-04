@@ -35,16 +35,23 @@ public sealed partial class World
     private double _timeScale = 1.0;
     private bool _isPaused;
 
-    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>. Use <see cref="WorldBuilder"/> to configure it.</summary>
-    public World() : this(DefaultArchetypeCapacity, new ParallelSystemScheduler(1000)) { }
+    private readonly TimeSpan _fixedStep;
+    private readonly int _maxSubstepsPerUpdate;
+    private TimeSpan _accumulator;
+    private TimeSpan _virtualElapsed;
 
-    internal World(int archetypeCapacity, ISystemScheduler executor)
+    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/> and a default 1/60s fixed timestep. Use <see cref="WorldBuilder"/> to configure it.</summary>
+    public World() : this(DefaultArchetypeCapacity, new ParallelSystemScheduler(1000), TimeSpan.FromSeconds(1.0 / 60.0), 5) { }
+
+    internal World(int archetypeCapacity, ISystemScheduler executor, TimeSpan fixedStep, int maxSubstepsPerUpdate)
     {
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(TypeBitSet.Empty, archetypeCapacity);
         _archetypes[TypeBitSet.Empty] = _emptyArchetype;
         _commands = new CommandBuffer(this);
         _executor = executor;
+        _fixedStep = fixedStep;
+        _maxSubstepsPerUpdate = maxSubstepsPerUpdate;
     }
 
     /// <summary>The built-in deferred-mutation buffer for structural changes. See <see cref="CommandBuffer"/>.</summary>
@@ -168,14 +175,41 @@ public sealed partial class World
     /// <summary>Un-freezes virtual time, continuing at whatever <see cref="TimeScale"/> was last set to.</summary>
     public void Resume() { lock (_clockLock) _isPaused = false; }
 
+    /// <summary>
+    /// <c>accumulator / fixedStep</c>, updated at the end of every <see cref="Update"/> call —
+    /// always live, including before any <see cref="SystemCadence.Fixed"/> system is ever
+    /// registered (zero registered Fixed systems just means the accumulator loop's stage
+    /// list happens to be empty, not a distinct dormant state). For consumer-side render
+    /// interpolation: Wyrd does not store or blend component state itself. Never feed an
+    /// alpha-blended value back into an authoritative component — only into presentation.
+    /// </summary>
+    public double FixedStepAlpha { get; private set; }
+
     /// <summary>Runs one iteration of every registered system (see <c>WorldBuilder.AddSystemCore</c>/the generated <c>AddSystem&lt;T&gt;()</c>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
     public void Update(TimeSpan delta)
     {
         AdvanceTick();
         RealTime = new Time(delta, RealTime.Elapsed + delta);
-        _totalElapsed += delta;
-        _executor.RunStages(this, new Time(delta, _totalElapsed), SystemCadence.Variable);
+
+        double scale;
+        bool paused;
+        lock (_clockLock) { scale = _timeScale; paused = _isPaused; }
+        var effectiveDelta = paused ? TimeSpan.Zero : delta * scale;
+
+        _accumulator = Min(_accumulator + effectiveDelta, _fixedStep * _maxSubstepsPerUpdate);
+        while (_accumulator >= _fixedStep)
+        {
+            _virtualElapsed += _fixedStep;
+            _executor.RunStages(this, new Time(_fixedStep, _virtualElapsed), SystemCadence.Fixed);
+            _accumulator -= _fixedStep;
+        }
+        FixedStepAlpha = _accumulator / _fixedStep;
+
+        _totalElapsed += effectiveDelta;
+        _executor.RunStages(this, new Time(effectiveDelta, _totalElapsed), SystemCadence.Variable);
     }
+
+    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
     /// <summary>Runs <paramref name="system"/> once, outside the normal schedule (a harness/test convenience). Advances <see cref="CurrentTick"/> the same way <see cref="Update"/> does.</summary>
     public void RunOnce(EcsSystem system, TimeSpan delta)
