@@ -1,7 +1,15 @@
 namespace Wyrd.Ecs.Tests;
 
-file sealed class SchedulerFixedProbeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
-file sealed class SchedulerVariableProbeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
+file sealed class SchedulerFixedProbeSystem : EcsSystem
+{
+    public int ExecuteCount { get; private set; }
+    protected override void Execute(World world, Time time) => ExecuteCount++;
+}
+file sealed class SchedulerVariableProbeSystem : EcsSystem
+{
+    public int ExecuteCount { get; private set; }
+    protected override void Execute(World world, Time time) => ExecuteCount++;
+}
 file sealed class SchedulerOtherVariableProbeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
 
 public class ParallelSystemSchedulerCadenceTests
@@ -30,5 +38,26 @@ public class ParallelSystemSchedulerCadenceTests
         var act = () => scheduler.Flush();
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*SchedulerFixedProbeSystem*cadence*");
+    }
+
+    [Fact]
+    public void RunStages_WithFixedCadence_OnlyInvokesFixedCadenceSystems()
+    {
+        var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler);
+
+        var fixedEntry = new SystemEntry { SystemType = typeof(SchedulerFixedProbeSystem), Construct = w => new SchedulerFixedProbeSystem(), Cadence = SystemCadence.Fixed };
+        var variableEntry = new SystemEntry { SystemType = typeof(SchedulerVariableProbeSystem), Construct = w => new SchedulerVariableProbeSystem(), Cadence = SystemCadence.Variable };
+        scheduler.InitialRegister([fixedEntry, variableEntry], world);
+
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Fixed);
+
+        ((SchedulerFixedProbeSystem)fixedEntry.Instance!).ExecuteCount.Should().Be(1);
+        ((SchedulerVariableProbeSystem)variableEntry.Instance!).ExecuteCount.Should().Be(0);
+
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
+
+        ((SchedulerFixedProbeSystem)fixedEntry.Instance!).ExecuteCount.Should().Be(1);
+        ((SchedulerVariableProbeSystem)variableEntry.Instance!).ExecuteCount.Should().Be(1);
     }
 }

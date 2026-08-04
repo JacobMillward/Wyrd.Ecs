@@ -178,7 +178,7 @@ public class ParallelSystemSchedulerTests
         scheduler.InitialRegister([entry], world);
 
         system!.Enabled = false;
-        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
 
         system.ExecuteCallCount.Should().Be(0);
     }
@@ -192,7 +192,7 @@ public class ParallelSystemSchedulerTests
         var entry = new SystemEntry { SystemType = typeof(RecordingSystem), Construct = _ => system = new RecordingSystem(), Access = null };
         scheduler.InitialRegister([entry], world);
 
-        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
 
         system!.ExecuteCallCount.Should().Be(1, "Enabled defaults to true");
     }
@@ -209,7 +209,7 @@ public class ParallelSystemSchedulerTests
         // of whether a recompute has happened.
         scheduler.Find(typeof(RecordingSystemA)).Should().BeSameAs(entry.Instance);
 
-        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
         ((RecordingSystemA)entry.Instance!).ExecuteCallCount.Should().Be(1);
     }
 
@@ -220,10 +220,10 @@ public class ParallelSystemSchedulerTests
         var world = new World(World.DefaultArchetypeCapacity, scheduler);
         var entry = new SystemEntry { SystemType = typeof(RecordingSystemB), Construct = _ => new RecordingSystemB(), Access = null };
         scheduler.Register(entry, world);
-        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
 
         scheduler.Remove(entry.Instance!).Should().BeTrue();
-        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
 
         ((RecordingSystemB)entry.Instance!).ExecuteCallCount.Should().Be(1, "not incremented again after removal");
     }
@@ -248,7 +248,7 @@ public class ParallelSystemSchedulerTests
         // Five Register calls happened since the last (nonexistent) RunStages call; only
         // one recompute should be needed to place all five correctly before this call runs
         // them.
-        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero));
+        scheduler.RunStages(world, new Time(TimeSpan.Zero, TimeSpan.Zero), SystemCadence.Variable);
 
         ((RecordingSystemA)entries[0].Instance!).ExecuteCallCount.Should().Be(1);
         ((RecordingSystemB)entries[1].Instance!).ExecuteCallCount.Should().Be(1);

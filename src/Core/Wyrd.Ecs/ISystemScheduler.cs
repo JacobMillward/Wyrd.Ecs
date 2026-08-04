@@ -21,14 +21,19 @@ namespace Wyrd.Ecs;
 public interface ISystemScheduler
 {
     /// <summary>
-    /// Runs one iteration of every registered system, applying <see cref="World.Commands"/>
-    /// at whatever stage boundaries this implementation defines. If a structural change
-    /// (<see cref="Register"/>/<see cref="Remove"/>) happened since the last call, the
-    /// schedule is recomputed once here, first — coalescing any number of such changes
-    /// since the last tick into a single recompute, rather than one per call. Called
-    /// only by <see cref="World.Update"/>.
+    /// Runs one iteration of every registered system of <paramref name="which"/> cadence,
+    /// applying <see cref="World.Commands"/> at whatever stage boundaries this implementation
+    /// defines. If a structural change (<see cref="Register"/>/<see cref="Remove"/>) happened
+    /// to that cadence's entries since the last call, that cadence's schedule is recomputed
+    /// once here first — coalescing any number of such changes since the last tick into a
+    /// single recompute, rather than one per call. The two cadences recompute independently:
+    /// a change to one never forces a recompute of the other. Called only by
+    /// <see cref="World.Update"/>, once per <see cref="SystemCadence.Fixed"/> sub-step and
+    /// once for the single <see cref="SystemCadence.Variable"/> pass — accumulator, clamping,
+    /// and pause/scale math all live on <see cref="World"/>, not here, so a custom
+    /// implementation of this interface never needs to reimplement them.
     /// </summary>
-    void RunStages(World world, Time time);
+    void RunStages(World world, Time time, SystemCadence which);
 
     /// <summary>
     /// Constructs and registers one system immediately (so <see cref="World.GetSystem{T}"/>

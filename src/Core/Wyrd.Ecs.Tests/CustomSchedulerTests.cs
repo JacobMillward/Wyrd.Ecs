@@ -49,8 +49,10 @@ sealed class SequentialScheduler : ISystemScheduler
     /// <summary>No-op: this fixture recomputes immediately on every structural change, so there's never anything deferred to flush.</summary>
     public void Flush() { }
 
-    public void RunStages(World world, Time time)
+    public void RunStages(World world, Time time, SystemCadence which)
     {
+        if (which != SystemCadence.Variable) return; // this fixture never registers a Fixed-cadence system
+
         foreach (var stage in _stages)
         {
             foreach (var system in stage)

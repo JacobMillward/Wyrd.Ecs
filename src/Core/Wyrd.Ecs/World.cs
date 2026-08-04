@@ -131,7 +131,7 @@ public sealed partial class World
     {
         AdvanceTick();
         _totalElapsed += delta;
-        _executor.RunStages(this, new Time(delta, _totalElapsed));
+        _executor.RunStages(this, new Time(delta, _totalElapsed), SystemCadence.Variable);
     }
 
     /// <summary>Runs <paramref name="system"/> once, outside the normal schedule (a harness/test convenience). Advances <see cref="CurrentTick"/> the same way <see cref="Update"/> does.</summary>

@@ -82,13 +82,21 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     }
 
     /// <inheritdoc/>
-    public void RunStages(World world, Time time)
+    public void RunStages(World world, Time time, SystemCadence which)
     {
         IReadOnlyList<IReadOnlyList<EcsSystem>> stages;
         lock (_lock)
         {
-            if (_variableDirty) { RecomputeVariable(); _variableDirty = false; }
-            stages = _variableStages;
+            if (which == SystemCadence.Fixed)
+            {
+                if (_fixedDirty) { RecomputeFixed(); _fixedDirty = false; }
+                stages = _fixedStages;
+            }
+            else
+            {
+                if (_variableDirty) { RecomputeVariable(); _variableDirty = false; }
+                stages = _variableStages;
+            }
         }
 
         foreach (var stage in stages)
