@@ -31,7 +31,7 @@ public class TimestepIntegrationTests
     [Fact]
     public void CrossCadenceOrderingEdge_ThrowsAtBuild()
     {
-        // InitialRegister (called from Build()) recomputes both partitions eagerly — a
+        // InitialRegister (called from Build()) recomputes both partitions eagerly, so a
         // cross-cadence edge throws here, not on the first Update() call.
         var act = () => new WorldBuilder().AddSystem<TimestepIntegrationPhysicsSystem>().AddSystem<TimestepIntegrationBadCrossCadenceSystem>().Build();
 

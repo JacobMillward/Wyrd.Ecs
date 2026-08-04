@@ -60,7 +60,7 @@ public class WorldClockTests
             world.TimeScale = 1.0 + (i % 5);
         });
 
-        // No assertion on the final value (racy by design) — the only contract under test
+        // No assertion on the final value (racy by design). The only contract under test
         // is that concurrent access never throws and TimeScale always reads back one of the
         // values actually written, never a torn/corrupted one.
         new[] { 1.0, 2.0, 3.0, 4.0, 5.0 }.Should().Contain(world.TimeScale);

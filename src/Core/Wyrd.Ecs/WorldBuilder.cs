@@ -147,12 +147,12 @@ public sealed class WorldBuilder
 
     /// <summary>
     /// Configures the interval and catch-up bound for <see cref="SystemCadence.Fixed"/>
-    /// systems. Defaults to <c>1/60s</c> and <c>5</c> substeps if never called — a
+    /// systems. Defaults to <c>1/60s</c> and <c>5</c> substeps if never called: a
     /// <see cref="FixedTimestepAttribute"/> system works out of the box without this call.
     /// <paramref name="maxSubstepsPerUpdate"/> bounds how many fixed steps a single
     /// <see cref="World.Update"/> call can run: the accumulator itself is clamped to at most
     /// <c>maxSubstepsPerUpdate * step</c> after each call's contribution is added, so a
-    /// backlog from one slow frame can never grow across repeated slow calls — excess
+    /// backlog from one slow frame can never grow across repeated slow calls. Excess
     /// accumulated time is dropped, not deferred.
     /// </summary>
     public WorldBuilder WithFixedTimestep(TimeSpan step, int maxSubstepsPerUpdate = 5)

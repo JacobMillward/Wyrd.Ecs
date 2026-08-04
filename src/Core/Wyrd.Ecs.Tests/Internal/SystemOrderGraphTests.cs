@@ -116,7 +116,7 @@ public class SystemOrderGraphTests
     public void EdgeTargetingATypeRegisteredUnderTheOtherCadence_ThrowsWithCadenceSpecificMessage()
     {
         // GraphSystemA isn't in `entries` at all (a different cadence's graph would hold it),
-        // but it IS in allRegisteredTypes — the caller's full cross-cadence registered set.
+        // but it IS in allRegisteredTypes: the caller's full cross-cadence registered set.
         SystemEntry[] entries = [EntryFor(new NoEdgeSystem(), after: [typeof(GraphSystemA)])];
 
         var act = () => SystemOrderGraph.Resolve(entries, allRegisteredTypes: [typeof(NoEdgeSystem), typeof(GraphSystemA)]);

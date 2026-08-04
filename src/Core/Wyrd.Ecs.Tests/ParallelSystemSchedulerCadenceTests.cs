@@ -24,7 +24,7 @@ public class ParallelSystemSchedulerCadenceTests
         var variableEntry = new SystemEntry { SystemType = typeof(SchedulerVariableProbeSystem), Construct = w => new SchedulerVariableProbeSystem(), Cadence = SystemCadence.Variable };
         scheduler.InitialRegister([fixedEntry, variableEntry], world);
 
-        // A cross-cadence edge must throw once the schedule is (re)computed — proves the two
+        // A cross-cadence edge must throw once the schedule is (re)computed: proves the two
         // partitions are genuinely independent graphs, not one graph with a compatibility check.
         var crossCadenceEntry = new SystemEntry
         {

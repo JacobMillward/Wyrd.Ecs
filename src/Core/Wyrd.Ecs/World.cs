@@ -45,9 +45,8 @@ public sealed partial class World
 
     internal World(int archetypeCapacity, ISystemScheduler executor, TimeSpan fixedStep, int maxSubstepsPerUpdate)
     {
-        // Both callers (the public parameterless ctor, WorldBuilder.Build()) already validate
-        // these — WorldBuilder.WithFixedTimestep is the only place a consumer can set them —
-        // but the invariant belongs on the constructor itself, not on trusting every call site.
+        // Both callers already validate these; checked again here since the invariant belongs
+        // on the constructor, not on trusting every call site.
         if (fixedStep <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(fixedStep), fixedStep, "Fixed timestep must be positive.");
         if (maxSubstepsPerUpdate <= 0)
@@ -148,7 +147,7 @@ public sealed partial class World
     /// <summary>
     /// Wall-clock time: advances by the raw <c>delta</c> passed to <see cref="Update"/> every
     /// call, never affected by <see cref="TimeScale"/> or <see cref="IsPaused"/>. The <see cref="Time"/>
-    /// a system receives via <see cref="EcsSystem.Execute"/> is a different, virtual clock —
+    /// a system receives via <see cref="EcsSystem.Execute"/> is a different, virtual clock;
     /// see that method's own doc comment.
     /// </summary>
     public Time RealTime { get; private set; }
@@ -156,7 +155,7 @@ public sealed partial class World
     /// <summary>
     /// Multiplies real delta into virtual delta for every system's <see cref="Time"/>.
     /// Default <c>1.0</c>. Throws <see cref="ArgumentOutOfRangeException"/> on a negative
-    /// value — time-reversal isn't a supported concept here. Independent of <see cref="IsPaused"/>:
+    /// value: time-reversal isn't a supported concept here. Independent of <see cref="IsPaused"/>:
     /// pausing never reads or writes this value, so <see cref="Resume"/> always continues at
     /// whatever scale was last set. Guarded by an internal lock, not just for external callers:
     /// sibling systems in the same parallel stage are already permitted to call back into
@@ -184,26 +183,24 @@ public sealed partial class World
     public void Resume() { lock (_clockLock) _isPaused = false; }
 
     /// <summary>
-    /// <c>accumulator / fixedStep</c>, updated at the end of every <see cref="Update"/> call —
-    /// always live, including before any <see cref="SystemCadence.Fixed"/> system is ever
-    /// registered (zero registered Fixed systems just means the accumulator loop's stage
-    /// list happens to be empty, not a distinct dormant state). For consumer-side render
-    /// interpolation: Wyrd does not store or blend component state itself. Never feed an
-    /// alpha-blended value back into an authoritative component — only into presentation.
+    /// <c>accumulator / fixedStep</c>, updated at the end of every <see cref="Update"/> call.
+    /// Always live, including before any <see cref="SystemCadence.Fixed"/> system is ever
+    /// registered: zero registered Fixed systems just means the accumulator loop's stage
+    /// list happens to be empty, not a distinct dormant state. For consumer-side render
+    /// interpolation only: Wyrd does not store or blend component state itself, and this
+    /// value should never feed back into an authoritative component.
     /// </summary>
     public double FixedStepAlpha { get; private set; }
 
     /// <summary>
     /// Runs one iteration of every registered system (see <c>WorldBuilder.AddSystemCore</c>/the
     /// generated <c>AddSystem&lt;T&gt;()</c>), staged by the static parallel schedule computed
-    /// at <see cref="WorldBuilder.Build"/> time. Must be called from a single thread, never
-    /// concurrently or reentrantly — distinct from the separately-documented guarantee that a
-    /// system's own <see cref="EcsSystem.Execute"/> may call back into other <see cref="World"/>
-    /// members (<see cref="TimeScale"/>, <see cref="Pause"/>/<see cref="Resume"/>,
-    /// <c>AddSystem</c>/<c>RemoveSystem</c>) concurrently with sibling systems in the same
-    /// parallel stage. The accumulator/clock fields this method mutates directly
-    /// (<see cref="RealTime"/>, <see cref="FixedStepAlpha"/>, and the internal accumulator/
-    /// elapsed state) have no lock of their own, unlike <see cref="TimeScale"/>/<see cref="IsPaused"/>.
+    /// at <see cref="WorldBuilder.Build"/> time. Single-threaded, non-reentrant:
+    /// <see cref="RealTime"/>, <see cref="FixedStepAlpha"/>, and the internal accumulator have
+    /// no lock, unlike <see cref="TimeScale"/>/<see cref="IsPaused"/>. Separate from the
+    /// documented guarantee that a system's own <see cref="EcsSystem.Execute"/> may call
+    /// <see cref="TimeScale"/>/<see cref="Pause"/>/<see cref="Resume"/>/<c>AddSystem</c>/<c>RemoveSystem</c>
+    /// concurrently with sibling systems in the same parallel stage.
     /// </summary>
     public void Update(TimeSpan delta)
     {

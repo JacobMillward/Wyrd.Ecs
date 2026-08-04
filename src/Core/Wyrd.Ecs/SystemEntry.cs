@@ -42,12 +42,12 @@ public sealed class SystemEntry
     public bool StartEnabled = true;
 
     /// <summary>
-    /// Whether this system runs at <see cref="SystemCadence.Variable"/> (the default —
+    /// Whether this system runs at <see cref="SystemCadence.Variable"/> (the default:
     /// exactly once per <see cref="World.Update"/> call) or <see cref="SystemCadence.Fixed"/>
     /// (zero or more times per call, at a constant interval). Populated from
     /// <see cref="FixedTimestepAttribute"/> by the generator, or explicitly by a hand-built
     /// entry. <see cref="Internal.StagePlanner"/> is only ever called with entries of one
-    /// cadence at a time (see <see cref="ParallelSystemScheduler"/>) — this field is what
+    /// cadence at a time (see <see cref="ParallelSystemScheduler"/>); this field is what
     /// each partition is filtered by.
     /// </summary>
     public SystemCadence Cadence = SystemCadence.Variable;

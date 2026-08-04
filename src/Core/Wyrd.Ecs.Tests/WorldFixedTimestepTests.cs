@@ -43,7 +43,7 @@ public class WorldFixedTimestepTests
         world.Update(TimeSpan.FromSeconds(10)); // wildly oversized: naive math would want 100 steps
         world.GetSystem<FixedStepCountingSystem>().ExecuteCount.Should().Be(3);
 
-        // A second oversized call must not run MORE than 3 steps either — proves the backlog
+        // A second oversized call must not run MORE than 3 steps either: proves the backlog
         // was actually dropped (accumulator clamped), not merely deferred to catch up later.
         world.Update(TimeSpan.FromSeconds(10));
         world.GetSystem<FixedStepCountingSystem>().ExecuteCount.Should().Be(6);

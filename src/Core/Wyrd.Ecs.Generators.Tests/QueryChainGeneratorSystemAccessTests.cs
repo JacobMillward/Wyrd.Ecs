@@ -187,6 +187,6 @@ public class QueryChainGeneratorSystemAccessTests
 
         ((bool)tuple[0]!).Should().BeTrue("FixedCadenceSystem carries [FixedTimestep]");
         tuple[1]!.ToString().Should().Be("Fixed");
-        ((bool)tuple[2]!).Should().BeFalse("OtherSystem carries no [FixedTimestep], so it gets no Cadence entry at all — Variable is the TryGetValue-fallback default, not an explicit entry");
+        ((bool)tuple[2]!).Should().BeFalse("OtherSystem carries no [FixedTimestep], so it gets no Cadence entry at all: Variable is the TryGetValue-fallback default, not an explicit entry");
     }
 }

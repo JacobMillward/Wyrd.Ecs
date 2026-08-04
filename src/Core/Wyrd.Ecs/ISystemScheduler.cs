@@ -23,14 +23,12 @@ public interface ISystemScheduler
     /// <summary>
     /// Runs one iteration of every registered system of <paramref name="which"/> cadence,
     /// applying <see cref="World.Commands"/> at whatever stage boundaries this implementation
-    /// defines. If a structural change (<see cref="Register"/>/<see cref="Remove"/>) happened
-    /// to that cadence's entries since the last call, that cadence's schedule is recomputed
-    /// once here first — coalescing any number of such changes since the last tick into a
-    /// single recompute, rather than one per call. The two cadences recompute independently:
-    /// a change to one never forces a recompute of the other. Called only by
-    /// <see cref="World.Update"/>, once per <see cref="SystemCadence.Fixed"/> sub-step and
-    /// once for the single <see cref="SystemCadence.Variable"/> pass — accumulator, clamping,
-    /// and pause/scale math all live on <see cref="World"/>, not here, so a custom
+    /// defines. Recomputes that cadence's schedule first if dirty, coalescing any number of
+    /// <see cref="Register"/>/<see cref="Remove"/> calls since the last tick into one recompute.
+    /// The two cadences recompute independently: a change to one never forces a recompute of
+    /// the other. Called only by <see cref="World.Update"/>, once per <see cref="SystemCadence.Fixed"/>
+    /// sub-step and once for the single <see cref="SystemCadence.Variable"/> pass; accumulator,
+    /// clamping, and pause/scale math all live on <see cref="World"/>, not here, so a custom
     /// implementation of this interface never needs to reimplement them.
     /// </summary>
     void RunStages(World world, Time time, SystemCadence which);
