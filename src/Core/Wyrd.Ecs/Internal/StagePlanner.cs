@@ -19,9 +19,9 @@ internal static class StagePlanner
     /// contents don't conflict with it. Drops marker nodes (see <see cref="OrderNode"/>)
     /// from the result and collapses any stage left with zero real systems.
     /// </summary>
-    internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(IReadOnlyList<SystemEntry> entries)
+    internal static IReadOnlyList<IReadOnlyList<EcsSystem>> BuildStages(IReadOnlyList<SystemEntry> entries, IReadOnlyCollection<Type>? allRegisteredTypes = null)
     {
-        var graph = SystemOrderGraph.Resolve(entries);
+        var graph = SystemOrderGraph.Resolve(entries, allRegisteredTypes);
 
         var tieBreak = new Dictionary<OrderNode, int>();
         for (var i = 0; i < entries.Count; i++)

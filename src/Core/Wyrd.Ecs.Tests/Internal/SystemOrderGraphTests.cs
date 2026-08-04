@@ -111,4 +111,26 @@ public class SystemOrderGraphTests
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*NotASystem*");
     }
+
+    [Fact]
+    public void EdgeTargetingATypeRegisteredUnderTheOtherCadence_ThrowsWithCadenceSpecificMessage()
+    {
+        // GraphSystemA isn't in `entries` at all (a different cadence's graph would hold it),
+        // but it IS in allRegisteredTypes — the caller's full cross-cadence registered set.
+        SystemEntry[] entries = [EntryFor(new NoEdgeSystem(), after: [typeof(GraphSystemA)])];
+
+        var act = () => SystemOrderGraph.Resolve(entries, allRegisteredTypes: [typeof(NoEdgeSystem), typeof(GraphSystemA)]);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*GraphSystemA*cadence*");
+    }
+
+    [Fact]
+    public void EdgeTargetingATypeNotRegisteredAnywhere_KeepsTheOriginalMessage()
+    {
+        SystemEntry[] entries = [EntryFor(new NoEdgeSystem(), after: [typeof(GraphSystemA)])];
+
+        var act = () => SystemOrderGraph.Resolve(entries, allRegisteredTypes: [typeof(NoEdgeSystem)]);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*no instance*currently registered*");
+    }
 }
