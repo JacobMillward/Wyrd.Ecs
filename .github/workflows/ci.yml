@@ -25,6 +25,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
+      - name: DEBUG SDK info
+        run: dotnet --info
+
       - name: Restore (locked mode)
         run: dotnet restore --locked-mode
 
