@@ -9,6 +9,9 @@ namespace Wyrd.Ecs;
 /// </summary>
 public enum SystemCadence
 {
+    /// <summary>Runs exactly once per <see cref="World.Update"/> call, at whatever delta the call was given. The default.</summary>
     Variable,
+
+    /// <summary>Runs zero or more times per <see cref="World.Update"/> call, at a constant interval driven by an accumulator.</summary>
     Fixed,
 }

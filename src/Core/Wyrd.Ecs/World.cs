@@ -45,6 +45,14 @@ public sealed partial class World
 
     internal World(int archetypeCapacity, ISystemScheduler executor, TimeSpan fixedStep, int maxSubstepsPerUpdate)
     {
+        // Both callers (the public parameterless ctor, WorldBuilder.Build()) already validate
+        // these — WorldBuilder.WithFixedTimestep is the only place a consumer can set them —
+        // but the invariant belongs on the constructor itself, not on trusting every call site.
+        if (fixedStep <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(fixedStep), fixedStep, "Fixed timestep must be positive.");
+        if (maxSubstepsPerUpdate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxSubstepsPerUpdate), maxSubstepsPerUpdate, "maxSubstepsPerUpdate must be positive.");
+
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(TypeBitSet.Empty, archetypeCapacity);
         _archetypes[TypeBitSet.Empty] = _emptyArchetype;
@@ -185,7 +193,18 @@ public sealed partial class World
     /// </summary>
     public double FixedStepAlpha { get; private set; }
 
-    /// <summary>Runs one iteration of every registered system (see <c>WorldBuilder.AddSystemCore</c>/the generated <c>AddSystem&lt;T&gt;()</c>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
+    /// <summary>
+    /// Runs one iteration of every registered system (see <c>WorldBuilder.AddSystemCore</c>/the
+    /// generated <c>AddSystem&lt;T&gt;()</c>), staged by the static parallel schedule computed
+    /// at <see cref="WorldBuilder.Build"/> time. Must be called from a single thread, never
+    /// concurrently or reentrantly — distinct from the separately-documented guarantee that a
+    /// system's own <see cref="EcsSystem.Execute"/> may call back into other <see cref="World"/>
+    /// members (<see cref="TimeScale"/>, <see cref="Pause"/>/<see cref="Resume"/>,
+    /// <c>AddSystem</c>/<c>RemoveSystem</c>) concurrently with sibling systems in the same
+    /// parallel stage. The accumulator/clock fields this method mutates directly
+    /// (<see cref="RealTime"/>, <see cref="FixedStepAlpha"/>, and the internal accumulator/
+    /// elapsed state) have no lock of their own, unlike <see cref="TimeScale"/>/<see cref="IsPaused"/>.
+    /// </summary>
     public void Update(TimeSpan delta)
     {
         AdvanceTick();

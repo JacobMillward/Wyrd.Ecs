@@ -52,8 +52,9 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
         {
             foreach (var entry in entries)
                 RegisterLocked(entry, world);
-            RecomputeFixed();
-            RecomputeVariable();
+            var allTypes = AllRegisteredTypes();
+            RecomputeFixed(allTypes);
+            RecomputeVariable(allTypes);
             // Build() hands back a World that's immediately ready to run, not merely marked dirty for the first Update() to discover.
             _fixedDirty = false;
             _variableDirty = false;
@@ -89,12 +90,12 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
         {
             if (which == SystemCadence.Fixed)
             {
-                if (_fixedDirty) { RecomputeFixed(); _fixedDirty = false; }
+                if (_fixedDirty) { RecomputeFixed(AllRegisteredTypes()); _fixedDirty = false; }
                 stages = _fixedStages;
             }
             else
             {
-                if (_variableDirty) { RecomputeVariable(); _variableDirty = false; }
+                if (_variableDirty) { RecomputeVariable(AllRegisteredTypes()); _variableDirty = false; }
                 stages = _variableStages;
             }
         }
@@ -115,8 +116,11 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     {
         lock (_lock)
         {
-            if (_fixedDirty) { RecomputeFixed(); _fixedDirty = false; }
-            if (_variableDirty) { RecomputeVariable(); _variableDirty = false; }
+            if (!_fixedDirty && !_variableDirty) return;
+
+            var allTypes = AllRegisteredTypes();
+            if (_fixedDirty) { RecomputeFixed(allTypes); _fixedDirty = false; }
+            if (_variableDirty) { RecomputeVariable(allTypes); _variableDirty = false; }
         }
     }
 
@@ -145,19 +149,20 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
             return next;
         };
 
+    /// <summary>Must be called with <c>_lock</c> already held. Shared by every caller that recomputes one or both partitions, so a batch that touches both never rebuilds this list twice.</summary>
+    private IReadOnlyCollection<Type> AllRegisteredTypes() => _entries.Select(e => e.SystemType).ToList();
+
     /// <summary>Must be called with <c>_lock</c> already held.</summary>
-    private void RecomputeFixed()
+    private void RecomputeFixed(IReadOnlyCollection<Type> allTypes)
     {
         var fixedEntries = _entries.Where(e => e.Cadence == SystemCadence.Fixed).ToList();
-        var allTypes = _entries.Select(e => e.SystemType).ToList();
         _fixedStages = Internal.StagePlanner.BuildStages(fixedEntries, allTypes);
     }
 
     /// <summary>Must be called with <c>_lock</c> already held.</summary>
-    private void RecomputeVariable()
+    private void RecomputeVariable(IReadOnlyCollection<Type> allTypes)
     {
         var variableEntries = _entries.Where(e => e.Cadence == SystemCadence.Variable).ToList();
-        var allTypes = _entries.Select(e => e.SystemType).ToList();
         _variableStages = Internal.StagePlanner.BuildStages(variableEntries, allTypes);
     }
 }
