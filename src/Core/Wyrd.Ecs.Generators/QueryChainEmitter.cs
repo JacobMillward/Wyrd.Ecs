@@ -237,6 +237,7 @@ internal static class QueryChainEmitter
     internal static string RenderSystemAccessRegistry(
         IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems,
         IReadOnlyList<(string SystemTypeName, List<string> Before, List<string> After)> edges,
+        IReadOnlyList<string> fixedTimestepSystemTypeNames,
         IReadOnlyList<(string SystemTypeName, bool TakesWorld)> constructors)
     {
         var sb = new StringBuilder();
@@ -268,6 +269,12 @@ internal static class QueryChainEmitter
         }
         sb.AppendLine("    };");
         sb.AppendLine();
+        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemCadence> Cadence = new Dictionary<Type, SystemCadence>");
+        sb.AppendLine("    {");
+        foreach (var systemTypeName in fixedTimestepSystemTypeNames)
+            sb.AppendLine($"        [typeof(global::{systemTypeName})] = SystemCadence.Fixed,");
+        sb.AppendLine("    };");
+        sb.AppendLine();
         sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, Func<World, EcsSystem>> Construct = new Dictionary<Type, Func<World, EcsSystem>>");
         sb.AppendLine("    {");
         foreach (var ctor in constructors)
@@ -296,7 +303,9 @@ internal static class QueryChainEmitter
     /// built here) — the caller should use the `Func&lt;World, T&gt;` overload for that
     /// type instead. `Edges` folds into the call via `EdgesOrEmpty`, seeding the entry
     /// before whatever `.Before&lt;T&gt;()`/`.After&lt;T&gt;()` gets chained afterward
-    /// unions in more. Unconditional, fixed-shape emission — no iteration over
+    /// unions in more. `Cadence` degrades the same way as `Access`, via `CadenceOrDefault`:
+    /// a type with no `[FixedTimestep]` attribute has no entry at all, defaulting to
+    /// `SystemCadence.Variable`. Unconditional, fixed-shape emission — no iteration over
     /// discovered candidates required, since these methods are generic over any
     /// `T : EcsSystem` and work for every system type the same way.
     /// </summary>
@@ -312,28 +321,31 @@ internal static class QueryChainEmitter
         sb.AppendLine("public static class GeneratedSystemRegistrationExtensions");
         sb.AppendLine("{");
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder) where T : EcsSystem =>");
-        sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder, Func<World, T> configure) where T : EcsSystem =>");
-        sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration) where T : EcsSystem =>");
-        sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration, Func<World, T> configure) where T : EcsSystem =>");
-        sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this World world) where T : EcsSystem =>");
-        sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this World world, Func<World, T> configure) where T : EcsSystem =>");
-        sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After);");
+        sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    private static SystemAccess? AccessOrNull(Type systemType) =>");
         sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Access.TryGetValue(systemType, out var access) ? access : null;");
         sb.AppendLine();
         sb.AppendLine("    private static (IReadOnlyList<Type> Before, IReadOnlyList<Type> After) EdgesOrEmpty(Type systemType) =>");
         sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Edges.TryGetValue(systemType, out var declared) ? declared : (Array.Empty<Type>(), Array.Empty<Type>());");
+        sb.AppendLine();
+        sb.AppendLine("    private static SystemCadence CadenceOrDefault(Type systemType) =>");
+        sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Cadence.TryGetValue(systemType, out var cadence) ? cadence : SystemCadence.Variable;");
         sb.AppendLine("}");
         return sb.ToString();
     }

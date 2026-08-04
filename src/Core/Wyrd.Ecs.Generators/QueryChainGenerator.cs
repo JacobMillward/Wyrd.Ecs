@@ -156,8 +156,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         return false;
     }
 
-    /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c> edges, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
-    private readonly record struct EdgeResult(string? SystemTypeName, List<string> Before, List<string> After);
+    /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c>/<c>[FixedTimestep]</c> edges/cadence, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
+    private readonly record struct EdgeResult(string? SystemTypeName, List<string> Before, List<string> After, bool IsFixedTimestep);
 
     /// <summary>
     /// Reads <c>[RunBefore(typeof(X))]</c>/<c>[RunAfter(typeof(X))]</c> off a class
@@ -186,12 +186,20 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
         var before = new List<string>();
         var after = new List<string>();
+        var isFixedTimestep = false;
 
         foreach (var attributeList in classDecl.AttributeLists)
         foreach (var attribute in attributeList.Attributes)
         {
             if (semanticModel.GetTypeInfo(attribute, ct).Type is not { } attributeType) continue;
             var attributeName = attributeType.ToDisplayString();
+
+            if (attributeName == "Wyrd.Ecs.FixedTimestepAttribute")
+            {
+                isFixedTimestep = true;
+                continue;
+            }
+
             if (attributeName is not ("Wyrd.Ecs.RunBeforeAttribute" or "Wyrd.Ecs.RunAfterAttribute")) continue;
             if (attribute.ArgumentList is not { Arguments: [{ Expression: TypeOfExpressionSyntax { Type: var targetTypeSyntax } }] }) continue;
             if (semanticModel.GetTypeInfo(targetTypeSyntax, ct).Type is not INamedTypeSymbol { IsFileLocal: false } targetType) continue;
@@ -201,8 +209,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             else after.Add(targetName);
         }
 
-        if (before.Count == 0 && after.Count == 0) return default;
-        return new EdgeResult(classSymbol.ToDisplayString(), before, after);
+        if (before.Count == 0 && after.Count == 0 && !isFixedTimestep) return default;
+        return new EdgeResult(classSymbol.ToDisplayString(), before, after, isFixedTimestep);
     }
 
     /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
@@ -311,7 +319,12 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Select(e => (SystemTypeName: e.SystemTypeName!, e.Before, e.After))
             .ToList();
 
-        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType, byEdgeSystemType, constructors));
+        var fixedTimestepSystemTypeNames = edges
+            .Where(e => e.IsFixedTimestep)
+            .Select(e => e.SystemTypeName!)
+            .ToList();
+
+        spc.AddSource("SystemRegistry.g.cs", QueryChainEmitter.RenderSystemAccessRegistry(bySystemType, byEdgeSystemType, fixedTimestepSystemTypeNames, constructors));
     }
 
     /// <summary>One <c>QuerySystem</c> class syntax node's extraction result: either a real <see cref="QuerySystemCandidate"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced. Same rationale as <see cref="ChainCandidateResult"/>: only the file-local check reaches this path deliberately; every other "not a valid QuerySystem" reason stays silent.</summary>

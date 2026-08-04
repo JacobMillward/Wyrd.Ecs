@@ -52,6 +52,12 @@ public class QueryChainGeneratorSystemAccessTests
             protected override void Execute(World world, Time time) { }
         }
 
+        [FixedTimestep]
+        public sealed class FixedCadenceSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time) { }
+        }
+
         public static class Harness
         {
             public static (Type[] Keys, Type[] MovementReads, Type[] MovementWrites, Type[] MultiReads, Type[] MultiWrites) Run()
@@ -91,6 +97,13 @@ public class QueryChainGeneratorSystemAccessTests
 
             public static bool UnconstructableSystem_GetsNoConstructEntry() =>
                 !SystemRegistry.Construct.ContainsKey(typeof(UnconstructableSystem));
+
+            public static (bool FixedHasEntry, SystemCadence FixedValue, bool VariableHasEntry) Cadence()
+            {
+                var fixedHas = SystemRegistry.Cadence.TryGetValue(typeof(FixedCadenceSystem), out var fixedValue);
+                var variableHas = SystemRegistry.Cadence.ContainsKey(typeof(OtherSystem));
+                return (fixedHas, fixedValue, variableHas);
+            }
         }
         """;
 
@@ -162,5 +175,18 @@ public class QueryChainGeneratorSystemAccessTests
         var result = (bool)assembly.GetType("Harness")!.GetMethod("UnconstructableSystem_GetsNoConstructEntry")!.Invoke(null, null)!;
 
         result.Should().BeTrue("a ctor(int) is neither ctor(World) nor parameterless, so no factory can be emitted for it — silently skipped, not diagnosed, since nothing here says whether it's ever used via bare AddSystem<T>()");
+    }
+
+    [Fact]
+    public void FixedTimestepAttribute_IsCapturedIntoSystemRegistryCadence()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = assembly.GetType("Harness")!.GetMethod("Cadence")!.Invoke(null, null)!;
+        var tuple = (System.Runtime.CompilerServices.ITuple)result;
+
+        ((bool)tuple[0]!).Should().BeTrue("FixedCadenceSystem carries [FixedTimestep]");
+        tuple[1]!.ToString().Should().Be("Fixed");
+        ((bool)tuple[2]!).Should().BeFalse("OtherSystem carries no [FixedTimestep], so it gets no Cadence entry at all — Variable is the TryGetValue-fallback default, not an explicit entry");
     }
 }
