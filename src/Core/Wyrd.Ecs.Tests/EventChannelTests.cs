@@ -1,6 +1,7 @@
-namespace Wyrd.Ecs.Tests;
 
 using Wyrd.Ecs.Internal;
+
+namespace Wyrd.Ecs.Tests;
 
 public class EventChannelTests
 {

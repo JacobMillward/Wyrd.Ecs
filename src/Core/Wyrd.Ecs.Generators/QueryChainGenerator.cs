@@ -189,25 +189,25 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var isFixedTimestep = false;
 
         foreach (var attributeList in classDecl.AttributeLists)
-        foreach (var attribute in attributeList.Attributes)
-        {
-            if (semanticModel.GetTypeInfo(attribute, ct).Type is not { } attributeType) continue;
-            var attributeName = attributeType.ToDisplayString();
-
-            if (attributeName == "Wyrd.Ecs.FixedTimestepAttribute")
+            foreach (var attribute in attributeList.Attributes)
             {
-                isFixedTimestep = true;
-                continue;
+                if (semanticModel.GetTypeInfo(attribute, ct).Type is not { } attributeType) continue;
+                var attributeName = attributeType.ToDisplayString();
+
+                if (attributeName == "Wyrd.Ecs.FixedTimestepAttribute")
+                {
+                    isFixedTimestep = true;
+                    continue;
+                }
+
+                if (attributeName is not ("Wyrd.Ecs.RunBeforeAttribute" or "Wyrd.Ecs.RunAfterAttribute")) continue;
+                if (attribute.ArgumentList is not { Arguments: [{ Expression: TypeOfExpressionSyntax { Type: var targetTypeSyntax } }] }) continue;
+                if (semanticModel.GetTypeInfo(targetTypeSyntax, ct).Type is not INamedTypeSymbol { IsFileLocal: false } targetType) continue;
+
+                var targetName = targetType.ToDisplayString();
+                if (attributeName == "Wyrd.Ecs.RunBeforeAttribute") before.Add(targetName);
+                else after.Add(targetName);
             }
-
-            if (attributeName is not ("Wyrd.Ecs.RunBeforeAttribute" or "Wyrd.Ecs.RunAfterAttribute")) continue;
-            if (attribute.ArgumentList is not { Arguments: [{ Expression: TypeOfExpressionSyntax { Type: var targetTypeSyntax } }] }) continue;
-            if (semanticModel.GetTypeInfo(targetTypeSyntax, ct).Type is not INamedTypeSymbol { IsFileLocal: false } targetType) continue;
-
-            var targetName = targetType.ToDisplayString();
-            if (attributeName == "Wyrd.Ecs.RunBeforeAttribute") before.Add(targetName);
-            else after.Add(targetName);
-        }
 
         if (before.Count == 0 && after.Count == 0 && !isFixedTimestep) return default;
         return new EdgeResult(classSymbol.ToDisplayString(), before, after, isFixedTimestep);

@@ -1,6 +1,7 @@
-namespace Wyrd.Ecs.Tests.Internal;
 
 using Wyrd.Ecs.Internal;
+
+namespace Wyrd.Ecs.Tests.Internal;
 
 file struct Position : IComponent;
 file struct Velocity : IComponent;

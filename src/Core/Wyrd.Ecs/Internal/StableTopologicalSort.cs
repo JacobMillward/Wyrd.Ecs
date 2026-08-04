@@ -106,7 +106,7 @@ internal static class StableTopologicalSort
             var cycleStart = path.IndexOf(current);
             return [.. path.Skip(cycleStart), current];
 
-            NextStart: ;
+        NextStart:;
         }
 
         // Unreachable: Sort() only calls this when order.Count < nodes.Count, which

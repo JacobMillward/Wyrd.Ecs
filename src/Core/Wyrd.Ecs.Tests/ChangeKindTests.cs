@@ -18,8 +18,8 @@ public class ChangeKindTests
         var kinds = AllDefinedKinds.ToArray();
 
         for (var i = 0; i < kinds.Length; i++)
-        for (var j = i + 1; j < kinds.Length; j++)
-            (kinds[i] & kinds[j]).Should().Be((ChangeKind)0, $"{kinds[i]} and {kinds[j]} should not overlap");
+            for (var j = i + 1; j < kinds.Length; j++)
+                (kinds[i] & kinds[j]).Should().Be((ChangeKind)0, $"{kinds[i]} and {kinds[j]} should not overlap");
     }
 
     [Fact]

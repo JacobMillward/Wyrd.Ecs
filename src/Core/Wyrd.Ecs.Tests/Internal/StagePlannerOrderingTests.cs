@@ -1,6 +1,7 @@
-namespace Wyrd.Ecs.Tests.Internal;
 
 using Wyrd.Ecs.Internal;
+
+namespace Wyrd.Ecs.Tests.Internal;
 
 file struct OrderingComponentA : IComponent;
 file struct OrderingComponentB : IComponent;

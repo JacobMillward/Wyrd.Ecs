@@ -1,6 +1,7 @@
-namespace Wyrd.Ecs.Tests.Internal;
 
 using Wyrd.Ecs.Internal;
+
+namespace Wyrd.Ecs.Tests.Internal;
 
 file sealed class NodeA : EcsSystem { protected override void Execute(World world, Time time) { } }
 file sealed class NodeB : EcsSystem { protected override void Execute(World world, Time time) { } }
