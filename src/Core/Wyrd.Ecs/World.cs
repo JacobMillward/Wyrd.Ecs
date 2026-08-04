@@ -31,6 +31,10 @@ public sealed partial class World
     private readonly ISystemScheduler _executor;
     private TimeSpan _totalElapsed;
 
+    private readonly Lock _clockLock = new();
+    private double _timeScale = 1.0;
+    private bool _isPaused;
+
     /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>. Use <see cref="WorldBuilder"/> to configure it.</summary>
     public World() : this(DefaultArchetypeCapacity, new ParallelSystemScheduler(1000)) { }
 
@@ -126,10 +130,49 @@ public sealed partial class World
         OnTickAdvanced?.Invoke(_currentTick);
     }
 
+    /// <summary>
+    /// Wall-clock time: advances by the raw <c>delta</c> passed to <see cref="Update"/> every
+    /// call, never affected by <see cref="TimeScale"/> or <see cref="IsPaused"/>. The <see cref="Time"/>
+    /// a system receives via <see cref="EcsSystem.Execute"/> is a different, virtual clock —
+    /// see that method's own doc comment.
+    /// </summary>
+    public Time RealTime { get; private set; }
+
+    /// <summary>
+    /// Multiplies real delta into virtual delta for every system's <see cref="Time"/>.
+    /// Default <c>1.0</c>. Throws <see cref="ArgumentOutOfRangeException"/> on a negative
+    /// value — time-reversal isn't a supported concept here. Independent of <see cref="IsPaused"/>:
+    /// pausing never reads or writes this value, so <see cref="Resume"/> always continues at
+    /// whatever scale was last set. Guarded by an internal lock, not just for external callers:
+    /// sibling systems in the same parallel stage are already permitted to call back into
+    /// <see cref="World"/> concurrently (see <see cref="ISystemScheduler"/>'s documented
+    /// contract), and this is an ordinary field with no other protection, unlike component
+    /// storage.
+    /// </summary>
+    public double TimeScale
+    {
+        get { lock (_clockLock) return _timeScale; }
+        set
+        {
+            if (value < 0) throw new ArgumentOutOfRangeException(nameof(value), value, "TimeScale cannot be negative.");
+            lock (_clockLock) _timeScale = value;
+        }
+    }
+
+    /// <summary>True between a <see cref="Pause"/> call and the matching <see cref="Resume"/>. While true, every Variable-cadence system's virtual <see cref="Time.Delta"/> is <see cref="TimeSpan.Zero"/> and the fixed-step accumulator does not advance.</summary>
+    public bool IsPaused { get { lock (_clockLock) return _isPaused; } }
+
+    /// <summary>Freezes virtual time: every system's <see cref="Time.Delta"/> becomes <see cref="TimeSpan.Zero"/> until <see cref="Resume"/>. Never touches <see cref="TimeScale"/>'s stored value.</summary>
+    public void Pause() { lock (_clockLock) _isPaused = true; }
+
+    /// <summary>Un-freezes virtual time, continuing at whatever <see cref="TimeScale"/> was last set to.</summary>
+    public void Resume() { lock (_clockLock) _isPaused = false; }
+
     /// <summary>Runs one iteration of every registered system (see <c>WorldBuilder.AddSystemCore</c>/the generated <c>AddSystem&lt;T&gt;()</c>), staged by the static parallel schedule computed at <see cref="WorldBuilder.Build"/> time.</summary>
     public void Update(TimeSpan delta)
     {
         AdvanceTick();
+        RealTime = new Time(delta, RealTime.Elapsed + delta);
         _totalElapsed += delta;
         _executor.RunStages(this, new Time(delta, _totalElapsed), SystemCadence.Variable);
     }
