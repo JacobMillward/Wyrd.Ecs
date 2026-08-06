@@ -36,8 +36,8 @@ public readonly partial struct Query<TShape> : IQuery where TShape : struct
         Filter = filter;
     }
 
-    /// <summary>Adds <typeparamref name="TMarker"/>, a data component, to the shape. Its Reads/Writes access mode comes from the terminal's `ref`/`in`, not from this call. <see cref="Filter"/> carries through unchanged.</summary>
-    public Query<(TMarker, TShape)> With<TMarker>() where TMarker : struct => new(World, Filter);
+    /// <summary>Adds <typeparamref name="TComponent"/> to the shape. Its Reads/Writes access mode comes from the terminal's `ref`/`in`, not from this call. <see cref="Filter"/> carries through unchanged.</summary>
+    public Query<(TComponent, TShape)> With<TComponent>() where TComponent : struct, IComponent => new(World, Filter);
 
     /// <summary>Requires the archetype to contain <typeparamref name="T"/>, without reading its data. Does not change the shape: applies immediately to <see cref="Filter"/>, so it can be called conditionally.</summary>
     public Query<TShape> Has<T>() where T : struct => new(World, Filter.Has<T>());

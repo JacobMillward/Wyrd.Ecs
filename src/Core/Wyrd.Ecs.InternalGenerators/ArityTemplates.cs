@@ -23,7 +23,7 @@ internal static class ArityTemplates
     internal static string WhereClausesInline(int n) =>
         string.Join(" ", Indices(n).Select(i => $"where T{i} : struct, IComponent"));
 
-    /// <summary>Same as <see cref="WhereClausesInline"/> but without the <c>IComponent</c> constraint: matches <c>Query&lt;TShape&gt;.With&lt;TMarker&gt;()</c>'s existing single-arg constraint (<c>where TMarker : struct</c>), since the arity-2+ `With`/`Without`/`Has`/`Any` overloads chain that same call, not a new, stricter contract.</summary>
+    /// <summary>Same as <see cref="WhereClausesInline"/> but without the <c>IComponent</c> constraint: matches <c>Query&lt;TShape&gt;.Has&lt;T&gt;()</c>/<c>.Without&lt;T&gt;()</c>/<c>.Any&lt;T0,T1&gt;()</c>'s existing single-arg constraint (<c>where T : struct</c>), since those only touch <see cref="ArchetypeQuery"/>'s presence bitset, never bind a component's data, and so work equally on an <c>IComponent</c> or an <c>ITag</c>. Not used by the arity-2+ `With` overload, that one requires <c>IComponent</c> (see <see cref="WhereClausesInline"/>), since `With` binds each type argument's data to a generated `ForEach` parameter and a tag has none.</summary>
     internal static string WhereClausesPlain(int n) =>
         string.Join(" ", Indices(n).Select(i => $"where T{i} : struct"));
 
@@ -260,7 +260,7 @@ internal static class ArityTemplates
     internal static string QueryWithMember(int n)
     {
         var tp = TypeParams(n);
-        var where = WhereClausesPlain(n);
+        var where = WhereClausesInline(n);
         var nestedType = "TShape";
         for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
 
