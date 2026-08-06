@@ -1,0 +1,81 @@
+/**
+ * Wyrd.Ecs code block theme, light variant.
+ *
+ * Same hue families as the dark theme (amber for keywords, blue for types),
+ * darkened to clear WCAG AAA (>=7:1) against a light background instead of
+ * lightened for a dark one. Verified separately against deuteranopia and
+ * protanopia simulation, not assumed symmetric with the dark theme: naively
+ * darkening the dark theme's pale string/number tints collapsed their hue
+ * entirely, so number is a desaturated (not hue-shifted) variant of keyword
+ * here, same principle as the dark theme, tuned for the light end instead.
+ */
+{
+	"name": "Wyrd Bronze Rune Light",
+	"type": "light",
+	"colors": {
+		"editor.background": "#f3efe4",
+		"editor.foreground": "#2a2419",
+		"focusBorder": "#6b481f",
+		"contrastBorder": "#ddd4bf",
+		"titleBar.activeBackground": "#ece5d5",
+		"titleBar.activeForeground": "#2a2419",
+		"titleBar.border": "#ddd4bf",
+		"editorGroupHeader.tabsBackground": "#ece5d5",
+		"editorGroupHeader.tabsBorder": "#ddd4bf",
+		"tab.activeBackground": "#f3efe4",
+		"tab.activeForeground": "#5e4428",
+		"tab.activeBorder": "#6b481f",
+		"tab.inactiveBackground": "#ece5d5",
+		"tab.inactiveForeground": "#4f493e",
+		"tab.border": "#ddd4bf",
+		"scrollbarSlider.background": "#2a241930",
+		"scrollbarSlider.hoverBackground": "#2a241950",
+		"scrollbarSlider.activeBackground": "#2a241970"
+	},
+	"settings": [],
+	"tokenColors": [
+		{
+			"name": "Comment",
+			"scope": ["comment", "punctuation.definition.comment"],
+			"settings": { "foreground": "#524e4b", "fontStyle": "italic" }
+		},
+		{
+			"name": "Punctuation",
+			"scope": ["punctuation", "meta.brace", "meta.delimiter"],
+			"settings": { "foreground": "#524e4b" }
+		},
+		{
+			"name": "String",
+			"scope": ["string", "string.quoted", "string.template"],
+			"settings": { "foreground": "#344d89" }
+		},
+		{
+			"name": "Number",
+			"scope": ["constant.numeric", "constant.character.numeric"],
+			"settings": { "foreground": "#594e37" }
+		},
+		{
+			"name": "Keyword",
+			"scope": [
+				"keyword",
+				"keyword.control",
+				"storage",
+				"storage.type",
+				"storage.modifier",
+				"constant.language"
+			],
+			"settings": { "foreground": "#6b481f", "fontStyle": "bold" }
+		},
+		{
+			"name": "Type / class",
+			"scope": [
+				"entity.name.type",
+				"entity.name.class",
+				"entity.other.inherited-class",
+				"support.class",
+				"support.type"
+			],
+			"settings": { "foreground": "#2b5370" }
+		}
+	]
+}

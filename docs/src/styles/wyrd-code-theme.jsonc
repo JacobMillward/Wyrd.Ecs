@@ -1,0 +1,82 @@
+/**
+ * Wyrd.Ecs code block theme.
+ *
+ * Token colors are the CVD-safe palette verified against deuteranopia and
+ * protanopia simulation: two hues on the blue-yellow axis (amber for
+ * keywords, sky blue for types), with strings and numbers as lighter
+ * variants of the same two hues rather than new competing colors.
+ * Comments/identifiers rely on italics and base text weight, not hue,
+ * to stay distinguishable under color-vision deficiency.
+ *
+ * All token colors are >=7:1 contrast against editor.background (WCAG AAA).
+ */
+{
+	"name": "Wyrd Bronze Rune",
+	"type": "dark",
+	"colors": {
+		"editor.background": "#191a23",
+		"editor.foreground": "#e9e6dd",
+		"focusBorder": "#dda15e",
+		"contrastBorder": "#2c2d3a",
+		"titleBar.activeBackground": "#1b1c25",
+		"titleBar.activeForeground": "#e9e6dd",
+		"titleBar.border": "#2c2d3a",
+		"editorGroupHeader.tabsBackground": "#1b1c25",
+		"editorGroupHeader.tabsBorder": "#2c2d3a",
+		"tab.activeBackground": "#191a23",
+		"tab.activeForeground": "#dda15e",
+		"tab.activeBorder": "#dda15e",
+		"tab.inactiveBackground": "#1b1c25",
+		"tab.inactiveForeground": "#a3a0af",
+		"tab.border": "#2c2d3a",
+		"scrollbarSlider.background": "#a3a0af30",
+		"scrollbarSlider.hoverBackground": "#a3a0af50",
+		"scrollbarSlider.activeBackground": "#a3a0af70"
+	},
+	"settings": [],
+	"tokenColors": [
+		{
+			"name": "Comment",
+			"scope": ["comment", "punctuation.definition.comment"],
+			"settings": { "foreground": "#a7a5b0", "fontStyle": "italic" }
+		},
+		{
+			"name": "Punctuation",
+			"scope": ["punctuation", "meta.brace", "meta.delimiter"],
+			"settings": { "foreground": "#a7a5b0" }
+		},
+		{
+			"name": "String",
+			"scope": ["string", "string.quoted", "string.template"],
+			"settings": { "foreground": "#c3ddf2" }
+		},
+		{
+			"name": "Number",
+			"scope": ["constant.numeric", "constant.character.numeric"],
+			"settings": { "foreground": "#f0d19f" }
+		},
+		{
+			"name": "Keyword",
+			"scope": [
+				"keyword",
+				"keyword.control",
+				"storage",
+				"storage.type",
+				"storage.modifier",
+				"constant.language"
+			],
+			"settings": { "foreground": "#dda15e", "fontStyle": "bold" }
+		},
+		{
+			"name": "Type / class",
+			"scope": [
+				"entity.name.type",
+				"entity.name.class",
+				"entity.other.inherited-class",
+				"support.class",
+				"support.type"
+			],
+			"settings": { "foreground": "#7bb8e6" }
+		}
+	]
+}
