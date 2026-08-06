@@ -24,7 +24,7 @@ public class QuerySystemUpdateShapeTests
             public struct Position : IComponent { public float X; }
             public sealed class S : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
                 public void Update(Time time, ref Position p) { }
             }
             """);
@@ -45,7 +45,7 @@ public class QuerySystemUpdateShapeTests
             public struct Position : IComponent { public float X; }
             public sealed class S : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
                 public void Update(Time time, World world, ref Position p) { }
             }
             """);
@@ -66,7 +66,7 @@ public class QuerySystemUpdateShapeTests
             public struct Position : IComponent { public float X; }
             public sealed class S : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
                 public void Update(Time time, EntityView entity, ref Position p) { }
             }
             """);
@@ -87,7 +87,7 @@ public class QuerySystemUpdateShapeTests
             public struct Position : IComponent { public float X; }
             public sealed class S : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
                 public void Update(Time time, World world, EntityView entity, ref Position p) { }
             }
             """);
@@ -112,7 +112,7 @@ public class QuerySystemUpdateShapeTests
             public struct Position : IComponent { public float X; }
             public sealed class S : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
                 public void Update(Time time, EntityView entity, World world, ref Position p) { }
             }
             """);
@@ -133,7 +133,7 @@ public class QuerySystemUpdateShapeTests
             public struct Position : IComponent { public float X; }
             public sealed class S : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
                 public void Update(World world, ref Position p) { }
             }
             """);

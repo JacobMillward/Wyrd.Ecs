@@ -12,13 +12,13 @@ struct ChainBuffB : ITag;
 public class QueryChainTests
 {
     [Fact]
-    public void Query_ReturnsQueryOfNil()
+    public void Query_ReturnsTheEntryPointQuery()
     {
         var world = new World();
 
         var chain = world.Query();
 
-        chain.Should().BeOfType<Query<Nil>>();
+        chain.Should().BeOfType<Query>();
     }
 
     [Fact]

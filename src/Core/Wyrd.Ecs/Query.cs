@@ -1,14 +1,59 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// A query chain's accumulated shape. <typeparamref name="TShape"/> is a nested 2-tuple
-/// built up one element per <c>.With</c> call, terminating in <see cref="Nil"/>.
-/// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> never touch it; they mutate <see cref="Filter"/>
-/// instead, so they can be applied conditionally. Never used directly by hand past
-/// `world.Query()`: `.ForEach`/`.ParallelForEach` only exist because the query-chain
-/// generator emits them per shape it finds. Each data component's access mode
-/// (read-write vs read-only) is inferred from the `ref`/`in` modifier on that terminal's
-/// own parameter list, not declared here.
+/// The chain's entry point, before any <c>.With</c> call has picked a shape: the
+/// non-generic counterpart of <see cref="Query{TShape}"/>, which only exists from the
+/// first <c>.With</c> call onward. Kept separate (rather than just <c>Query&lt;Nil&gt;</c>)
+/// so <c>QuerySystem.DefineQuery</c> and every other entry-point signature can read as
+/// plain <c>Query</c> instead of spelling out the empty-shape marker. Arity-2+
+/// <c>With</c>/<c>Has</c>/<c>Without</c>/<c>Any</c> overloads are generated the same way as
+/// <see cref="Query{TShape}"/>'s, see <c>WorldQueryMembersGenerator</c>.
+/// </summary>
+public readonly partial struct Query : IQuery
+{
+    /// <inheritdoc cref="Query{TShape}.World"/>
+    public readonly World World;
+
+    /// <inheritdoc cref="Query{TShape}.Filter"/>
+    public readonly ArchetypeQuery Filter;
+
+    internal Query(World world) : this(world, ArchetypeQuery.Empty) { }
+
+    internal Query(World world, ArchetypeQuery filter)
+    {
+        World = world;
+        Filter = filter;
+    }
+
+    /// <inheritdoc cref="Query{TShape}.With{TComponent}"/>
+    public Query<(TComponent, Nil)> With<TComponent>() where TComponent : struct, IComponent => new(World, Filter);
+
+    /// <inheritdoc cref="Query{TShape}.Has{T}"/>
+    public Query Has<T>() where T : struct => new(World, Filter.Has<T>());
+
+    /// <inheritdoc cref="Query{TShape}.Without{T}"/>
+    public Query Without<T>() where T : struct => new(World, Filter.Without<T>());
+
+    /// <inheritdoc cref="Query{TShape}.Any{T0, T1}"/>
+    public Query Any<T0, T1>() where T0 : struct where T1 : struct => new(World, Filter.Any<T0, T1>());
+
+    /// <inheritdoc cref="Query{TShape}.WithRelation{TRelation}"/>
+    public Query<(RelationLinks<TRelation>, Nil)> WithRelation<TRelation>() where TRelation : struct, IRelation => With<RelationLinks<TRelation>>();
+
+    /// <inheritdoc cref="Query{TShape}.WithoutRelation{TRelation}"/>
+    public Query WithoutRelation<TRelation>() where TRelation : struct, IRelation => Without<RelationLinks<TRelation>>();
+}
+
+/// <summary>
+/// A query chain's accumulated shape, from the first <c>.With</c> call onward.
+/// <typeparamref name="TShape"/> is a nested 2-tuple built up one element per <c>.With</c>
+/// call, terminating in <see cref="Nil"/>. <c>.Without</c>/<c>.Has</c>/<c>.Any</c> never
+/// touch it; they mutate <see cref="Filter"/> instead, so they can be applied
+/// conditionally. Never used directly by hand past `world.Query()`:
+/// `.ForEach`/`.ParallelForEach` only exist because the query-chain generator emits them
+/// per shape it finds. Each data component's access mode (read-write vs read-only) is
+/// inferred from the `ref`/`in` modifier on that terminal's own parameter list, not
+/// declared here.
 /// </summary>
 public readonly partial struct Query<TShape> : IQuery where TShape : struct
 {
@@ -60,9 +105,9 @@ public readonly partial struct Query<TShape> : IQuery where TShape : struct
     public Query<TShape> WithoutRelation<TRelation>() where TRelation : struct, IRelation => Without<RelationLinks<TRelation>>();
 }
 
-/// <summary>The chain's entry point.</summary>
+/// <summary>Starts a query chain.</summary>
 public static class WorldQueryExtensions
 {
     /// <summary>Starts a query chain against <paramref name="world"/> with an empty shape and an empty filter.</summary>
-    public static Query<Nil> Query(this World world) => new(world);
+    public static Query Query(this World world) => new(world);
 }

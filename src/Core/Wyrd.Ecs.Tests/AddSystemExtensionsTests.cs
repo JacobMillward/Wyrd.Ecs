@@ -19,7 +19,7 @@ sealed class SugarAfterAnchorSystem : EcsSystem
 
 sealed partial class SugarMoveSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<SugarPosition>();
+    protected override IQuery DefineQuery(Query query) => query.With<SugarPosition>();
     public void Update(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += 1f;
 }
 
@@ -28,7 +28,7 @@ sealed partial class SugarConstructedSystem : QuerySystem
     private readonly float _amount;
     public SugarConstructedSystem(float amount) => _amount = amount;
 
-    protected override IQuery DefineQuery(World world) => world.Query().With<SugarPosition>();
+    protected override IQuery DefineQuery(Query query) => query.With<SugarPosition>();
     public void Update(Time time, ref SugarPosition sugarPosition) => sugarPosition.X += _amount;
 }
 

@@ -27,7 +27,7 @@ A [`QuerySystem`](/guides/systems/) is how you act on entities: it declares what
 ```csharp
 public sealed partial class MovementSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Position, Velocity>();
+    protected override IQuery DefineQuery(Query query) => query.With<Position, Velocity>();
 
     public void Update(Time time, ref Position position, in Velocity velocity)
     {

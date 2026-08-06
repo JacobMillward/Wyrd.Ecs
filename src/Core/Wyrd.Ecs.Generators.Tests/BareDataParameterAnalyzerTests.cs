@@ -97,7 +97,7 @@ public class BareDataParameterAnalyzerTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, Position p) { }
             }
@@ -116,7 +116,7 @@ public class BareDataParameterAnalyzerTests
 
             public sealed class WorkingSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, ref Position p) { }
             }
@@ -135,7 +135,7 @@ public class BareDataParameterAnalyzerTests
 
             public sealed class WorkingSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, World world, EntityView entity, ref Position p) { }
             }
@@ -154,7 +154,7 @@ public class BareDataParameterAnalyzerTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, World world, EntityView entity, Position p) { }
             }

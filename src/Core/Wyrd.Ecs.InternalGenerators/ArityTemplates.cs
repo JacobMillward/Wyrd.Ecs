@@ -311,6 +311,66 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Emits the `Query.With&lt;T0..Tn-1&gt;()` overload (arity 2+): the entry-point
+    /// counterpart of <see cref="QueryWithMember"/>, for chains that haven't called `.With`
+    /// yet. Same nested-tuple construction, just built on <c>Nil</c> directly instead of an
+    /// already-accumulated <c>TShape</c>.
+    /// </summary>
+    internal static string QueryEntryWithMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var nestedType = "Nil";
+        for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <inheritdoc cref=\"Query{TShape}.With{T0, T1}\"/>"
+            : "    /// <inheritdoc cref=\"With{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<{nestedType}> With<{tp}>() {where} => new(World, Filter);");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `Query.Without&lt;T0..Tn-1&gt;()` overload (arity 2+): the entry-point counterpart of <see cref="QueryWithoutMember"/>. Returns the non-generic <c>Query</c> itself, since `Without` never touches the shape.</summary>
+    internal static string QueryEntryWithoutMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var chain = string.Join("", Indices(n).Select(i => $".Without<T{i}>()"));
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <inheritdoc cref=\"Query{TShape}.Without{T0, T1}\"/>"
+            : "    /// <inheritdoc cref=\"Without{T0, T1}\"/>");
+        sb.AppendLine($"    public Query Without<{tp}>() {where} => new(World, Filter{chain});");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `Query.Has&lt;T0..Tn-1&gt;()` overload (arity 2+): the entry-point counterpart of <see cref="QueryHasMember"/>. Same shape as <see cref="QueryEntryWithoutMember"/>.</summary>
+    internal static string QueryEntryHasMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var chain = string.Join("", Indices(n).Select(i => $".Has<T{i}>()"));
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <inheritdoc cref=\"Query{TShape}.Has{T0, T1}\"/>"
+            : "    /// <inheritdoc cref=\"Has{T0, T1}\"/>");
+        sb.AppendLine($"    public Query Has<{tp}>() {where} => new(World, Filter{chain});");
+        return sb.ToString();
+    }
+
+    /// <summary>Emits the `Query.Any&lt;T0..Tn-1&gt;()` overload (arity 3+): the entry-point counterpart of <see cref="QueryAnyMember"/>.</summary>
+    internal static string QueryEntryAnyMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesPlain(n);
+        var sb = new StringBuilder();
+        sb.AppendLine("    /// <inheritdoc cref=\"Query{TShape}.Any{T0, T1}\"/>");
+        sb.AppendLine($"    public Query Any<{tp}>() {where} => new(World, Filter.Any<{tp}>());");
+        return sb.ToString();
+    }
+
     /// <summary>Emits the `ArchetypeQuery.Any&lt;T0..Tn-1&gt;()` overload for arity 3+, delegating to the matching `ArchetypeFilter.Any&lt;T0..Tn-1&gt;()`.</summary>
     internal static string ArchetypeQueryAnyMember(int n)
     {

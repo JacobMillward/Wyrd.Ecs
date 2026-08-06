@@ -21,7 +21,7 @@ public class GenerateUpdateStubCodeFixProviderTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
             }
             """;
 

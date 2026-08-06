@@ -26,7 +26,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class MovementSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>().With<Velocity>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>().With<Velocity>();
 
                 public void Update(Time time, ref Position p, in Velocity v) { }
             }
@@ -45,7 +45,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
             }
             """);
 
@@ -63,7 +63,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>().With<Velocity>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>().With<Velocity>();
 
                 public void Update(Time time, ref Position p) { }
             }
@@ -83,7 +83,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>().With<Velocity>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>().With<Velocity>();
 
                 public void Update(Time time, ref Velocity v, ref Position p) { }
             }
@@ -102,7 +102,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class MovementSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, World world, ref Position p) { }
             }
@@ -121,7 +121,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class MovementSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, EntityView entity, ref Position p) { }
             }
@@ -140,7 +140,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class MovementSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, World world, EntityView entity, ref Position p) { }
             }
@@ -159,7 +159,7 @@ public class QuerySystemShapeAnalyzerTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, EntityView entity, World world, ref Position p) { }
             }

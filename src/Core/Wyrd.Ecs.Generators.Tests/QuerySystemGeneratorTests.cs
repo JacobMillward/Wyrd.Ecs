@@ -12,8 +12,8 @@ public class QuerySystemGeneratorTests
 
         public sealed partial class MovementSystem : QuerySystem
         {
-            protected override IQuery DefineQuery(World world) =>
-                world.Query().With<Position>().With<Velocity>();
+            protected override IQuery DefineQuery(Query query) =>
+                query.With<Position>().With<Velocity>();
 
             public void Update(Time time, ref Position p, in Velocity v) => p.X += v.X;
         }
@@ -73,8 +73,8 @@ public class QuerySystemGeneratorTests
 
         public sealed partial class ThreeComponentSystem : QuerySystem
         {
-            protected override IQuery DefineQuery(World world) =>
-                world.Query().With<Position>().With<Velocity>().With<Health>();
+            protected override IQuery DefineQuery(Query query) =>
+                query.With<Position>().With<Velocity>().With<Health>();
 
             public void Update(Time time, ref Position p, in Velocity v, in Health h) => p.X += v.X + h.Current;
         }
@@ -118,7 +118,7 @@ public class QuerySystemGeneratorTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, Position p) { }
             }
@@ -139,7 +139,7 @@ public class QuerySystemGeneratorTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().Has<Position>();
+                protected override IQuery DefineQuery(Query query) => query.Has<Position>();
             }
             """;
 
@@ -158,7 +158,7 @@ public class QuerySystemGeneratorTests
 
             public sealed class BrokenSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().Has<Position>();
+                protected override IQuery DefineQuery(Query query) => query.Has<Position>();
 
                 public void Update(Time time, ref Position p) { }
             }
@@ -178,8 +178,8 @@ public class QuerySystemGeneratorTests
 
         public sealed partial class MoveSystem : QuerySystem
         {
-            protected override IQuery DefineQuery(World world) =>
-                world.Query().With<Position>().Without<Dead>();
+            protected override IQuery DefineQuery(Query query) =>
+                query.With<Position>().Without<Dead>();
 
             public void Update(Time time, ref Position p) => p.X += 1f;
         }

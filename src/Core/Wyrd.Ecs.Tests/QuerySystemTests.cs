@@ -4,7 +4,7 @@ struct Energy : IComponent { public float Current; public float DrainPerSecond; 
 
 sealed partial class DrainSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Energy>();
+    protected override IQuery DefineQuery(Query query) => query.With<Energy>();
 
     public void Update(Time time, ref Energy energy) => energy.Current -= energy.DrainPerSecond;
 }
@@ -15,7 +15,7 @@ struct Spawned : IComponent { public int Value; }
 
 sealed partial class SpawningSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Energy>();
+    protected override IQuery DefineQuery(Query query) => query.With<Energy>();
 
     public void Update(Time time, World world, ref Energy energy)
     {
@@ -26,7 +26,7 @@ sealed partial class SpawningSystem : QuerySystem
 
 sealed partial class PoisonSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Attacked>();
+    protected override IQuery DefineQuery(Query query) => query.With<Attacked>();
 
     public void Update(Time time, EntityView entity, ref Attacked a)
     {
@@ -37,7 +37,7 @@ sealed partial class PoisonSystem : QuerySystem
 
 sealed partial class SpawnAndTagSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Attacked>();
+    protected override IQuery DefineQuery(Query query) => query.With<Attacked>();
 
     public void Update(Time time, World world, EntityView entity, ref Attacked a)
     {

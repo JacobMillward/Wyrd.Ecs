@@ -108,25 +108,31 @@ internal static class ChainWalker
     internal static QueryShape? TryExtractShapeFromQueryType(INamedTypeSymbol queryType, CancellationToken ct)
     {
         if (!IsQueryOfShape(queryType)) return null;
-        if (queryType.TypeArguments is not [var shapeType]) return null;
 
         var pendingData = ImmutableArray.CreateBuilder<string>();
 
-        var current = shapeType;
-        while (true)
+        // The non-generic `Query` (arity 0) is the chain's entry point, already the empty
+        // shape: no `TShape` to walk. Only `Query<TShape>` (arity 1) has a tuple to unpack.
+        if (queryType.Arity == 1)
         {
-            ct.ThrowIfCancellationRequested();
+            if (queryType.TypeArguments is not [var shapeType]) return null;
 
-            if (current is not INamedTypeSymbol named) return null;
-            if (IsNil(named)) break;
+            var current = shapeType;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
 
-            if (!named.IsTupleType || named.TupleElements.Length != 2) return null;
-            var element = named.TupleElements[0].Type;
-            var rest = named.TupleElements[1].Type;
+                if (current is not INamedTypeSymbol named) return null;
+                if (IsNil(named)) break;
 
-            if (!TryClassifyElement(element, pendingData)) return null;
+                if (!named.IsTupleType || named.TupleElements.Length != 2) return null;
+                var element = named.TupleElements[0].Type;
+                var rest = named.TupleElements[1].Type;
 
-            current = rest;
+                if (!TryClassifyElement(element, pendingData)) return null;
+
+                current = rest;
+            }
         }
 
         // The walk above visits `.With<A>().With<B>()`'s nested-tuple type `(B, (A, Nil))`
@@ -153,6 +159,8 @@ internal static class ChainWalker
     internal static string? TryFindFileLocalComponentType(INamedTypeSymbol queryType, CancellationToken ct)
     {
         if (!IsQueryOfShape(queryType)) return null;
+        if (queryType.Arity == 0) return null; // the entry point: no TShape tuple to walk yet
+
         if (queryType.TypeArguments is not [var shapeType]) return null;
 
         var current = shapeType;
@@ -208,7 +216,7 @@ internal static class ChainWalker
     internal static bool IsQueryOfShape(INamedTypeSymbol type)
     {
         var original = type.OriginalDefinition;
-        return original.Name == "Query" && original.Arity == 1 && original.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs";
+        return original.Name == "Query" && original.Arity is 0 or 1 && original.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs";
     }
 
     private static bool IsNil(INamedTypeSymbol type)

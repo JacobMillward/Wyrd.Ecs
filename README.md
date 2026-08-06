@@ -36,7 +36,7 @@ public struct Velocity : IComponent { public float X; public float Y; }
 
 public sealed partial class MovementSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Position>().With<Velocity>();
+    protected override IQuery DefineQuery(Query query) => query.With<Position>().With<Velocity>();
 
     public void Update(Time time, ref Position position, in Velocity velocity)
     {

@@ -8,7 +8,7 @@ A `QuerySystem` pairs a [query](/guides/queries/) with the code that runs agains
 ```csharp
 public sealed partial class MovementSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Position, Velocity>();
+    protected override IQuery DefineQuery(Query query) => query.With<Position, Velocity>();
 
     public void Update(Time time, ref Position position, in Velocity velocity)
     {
@@ -36,7 +36,7 @@ public struct Dead : ITag { }
 
 public sealed partial class DeathCheckSystem : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Health>();
+    protected override IQuery DefineQuery(Query query) => query.With<Health>();
 
     public void Update(Time time, EntityView entity, ref Health health)
     {
@@ -65,7 +65,7 @@ world.Update(TimeSpan.FromSeconds(1.0 / 60));
 ```csharp
 public sealed partial class SpawnerSystem(World world) : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+    protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
     public void Update(Time time, ref Position position) { /* ... */ }
 }
@@ -78,7 +78,7 @@ Anything else, extra parameters, more than one public constructor, is a compile 
 ```csharp
 public sealed partial class DamageOverTimeSystem(float multiplier) : QuerySystem
 {
-    protected override IQuery DefineQuery(World world) => world.Query().With<Health>();
+    protected override IQuery DefineQuery(Query query) => query.With<Health>();
 
     public void Update(Time time, ref Health health) => health.Current -= (int)(multiplier * time.Delta.TotalSeconds);
 }

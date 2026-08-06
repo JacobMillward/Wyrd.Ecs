@@ -32,7 +32,7 @@ public class FileLocalComponentTypeTests
 
             public sealed partial class MoveSystem : QuerySystem
             {
-                protected override IQuery DefineQuery(World world) => world.Query().With<Position>();
+                protected override IQuery DefineQuery(Query query) => query.With<Position>();
 
                 public void Update(Time time, ref Position p) { }
             }

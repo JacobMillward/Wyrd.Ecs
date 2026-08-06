@@ -86,6 +86,28 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             query.AppendLine("}");
             ctx.AddSource("Query.ArityMembers.g.cs", query.ToString());
 
+            var queryEntry = new StringBuilder();
+            queryEntry.AppendLine("namespace Wyrd.Ecs;");
+            queryEntry.AppendLine();
+            queryEntry.AppendLine("public readonly partial struct Query");
+            queryEntry.AppendLine("{");
+            for (var n = 2; n <= ArityCap.Max; n++)
+            {
+                queryEntry.AppendLine(ArityTemplates.QueryEntryWithMember(n));
+                queryEntry.AppendLine();
+                queryEntry.AppendLine(ArityTemplates.QueryEntryWithoutMember(n));
+                queryEntry.AppendLine();
+                queryEntry.AppendLine(ArityTemplates.QueryEntryHasMember(n));
+                queryEntry.AppendLine();
+            }
+            for (var n = 3; n <= ArityCap.Max; n++) // arity 2 Any<T0,T1> already exists by hand in Query.cs
+            {
+                queryEntry.AppendLine(ArityTemplates.QueryEntryAnyMember(n));
+                queryEntry.AppendLine();
+            }
+            queryEntry.AppendLine("}");
+            ctx.AddSource("Query.EntryArityMembers.g.cs", queryEntry.ToString());
+
             var archetypeQuery = new StringBuilder();
             archetypeQuery.AppendLine("namespace Wyrd.Ecs;");
             archetypeQuery.AppendLine();

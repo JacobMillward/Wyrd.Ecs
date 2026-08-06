@@ -405,13 +405,13 @@ internal static class QueryChainEmitter
         {
             var lambdaParams = string.Join(", ", new[] { "in (Time Time, World World) s" }.Concat(dataElements.Select(ParamDecl)));
             var updateCallArgs = string.Join(", ", new[] { "s.Time", "s.World" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}));");
+            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}));");
         }
         else
         {
             var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
             var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world)).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
+            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
         }
     }
 
@@ -434,7 +434,7 @@ internal static class QueryChainEmitter
 
         sb.AppendLine("    protected override void Execute(World world, Time time)");
         sb.AppendLine("    {");
-        sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world);");
+        sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query());");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(world))");
         sb.AppendLine("        {");
         sb.AppendLine("            var entities = chunk.Entities;");
