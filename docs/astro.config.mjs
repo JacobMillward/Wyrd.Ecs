@@ -18,6 +18,7 @@ export default defineConfig({
 		starlight({
 			title: 'Wyrd.Ecs',
 			logo: { src: './src/assets/wyrd-mark.svg', alt: 'Wyrd.Ecs' },
+			pagination: false,
 			head: [
 				{
 					tag: 'link',
@@ -39,18 +40,16 @@ export default defineConfig({
 			expressiveCode: {
 				themes: [wyrdCodeThemeDark, wyrdCodeThemeLight],
 			},
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/JacobMillward/Wyrd.Ecs' }],
 			sidebar: [
+				{ label: 'Getting Started', slug: 'getting-started' },
 				{
 					label: 'Guides',
 					items: [
-						// Each item here is one entry in the navigation menu.
-						{ label: 'Example Guide', slug: 'guides/example' },
+						{ label: 'Entities & Components', slug: 'guides/entities-and-components' },
+						{ label: 'Queries', slug: 'guides/queries' },
+						{ label: 'Systems', slug: 'guides/systems' },
 					],
-				},
-				{
-					label: 'Reference',
-					items: [{ autogenerate: { directory: 'reference' } }],
 				},
 			],
 		}),

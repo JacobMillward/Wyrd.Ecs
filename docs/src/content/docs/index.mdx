@@ -1,40 +1,39 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: Wyrd.Ecs
+description: An archetype ECS for .NET 10, built around source generation and first-class persistence.
+tableOfContents: false
 hero:
-  tagline: Congrats on setting up a new Starlight project!
+  tagline: An archetype ECS for .NET 10. Source-generated queries, parallel systems by default, and persistence you can turn on with one line.
   image:
-    file: ../../assets/houston.webp
+    file: ../../assets/wyrd-mark.svg
   actions:
-    - text: Example Guide
-      link: /guides/example/
+    - text: Get started
+      link: /getting-started/
       icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
-      icon: external
-      variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
-
 <CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+	<Card title="Archetype storage" icon="puzzle">
+		Entities with the same components live together in dense arrays. No boxing, no reflection on the hot path.
 	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
+	<Card title="Source-generated queries" icon="rocket">
+		`world.Query().With<Position, Velocity>().ForEach(...)`. Access comes from `ref`/`in` on the callback itself.
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	<Card title="Parallel by default" icon="random">
+		Register systems with `WorldBuilder`. The scheduler groups what can run together and spreads it across your cores.
 	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
+	<Card title="Runtime control" icon="setting">
+		Enable, disable, add, or remove systems at runtime. Ordering resolves correctly regardless of registration order.
 	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	<Card title="Hierarchy & templates" icon="list-format">
+		Parent/child hierarchy and `EntityTemplate` prefabs built in. Instantiate a whole subtree in one call.
+	</Card>
+	<Card title="First-class persistence" icon="cloud-download">
+		Mark your components, reference a codec package, one method on `WorldBuilder`. Binary, JSON, or continuous WAL.
+	</Card>
+	<Card title="AOT-compatible" icon="approve-check">
+		Fully source-generated throughout. No reflection, no dynamic codegen.
 	</Card>
 </CardGrid>
