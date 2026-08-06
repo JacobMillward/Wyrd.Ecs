@@ -121,13 +121,9 @@ internal sealed class ContinuousWalWorker : IDisposable
 
     private void WalWriterLoop()
     {
-        // Always runs one more cycle after cancellation is requested, so nothing
-        // captured before shutdown is left undrained. Unlike the checkpoint-merge
-        // loop below, which deliberately does not force a final merge.
-        while (true)
+        while (!_cts.IsCancellationRequested)
         {
             WalWriteCycle();
-            if (_cts.IsCancellationRequested) return;
             _cts.Token.WaitHandle.WaitOne(_options.FsyncInterval);
         }
     }
@@ -148,14 +144,20 @@ internal sealed class ContinuousWalWorker : IDisposable
     /// <summary>
     /// Signals both threads to stop, joins the WAL-writer first (letting it finish and
     /// fsync one last time), then the checkpoint-merge thread (letting any in-flight
-    /// merge finish rather than aborting it). Safe to call whether or not
-    /// <see cref="Start"/> was ever called.
+    /// merge finish rather than aborting it). Runs one more <see cref="WalWriteCycle"/>
+    /// itself once both threads have stopped, since Cancel() can land while the
+    /// WAL-writer's own last cycle is already mid-flight, after it has swapped the
+    /// capture buffers, missing whatever gets captured in that window. Nothing else
+    /// touches <see cref="_capture"/>/<see cref="_segmentWriter"/> once both threads
+    /// have joined, so this final cycle needs no synchronization of its own. Safe to
+    /// call whether or not <see cref="Start"/> was ever called.
     /// </summary>
     public void Dispose()
     {
         _cts.Cancel();
         _walWriterThread?.Join();
         _checkpointMergeThread?.Join();
+        WalWriteCycle();
         _rotationDone.Dispose();
         _cts.Dispose();
     }
