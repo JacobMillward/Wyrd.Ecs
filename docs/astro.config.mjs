@@ -48,7 +48,21 @@ export default defineConfig({
 					items: [
 						{ label: 'Entities & Components', slug: 'guides/entities-and-components' },
 						{ label: 'Queries', slug: 'guides/queries' },
-						{ label: 'Systems', slug: 'guides/systems' },
+						{
+							label: 'Game Loop',
+							items: [
+								{ label: 'Systems', slug: 'guides/systems' },
+								{ label: 'Command Buffer', slug: 'guides/systems/command-buffer' },
+								{ label: 'System Ordering', slug: 'guides/system-ordering' },
+								{ label: 'Timestep, Pause & Timescale', slug: 'guides/timestep-pause-timescale' },
+							],
+						},
+						{ label: 'Relations', slug: 'guides/relations' },
+						{ label: 'Parent/Child', slug: 'guides/relations/parent-child' },
+						{ label: 'Templates', slug: 'guides/templates' },
+						{ label: 'Events', slug: 'guides/events' },
+						{ label: 'Debugging', slug: 'guides/debugging' },
+						{ label: 'Persistence', slug: 'guides/persistence' },
 					],
 				},
 			],

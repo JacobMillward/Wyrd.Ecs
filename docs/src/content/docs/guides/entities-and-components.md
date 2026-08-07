@@ -34,28 +34,28 @@ Nothing is queued into the world until `world.ApplyCommands()` runs. A [query](/
 
 ## The EntityView shortcut
 
-`CreateEntity()` returns an `EntityView`, not the command buffer itself. It already knows which world and which entity, so each chained call reads `.AddComponent(...)` instead of `world.Commands.AddComponent(goblin, ...)`, no need to repeat which entity you mean.
-
-:::tip
-Assign it straight to an `Entity`, like `goblin` above, if you need to keep it around. Past that line, an `EntityView` can't be stored in a field, a list, or captured by a lambda, it only exists to make the moment of creation chainable.
-:::
-
-It shows up again as an optional parameter on a system's `Update`, for the same reason: mutating the entity currently being processed without re-specifying which one. See [Systems](/guides/systems/#optional-update-parameters).
-
-## Changing an existing entity
-
-For an entity you already have an `Entity` handle to (not the `EntityView` shortcut above), mutate it through the command buffer directly, passing the entity to every call:
+`CreateEntity()` returns an `EntityView`, a chainable handle bound to one entity and the buffer it queues on. Once you have one, every mutation is a direct call on it:
 
 ```csharp
-world.Commands.RemoveTag<Stunned>(goblin);
-world.Commands.AddComponent(goblin, new Health { Current = 5, Max = 10 });
+goblin.RemoveTag<Stunned>()
+    .AddComponent(new Health { Current = 5, Max = 10 });
 world.ApplyCommands();
 ```
+
+:::tip
+`EntityView` is a `ref struct`, it can't be stored in a field, a list, or captured by a lambda, only ever a local variable or a chained expression. If all you have is a plain `Entity` you stored earlier, `world[goblin]` gets you an `EntityView` back for it.
+:::
+
+See [Systems](/guides/systems/#optional-update-parameters) for how a system's `Update` gets one automatically.
+
+:::note[Advanced]
+`goblin.AddComponent(...)` and `world.Commands.AddComponent(goblin, ...)` queue the exact same thing, `EntityView` is a thin wrapper. The direct form skips constructing a view, worth it only in a hot per-entity loop.
+:::
 
 ## Destroying entities
 
 ```csharp
-world.Commands.DestroyEntity(goblin);
+goblin.DestroyEntity();
 world.ApplyCommands();
 ```
 

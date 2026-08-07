@@ -24,7 +24,7 @@ An archetype-based ECS for .NET 10, built around source generation and first-cla
 - Tick-based change tracking, opt in per component type.
 - Structural change observers for entity/component add/remove.
 - AOT-compatible throughout.
-- [Easy add-in persistence](docs/persistence.md). Mark your components, reference a codec package, one method on `WorldBuilder`. Pick binary or JSON, then optionally layer on a continuous WAL for crash-safe incremental saves.
+- [Easy add-in persistence](https://wyrd.millward.dev/guides/persistence/). Mark your components, reference a codec package, one method on `WorldBuilder`. Pick binary or JSON, then optionally layer on a continuous WAL for crash-safe incremental saves.
 
 ## Quick start
 

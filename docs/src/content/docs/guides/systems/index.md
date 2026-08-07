@@ -3,7 +3,7 @@ title: Systems
 description: QuerySystem, registering systems, and how the parallel scheduler works.
 ---
 
-A `QuerySystem` pairs a [query](/guides/queries/) with the code that runs against every entity it matches. `DefineQuery` declares the shape, `Update` is the per-entity body, a source generator fills in the dispatch between them.
+A `QuerySystem` pairs a [query](/guides/queries/) with the code that runs against every entity it matches: `DefineQuery` for the shape, `Update` for the per-entity body. A source generator fills in the dispatch between them.
 
 ```csharp
 public sealed partial class MovementSystem : QuerySystem
@@ -109,7 +109,7 @@ world.AddSystem<DeathCheckSystem>();
 world.RemoveSystem<DeathCheckSystem>();
 ```
 
-Removing a system calls its `OnDestroy`, once, the constructor's teardown counterpart. Since `DamageOverTimeSystem` is `partial`, override it in another declaration of the same class:
+Removing a system calls its `OnDestroy`, once, the constructor's teardown counterpart. It can go anywhere in the class, here it's split into its own `partial` declaration just to avoid repeating `DamageOverTimeSystem`'s body already shown above:
 
 ```csharp
 public sealed partial class DamageOverTimeSystem
@@ -117,3 +117,7 @@ public sealed partial class DamageOverTimeSystem
     protected override void OnDestroy() { /* release whatever the constructor set up */ }
 }
 ```
+
+## Next
+
+Structural changes made from inside a system still go through `CommandBuffer`, the same as everywhere else. See [Command Buffer](/guides/systems/command-buffer/) for why, and how to use one directly.

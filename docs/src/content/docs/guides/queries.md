@@ -118,12 +118,12 @@ if (hardcoreMode) query = query.Has<HardcoreOnly>();
 `WithRelation`/`WithoutRelation` filter on relation edges, the structural links `AddRelation` creates between entities. `WithRelation<T>()` matches any entity with at least one edge of that relation, target unspecified. `WithoutRelation<T>()` excludes them. A relation is neither an `IComponent` nor an `ITag`, it's its own `IRelation` type, a third category the table above doesn't cover.
 
 ```csharp
-struct Likes : IRelation { public float Weight; }
+struct Targeting : IRelation { public float ThreatLevel; }
 
-world.Query().WithRelation<Likes>()
-    .ForEach(0, (in int _, in RelationLinks<Likes> link) => { /* one match per entity with a Likes edge */ });
+world.Query().WithRelation<Targeting>()
+    .ForEach(0, (in int _, in RelationLinks<Targeting> link) => { /* one match per entity with a Targeting edge */ });
 
-world.Query().With<Position>().WithoutRelation<Likes>()
+world.Query().With<Position>().WithoutRelation<Targeting>()
 ```
 
 :::note[Advanced]
