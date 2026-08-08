@@ -36,3 +36,9 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build --configuration Release
+
+      - name: Publish NativeAOT smoke test
+        run: dotnet publish src/Persistence/Binary/Wyrd.Ecs.Persistence.Binary.AotSmokeTest -c Release -r linux-x64 --self-contained -o artifacts/aot-smoke-test
+
+      - name: Run NativeAOT smoke test
+        run: ./artifacts/aot-smoke-test/Wyrd.Ecs.Persistence.Binary.AotSmokeTest
