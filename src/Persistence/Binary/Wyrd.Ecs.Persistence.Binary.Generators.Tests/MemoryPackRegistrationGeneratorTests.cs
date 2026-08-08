@@ -55,6 +55,60 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
+    public void ComponentWithStringFieldAndNoAttribute_GeneratesAFormatterAndRegistersIt()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public struct Named : IComponent { public string Value; public int Count; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("registry.Register<global::Named>(\"Named\",");
+        generated.Should().Contain(": global::MemoryPack.MemoryPackFormatter<global::Named>");
+        generated.Should().Contain("global::MemoryPack.MemoryPackFormatterProvider.Register(");
+        generated.Should().Contain("[System.Runtime.CompilerServices.ModuleInitializer]");
+    }
+
+    [Fact]
+    public void ComponentWithNestedPlainStructField_GeneratesAFormatterForBothTypesExactlyOnce()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public struct Label { public string Text; }
+            public struct Named : IComponent { public Label Label; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain(": global::MemoryPack.MemoryPackFormatter<global::Named>");
+        generated.Should().Contain(": global::MemoryPack.MemoryPackFormatter<global::Label>");
+        System.Text.RegularExpressions.Regex.Matches(generated, "MemoryPackFormatter<global::Label>").Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void ComponentWithArrayAndListFields_GeneratesOneFormatterForTheComponentOnly()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            using Wyrd.Ecs;
+
+            public struct Inventory : IComponent { public string[] Tags; public List<int> Counts; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain(": global::MemoryPack.MemoryPackFormatter<global::Inventory>");
+        generated.Should().NotContain("MemoryPackFormatter<global::System.String[]");
+        generated.Should().NotContain("MemoryPackFormatter<global::System.Collections.Generic.List<global::System.Int32>>");
+    }
+
+    [Fact]
     public void MemoryPackableComponent_RegistersIt()
     {
         const string source = """

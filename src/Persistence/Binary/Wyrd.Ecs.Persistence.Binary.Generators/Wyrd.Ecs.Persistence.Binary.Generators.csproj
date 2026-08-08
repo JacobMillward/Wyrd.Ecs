@@ -14,4 +14,13 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <!--
+      RS2008: WYRD006 (BinaryPersistenceDiagnostics) isn't tracked via
+      AnalyzerReleases.Shipped/Unshipped.md - this project doesn't otherwise use that
+      convention, and setting it up for one descriptor isn't worth the ceremony.
+    -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+
 </Project>
