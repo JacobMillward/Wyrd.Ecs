@@ -20,7 +20,7 @@ public partial struct Position : IComponent
 }
 ```
 
-The builder call is a one-liner, already wired to every `[MemoryPackable]` component in your project:
+The builder call is a one-liner, wired to every `[MemoryPackable]` component in your project:
 
 ```csharp
 var world = new WorldBuilder()
@@ -90,7 +90,7 @@ registry.RegisterMigration("Enemy", fromSchemaHash: 1, toSchemaHash: 2, oldBytes
 
 ## Tags
 
-Tag presence is part of saved state, on by default for every `ITag` type, no attribute or manual registration needed. Opt a specific tag out with `[PersistenceIgnore]`, the same attribute the JSON codec uses for components:
+Tag presence is part of saved state, on by default for every `ITag` type. Opt a specific tag out with `[PersistenceIgnore]`, the same attribute the JSON codec uses for components:
 
 ```csharp
 [PersistenceIgnore]
