@@ -116,6 +116,8 @@ public class WorldPersistenceExtensionsTests : IDisposable
         public float X;
     }
 
+    private struct Enemy : ITag { }
+
     private static CodecRegistry BuildRegistry()
     {
         var registry = new CodecRegistry();
@@ -827,5 +829,50 @@ public class WorldPersistenceExtensionsTests : IDisposable
         var act = () => target.Load(store);
 
         act.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void SaveThenLoad_PreservesWhichEntitiesHaveWhichTags()
+    {
+        var registry = new CodecRegistry();
+        registry.RegisterTag<Enemy>("Enemy");
+        var source = new World();
+        source.DefaultCodecRegistry = registry;
+        var entity = source.Commands.CreateEntity();
+        source.Commands.AddTag<Enemy>(entity);
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+
+        source.Save(store);
+
+        var target = new World();
+        target.DefaultCodecRegistry = registry;
+        target.Load(store);
+
+        target.EnumerateAllTags(registry).Should().ContainSingle(t => t.Discriminator == "Enemy");
+    }
+
+    [Fact]
+    public void SaveThenLoad_RenamedTag_OldDiscriminatorStillResolves()
+    {
+        var savingRegistry = new CodecRegistry();
+        savingRegistry.RegisterTag<Enemy>("Old.Enemy");
+        var source = new World();
+        source.DefaultCodecRegistry = savingRegistry;
+        var entity = source.Commands.CreateEntity();
+        source.Commands.AddTag<Enemy>(entity);
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+
+        source.Save(store);
+
+        var loadingRegistry = new CodecRegistry();
+        loadingRegistry.RegisterTag<Enemy>("Enemy");
+        loadingRegistry.RegisterAlias("Old.Enemy", "Enemy");
+        var target = new World();
+        target.DefaultCodecRegistry = loadingRegistry;
+        target.Load(store);
+
+        target.EnumerateAllTags(loadingRegistry).Should().ContainSingle(t => t.Discriminator == "Enemy");
     }
 }
