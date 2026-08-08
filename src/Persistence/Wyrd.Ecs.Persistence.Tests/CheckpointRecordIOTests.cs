@@ -12,12 +12,12 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRecord(stream, entityId, "Position", 42u, [1, 2, 3]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out _, out var readEntityId, out _, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
+        CheckpointRecordIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        readEntityId.Should().Be(entityId);
-        discriminator.Should().Be("Position");
-        schemaHash.Should().Be(42u);
-        payload.Should().Equal(new byte[] { 1, 2, 3 });
+        record.EntityId.Should().Be(entityId);
+        record.Discriminator.Should().Be("Position");
+        record.SchemaHash.Should().Be(42u);
+        record.Payload.Should().Equal(new byte[] { 1, 2, 3 });
     }
 
     [Fact]
@@ -27,9 +27,9 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRecord(stream, EntityId.NewId(), "Position", null, [1]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out _, out _, out _, out _, out var schemaHash, out _).Should().BeTrue();
+        CheckpointRecordIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        schemaHash.Should().BeNull();
+        record.SchemaHash.Should().BeNull();
     }
 
     [Fact]
@@ -39,9 +39,9 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRecord(stream, EntityId.NewId(), "Position", 0u, [1]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out _, out _, out _, out _, out var schemaHash, out _).Should().BeTrue();
+        CheckpointRecordIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        schemaHash.Should().Be(0u);
+        record.SchemaHash.Should().Be(0u);
     }
 
     [Fact]
@@ -54,15 +54,15 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRecord(stream, second, "Velocity", 2u, [2, 2]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out _, out var readFirst, out _, out var firstDiscriminator, out var firstHash, out _).Should().BeTrue();
-        readFirst.Should().Be(first);
-        firstDiscriminator.Should().Be("Position");
-        firstHash.Should().Be(1u);
+        CheckpointRecordIO.TryReadRecord(stream, out var firstRecord).Should().BeTrue();
+        firstRecord.EntityId.Should().Be(first);
+        firstRecord.Discriminator.Should().Be("Position");
+        firstRecord.SchemaHash.Should().Be(1u);
 
-        CheckpointRecordIO.TryReadRecord(stream, out _, out var readSecond, out _, out var secondDiscriminator, out var secondHash, out _).Should().BeTrue();
-        readSecond.Should().Be(second);
-        secondDiscriminator.Should().Be("Velocity");
-        secondHash.Should().Be(2u);
+        CheckpointRecordIO.TryReadRecord(stream, out var secondRecord).Should().BeTrue();
+        secondRecord.EntityId.Should().Be(second);
+        secondRecord.Discriminator.Should().Be("Velocity");
+        secondRecord.SchemaHash.Should().Be(2u);
     }
 
     [Fact]
@@ -72,9 +72,9 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRecord(stream, EntityId.NewId(), "Position", null, [1]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out var kind, out _, out _, out _, out _, out _).Should().BeTrue();
+        CheckpointRecordIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        kind.Should().Be(CheckpointRecordKind.Component);
+        record.Kind.Should().Be(CheckpointRecordKind.Component);
     }
 
     [Fact]
@@ -86,14 +86,14 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRelationRecord(stream, sourceId, targetId, "likes", 42u, [1, 2, 3]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out var kind, out var readSourceId, out var readTargetId, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
+        CheckpointRecordIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        kind.Should().Be(CheckpointRecordKind.RelationEdge);
-        readSourceId.Should().Be(sourceId);
-        readTargetId.Should().Be(targetId);
-        discriminator.Should().Be("likes");
-        schemaHash.Should().Be(42u);
-        payload.Should().Equal(new byte[] { 1, 2, 3 });
+        record.Kind.Should().Be(CheckpointRecordKind.RelationEdge);
+        record.EntityId.Should().Be(sourceId);
+        record.TargetId.Should().Be(targetId);
+        record.Discriminator.Should().Be("likes");
+        record.SchemaHash.Should().Be(42u);
+        record.Payload.Should().Equal(new byte[] { 1, 2, 3 });
     }
 
     [Fact]
@@ -107,16 +107,16 @@ public class CheckpointRecordIOTests
         CheckpointRecordIO.WriteRelationRecord(stream, sourceId, targetId, "likes", null, [2]);
         stream.Position = 0;
 
-        CheckpointRecordIO.TryReadRecord(stream, out var firstKind, out var firstEntityId, out _, out var firstDiscriminator, out _, out _).Should().BeTrue();
-        firstKind.Should().Be(CheckpointRecordKind.Component);
-        firstEntityId.Should().Be(componentEntity);
-        firstDiscriminator.Should().Be("Position");
+        CheckpointRecordIO.TryReadRecord(stream, out var firstRecord).Should().BeTrue();
+        firstRecord.Kind.Should().Be(CheckpointRecordKind.Component);
+        firstRecord.EntityId.Should().Be(componentEntity);
+        firstRecord.Discriminator.Should().Be("Position");
 
-        CheckpointRecordIO.TryReadRecord(stream, out var secondKind, out var secondSourceId, out var secondTargetId, out var secondDiscriminator, out _, out _).Should().BeTrue();
-        secondKind.Should().Be(CheckpointRecordKind.RelationEdge);
-        secondSourceId.Should().Be(sourceId);
-        secondTargetId.Should().Be(targetId);
-        secondDiscriminator.Should().Be("likes");
+        CheckpointRecordIO.TryReadRecord(stream, out var secondRecord).Should().BeTrue();
+        secondRecord.Kind.Should().Be(CheckpointRecordKind.RelationEdge);
+        secondRecord.EntityId.Should().Be(sourceId);
+        secondRecord.TargetId.Should().Be(targetId);
+        secondRecord.Discriminator.Should().Be("likes");
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class CheckpointRecordIOTests
     {
         using var stream = new MemoryStream();
 
-        CheckpointRecordIO.TryReadRecord(stream, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        CheckpointRecordIO.TryReadRecord(stream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -136,11 +136,11 @@ public class CheckpointRecordIOTests
         var truncatedBytes = fullBytes[..(fullBytes.Length - 3)];
 
         using var truncatedStream = new MemoryStream(truncatedBytes);
-        var act = () => CheckpointRecordIO.TryReadRecord(truncatedStream, out _, out _, out _, out _, out _, out _);
+        var act = () => CheckpointRecordIO.TryReadRecord(truncatedStream, out _);
         act.Should().NotThrow();
 
         using var truncatedStreamAgain = new MemoryStream(truncatedBytes);
-        CheckpointRecordIO.TryReadRecord(truncatedStreamAgain, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        CheckpointRecordIO.TryReadRecord(truncatedStreamAgain, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class CheckpointRecordIOTests
 
         using var corruptedStream = new MemoryStream(bytes);
 
-        CheckpointRecordIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        CheckpointRecordIO.TryReadRecord(corruptedStream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -165,11 +165,11 @@ public class CheckpointRecordIOTests
         BitConverter.GetBytes(int.MaxValue).CopyTo(bytes, 0); // corrupt the length prefix itself, not the body
 
         using var corruptedStream = new MemoryStream(bytes);
-        var act = () => CheckpointRecordIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _);
+        var act = () => CheckpointRecordIO.TryReadRecord(corruptedStream, out _);
 
         act.Should().NotThrow();
         corruptedStream.Position = 0;
-        CheckpointRecordIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        CheckpointRecordIO.TryReadRecord(corruptedStream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -236,12 +236,12 @@ public class CheckpointRecordIOTests
         stream.Position = 0;
 
         var tick = CheckpointRecordIO.ReadHeader(stream);
-        CheckpointRecordIO.TryReadRecord(stream, out _, out var readEntityId, out _, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
+        CheckpointRecordIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
         tick.Should().Be(7);
-        readEntityId.Should().Be(entityId);
-        discriminator.Should().Be("Position");
-        schemaHash.Should().Be(7u);
-        payload.Should().Equal(new byte[] { 9, 9 });
+        record.EntityId.Should().Be(entityId);
+        record.Discriminator.Should().Be("Position");
+        record.SchemaHash.Should().Be(7u);
+        record.Payload.Should().Equal(new byte[] { 9, 9 });
     }
 }

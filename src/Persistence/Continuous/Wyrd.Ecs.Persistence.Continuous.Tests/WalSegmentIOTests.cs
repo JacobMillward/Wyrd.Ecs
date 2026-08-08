@@ -12,14 +12,14 @@ public class WalSegmentIOTests
         WalSegmentIO.WriteRecord(stream, WalRecordKind.ComponentChanged, tick: 5, entityId, "Position", 42u, [1, 2, 3]);
         stream.Position = 0;
 
-        WalSegmentIO.TryReadRecord(stream, out var kind, out var tick, out var readEntityId, out _, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        kind.Should().Be(WalRecordKind.ComponentChanged);
-        tick.Should().Be(5);
-        readEntityId.Should().Be(entityId);
-        discriminator.Should().Be("Position");
-        schemaHash.Should().Be(42u);
-        payload.Should().Equal(new byte[] { 1, 2, 3 });
+        record.Kind.Should().Be(WalRecordKind.ComponentChanged);
+        record.Tick.Should().Be(5);
+        record.EntityId.Should().Be(entityId);
+        record.Discriminator.Should().Be("Position");
+        record.SchemaHash.Should().Be(42u);
+        record.Payload.Should().Equal(new byte[] { 1, 2, 3 });
     }
 
     [Fact]
@@ -29,9 +29,9 @@ public class WalSegmentIOTests
         WalSegmentIO.WriteRecord(stream, WalRecordKind.EntityCreated, tick: 1, EntityId.NewId(), "", null, []);
         stream.Position = 0;
 
-        WalSegmentIO.TryReadRecord(stream, out _, out _, out _, out _, out _, out var schemaHash, out _).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        schemaHash.Should().BeNull();
+        record.SchemaHash.Should().BeNull();
     }
 
     [Fact]
@@ -45,9 +45,9 @@ public class WalSegmentIOTests
             WalSegmentIO.WriteRecord(stream, kind, tick: 1, EntityId.NewId(), "Position", null, []);
             stream.Position = 0;
 
-            WalSegmentIO.TryReadRecord(stream, out var readKind, out _, out _, out _, out _, out _, out _).Should().BeTrue();
+            WalSegmentIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-            readKind.Should().Be(kind);
+            record.Kind.Should().Be(kind);
         }
     }
 
@@ -61,17 +61,17 @@ public class WalSegmentIOTests
         WalSegmentIO.WriteRecord(stream, WalRecordKind.ComponentRemoved, tick: 2, second, "Velocity", null, []);
         stream.Position = 0;
 
-        WalSegmentIO.TryReadRecord(stream, out var firstKind, out var firstTick, out var readFirst, out _, out var firstDiscriminator, out _, out _).Should().BeTrue();
-        firstKind.Should().Be(WalRecordKind.ComponentChanged);
-        firstTick.Should().Be(1);
-        readFirst.Should().Be(first);
-        firstDiscriminator.Should().Be("Position");
+        WalSegmentIO.TryReadRecord(stream, out var firstRecord).Should().BeTrue();
+        firstRecord.Kind.Should().Be(WalRecordKind.ComponentChanged);
+        firstRecord.Tick.Should().Be(1);
+        firstRecord.EntityId.Should().Be(first);
+        firstRecord.Discriminator.Should().Be("Position");
 
-        WalSegmentIO.TryReadRecord(stream, out var secondKind, out var secondTick, out var readSecond, out _, out var secondDiscriminator, out _, out _).Should().BeTrue();
-        secondKind.Should().Be(WalRecordKind.ComponentRemoved);
-        secondTick.Should().Be(2);
-        readSecond.Should().Be(second);
-        secondDiscriminator.Should().Be("Velocity");
+        WalSegmentIO.TryReadRecord(stream, out var secondRecord).Should().BeTrue();
+        secondRecord.Kind.Should().Be(WalRecordKind.ComponentRemoved);
+        secondRecord.Tick.Should().Be(2);
+        secondRecord.EntityId.Should().Be(second);
+        secondRecord.Discriminator.Should().Be("Velocity");
     }
 
     [Fact]
@@ -83,15 +83,15 @@ public class WalSegmentIOTests
         WalSegmentIO.WriteRelationRecord(stream, WalRecordKind.RelationLinked, tick: 3, sourceId, targetId, "likes", 42u, [1, 2, 3]);
         stream.Position = 0;
 
-        WalSegmentIO.TryReadRecord(stream, out var kind, out var tick, out var readSourceId, out var readTargetId, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        kind.Should().Be(WalRecordKind.RelationLinked);
-        tick.Should().Be(3);
-        readSourceId.Should().Be(sourceId);
-        readTargetId.Should().Be(targetId);
-        discriminator.Should().Be("likes");
-        schemaHash.Should().Be(42u);
-        payload.Should().Equal(new byte[] { 1, 2, 3 });
+        record.Kind.Should().Be(WalRecordKind.RelationLinked);
+        record.Tick.Should().Be(3);
+        record.EntityId.Should().Be(sourceId);
+        record.TargetId.Should().Be(targetId);
+        record.Discriminator.Should().Be("likes");
+        record.SchemaHash.Should().Be(42u);
+        record.Payload.Should().Equal(new byte[] { 1, 2, 3 });
     }
 
     [Fact]
@@ -105,16 +105,16 @@ public class WalSegmentIOTests
         WalSegmentIO.WriteRelationRecord(stream, WalRecordKind.RelationUnlinked, tick: 2, sourceId, targetId, "likes", null, []);
         stream.Position = 0;
 
-        WalSegmentIO.TryReadRecord(stream, out var firstKind, out _, out var firstEntityId, out _, out var firstDiscriminator, out _, out _).Should().BeTrue();
-        firstKind.Should().Be(WalRecordKind.ComponentChanged);
-        firstEntityId.Should().Be(componentEntity);
-        firstDiscriminator.Should().Be("Position");
+        WalSegmentIO.TryReadRecord(stream, out var firstRecord).Should().BeTrue();
+        firstRecord.Kind.Should().Be(WalRecordKind.ComponentChanged);
+        firstRecord.EntityId.Should().Be(componentEntity);
+        firstRecord.Discriminator.Should().Be("Position");
 
-        WalSegmentIO.TryReadRecord(stream, out var secondKind, out _, out var secondSourceId, out var secondTargetId, out var secondDiscriminator, out _, out _).Should().BeTrue();
-        secondKind.Should().Be(WalRecordKind.RelationUnlinked);
-        secondSourceId.Should().Be(sourceId);
-        secondTargetId.Should().Be(targetId);
-        secondDiscriminator.Should().Be("likes");
+        WalSegmentIO.TryReadRecord(stream, out var secondRecord).Should().BeTrue();
+        secondRecord.Kind.Should().Be(WalRecordKind.RelationUnlinked);
+        secondRecord.EntityId.Should().Be(sourceId);
+        secondRecord.TargetId.Should().Be(targetId);
+        secondRecord.Discriminator.Should().Be("likes");
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public class WalSegmentIOTests
     {
         using var stream = new MemoryStream();
 
-        WalSegmentIO.TryReadRecord(stream, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        WalSegmentIO.TryReadRecord(stream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -134,11 +134,11 @@ public class WalSegmentIOTests
         var truncatedBytes = fullBytes[..(fullBytes.Length - 3)];
 
         using var truncatedStream = new MemoryStream(truncatedBytes);
-        var act = () => WalSegmentIO.TryReadRecord(truncatedStream, out _, out _, out _, out _, out _, out _, out _);
+        var act = () => WalSegmentIO.TryReadRecord(truncatedStream, out _);
         act.Should().NotThrow();
 
         using var truncatedStreamAgain = new MemoryStream(truncatedBytes);
-        WalSegmentIO.TryReadRecord(truncatedStreamAgain, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        WalSegmentIO.TryReadRecord(truncatedStreamAgain, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public class WalSegmentIOTests
 
         using var corruptedStream = new MemoryStream(bytes);
 
-        WalSegmentIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        WalSegmentIO.TryReadRecord(corruptedStream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -163,11 +163,11 @@ public class WalSegmentIOTests
         BitConverter.GetBytes(int.MaxValue).CopyTo(bytes, 0); // corrupt the length prefix itself, not the body
 
         using var corruptedStream = new MemoryStream(bytes);
-        var act = () => WalSegmentIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _, out _);
+        var act = () => WalSegmentIO.TryReadRecord(corruptedStream, out _);
 
         act.Should().NotThrow();
         corruptedStream.Position = 0;
-        WalSegmentIO.TryReadRecord(corruptedStream, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        WalSegmentIO.TryReadRecord(corruptedStream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -212,13 +212,13 @@ public class WalSegmentIOTests
         stream.Position = 0;
 
         WalSegmentIO.ReadHeader(stream);
-        WalSegmentIO.TryReadRecord(stream, out var kind, out var tick, out var readEntityId, out _, out var discriminator, out var schemaHash, out var payload).Should().BeTrue();
+        WalSegmentIO.TryReadRecord(stream, out var record).Should().BeTrue();
 
-        kind.Should().Be(WalRecordKind.ComponentAdded);
-        tick.Should().Be(7);
-        readEntityId.Should().Be(entityId);
-        discriminator.Should().Be("Position");
-        schemaHash.Should().Be(3u);
-        payload.Should().Equal(new byte[] { 9, 9 });
+        record.Kind.Should().Be(WalRecordKind.ComponentAdded);
+        record.Tick.Should().Be(7);
+        record.EntityId.Should().Be(entityId);
+        record.Discriminator.Should().Be("Position");
+        record.SchemaHash.Should().Be(3u);
+        record.Payload.Should().Equal(new byte[] { 9, 9 });
     }
 }

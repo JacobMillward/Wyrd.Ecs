@@ -108,37 +108,37 @@ public static class WorldPersistenceExtensions
             Internal.CheckpointRecordIO.ReadHeader(stream);
             var entities = new Dictionary<EntityId, Entity>();
 
-            while (Internal.CheckpointRecordIO.TryReadRecord(stream, out var kind, out var entityId, out var targetId, out var discriminator, out var schemaHash, out var payload))
+            while (Internal.CheckpointRecordIO.TryReadRecord(stream, out var record))
             {
-                if (!entities.TryGetValue(entityId, out var entity))
+                if (!entities.TryGetValue(record.EntityId, out var entity))
                 {
                     entity = world.Commands.CreateEntity();
-                    entities[entityId] = entity;
+                    entities[record.EntityId] = entity;
                 }
 
-                if (kind == Internal.CheckpointRecordKind.Component)
+                if (record.Kind == Internal.CheckpointRecordKind.Component)
                 {
-                    if (!registry.TryGetByDiscriminator(discriminator, out var registered)) continue;
+                    if (!registry.TryGetByDiscriminator(record.Discriminator, out var registered)) continue;
 
-                    var bytesToDecode = payload;
-                    if (registered.SchemaHash is { } currentHash && schemaHash is { } recordHash && recordHash != currentHash)
-                        bytesToDecode = registry.Migrate(discriminator, recordHash, payload);
+                    var bytesToDecode = record.Payload;
+                    if (registered.SchemaHash is { } currentHash && record.SchemaHash is { } recordHash && recordHash != currentHash)
+                        bytesToDecode = registry.Migrate(record.Discriminator, recordHash, record.Payload);
 
                     registered.DecodeInto(world, entity, bytesToDecode);
                 }
                 else
                 {
-                    if (!entities.TryGetValue(targetId, out var target))
+                    if (!entities.TryGetValue(record.TargetId, out var target))
                     {
                         target = world.Commands.CreateEntity();
-                        entities[targetId] = target;
+                        entities[record.TargetId] = target;
                     }
 
-                    if (!registry.TryGetRelationByDiscriminator(discriminator, out var relationRegistered)) continue;
+                    if (!registry.TryGetRelationByDiscriminator(record.Discriminator, out var relationRegistered)) continue;
 
-                    var bytesToDecode = payload;
-                    if (relationRegistered.SchemaHash is { } currentHash && schemaHash is { } recordHash && recordHash != currentHash)
-                        bytesToDecode = registry.Migrate(discriminator, recordHash, payload);
+                    var bytesToDecode = record.Payload;
+                    if (relationRegistered.SchemaHash is { } currentHash && record.SchemaHash is { } recordHash && recordHash != currentHash)
+                        bytesToDecode = registry.Migrate(record.Discriminator, recordHash, record.Payload);
 
                     relationRegistered.DecodeInto(world, entity, target, bytesToDecode);
                 }

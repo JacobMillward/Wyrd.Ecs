@@ -31,10 +31,10 @@ public static class CheckpointBuilder
             using var segmentStream = walStore.OpenSegmentRead(startTick);
             Internal.WalSegmentIO.ReadHeader(segmentStream);
 
-            while (Internal.WalSegmentIO.TryReadRecord(segmentStream, out var kind, out var tick, out var entityId, out var targetId, out var discriminator, out var schemaHash, out var payload))
+            while (Internal.WalSegmentIO.TryReadRecord(segmentStream, out var record))
             {
-                if (tick <= priorTick || tick > targetTick) continue;
-                Apply(entries, relationEntries, destroyed, kind, entityId, targetId, discriminator, schemaHash, payload);
+                if (record.Tick <= priorTick || record.Tick > targetTick) continue;
+                Apply(entries, relationEntries, destroyed, record.Kind, record.EntityId, record.TargetId, record.Discriminator, record.SchemaHash, record.Payload);
             }
         }
 
@@ -98,12 +98,12 @@ public static class CheckpointBuilder
             var tick = Persistence.Internal.CheckpointRecordIO.ReadHeader(stream);
             var entries = new Dictionary<(EntityId, string), (uint?, byte[])>();
             var relationEntries = new Dictionary<(EntityId, EntityId, string), (uint?, byte[])>();
-            while (Persistence.Internal.CheckpointRecordIO.TryReadRecord(stream, out var kind, out var entityId, out var targetId, out var discriminator, out var schemaHash, out var payload))
+            while (Persistence.Internal.CheckpointRecordIO.TryReadRecord(stream, out var record))
             {
-                if (kind == Persistence.Internal.CheckpointRecordKind.Component)
-                    entries[(entityId, discriminator)] = (schemaHash, payload);
+                if (record.Kind == Persistence.Internal.CheckpointRecordKind.Component)
+                    entries[(record.EntityId, record.Discriminator)] = (record.SchemaHash, record.Payload);
                 else
-                    relationEntries[(entityId, targetId, discriminator)] = (schemaHash, payload);
+                    relationEntries[(record.EntityId, record.TargetId, record.Discriminator)] = (record.SchemaHash, record.Payload);
             }
             return (tick, entries, relationEntries);
         }

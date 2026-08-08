@@ -3,6 +3,9 @@ using System.Text;
 
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
+/// <summary>One decoded WAL record, from <see cref="WalSegmentIO.TryReadRecord"/>. <see cref="TargetId"/> is only meaningful for <see cref="WalRecordKind.RelationLinked"/>/<see cref="WalRecordKind.RelationUnlinked"/>.</summary>
+internal readonly record struct WalRecord(WalRecordKind Kind, int Tick, EntityId EntityId, EntityId TargetId, string Discriminator, uint? SchemaHash, byte[] Payload);
+
 /// <summary>
 /// Reads and writes the WAL segment file header and individual WAL records: magic bytes
 /// plus version header, length-prefixed records with a CRC32 checksum. A
@@ -128,15 +131,9 @@ internal static class WalSegmentIO
         outWriter.Write(checksum);
     }
 
-    public static bool TryReadRecord(Stream stream, out WalRecordKind kind, out int tick, out EntityId entityId, out EntityId targetId, out string discriminator, out uint? schemaHash, out byte[] payload)
+    public static bool TryReadRecord(Stream stream, out WalRecord record)
     {
-        kind = default;
-        tick = 0;
-        entityId = default;
-        targetId = default;
-        discriminator = string.Empty;
-        schemaHash = null;
-        payload = [];
+        record = default;
 
         Span<byte> lengthBuffer = stackalloc byte[4];
         if (!TryReadFully(stream, lengthBuffer)) return false;
@@ -154,18 +151,19 @@ internal static class WalSegmentIO
         if (Crc32.HashToUInt32(recordBytes) != expectedChecksum) return false;
 
         using var reader = new BinaryReader(new MemoryStream(recordBytes), Encoding.UTF8);
-        kind = (WalRecordKind)reader.ReadByte();
-        tick = reader.ReadInt32();
-        entityId = ReadEntityId(reader);
-        if (kind is WalRecordKind.RelationLinked or WalRecordKind.RelationUnlinked)
-            targetId = ReadEntityId(reader);
+        var kind = (WalRecordKind)reader.ReadByte();
+        var tick = reader.ReadInt32();
+        var entityId = ReadEntityId(reader);
+        var targetId = kind is WalRecordKind.RelationLinked or WalRecordKind.RelationUnlinked ? ReadEntityId(reader) : default;
 
-        discriminator = reader.ReadString();
+        var discriminator = reader.ReadString();
         var hasSchemaHash = reader.ReadBoolean();
         var schemaHashValue = reader.ReadUInt32();
-        schemaHash = hasSchemaHash ? schemaHashValue : null;
+        var schemaHash = hasSchemaHash ? schemaHashValue : (uint?)null;
         var payloadLength = reader.ReadInt32();
-        payload = reader.ReadBytes(payloadLength);
+        var payload = reader.ReadBytes(payloadLength);
+
+        record = new WalRecord(kind, tick, entityId, targetId, discriminator, schemaHash, payload);
         return true;
     }
 

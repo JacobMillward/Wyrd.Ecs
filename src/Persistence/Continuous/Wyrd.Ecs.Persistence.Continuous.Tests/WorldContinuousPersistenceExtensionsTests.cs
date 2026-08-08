@@ -170,8 +170,8 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         using var readStream = walStore.OpenSegmentRead(segmentTickAtStop);
         WalSegmentIO.ReadHeader(readStream);
         var found = false;
-        while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _, out _))
-            found = found || readEntity == world.GetPermanentId(entity);
+        while (WalSegmentIO.TryReadRecord(readStream, out var record))
+            found = found || record.EntityId == world.GetPermanentId(entity);
         found.Should().BeFalse();
     }
 

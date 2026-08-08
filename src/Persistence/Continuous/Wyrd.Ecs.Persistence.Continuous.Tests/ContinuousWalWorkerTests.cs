@@ -59,8 +59,8 @@ public class ContinuousWalWorkerTests : IDisposable
         using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
         WalSegmentIO.ReadHeader(readStream);
         var records = new List<(WalRecordKind Kind, EntityId EntityId, string Discriminator)>();
-        while (WalSegmentIO.TryReadRecord(readStream, out var kind, out _, out var readEntity, out _, out var discriminator, out _, out _))
-            records.Add((kind, readEntity, discriminator));
+        while (WalSegmentIO.TryReadRecord(readStream, out var record))
+            records.Add((record.Kind, record.EntityId, record.Discriminator));
 
         records.Should().Contain(r => r.Kind == WalRecordKind.EntityCreated && r.EntityId == world.GetPermanentId(entity));
         records.Should().Contain(r => r.Kind == WalRecordKind.ComponentChanged && r.EntityId == world.GetPermanentId(entity) && r.Discriminator == "Position");
@@ -79,7 +79,7 @@ public class ContinuousWalWorkerTests : IDisposable
         act.Should().NotThrow();
         using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
         WalSegmentIO.ReadHeader(readStream);
-        WalSegmentIO.TryReadRecord(readStream, out _, out _, out _, out _, out _, out _, out _).Should().BeFalse();
+        WalSegmentIO.TryReadRecord(readStream, out _).Should().BeFalse();
     }
 
     [Fact]
@@ -215,8 +215,8 @@ public class ContinuousWalWorkerTests : IDisposable
         {
             using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
             WalSegmentIO.ReadHeader(readStream);
-            while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _, out _))
-                found = found || readEntity == world.GetPermanentId(entity);
+            while (WalSegmentIO.TryReadRecord(readStream, out var record))
+                found = found || record.EntityId == world.GetPermanentId(entity);
             if (!found) Thread.Sleep(10);
         }
 
@@ -283,8 +283,8 @@ public class ContinuousWalWorkerTests : IDisposable
         using var readStream = walStore.OpenSegmentRead(walStore.ListSegmentStartTicks()[0]);
         WalSegmentIO.ReadHeader(readStream);
         var found = false;
-        while (WalSegmentIO.TryReadRecord(readStream, out _, out _, out var readEntity, out _, out _, out _, out _))
-            found = found || readEntity == world.GetPermanentId(entity);
+        while (WalSegmentIO.TryReadRecord(readStream, out var record))
+            found = found || record.EntityId == world.GetPermanentId(entity);
         found.Should().BeTrue();
     }
 
