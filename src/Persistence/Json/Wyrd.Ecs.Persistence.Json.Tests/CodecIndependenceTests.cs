@@ -3,7 +3,7 @@ using MemoryPack;
 namespace Wyrd.Ecs.Persistence.Json.Tests;
 
 [MemoryPackable]
-[JsonPersistenceIgnore]
+[PersistenceIgnore]
 public partial struct BinaryOnlyComponent : IComponent
 {
     public int Value;

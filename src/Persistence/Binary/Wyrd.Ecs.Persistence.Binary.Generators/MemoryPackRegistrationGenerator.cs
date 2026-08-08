@@ -94,6 +94,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            MemoryPackAutoRegistration.RegisterAll(registry);");
+        sb.AppendLine("            global::Wyrd.Ecs.Persistence.Generated.TagPersistenceAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddBinaryPersistence(store, registry);");
         sb.AppendLine("        }");
         sb.AppendLine();
@@ -101,6 +102,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            MemoryPackAutoRegistration.RegisterAll(registry);");
+        sb.AppendLine("            global::Wyrd.Ecs.Persistence.Generated.TagPersistenceAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddBinaryPersistence(path, registry);");
         sb.AppendLine("        }");
         sb.AppendLine("    }");

@@ -1,8 +1,9 @@
-namespace Wyrd.Ecs.Persistence.Json;
+namespace Wyrd.Ecs.Persistence;
 
 /// <summary>
-/// Excludes a component type from JSON saves. By default every component type is
-/// saved automatically; add this attribute to a component struct to leave it out.
+/// Excludes a component or tag type from persistence that defaults to including everything
+/// automatically (JSON components, all tags). MemoryPack components need no equivalent -
+/// [MemoryPackable]'s absence already excludes a component there.
 /// </summary>
 [AttributeUsage(AttributeTargets.Struct)]
-public sealed class JsonPersistenceIgnoreAttribute : Attribute { }
+public sealed class PersistenceIgnoreAttribute : Attribute { }

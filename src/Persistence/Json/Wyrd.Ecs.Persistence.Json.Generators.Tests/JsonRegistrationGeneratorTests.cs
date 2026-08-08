@@ -38,13 +38,13 @@ public class JsonRegistrationGeneratorTests
     }
 
     [Fact]
-    public void AComponentMarkedJsonPersistenceIgnore_IsNotRegistered()
+    public void AComponentMarkedPersistenceIgnore_IsNotRegistered()
     {
         const string source = """
             using Wyrd.Ecs;
-            using Wyrd.Ecs.Persistence.Json;
+            using Wyrd.Ecs.Persistence;
             namespace Test;
-            [JsonPersistenceIgnore]
+            [PersistenceIgnore]
             public struct Secret : IComponent { public string Value; }
             """;
 

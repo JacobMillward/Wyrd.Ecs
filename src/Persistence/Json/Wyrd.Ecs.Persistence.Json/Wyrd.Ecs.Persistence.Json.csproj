@@ -46,7 +46,7 @@
         found at: tasks/netstandard2.0/ for JsonContextEmitTask, the MSBuild Task the
         .targets file's UsingTask points at; analyzers/dotnet/cs/ for
         JsonRegistrationGenerator, the IIncrementalGenerator that emits
-        ComponentCodecRegistry auto-registration and AddJsonPersistence(path)/(store) -
+        CodecRegistry auto-registration and AddJsonPersistence(path)/(store) -
         without this second path, a consumer pulling this package in via a plain
         PackageReference gets the MSBuild task (so their project compiles) but never gets
         the generator wired in, so AddJsonPersistence never materializes. Roslyn's own

@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace Wyrd.Ecs.Persistence.Json.Generators.Tests;
+namespace Wyrd.Ecs.Persistence.Generators.Tests;
 
 internal static class GeneratorTestHost
 {
@@ -9,13 +9,13 @@ internal static class GeneratorTestHost
         ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
-            .Append(MetadataReference.CreateFromFile(typeof(IComponent).Assembly.Location))
-            .Append(MetadataReference.CreateFromFile(typeof(Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(ITag).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(PersistenceIgnoreAttribute).Assembly.Location))
             .ToArray();
 
-    public static CSharpCompilation Compile(string source, string assemblyName = "PersistenceJsonGeneratorsTestAssembly") =>
+    public static CSharpCompilation Compile(string source) =>
         CSharpCompilation.Create(
-            assemblyName: assemblyName,
+            assemblyName: "PersistenceGeneratorsTestAssembly",
             syntaxTrees: [CSharpSyntaxTree.ParseText(source)],
             references: References,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));

@@ -12,7 +12,7 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// <c>build/Wyrd.Ecs.Persistence.Json.Generators.targets</c>. Builds an ad hoc
 /// <see cref="CSharpCompilation"/> from the consuming project's own <c>@(Compile)</c>
 /// items, scans it for <c>Wyrd.Ecs.IComponent</c> implementers not marked
-/// <see cref="JsonPersistenceIgnoreAttribute"/>, and materializes a
+/// <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/>, and materializes a
 /// <c>[JsonSerializable]</c>-decorated <c>JsonSerializerContext</c> partial class to
 /// disk before <c>CoreCompile</c> runs, so System.Text.Json's own source generator
 /// processes it like any hand-written source. This materialize-then-let-STJ-run step
@@ -60,7 +60,7 @@ public sealed class JsonContextEmitTask : Microsoft.Build.Utilities.Task
             {
                 if (model.GetDeclaredSymbol(structDeclaration) is not INamedTypeSymbol symbol) continue;
                 if (!symbol.AllInterfaces.Any(i => i.ToDisplayString() == "Wyrd.Ecs.IComponent")) continue;
-                if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.Json.JsonPersistenceIgnoreAttribute")) continue;
+                if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute")) continue;
 
                 componentTypeNames.Add(symbol.ToDisplayString());
             }

@@ -29,4 +29,17 @@
     <ProjectReference Include="..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="_WyrdEmbedGeneratorAnalyzer" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="..\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WyrdGeneratorTargetPath" />
+    </MSBuild>
+    <ItemGroup>
+      <None Include="@(_WyrdGeneratorTargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
+    </ItemGroup>
+  </Target>
+
 </Project>

@@ -10,6 +10,8 @@
   <Folder Name="/src/Persistence/">
     <Project Path="src/Persistence/Wyrd.Ecs.Persistence/Wyrd.Ecs.Persistence.csproj" />
     <Project Path="src/Persistence/Wyrd.Ecs.Persistence.Tests/Wyrd.Ecs.Persistence.Tests.csproj" />
+    <Project Path="src/Persistence/Wyrd.Ecs.Persistence.Generators/Wyrd.Ecs.Persistence.Generators.csproj" />
+    <Project Path="src/Persistence/Wyrd.Ecs.Persistence.Generators.Tests/Wyrd.Ecs.Persistence.Generators.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Persistence/Binary/">
     <Project Path="src/Persistence/Binary/Wyrd.Ecs.Persistence.Binary/Wyrd.Ecs.Persistence.Binary.csproj" />

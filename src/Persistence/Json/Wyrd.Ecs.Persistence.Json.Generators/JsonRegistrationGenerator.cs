@@ -7,7 +7,7 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c> not marked
-/// <see cref="JsonPersistenceIgnoreAttribute"/>, and emits two things into the
+/// <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/>, and emits two things into the
 /// referencing project's own compilation:
 /// <list type="bullet">
 /// <item><c>JsonAutoRegistration.RegisterAll</c>: one
@@ -45,7 +45,7 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
     {
         if (semanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol symbol) return null;
         if (!symbol.AllInterfaces.Any(i => i.ToDisplayString() == "Wyrd.Ecs.IComponent")) return null;
-        if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.Json.JsonPersistenceIgnoreAttribute")) return null;
+        if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute")) return null;
 
         var stableName = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
@@ -94,6 +94,7 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            JsonAutoRegistration.RegisterAll(registry);");
+        sb.AppendLine("            global::Wyrd.Ecs.Persistence.Generated.TagPersistenceAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddJsonPersistence(store, registry);");
         sb.AppendLine("        }");
         sb.AppendLine();
@@ -101,6 +102,7 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            JsonAutoRegistration.RegisterAll(registry);");
+        sb.AppendLine("            global::Wyrd.Ecs.Persistence.Generated.TagPersistenceAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddJsonPersistence(path, registry);");
         sb.AppendLine("        }");
         sb.AppendLine("    }");

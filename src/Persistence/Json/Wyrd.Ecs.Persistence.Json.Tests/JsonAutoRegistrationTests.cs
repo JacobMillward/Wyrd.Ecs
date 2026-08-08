@@ -12,7 +12,7 @@ public struct AutoVelocity : IComponent
     public float X;
 }
 
-[JsonPersistenceIgnore]
+[PersistenceIgnore]
 public struct Ignored : IComponent
 {
     public float X;
@@ -39,7 +39,7 @@ public class JsonAutoRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void RegisterAll_DoesNotRegisterAComponentMarkedJsonPersistenceIgnore()
+    public void RegisterAll_DoesNotRegisterAComponentMarkedPersistenceIgnore()
     {
         var registry = new CodecRegistry();
 

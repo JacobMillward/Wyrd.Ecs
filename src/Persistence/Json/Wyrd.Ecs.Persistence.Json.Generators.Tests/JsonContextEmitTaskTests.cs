@@ -8,7 +8,7 @@ public class JsonContextEmitTaskTests : IDisposable
         ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
             .Append(typeof(IComponent).Assembly.Location)
-            .Append(typeof(JsonPersistenceIgnoreAttribute).Assembly.Location)
+            .Append(typeof(Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute).Assembly.Location)
             .ToArray();
 
     private readonly string _sourceDir = Path.Combine(Path.GetTempPath(), $"wyrd-json-emit-{Guid.NewGuid():N}");
@@ -76,12 +76,12 @@ public class JsonContextEmitTaskTests : IDisposable
     }
 
     [Fact]
-    public void Execute_SkipsAComponentMarkedJsonPersistenceIgnore()
+    public void Execute_SkipsAComponentMarkedPersistenceIgnore()
     {
         var path = WriteSource("Secret.cs", """
             using Wyrd.Ecs;
-            using Wyrd.Ecs.Persistence.Json;
-            [JsonPersistenceIgnore]
+            using Wyrd.Ecs.Persistence;
+            [PersistenceIgnore]
             public struct Secret : IComponent { public string Value; }
             """);
 
