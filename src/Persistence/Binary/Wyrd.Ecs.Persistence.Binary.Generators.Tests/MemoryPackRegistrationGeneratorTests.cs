@@ -55,6 +55,25 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
+    public void ComponentNestedInAPrivateContainingType_IsNotRegistered()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public class Outer
+            {
+                private struct Position : IComponent { public float X; }
+            }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("registry.Register<");
+        generated.Should().NotContain("MemoryPackFormatter<");
+    }
+
+    [Fact]
     public void ComponentWithStringFieldAndNoAttribute_GeneratesAFormatterAndRegistersIt()
     {
         const string source = """

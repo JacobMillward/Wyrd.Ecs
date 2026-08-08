@@ -8,8 +8,10 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c>, not marked
-/// <c>[PersistenceIgnore]</c>, and emits two things into the referencing project's own
-/// compilation:
+/// <c>[PersistenceIgnore]</c> and accessible from a top-level class in a different
+/// namespace (skips a component nested inside a <c>private</c> containing type - see
+/// <see cref="IsAccessibleForGeneratedRegistration"/>), and emits two things into the
+/// referencing project's own compilation:
 /// <list type="bullet">
 /// <item><c>MemoryPackAutoRegistration.RegisterAll</c>: one
 /// <c>CodecRegistry.Register&lt;T&gt;</c> call per match, using
@@ -67,6 +69,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         if (semanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol symbol) return none;
         if (!IsComponent(symbol)) return none;
         if (HasPersistenceIgnoreAttribute(symbol)) return none;
+        if (!IsAccessibleForGeneratedRegistration(symbol)) return none;
 
         var stableName = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
@@ -153,4 +156,22 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
 
     private static bool HasPersistenceIgnoreAttribute(INamedTypeSymbol symbol) =>
         symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute");
+
+    /// <summary>
+    /// A component nested inside a <c>private</c> (or otherwise not public/internal)
+    /// containing type - a common shape for scratch component structs in benchmarks and
+    /// tests - can't be referenced from <c>MemoryPackAutoRegistration</c>, a top-level
+    /// class in a different namespace. Skipped the same way <c>[PersistenceIgnore]</c> is:
+    /// silently, since this is "not reachable for registration," not "shape this generator
+    /// can't handle" (that's <c>WYRD006</c>'s job).
+    /// </summary>
+    private static bool IsAccessibleForGeneratedRegistration(INamedTypeSymbol symbol)
+    {
+        for (var current = symbol; current is not null; current = current.ContainingType)
+        {
+            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal))
+                return false;
+        }
+        return true;
+    }
 }
