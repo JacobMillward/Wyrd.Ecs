@@ -19,8 +19,9 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// <c>RegisterAll</c>, and delegates to the two-argument
 /// <c>AddBinaryPersistence(store, registry)</c>.</item>
 /// </list>
-/// Discriminators are each type's fully qualified name, so two same-named components in
-/// different namespaces don't collide.
+/// Discriminators default to each type's fully qualified name, so two same-named components
+/// in different namespaces don't collide - overridden by <c>[StableName]</c>. Each
+/// <c>[RenamedFrom]</c> on a type emits a matching <c>RegisterAlias</c> call.
 ///
 /// <see cref="TryExtract"/> pulls only the fully-qualified type name out of the semantic
 /// model immediately, rather than carrying <see cref="INamedTypeSymbol"/> through
@@ -49,7 +50,17 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         if (!IsComponent(symbol)) return null;
         if (!HasMemoryPackableAttribute(symbol)) return null;
 
-        return new RegisteredComponentInfo(symbol.ToDisplayString());
+        var stableName = symbol.GetAttributes()
+            .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
+            ?.ConstructorArguments[0].Value as string;
+        var discriminator = stableName ?? symbol.ToDisplayString();
+
+        var renamedFrom = symbol.GetAttributes()
+            .Where(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.RenamedFromAttribute")
+            .Select(a => (string)a.ConstructorArguments[0].Value!)
+            .ToImmutableArray();
+
+        return new RegisteredComponentInfo(symbol.ToDisplayString(), discriminator, renamedFrom);
     }
 
     private static string Render(ImmutableArray<RegisteredComponentInfo> infos)
@@ -65,9 +76,11 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         foreach (var info in infos)
         {
             var typeName = info.FullyQualifiedName;
-            sb.AppendLine($"        registry.Register<global::{typeName}>(\"{typeName}\",");
+            sb.AppendLine($"        registry.Register<global::{typeName}>(\"{info.Discriminator}\",");
             sb.AppendLine("            v => global::MemoryPack.MemoryPackSerializer.Serialize(v),");
             sb.AppendLine($"            bytes => global::MemoryPack.MemoryPackSerializer.Deserialize<global::{typeName}>(bytes));");
+            foreach (var old in info.RenamedFrom)
+                sb.AppendLine($"        registry.RegisterAlias(\"{old}\", \"{info.Discriminator}\");");
         }
 
         sb.AppendLine("    }");
@@ -95,7 +108,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    private record struct RegisteredComponentInfo(string FullyQualifiedName);
+    private record struct RegisteredComponentInfo(string FullyQualifiedName, string Discriminator, ImmutableArray<string> RenamedFrom);
 
     private static bool IsComponent(INamedTypeSymbol symbol) =>
         symbol.AllInterfaces.Any(i => i.ToDisplayString() == "Wyrd.Ecs.IComponent");

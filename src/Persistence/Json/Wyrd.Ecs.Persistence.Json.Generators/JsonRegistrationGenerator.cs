@@ -47,7 +47,17 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         if (!symbol.AllInterfaces.Any(i => i.ToDisplayString() == "Wyrd.Ecs.IComponent")) return null;
         if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.Json.JsonPersistenceIgnoreAttribute")) return null;
 
-        return new RegisteredComponentInfo(symbol.ToDisplayString());
+        var stableName = symbol.GetAttributes()
+            .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
+            ?.ConstructorArguments[0].Value as string;
+        var discriminator = stableName ?? symbol.ToDisplayString();
+
+        var renamedFrom = symbol.GetAttributes()
+            .Where(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.RenamedFromAttribute")
+            .Select(a => (string)a.ConstructorArguments[0].Value!)
+            .ToImmutableArray();
+
+        return new RegisteredComponentInfo(symbol.ToDisplayString(), discriminator, renamedFrom);
     }
 
     private static string Render(ImmutableArray<RegisteredComponentInfo> infos, string assemblyName)
@@ -66,9 +76,11 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         {
             var typeName = info.FullyQualifiedName;
             var propertyName = ConsumerContextNaming.TypeInfoPropertyName(typeName);
-            sb.AppendLine($"        registry.Register<global::{typeName}>(\"{typeName}\",");
+            sb.AppendLine($"        registry.Register<global::{typeName}>(\"{info.Discriminator}\",");
             sb.AppendLine($"            v => global::System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(v, global::{contextClassName}.Default.{propertyName}),");
             sb.AppendLine($"            bytes => global::System.Text.Json.JsonSerializer.Deserialize(bytes, global::{contextClassName}.Default.{propertyName}));");
+            foreach (var old in info.RenamedFrom)
+                sb.AppendLine($"        registry.RegisterAlias(\"{old}\", \"{info.Discriminator}\");");
         }
 
         sb.AppendLine("    }");
@@ -96,5 +108,5 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    private record struct RegisteredComponentInfo(string FullyQualifiedName);
+    private record struct RegisteredComponentInfo(string FullyQualifiedName, string Discriminator, ImmutableArray<string> RenamedFrom);
 }
