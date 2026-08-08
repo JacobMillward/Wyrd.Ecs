@@ -753,6 +753,23 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Every live (entity, registered tag) pair. Unregistered tags are skipped, same "unregistered means absent" contract <see cref="EnumerateAll"/> already has for components.</summary>
+    public IEnumerable<EncodedTag> EnumerateAllTags(CodecRegistry registry)
+    {
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0) continue;
+
+            foreach (var typeIndex in archetype.Signature.SetBits)
+            {
+                if (!registry.TryGetTagByTypeIndex(typeIndex, out var binder)) continue;
+
+                for (var row = 0; row < archetype.Count; row++)
+                    yield return new EncodedTag(archetype.Entities[row], binder.Discriminator);
+            }
+        }
+    }
+
     /// <summary>Hot-path query: invokes <paramref name="action"/> once per matching archetype chunk with a <typeparamref name="TAccess0"/> accessor.</summary>
     public void Query<TAccess0>(ChunkAction<TAccess0> action) where TAccess0 : struct, IComponentAccessor<TAccess0>, allows ref struct
     {
