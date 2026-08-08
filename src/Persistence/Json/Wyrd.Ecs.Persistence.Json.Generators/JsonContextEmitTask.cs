@@ -19,7 +19,7 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// exists because one Roslyn generator cannot see another generator's output within the
 /// same compilation (dotnet/roslyn#77560): an ordinary <c>IIncrementalGenerator</c>
 /// can't populate <c>[JsonSerializable]</c> on STJ's own context class the way
-/// <see cref="JsonRegistrationGenerator"/> populates <c>ComponentCodecRegistry</c>.
+/// <see cref="JsonRegistrationGenerator"/> populates <c>CodecRegistry</c>.
 /// </summary>
 // RS1035 bans file IO for analyzer assemblies. This class is an MSBuild Task, not an
 // analyzer, and file IO is its entire job: the ban doesn't apply, it just can't tell

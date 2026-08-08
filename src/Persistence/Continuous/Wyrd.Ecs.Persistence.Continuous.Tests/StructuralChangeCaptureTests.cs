@@ -10,9 +10,9 @@ public class StructuralChangeCaptureTests
         public float X;
     }
 
-    private static ComponentCodecRegistry BuildRegistry(uint? schemaHash = null)
+    private static CodecRegistry BuildRegistry(uint? schemaHash = null)
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) },
@@ -82,7 +82,7 @@ public class StructuralChangeCaptureTests
     public void OnComponentRemoved_ForAnUnregisteredType_CapturesNothing()
     {
         var world = new World();
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         Entity entity = world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
         var captured = new List<CapturedWalEntry>();
@@ -117,7 +117,7 @@ public class StructuralChangeCaptureTests
         public float Weight;
     }
 
-    private static ComponentCodecRegistry BuildRegistryWithRelation()
+    private static CodecRegistry BuildRegistryWithRelation()
     {
         var registry = BuildRegistry();
         registry.RegisterRelation<Likes>("Likes",

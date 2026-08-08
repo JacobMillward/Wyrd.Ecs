@@ -26,9 +26,9 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 
-    private static ComponentCodecRegistry BuildRegistry()
+    private static CodecRegistry BuildRegistry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
@@ -60,7 +60,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     public void EnableContinuousPersistence_WithoutADefaultStore_ThrowsWhenBuilt()
     {
         var builder = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .EnableContinuousPersistence(new FileWalStore(WalBasePath));
 
         var act = () => builder.Build();
@@ -72,7 +72,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     public void EnableContinuousPersistence_WithNoWalStoreAndANonFileStore_ThrowsWhenBuilt()
     {
         var builder = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new InMemoryStore())
             .EnableContinuousPersistence();
 
@@ -85,7 +85,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     public void EnableContinuousPersistence_WithNoWalStoreAndAFileStore_InfersAColocatedWalStore()
     {
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
             .EnableContinuousPersistence()
             .Build();
@@ -98,7 +98,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     public void EnableContinuousPersistence_CalledTwiceForTheSameWorld_ThrowsOnBuild()
     {
         var builder = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
             .EnableContinuousPersistence(new FileWalStore(WalBasePath))
             .EnableContinuousPersistence(new FileWalStore(WalBasePath));
@@ -114,7 +114,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         var checkpointStore = new FileStore(CheckpointPath);
 
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(checkpointStore)
             .EnableContinuousPersistence(new FileWalStore(WalBasePath))
             .Build();
@@ -130,7 +130,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         var walStore = new FileWalStore(WalBasePath);
 
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
             .EnableContinuousPersistence(walStore)
             .Build();
@@ -154,7 +154,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     {
         var walStore = new FileWalStore(WalBasePath);
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
             .EnableContinuousPersistence(walStore, options: new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(20), CheckpointInterval = TimeSpan.FromMinutes(10) })
             .Build();
@@ -182,7 +182,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         var checkpointStore = new FileStore(CheckpointPath);
         var walStore = new FileWalStore(WalBasePath);
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(registry)
+            .SetDefaultCodecRegistry(registry)
             .SetDefaultPersistenceStore(checkpointStore)
             .EnableContinuousPersistence(walStore, options: new WalOptions { FsyncInterval = TimeSpan.FromMilliseconds(10), CheckpointInterval = TimeSpan.FromMinutes(10) })
             .Build();
@@ -205,7 +205,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
 
         var reloaded = new World();
         var reloadedRegistry = BuildRegistry();
-        reloaded.DefaultComponentCodecRegistry = reloadedRegistry;
+        reloaded.DefaultCodecRegistry = reloadedRegistry;
         reloaded.Load(checkpointStore);
 
         var positions = new List<float>();
@@ -229,7 +229,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         var checkpointStore = new FileStore(CheckpointPath);
         var walStore = new FileWalStore(WalBasePath);
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(checkpointStore)
             .EnableContinuousPersistence(walStore)
             .Build();
@@ -251,7 +251,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
         var checkpointStore = new FileStore(CheckpointPath);
         var walStore = new FileWalStore(WalBasePath);
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(checkpointStore)
             .EnableContinuousPersistence(walStore)
             .Build();
@@ -272,7 +272,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     public void RegisterProcessExitSafetyNetFalse_TheSessionIsNotSweptOnProcessExit()
     {
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
             .EnableContinuousPersistence(new FileWalStore(WalBasePath), registerProcessExitSafetyNet: false)
             .Build();
@@ -290,7 +290,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
     public void RegisterProcessExitSafetyNetDefaultsToTrue_TheSessionIsTrackedForTheExitSweep()
     {
         var world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(BuildRegistry())
+            .SetDefaultCodecRegistry(BuildRegistry())
             .SetDefaultPersistenceStore(new FileStore(CheckpointPath))
             .EnableContinuousPersistence(new FileWalStore(WalBasePath))
             .Build();

@@ -152,7 +152,7 @@ public sealed partial class World
     /// <summary>
     /// Same as <see cref="Subscribe{T}"/>, for a caller that doesn't know its component
     /// type at compile time: a registry-driven consumer working from
-    /// <see cref="ComponentCodecRegistry.All"/>, for one. Shares the same
+    /// <see cref="CodecRegistry.All"/>, for one. Shares the same
     /// scan-per-type-per-tick as any <see cref="Subscribe{T}"/> call already watching
     /// the same type.
     /// </summary>

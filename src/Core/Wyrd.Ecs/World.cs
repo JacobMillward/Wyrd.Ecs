@@ -708,7 +708,7 @@ public sealed partial class World
     }
 
     /// <summary>Yields one <see cref="EncodedComponent"/> per (entity, registered component type) pair for every live entity. Unregistered types and tags are skipped. A full-world walk, for a save/checkpoint, not a per-tick path.</summary>
-    public IEnumerable<EncodedComponent> EnumerateAll(ComponentCodecRegistry registry)
+    public IEnumerable<EncodedComponent> EnumerateAll(CodecRegistry registry)
     {
         foreach (var archetype in _archetypes.Values)
         {
@@ -726,14 +726,14 @@ public sealed partial class World
 
     /// <summary>
     /// Every live relation edge whose payload type is registered in <paramref name="registry"/>
-    /// via <see cref="ComponentCodecRegistry.RegisterRelation{T}"/>, one <see cref="EncodedRelation"/>
+    /// via <see cref="CodecRegistry.RegisterRelation{T}"/>, one <see cref="EncodedRelation"/>
     /// per edge. Mirrors <see cref="EnumerateAll"/>, walking <see cref="RelationLinks{T}"/>
     /// storages instead of ordinary component storages. <see cref="RelationBacklinks{T}"/>
     /// is never walked here: replaying an edge through
     /// <see cref="CommandBuffer.AddRelation{T}(Entity, Entity, T)"/> regenerates it as a
     /// side effect, same as at runtime.
     /// </summary>
-    public IEnumerable<EncodedRelation> EnumerateRelations(ComponentCodecRegistry registry)
+    public IEnumerable<EncodedRelation> EnumerateRelations(CodecRegistry registry)
     {
         foreach (var archetype in _archetypes.Values)
         {

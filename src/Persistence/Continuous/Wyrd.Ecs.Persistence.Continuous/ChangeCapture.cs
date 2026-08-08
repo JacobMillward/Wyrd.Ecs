@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 
 /// <summary>
 /// Owns the tick-driven capture step: subscribes to every type in the given
-/// <see cref="ComponentCodecRegistry"/>, observes structural and relation changes via
+/// <see cref="CodecRegistry"/>, observes structural and relation changes via
 /// <see cref="Internal.StructuralChangeCapture"/>, and appends every result into
 /// double-buffered pairs of lists, swapped by <see cref="SwapBuffers"/> so a background
 /// WAL-writer thread can drain without blocking <see cref="World.OnTickAdvanced"/>.
@@ -26,7 +26,7 @@ internal sealed class ChangeCapture : IDisposable
     private List<PendingValueChange> _backPending = [];
     private bool _disposed;
 
-    internal ChangeCapture(World world, ComponentCodecRegistry registry)
+    internal ChangeCapture(World world, CodecRegistry registry)
     {
         _world = world;
 

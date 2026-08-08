@@ -5,7 +5,7 @@ namespace Wyrd.Ecs;
 /// discriminator, its current-process <see cref="Internal.TypeIndex{T}"/>, and the
 /// ability to serialize a row out of a type-erased storage array or deserialize bytes
 /// into a <see cref="World"/> via <see cref="CommandBuffer"/>. Obtained from
-/// <see cref="ComponentCodecRegistry"/>.
+/// <see cref="CodecRegistry"/>.
 /// </summary>
 public interface IComponentCodec
 {

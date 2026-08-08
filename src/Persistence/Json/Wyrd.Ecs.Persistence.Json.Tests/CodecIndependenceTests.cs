@@ -23,10 +23,10 @@ public class CodecIndependenceTests : IDisposable
     [Fact]
     public void AComponentRegisteredOnlyForBinary_IsAbsentFromAJsonSave()
     {
-        var jsonRegistry = new ComponentCodecRegistry();
+        var jsonRegistry = new CodecRegistry();
         JsonAutoRegistration.RegisterAll(jsonRegistry);
 
-        var binaryRegistry = new ComponentCodecRegistry();
+        var binaryRegistry = new CodecRegistry();
         binaryRegistry.Register<BinaryOnlyComponent>("BinaryOnlyComponent",
             v => MemoryPackSerializer.Serialize(v),
             bytes => MemoryPackSerializer.Deserialize<BinaryOnlyComponent>(bytes));
@@ -37,16 +37,16 @@ public class CodecIndependenceTests : IDisposable
         source.Commands.CreateEntity(new BinaryOnlyComponent { Value = 42 });
         source.ApplyCommands();
 
-        source.DefaultComponentCodecRegistry = jsonRegistry;
+        source.DefaultCodecRegistry = jsonRegistry;
         source.Save(_jsonPath);
-        source.DefaultComponentCodecRegistry = binaryRegistry;
+        source.DefaultCodecRegistry = binaryRegistry;
         source.Save(_binaryPath);
 
         var jsonTarget = new World();
-        jsonTarget.DefaultComponentCodecRegistry = jsonRegistry;
+        jsonTarget.DefaultCodecRegistry = jsonRegistry;
         jsonTarget.Load(_jsonPath);
         var binaryTarget = new World();
-        binaryTarget.DefaultComponentCodecRegistry = binaryRegistry;
+        binaryTarget.DefaultCodecRegistry = binaryRegistry;
         binaryTarget.Load(_binaryPath);
 
         var foundInJsonTarget = false;

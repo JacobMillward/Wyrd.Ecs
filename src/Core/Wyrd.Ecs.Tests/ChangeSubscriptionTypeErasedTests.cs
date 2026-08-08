@@ -7,9 +7,9 @@ public class ChangeSubscriptionTypeErasedTests
         public float X;
     }
 
-    private static ComponentCodecRegistry BuildRegistry()
+    private static CodecRegistry BuildRegistry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position", v => BitConverter.GetBytes(v.X), d => new Position { X = BitConverter.ToSingle(d) });
         return registry;
     }

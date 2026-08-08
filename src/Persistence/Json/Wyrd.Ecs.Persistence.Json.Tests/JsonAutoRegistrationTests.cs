@@ -30,7 +30,7 @@ public class JsonAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_RegistersEveryComponent()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         JsonAutoRegistration.RegisterAll(registry);
 
@@ -41,7 +41,7 @@ public class JsonAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_DoesNotRegisterAComponentMarkedJsonPersistenceIgnore()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         JsonAutoRegistration.RegisterAll(registry);
 
@@ -51,11 +51,11 @@ public class JsonAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_RegistersTwoSameSimpleNameTypesFromDifferentNamespacesIndependently()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         JsonAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "top" });
         source.Commands.CreateEntity(new Other.AutoPosition { Layer = 5 });
         source.ApplyCommands();
@@ -64,7 +64,7 @@ public class JsonAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var foundTop = false;
@@ -96,11 +96,11 @@ public class JsonAutoRegistrationTests : IDisposable
     [Fact]
     public void Save_ThenLoad_UsingOnlyAutoRegisteredJsonTypes_RoundTripsCorrectly()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         JsonAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "hi" });
         source.ApplyCommands();
         var store = new FileStore(_path);
@@ -108,7 +108,7 @@ public class JsonAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -134,7 +134,7 @@ public class JsonAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddJsonPersistence(store).Build();
 
         world.DefaultPersistenceStore.Should().BeSameAs(store);
-        world.DefaultComponentCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -143,6 +143,6 @@ public class JsonAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddJsonPersistence(_path).Build();
 
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
-        world.DefaultComponentCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 }

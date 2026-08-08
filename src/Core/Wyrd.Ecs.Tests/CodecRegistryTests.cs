@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Wyrd.Ecs.Tests;
 
-public class ComponentCodecRegistryTests
+public class CodecRegistryTests
 {
     private struct Position : IComponent
     {
@@ -14,16 +14,13 @@ public class ComponentCodecRegistryTests
         public float X;
     }
 
-    private struct Enemy : ITag { }
-    private struct Projectile : ITag { }
-
     private static ComponentEncoder<Position> SerializePosition => p => Encoding.UTF8.GetBytes(p.X.ToString());
     private static ComponentDecoder<Position> DeserializePosition => bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) };
 
     [Fact]
     public void Register_ThenTryGetByDiscriminator_FindsItByTheDiscriminatorString()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.Register("Position", SerializePosition, DeserializePosition);
 
@@ -34,7 +31,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Register_ThenTryGetByTypeIndex_FindsTheSameEntry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.Register("Position", SerializePosition, DeserializePosition);
 
@@ -45,7 +42,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void TryGetByDiscriminator_ForAnUnregisteredDiscriminator_ReturnsFalse()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.TryGetByDiscriminator("Nonexistent", out _).Should().BeFalse();
     }
@@ -53,7 +50,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void TryGetByTypeIndex_ForAnUnregisteredType_ReturnsFalse()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.TryGetByTypeIndex(Wyrd.Ecs.Internal.TypeIndex<Velocity>.Value, out _).Should().BeFalse();
     }
@@ -61,7 +58,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Register_WithADuplicateDiscriminator_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
 
         var act = () => registry.Register("Position", (ComponentEncoder<Velocity>)(v => Encoding.UTF8.GetBytes(v.X.ToString())), bytes => new Velocity { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
@@ -72,7 +69,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Register_TheSameTypeTwiceUnderDifferentDiscriminators_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
 
         var act = () => registry.Register("Position_V2", SerializePosition, DeserializePosition);
@@ -83,7 +80,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void EncodeRow_RoundTripsThroughTheRegisteredDelegatesByDiscriminator()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
         registry.TryGetByDiscriminator("Position", out var registered);
 
@@ -103,7 +100,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void All_OnAFreshRegistry_IsEmpty()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.All.Should().BeEmpty();
     }
@@ -111,7 +108,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void All_AfterRegisteringTwoTypes_ContainsBoth()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition);
         registry.Register<Velocity>("Velocity",
             v => Encoding.UTF8.GetBytes(v.X.ToString()),
@@ -123,7 +120,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Register_WithASchemaHash_MakesItAvailableOnTheRegisteredEntry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 12345u);
 
@@ -134,7 +131,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Register_WithNoSchemaHash_LeavesItNull()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.Register("Position", SerializePosition, DeserializePosition);
 
@@ -145,7 +142,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Migrate_WithASingleRegisteredStep_TransformsTheBytesToTheCurrentSchema()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 2u);
         registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => Encoding.UTF8.GetBytes("migrated"));
 
@@ -157,7 +154,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Migrate_WalkingTwoChainedSteps_ReachesTheCurrentSchema()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 3u);
         registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(oldBytes) + "-step1"));
         registry.RegisterMigration("Position", fromSchemaHash: 2u, toSchemaHash: 3u, oldBytes => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(oldBytes) + "-step2"));
@@ -170,7 +167,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Migrate_WithNoRegisteredStepFromTheGivenHash_ThrowsNamingTheDiscriminatorAndHash()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 2u);
 
         var act = () => registry.Migrate("Position", fromSchemaHash: 1u, [1, 2, 3]);
@@ -183,7 +180,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void RegisterMigration_WithADuplicateFromHashForTheSameDiscriminator_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => oldBytes);
 
         var act = () => registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 3u, oldBytes => oldBytes);
@@ -194,7 +191,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Migrate_ForAnUnregisteredDiscriminator_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         var act = () => registry.Migrate("Nonexistent", fromSchemaHash: 1u, [1, 2, 3]);
 
@@ -206,7 +203,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public void Migrate_ForARelationDiscriminator_TransformsTheBytesToTheCurrentSchema()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("likes", v => [], d => default, schemaHash: 2u);
         registry.RegisterMigration("likes", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => Encoding.UTF8.GetBytes("migrated"));
 
@@ -218,7 +215,7 @@ public class ComponentCodecRegistryTests
     [Fact]
     public async Task Migrate_WithAChainThatCyclesWithoutEverReachingTheCurrentSchema_ThrowsInsteadOfLoopingForever()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register("Position", SerializePosition, DeserializePosition, schemaHash: 99u);
         registry.RegisterMigration("Position", fromSchemaHash: 1u, toSchemaHash: 2u, oldBytes => oldBytes);
         registry.RegisterMigration("Position", fromSchemaHash: 2u, toSchemaHash: 1u, oldBytes => oldBytes);
@@ -230,63 +227,8 @@ public class ComponentCodecRegistryTests
             .WithMessage("*Position*");
     }
 
-    [Fact]
-    public void RegisterTag_ThenTryGetTagByDiscriminator_FindsIt()
-    {
-        var registry = new ComponentCodecRegistry();
-
-        registry.RegisterTag<Enemy>("Enemy");
-
-        registry.TryGetTagByDiscriminator("Enemy", out var typeIndex).Should().BeTrue();
-        typeIndex.Should().Be(Wyrd.Ecs.Internal.TypeIndex<Enemy>.Value);
-    }
-
-    [Fact]
-    public void RegisterTag_ThenTryGetTagByTypeIndex_FindsTheSameDiscriminator()
-    {
-        var registry = new ComponentCodecRegistry();
-
-        registry.RegisterTag<Enemy>("Enemy");
-
-        registry.TryGetTagByTypeIndex(Wyrd.Ecs.Internal.TypeIndex<Enemy>.Value, out var discriminator).Should().BeTrue();
-        discriminator.Should().Be("Enemy");
-    }
-
-    [Fact]
-    public void TryGetTagByDiscriminator_ForAnUnregisteredDiscriminator_ReturnsFalse()
-    {
-        var registry = new ComponentCodecRegistry();
-
-        registry.TryGetTagByDiscriminator("Nonexistent", out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void TryGetTagByTypeIndex_ForAnUnregisteredType_ReturnsFalse()
-    {
-        var registry = new ComponentCodecRegistry();
-
-        registry.TryGetTagByTypeIndex(Wyrd.Ecs.Internal.TypeIndex<Projectile>.Value, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void RegisterTag_WithADuplicateDiscriminator_Throws()
-    {
-        var registry = new ComponentCodecRegistry();
-        registry.RegisterTag<Enemy>("Enemy");
-
-        var act = () => registry.RegisterTag<Projectile>("Enemy");
-
-        act.Should().Throw<ArgumentException>();
-    }
-
-    [Fact]
-    public void RegisterTag_TheSameTypeTwiceUnderDifferentDiscriminators_Throws()
-    {
-        var registry = new ComponentCodecRegistry();
-        registry.RegisterTag<Enemy>("Enemy");
-
-        var act = () => registry.RegisterTag<Enemy>("Enemy_V2");
-
-        act.Should().Throw<ArgumentException>();
-    }
+    // Tag registration tests moved: the debug-only RegisterTag this class used to have is
+    // gone (Wyrd.Ecs.Internal.DebugNameRegistry replaces it, zero setup). A new,
+    // differently-shaped, persistence-real RegisterTag/ITagBinder pair is tested in
+    // CodecRegistryTagTests.cs once it lands.
 }

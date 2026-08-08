@@ -11,7 +11,7 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// referencing project's own compilation:
 /// <list type="bullet">
 /// <item><c>JsonAutoRegistration.RegisterAll</c>: one
-/// <c>ComponentCodecRegistry.Register&lt;T&gt;</c> call per match, using
+/// <c>CodecRegistry.Register&lt;T&gt;</c> call per match, using
 /// <c>JsonSerializer.SerializeToUtf8Bytes</c>/<c>Deserialize</c> against the
 /// <c>JsonTypeInfo&lt;T&gt;</c> <see cref="JsonContextEmitTask"/> materializes onto
 /// <c>&lt;ConsumerName&gt;JsonPersistenceContext.Default</c>.</item>
@@ -59,7 +59,7 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine("public static class JsonAutoRegistration");
         sb.AppendLine("{");
-        sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.ComponentCodecRegistry registry)");
+        sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.CodecRegistry registry)");
         sb.AppendLine("    {");
 
         foreach (var info in infos)
@@ -80,14 +80,14 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    {");
         sb.AppendLine("        public global::Wyrd.Ecs.WorldBuilder AddJsonPersistence(global::Wyrd.Ecs.Persistence.IPersistenceStore store)");
         sb.AppendLine("        {");
-        sb.AppendLine("            var registry = new global::Wyrd.Ecs.ComponentCodecRegistry();");
+        sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            JsonAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddJsonPersistence(store, registry);");
         sb.AppendLine("        }");
         sb.AppendLine();
         sb.AppendLine("        public global::Wyrd.Ecs.WorldBuilder AddJsonPersistence(string path)");
         sb.AppendLine("        {");
-        sb.AppendLine("            var registry = new global::Wyrd.Ecs.ComponentCodecRegistry();");
+        sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            JsonAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddJsonPersistence(path, registry);");
         sb.AppendLine("        }");

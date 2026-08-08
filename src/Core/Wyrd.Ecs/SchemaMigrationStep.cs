@@ -6,6 +6,6 @@ namespace Wyrd.Ecs;
 /// shape partway through a migration chain has no corresponding type to be generic
 /// over: only the final step's output is ever handed to the real
 /// <see cref="ComponentDecoder{T}"/>. Registered via
-/// <see cref="ComponentCodecRegistry.RegisterMigration"/>.
+/// <see cref="CodecRegistry.RegisterMigration"/>.
 /// </summary>
 public delegate byte[] SchemaMigrationStep(byte[] oldBytes);

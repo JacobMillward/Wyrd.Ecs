@@ -30,11 +30,11 @@ public class CheckpointBuildRelationBenchmarks
         _directory = Path.Combine(Path.GetTempPath(), $"wyrd-benchmarks-checkpoint-build-relation-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_directory);
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
         var world = new World();
-        world.DefaultComponentCodecRegistry = registry;
+        world.DefaultCodecRegistry = registry;
         var hub = world.Commands.CreateEntity();
         var targets = new List<Entity>(EdgeCount);
         for (var i = 0; i < EdgeCount; i++)

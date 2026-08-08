@@ -13,22 +13,22 @@ public class WorldBuilderBinaryPersistenceExtensionsTests : IDisposable
     public void AddBinaryPersistence_WithAStoreAndARegistry_ConfiguresBoth()
     {
         var store = new FileStore(_path);
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         var world = new WorldBuilder().AddBinaryPersistence(store, registry).Build();
 
         world.DefaultPersistenceStore.Should().BeSameAs(store);
-        world.DefaultComponentCodecRegistry.Should().BeSameAs(registry);
+        world.DefaultCodecRegistry.Should().BeSameAs(registry);
     }
 
     [Fact]
     public void AddBinaryPersistence_WithAPathStringAndARegistry_CreatesAFileStoreAtThatPath()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         var world = new WorldBuilder().AddBinaryPersistence(_path, registry).Build();
 
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
-        world.DefaultComponentCodecRegistry.Should().BeSameAs(registry);
+        world.DefaultCodecRegistry.Should().BeSameAs(registry);
     }
 }

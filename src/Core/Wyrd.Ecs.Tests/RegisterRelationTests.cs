@@ -14,7 +14,7 @@ public class RegisterRelationTests
     [Fact]
     public void RegisterRelation_IsFindableByTypeIndexAndDiscriminator()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         registry.RegisterRelation<Likes>("likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
@@ -28,7 +28,7 @@ public class RegisterRelationTests
     [Fact]
     public void RegisterRelation_EncodeThenDecode_RoundTrips()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
         registry.TryGetRelationByDiscriminator("likes", out var codec);
 
@@ -48,7 +48,7 @@ public class RegisterRelationTests
     [Fact]
     public void RegisterRelation_DuplicateDiscriminator_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("rel", _ => [], _ => default);
 
         var act = () => registry.RegisterRelation<Follows>("rel", _ => [], _ => default);
@@ -59,7 +59,7 @@ public class RegisterRelationTests
     [Fact]
     public void RegisterRelation_SameTypeTwiceUnderDifferentDiscriminators_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("likes-a", _ => [], _ => default);
 
         var act = () => registry.RegisterRelation<Likes>("likes-b", _ => [], _ => default);
@@ -70,7 +70,7 @@ public class RegisterRelationTests
     [Fact]
     public void RegisterRelation_DiscriminatorAlreadyUsedByAComponent_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("shared", _ => [], _ => default);
 
         var act = () => registry.RegisterRelation<Likes>("shared", _ => [], _ => default);
@@ -81,7 +81,7 @@ public class RegisterRelationTests
     [Fact]
     public void Register_DiscriminatorAlreadyUsedByARelation_Throws()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("shared", _ => [], _ => default);
 
         var act = () => registry.Register<Position>("shared", _ => [], _ => default);

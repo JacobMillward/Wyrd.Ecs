@@ -12,7 +12,7 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// compilation:
 /// <list type="bullet">
 /// <item><c>MemoryPackAutoRegistration.RegisterAll</c>: one
-/// <c>ComponentCodecRegistry.Register&lt;T&gt;</c> call per match, using
+/// <c>CodecRegistry.Register&lt;T&gt;</c> call per match, using
 /// <c>MemoryPackSerializer.Serialize</c>/<c>Deserialize&lt;T&gt;</c>.</item>
 /// <item>A one-argument <c>WorldBuilder.AddBinaryPersistence(IPersistenceStore)</c>/
 /// <c>AddBinaryPersistence(string)</c> pair that builds a registry, calls
@@ -59,7 +59,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine("public static class MemoryPackAutoRegistration");
         sb.AppendLine("{");
-        sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.ComponentCodecRegistry registry)");
+        sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.CodecRegistry registry)");
         sb.AppendLine("    {");
 
         foreach (var info in infos)
@@ -79,14 +79,14 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    {");
         sb.AppendLine("        public global::Wyrd.Ecs.WorldBuilder AddBinaryPersistence(global::Wyrd.Ecs.Persistence.IPersistenceStore store)");
         sb.AppendLine("        {");
-        sb.AppendLine("            var registry = new global::Wyrd.Ecs.ComponentCodecRegistry();");
+        sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            MemoryPackAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddBinaryPersistence(store, registry);");
         sb.AppendLine("        }");
         sb.AppendLine();
         sb.AppendLine("        public global::Wyrd.Ecs.WorldBuilder AddBinaryPersistence(string path)");
         sb.AppendLine("        {");
-        sb.AppendLine("            var registry = new global::Wyrd.Ecs.ComponentCodecRegistry();");
+        sb.AppendLine("            var registry = new global::Wyrd.Ecs.CodecRegistry();");
         sb.AppendLine("            MemoryPackAutoRegistration.RegisterAll(registry);");
         sb.AppendLine("            return builder.AddBinaryPersistence(path, registry);");
         sb.AppendLine("        }");

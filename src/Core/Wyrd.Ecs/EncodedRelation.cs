@@ -2,7 +2,7 @@ namespace Wyrd.Ecs;
 
 /// <summary>
 /// One relation edge, serialized: the source and target entity, the stable wire
-/// discriminator of the relation payload type (see <see cref="ComponentCodecRegistry.RegisterRelation{T}"/>),
+/// discriminator of the relation payload type (see <see cref="CodecRegistry.RegisterRelation{T}"/>),
 /// its registered schema hash (or <c>null</c> if none was supplied), and its serialized
 /// payload bytes. Yielded by <see cref="World.EnumerateRelations"/>.
 /// </summary>

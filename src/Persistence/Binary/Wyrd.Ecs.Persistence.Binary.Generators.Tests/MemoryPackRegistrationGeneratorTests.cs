@@ -17,7 +17,7 @@ public class MemoryPackRegistrationGeneratorTests
         var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
 
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
-        generated.Should().Contain("public static void RegisterAll(global::Wyrd.Ecs.ComponentCodecRegistry registry)");
+        generated.Should().Contain("public static void RegisterAll(global::Wyrd.Ecs.CodecRegistry registry)");
         generated.Should().NotContain("registry.Register<");
     }
 

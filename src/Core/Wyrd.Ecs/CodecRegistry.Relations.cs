@@ -1,6 +1,6 @@
 namespace Wyrd.Ecs;
 
-public sealed partial class ComponentCodecRegistry
+public sealed partial class CodecRegistry
 {
     /// <summary>
     /// Registers <typeparamref name="T"/> (an <see cref="IRelation"/> payload type) under

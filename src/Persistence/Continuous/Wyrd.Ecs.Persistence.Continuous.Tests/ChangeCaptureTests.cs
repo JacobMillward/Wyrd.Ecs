@@ -9,9 +9,9 @@ public class ChangeCaptureTests
         public float X;
     }
 
-    private static ComponentCodecRegistry BuildRegistry(uint? schemaHash = null)
+    private static CodecRegistry BuildRegistry(uint? schemaHash = null)
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) },

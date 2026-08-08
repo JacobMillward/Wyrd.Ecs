@@ -1,17 +1,13 @@
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// Maps component types to a stable wire discriminator plus serialize/deserialize
-/// delegates: the extension point a pluggable persistence layer is built from.
-///
-/// <para>
-/// Also maps tag types (<see cref="ITag"/>, which carry no data and so need no codec) to
-/// a display discriminator via <see cref="RegisterTag{T}"/>, used by debug/inspection
-/// output (<see cref="World.EnumerateArchetypes(ComponentCodecRegistry)"/>/
-/// <see cref="World.EnumerateEntities(ComponentCodecRegistry)"/>), not persistence.
-/// </para>
+/// Maps component/relation/tag types to a stable identity: a wire discriminator plus
+/// serialize/deserialize delegates. Two independent consumers share this one table -
+/// <see cref="World.Subscribe(IComponentCodec)"/> (in-memory change tracking, keyed by
+/// TypeIndex, no wire format) and <c>Wyrd.Ecs.Persistence</c>'s Save/Load (wire format,
+/// keyed by Discriminator) - so a type only needs registering once.
 /// </summary>
-public sealed partial class ComponentCodecRegistry
+public sealed partial class CodecRegistry
 {
     private readonly Dictionary<string, IComponentCodec> _byDiscriminator = new();
     private readonly Dictionary<int, IComponentCodec> _byTypeIndex = new();

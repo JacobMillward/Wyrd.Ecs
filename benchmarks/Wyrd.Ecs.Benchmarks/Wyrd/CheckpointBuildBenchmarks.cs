@@ -30,11 +30,11 @@ public class CheckpointBuildBenchmarks
         _directory = Path.Combine(Path.GetTempPath(), $"wyrd-benchmarks-checkpoint-build-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_directory);
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), bytes => new Position { X = BitConverter.ToSingle(bytes) });
 
         var world = new World();
-        world.DefaultComponentCodecRegistry = registry;
+        world.DefaultCodecRegistry = registry;
         for (var i = 0; i < EntityCount; i++)
             world.Commands.CreateEntity(new Position { X = i });
         world.ApplyCommands();

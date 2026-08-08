@@ -16,9 +16,9 @@ public class EnumerateAllTests
 
     private struct Marker : ITag;
 
-    private static ComponentCodecRegistry BuildRegistry()
+    private static CodecRegistry BuildRegistry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
@@ -49,7 +49,7 @@ public class EnumerateAllTests
     public void EnumerateAll_SkipsComponentTypesNotRegistered()
     {
         var world = new World();
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) });
@@ -114,7 +114,7 @@ public class EnumerateAllTests
     public void EnumerateAll_CarriesEachComponentsRegisteredSchemaHashThrough()
     {
         var world = new World();
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => Encoding.UTF8.GetBytes(p.X.ToString()),
             bytes => new Position { X = float.Parse(Encoding.UTF8.GetString(bytes)) },

@@ -1,107 +1,20 @@
 namespace Wyrd.Ecs.Tests;
 
-// Public (unlike the fixtures nested in WorldDebugTests below), since DebugNameGenerator
-// only registers accessible types - the zero-arg overloads need a debug name that's
-// actually been auto-registered.
+// Public, since DebugNameGenerator only registers accessible types - every enumeration test
+// here needs a debug name that's actually been auto-registered, whether or not it's also
+// registered for byte-payload encoding.
 public struct DebugPosition : IComponent { public float X; }
+public struct DebugVelocity : IComponent { public float X; }
 public struct DebugEnemyTag : ITag { }
 
 public class WorldDebugTests
 {
-    private struct Position : IComponent { public float X; }
-    private struct Velocity : IComponent { public float X; }
-    private struct Enemy : ITag { }
-
-    private static ComponentCodecRegistry NewRegistry()
+    private static CodecRegistry NewRegistry()
     {
-        var registry = new ComponentCodecRegistry();
-        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
-        registry.Register<Velocity>("Velocity", v => BitConverter.GetBytes(v.X), b => new Velocity { X = BitConverter.ToSingle(b) });
-        registry.RegisterTag<Enemy>("Enemy");
+        var registry = new CodecRegistry();
+        registry.Register<DebugPosition>("Position", p => BitConverter.GetBytes(p.X), b => new DebugPosition { X = BitConverter.ToSingle(b) });
+        registry.Register<DebugVelocity>("Velocity", v => BitConverter.GetBytes(v.X), b => new DebugVelocity { X = BitConverter.ToSingle(b) });
         return registry;
-    }
-
-    [Fact]
-    public void EnumerateArchetypes_OnAnEmptyWorld_YieldsNothing()
-    {
-        var world = new World();
-
-        world.EnumerateArchetypes(NewRegistry()).Should().BeEmpty();
-    }
-
-    [Fact]
-    public void EnumerateArchetypes_ReportsEntityCountAndComponentDiscriminatorsForOneArchetype()
-    {
-        var world = new World();
-        world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
-        world.Commands.CreateEntity(new Position { X = 3f }, new Velocity { X = 4f });
-        world.ApplyCommands();
-
-        var snapshot = world.EnumerateArchetypes(NewRegistry()).Should().ContainSingle().Subject;
-
-        snapshot.EntityCount.Should().Be(2);
-        snapshot.ComponentDiscriminators.Should().BeEquivalentTo(["Position", "Velocity"]);
-        snapshot.TagDiscriminators.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void EnumerateArchetypes_ReportsTagDiscriminators()
-    {
-        var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
-        world.Commands.AddTag<Enemy>(entity);
-        world.ApplyCommands();
-
-        var snapshot = world.EnumerateArchetypes(NewRegistry()).Should().ContainSingle().Subject;
-
-        snapshot.TagDiscriminators.Should().BeEquivalentTo(["Enemy"]);
-    }
-
-    [Fact]
-    public void EnumerateArchetypes_WithAnUnregisteredComponentType_SkipsItSilently()
-    {
-        var world = new World();
-        world.Commands.CreateEntity(new Velocity { X = 1f }); // not registered by NewRegistryWithOnlyPosition below
-        world.ApplyCommands();
-
-        var registry = new ComponentCodecRegistry();
-        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
-
-        var snapshot = world.EnumerateArchetypes(registry).Should().ContainSingle().Subject;
-
-        snapshot.ComponentDiscriminators.Should().BeEmpty();
-        snapshot.EntityCount.Should().Be(1);
-    }
-
-    [Fact]
-    public void EnumerateArchetypes_WithSeveralDistinctArchetypes_ReportsOneSnapshotEach()
-    {
-        var world = new World();
-        world.Commands.CreateEntity(new Position { X = 1f });
-        world.Commands.CreateEntity(new Position { X = 2f }, new Velocity { X = 3f });
-        world.ApplyCommands();
-
-        var snapshots = world.EnumerateArchetypes(NewRegistry()).ToList();
-
-        snapshots.Should().HaveCount(2);
-        snapshots.Sum(s => s.EntityCount).Should().Be(2);
-    }
-
-    [Fact]
-    public void EnumerateArchetypes_IsUnaffectedByAMutationThatReachesANewArchetypeAfterItReturns()
-    {
-        // EnumerateArchetypes must fully snapshot before returning, so a structural mutation
-        // applied after it returns must never affect the already-captured result.
-        var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
-        world.ApplyCommands();
-
-        var snapshots = world.EnumerateArchetypes(NewRegistry());
-
-        world.Commands.AddComponent(entity, new Velocity { X = 2f }); // moves entity to a brand-new archetype
-        world.ApplyCommands();
-
-        snapshots.Should().ContainSingle().Which.EntityCount.Should().Be(1);
     }
 
     [Fact]
@@ -116,25 +29,25 @@ public class WorldDebugTests
     public void EnumerateEntities_YieldsOneSnapshotPerLiveEntityWithItsComponents()
     {
         var world = new World();
-        world.Commands.CreateEntity(new Position { X = 1f }, new Velocity { X = 2f });
+        world.Commands.CreateEntity(new DebugPosition { X = 1f }, new DebugVelocity { X = 2f });
         world.ApplyCommands();
 
         var snapshot = world.EnumerateEntities(NewRegistry()).Should().ContainSingle().Subject;
 
-        snapshot.Components.Select(c => c.Discriminator).Should().BeEquivalentTo(["Position", "Velocity"]);
+        snapshot.Components.Select(c => c.Discriminator).Should().BeEquivalentTo([nameof(DebugPosition), nameof(DebugVelocity)]);
     }
 
     [Fact]
     public void EnumerateEntities_YieldsTagDiscriminatorsForTheEntity()
     {
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
-        world.Commands.AddTag<Enemy>(entity);
+        var entity = world.Commands.CreateEntity(new DebugPosition { X = 1f });
+        world.Commands.AddTag<DebugEnemyTag>(entity);
         world.ApplyCommands();
 
         var snapshot = world.EnumerateEntities(NewRegistry()).Should().ContainSingle().Subject;
 
-        snapshot.Tags.Should().BeEquivalentTo(["Enemy"]);
+        snapshot.Tags.Should().BeEquivalentTo([nameof(DebugEnemyTag)]);
     }
 
     [Fact]
@@ -153,26 +66,28 @@ public class WorldDebugTests
     }
 
     [Fact]
-    public void EnumerateEntities_WithAnUnregisteredComponentType_OmitsItFromTheSnapshotButStillYieldsTheEntity()
+    public void EnumerateEntities_WithAnUnregisteredComponentType_StillAppearsByName_WithEmptyData()
     {
         var world = new World();
-        world.Commands.CreateEntity(new Velocity { X = 1f });
+        world.Commands.CreateEntity(new DebugVelocity { X = 1f });
         world.ApplyCommands();
 
-        var registry = new ComponentCodecRegistry();
-        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
+        var registry = new CodecRegistry();
+        registry.Register<DebugPosition>("Position", p => BitConverter.GetBytes(p.X), b => new DebugPosition { X = BitConverter.ToSingle(b) });
 
         var snapshot = world.EnumerateEntities(registry).Should().ContainSingle().Subject;
 
-        snapshot.Components.Should().BeEmpty();
+        var component = snapshot.Components.Should().ContainSingle().Subject;
+        component.Discriminator.Should().Be(nameof(DebugVelocity));
+        component.Data.Should().BeEmpty();
     }
 
     [Fact]
     public void EnumerateEntities_ReportsCorrectEntityIdentityAcrossMultipleEntities()
     {
         var world = new World();
-        var a = world.Commands.CreateEntity(new Position { X = 1f });
-        var b = world.Commands.CreateEntity(new Position { X = 2f });
+        var a = world.Commands.CreateEntity(new DebugPosition { X = 1f });
+        var b = world.Commands.CreateEntity(new DebugPosition { X = 2f });
         world.ApplyCommands();
 
         var snapshots = world.EnumerateEntities(NewRegistry()).ToList();
@@ -183,16 +98,16 @@ public class WorldDebugTests
     [Fact]
     public void EnumerateEntities_IsUnaffectedByAMutationThatReachesANewArchetypeAfterItReturns()
     {
-        // Same regression as EnumerateArchetypes' equivalent test: a structural mutation
-        // applied after EnumerateEntities returns (but before the caller finishes reading the
-        // result) must never throw "Collection was modified" against the live World.
+        // A structural mutation applied after EnumerateEntities returns (but before the
+        // caller finishes reading the result) must never throw "Collection was modified"
+        // against the live World.
         var world = new World();
-        var entity = world.Commands.CreateEntity(new Position { X = 1f });
+        var entity = world.Commands.CreateEntity(new DebugPosition { X = 1f });
         world.ApplyCommands();
 
         var snapshots = world.EnumerateEntities(NewRegistry());
 
-        world.Commands.AddComponent(entity, new Velocity { X = 2f }); // moves entity to a brand-new archetype
+        world.Commands.AddComponent(entity, new DebugVelocity { X = 2f }); // moves entity to a brand-new archetype
         world.ApplyCommands();
 
         snapshots.Should().ContainSingle().Which.Components.Should().HaveCount(1, "the pre-mutation snapshot: Position only");

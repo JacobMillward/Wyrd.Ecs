@@ -20,9 +20,9 @@ public class ContinuousWalWorkerTests : IDisposable
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 
-    private static ComponentCodecRegistry BuildRegistry()
+    private static CodecRegistry BuildRegistry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => BitConverter.GetBytes(p.X),
             bytes => new Position { X = BitConverter.ToSingle(bytes) });

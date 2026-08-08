@@ -4,7 +4,7 @@ namespace Wyrd.Ecs;
 /// A type-erased view over one relation payload type's registration. Mirrors
 /// <see cref="IComponentCodec"/>, trimmed to what a relation edge needs: one payload
 /// value at a time, never the owning <see cref="RelationLinks{T}"/> dictionary.
-/// Obtained from <see cref="ComponentCodecRegistry"/>.
+/// Obtained from <see cref="CodecRegistry"/>.
 /// </summary>
 public interface IRelationCodec
 {

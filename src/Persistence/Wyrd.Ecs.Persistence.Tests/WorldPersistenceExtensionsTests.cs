@@ -53,57 +53,57 @@ public class WorldPersistenceExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void DefaultComponentCodecRegistry_UnsetOnAFreshWorld_IsNull()
+    public void DefaultCodecRegistry_UnsetOnAFreshWorld_IsNull()
     {
         var world = new World();
 
-        world.DefaultComponentCodecRegistry.Should().BeNull();
+        world.DefaultCodecRegistry.Should().BeNull();
     }
 
     [Fact]
-    public void DefaultComponentCodecRegistry_SetThenRead_ReturnsTheSameInstance()
+    public void DefaultCodecRegistry_SetThenRead_ReturnsTheSameInstance()
     {
         var world = new World();
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
-        world.DefaultComponentCodecRegistry = registry;
+        world.DefaultCodecRegistry = registry;
 
-        world.DefaultComponentCodecRegistry.Should().BeSameAs(registry);
+        world.DefaultCodecRegistry.Should().BeSameAs(registry);
     }
 
     [Fact]
-    public void DefaultComponentCodecRegistry_IsIndependentPerWorldInstance()
+    public void DefaultCodecRegistry_IsIndependentPerWorldInstance()
     {
         var worldA = new World();
         var worldB = new World();
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
-        worldA.DefaultComponentCodecRegistry = registry;
+        worldA.DefaultCodecRegistry = registry;
 
-        worldB.DefaultComponentCodecRegistry.Should().BeNull();
+        worldB.DefaultCodecRegistry.Should().BeNull();
     }
 
     [Fact]
-    public void DefaultComponentCodecRegistry_SetThenAssignedNull_ClearsItBackToUnset()
+    public void DefaultCodecRegistry_SetThenAssignedNull_ClearsItBackToUnset()
     {
         var world = new World();
-        var registry = new ComponentCodecRegistry();
-        world.DefaultComponentCodecRegistry = registry;
+        var registry = new CodecRegistry();
+        world.DefaultCodecRegistry = registry;
 
-        world.DefaultComponentCodecRegistry = null;
+        world.DefaultCodecRegistry = null;
 
-        world.DefaultComponentCodecRegistry.Should().BeNull();
+        world.DefaultCodecRegistry.Should().BeNull();
     }
 
     [Fact]
-    public void SetDefaultComponentCodecRegistry_AppliesOnceBuildRuns()
+    public void SetDefaultCodecRegistry_AppliesOnceBuildRuns()
     {
-        var registry = new ComponentCodecRegistry();
-        var builder = new WorldBuilder().SetDefaultComponentCodecRegistry(registry);
+        var registry = new CodecRegistry();
+        var builder = new WorldBuilder().SetDefaultCodecRegistry(registry);
 
         var world = builder.Build();
 
-        world.DefaultComponentCodecRegistry.Should().BeSameAs(registry);
+        world.DefaultCodecRegistry.Should().BeSameAs(registry);
     }
 
     private struct Position : IComponent
@@ -116,9 +116,9 @@ public class WorldPersistenceExtensionsTests : IDisposable
         public float X;
     }
 
-    private static ComponentCodecRegistry BuildRegistry()
+    private static CodecRegistry BuildRegistry()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position",
             p => BitConverter.GetBytes(p.X),
             bytes => new Position { X = BitConverter.ToSingle(bytes) });
@@ -132,7 +132,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     public void Save_StampsTheCheckpointHeaderWithTheWorldsCurrentTick()
     {
         var source = new World();
-        source.DefaultComponentCodecRegistry = BuildRegistry();
+        source.DefaultCodecRegistry = BuildRegistry();
         source.AdvanceTick();
         source.AdvanceTick();
         var store = new FileStore(_path);
@@ -149,7 +149,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         Entity entity = source.Commands.CreateEntity(new Position { X = 1f });
         source.ApplyCommands();
         source.Commands.AddComponent(entity, new Velocity { X = 2f });
@@ -159,7 +159,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -182,7 +182,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         public float Weight;
     }
 
-    private static ComponentCodecRegistry BuildRegistryWithRelation()
+    private static CodecRegistry BuildRegistryWithRelation()
     {
         var registry = BuildRegistry();
         registry.RegisterRelation<Likes>("Likes",
@@ -196,7 +196,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistryWithRelation();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         Entity a = source.Commands.CreateEntity(new Position { X = 1f });
         Entity b = source.Commands.CreateEntity(new Position { X = 2f });
         source.ApplyCommands();
@@ -207,7 +207,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         Entity? loadedA = null;
@@ -233,7 +233,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistryWithRelation();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         Entity a = source.Commands.CreateEntity();
         Entity b = source.Commands.CreateEntity();
         source.ApplyCommands();
@@ -244,7 +244,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var hasLinks = false;
@@ -270,7 +270,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistryWithRelation();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         Entity a = source.Commands.CreateEntity();
         source.ApplyCommands();
         var store = new FileStore(_path);
@@ -284,7 +284,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         }
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         var act = () => target.Load(store);
         act.Should().NotThrow();
 
@@ -303,7 +303,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new Position { X = 10f });
         source.Commands.CreateEntity(new Position { X = 20f });
         source.ApplyCommands();
@@ -312,7 +312,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var values = new List<float>();
@@ -331,14 +331,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new Position { X = 3f });
         source.ApplyCommands();
 
         source.Save(_path);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(_path);
 
         var found = false;
@@ -359,7 +359,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var saveRegistry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new Position { X = 1f });
         source.ApplyCommands();
         Entity entity = source.Commands.CreateEntity();
@@ -369,14 +369,14 @@ public class WorldPersistenceExtensionsTests : IDisposable
         var store = new FileStore(_path);
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<Position>("Position",
             p => BitConverter.GetBytes(p.X),
             bytes => new Position { X = BitConverter.ToSingle(bytes) });
         // Velocity deliberately not registered here.
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
         var act = () => target.Load(store);
 
         act.Should().NotThrow();
@@ -399,12 +399,12 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         var store = new FileStore(_path);
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var count = 0;
@@ -417,7 +417,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new Position { X = 7f });
         source.ApplyCommands();
         source.DefaultPersistenceStore = new FileStore(_path);
@@ -425,7 +425,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         source.Save();
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.DefaultPersistenceStore = new FileStore(_path);
         target.Load();
 
@@ -446,7 +446,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     public void Save_WithNoStoreArgumentAndNoDefaultConfigured_ThrowsAClearError()
     {
         var world = new World();
-        world.DefaultComponentCodecRegistry = BuildRegistry();
+        world.DefaultCodecRegistry = BuildRegistry();
 
         var act = () => world.Save();
 
@@ -457,7 +457,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     public void Load_WithNoStoreArgumentAndNoDefaultConfigured_ThrowsAClearError()
     {
         var world = new World();
-        world.DefaultComponentCodecRegistry = BuildRegistry();
+        world.DefaultCodecRegistry = BuildRegistry();
 
         var act = () => world.Load();
 
@@ -465,7 +465,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void Save_WithNoDefaultComponentCodecRegistryConfigured_ThrowsAClearError()
+    public void Save_WithNoDefaultCodecRegistryConfigured_ThrowsAClearError()
     {
         var world = new World();
         world.DefaultPersistenceStore = new FileStore(_path);
@@ -476,7 +476,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void Load_WithNoDefaultComponentCodecRegistryConfigured_ThrowsAClearError()
+    public void Load_WithNoDefaultCodecRegistryConfigured_ThrowsAClearError()
     {
         var world = new World();
         world.DefaultPersistenceStore = new FileStore(_path);
@@ -531,20 +531,20 @@ public class WorldPersistenceExtensionsTests : IDisposable
     [Fact]
     public void Save_ThenLoad_WithMatchingSchemaHashesOnBothSides_RoundTripsCorrectly()
     {
-        var saveRegistry = new ComponentCodecRegistry();
+        var saveRegistry = new CodecRegistry();
         saveRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 100u);
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new PositionV1 { X = 5f });
         source.ApplyCommands();
         var store = new FileStore(_path);
 
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 100u);
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
         target.Load(store);
 
         var found = false;
@@ -563,19 +563,19 @@ public class WorldPersistenceExtensionsTests : IDisposable
     [Fact]
     public void Load_WithAMismatchedSchemaHashAndNoRegisteredMigration_ThrowsNamingTheDiscriminatorAndHash()
     {
-        var saveRegistry = new ComponentCodecRegistry();
+        var saveRegistry = new CodecRegistry();
         saveRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 100u);
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new PositionV1 { X = 5f });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<PositionV2>("Position", EncodeV2, DecodeV2, schemaHash: 200u);
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
 
         var act = () => target.Load(store);
 
@@ -587,21 +587,21 @@ public class WorldPersistenceExtensionsTests : IDisposable
     [Fact]
     public void Load_WithAMismatchedSchemaHashAndARegisteredMigration_AppliesItAndReconstructsCorrectly()
     {
-        var saveRegistry = new ComponentCodecRegistry();
+        var saveRegistry = new CodecRegistry();
         saveRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 100u);
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new PositionV1 { X = 5f });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<PositionV2>("Position", EncodeV2, DecodeV2, schemaHash: 200u);
         loadRegistry.RegisterMigration("Position", fromSchemaHash: 100u, toSchemaHash: 200u,
             oldBytes => EncodeV2(new PositionV2 { X = DecodeV1(oldBytes).X, Y = 0f }));
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
 
         target.Load(store);
 
@@ -622,23 +622,23 @@ public class WorldPersistenceExtensionsTests : IDisposable
     [Fact]
     public void Load_ChainingTwoRegisteredMigrationSteps_WalksBothToReachTheCurrentSchema()
     {
-        var saveRegistry = new ComponentCodecRegistry();
+        var saveRegistry = new CodecRegistry();
         saveRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 100u);
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new PositionV1 { X = 5f });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<PositionV3>("Position", EncodeV3, DecodeV3, schemaHash: 300u);
         loadRegistry.RegisterMigration("Position", fromSchemaHash: 100u, toSchemaHash: 200u,
             oldBytes => EncodeV2(new PositionV2 { X = DecodeV1(oldBytes).X, Y = 0f }));
         loadRegistry.RegisterMigration("Position", fromSchemaHash: 200u, toSchemaHash: 300u,
             oldBytes => { var v2 = DecodeV2(oldBytes); return EncodeV3(new PositionV3 { X = v2.X, Y = v2.Y, Z = 0f }); });
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
 
         target.Load(store);
 
@@ -674,7 +674,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         var saveRegistry = BuildRegistry();
         saveRegistry.RegisterRelation<LikesV1>("Likes", v => BitConverter.GetBytes(v.Weight), d => new LikesV1 { Weight = BitConverter.ToSingle(d) }, schemaHash: 100u);
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         Entity a = source.Commands.CreateEntity(new Position { X = 1f });
         Entity b = source.Commands.CreateEntity(new Position { X = 2f });
         source.ApplyCommands();
@@ -691,7 +691,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         loadRegistry.RegisterMigration("Likes", fromSchemaHash: 100u, toSchemaHash: 200u,
             oldBytes => BitConverter.GetBytes(BitConverter.ToSingle(oldBytes)).Concat(BitConverter.GetBytes(false)).ToArray());
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
 
         target.Load(store);
 
@@ -714,19 +714,19 @@ public class WorldPersistenceExtensionsTests : IDisposable
     [Fact]
     public void Load_WhenNoSchemaHashWasRegisteredAtSaveTime_NeverTriggersAMismatchCheck()
     {
-        var saveRegistry = new ComponentCodecRegistry();
+        var saveRegistry = new CodecRegistry();
         saveRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1); // no schemaHash
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new PositionV1 { X = 5f });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 999u);
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
 
         var act = () => target.Load(store);
 
@@ -747,19 +747,19 @@ public class WorldPersistenceExtensionsTests : IDisposable
     [Fact]
     public void Load_WhenTheCurrentlyRegisteredTypeHasNoSchemaHash_NeverTriggersAMismatchCheck()
     {
-        var saveRegistry = new ComponentCodecRegistry();
+        var saveRegistry = new CodecRegistry();
         saveRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1, schemaHash: 100u);
         var source = new World();
-        source.DefaultComponentCodecRegistry = saveRegistry;
+        source.DefaultCodecRegistry = saveRegistry;
         source.Commands.CreateEntity(new PositionV1 { X = 5f });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
-        var loadRegistry = new ComponentCodecRegistry();
+        var loadRegistry = new CodecRegistry();
         loadRegistry.Register<PositionV1>("Position", EncodeV1, DecodeV1); // no schemaHash
         var target = new World();
-        target.DefaultComponentCodecRegistry = loadRegistry;
+        target.DefaultCodecRegistry = loadRegistry;
 
         var act = () => target.Load(store);
 
@@ -782,18 +782,18 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         var registry = BuildRegistry();
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new Position { X = 1f });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
-        var throwingRegistry = new ComponentCodecRegistry();
+        var throwingRegistry = new CodecRegistry();
         throwingRegistry.Register<Position>("Position",
             _ => throw new InvalidOperationException("encoder boom"),
             bytes => new Position { X = BitConverter.ToSingle(bytes) });
         var faultySource = new World();
-        faultySource.DefaultComponentCodecRegistry = throwingRegistry;
+        faultySource.DefaultCodecRegistry = throwingRegistry;
         faultySource.Commands.CreateEntity(new Position { X = 99f });
         faultySource.ApplyCommands();
 
@@ -801,7 +801,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
         act.Should().Throw<InvalidOperationException>().WithMessage("encoder boom");
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
         var found = false;
         foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
@@ -821,7 +821,7 @@ public class WorldPersistenceExtensionsTests : IDisposable
     {
         File.WriteAllBytes(_path, [0x00, 0x00, 0x00, 0x00, 0x01, 0x00]);
         var target = new World();
-        target.DefaultComponentCodecRegistry = BuildRegistry();
+        target.DefaultCodecRegistry = BuildRegistry();
         var store = new FileStore(_path);
 
         var act = () => target.Load(store);

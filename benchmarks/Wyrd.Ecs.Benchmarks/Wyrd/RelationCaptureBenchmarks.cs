@@ -33,11 +33,11 @@ public class RelationCaptureBenchmarks
         _directory = Path.Combine(Path.GetTempPath(), $"wyrd-benchmarks-relation-capture-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_directory);
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
         _world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(registry)
+            .SetDefaultCodecRegistry(registry)
             .SetDefaultPersistenceStore(new FileStore(Path.Combine(_directory, "world.checkpoint")))
             .EnableContinuousPersistence(
                 new FileWalStore(Path.Combine(_directory, "world")),

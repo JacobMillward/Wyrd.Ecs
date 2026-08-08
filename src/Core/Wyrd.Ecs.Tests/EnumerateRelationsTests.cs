@@ -18,7 +18,7 @@ public class EnumerateRelationsTests
         world.Commands.AddRelation(a, b, new Likes { Weight = 2.5f });
         world.ApplyCommands();
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("likes",
             v => BitConverter.GetBytes(v.Weight),
             d => new Likes { Weight = BitConverter.ToSingle(d) },
@@ -45,7 +45,7 @@ public class EnumerateRelationsTests
         world.Commands.AddRelation(a, c, new Likes { Weight = 2f });
         world.ApplyCommands();
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
         var relations = world.EnumerateRelations(registry).ToList();
@@ -64,7 +64,7 @@ public class EnumerateRelationsTests
         world.Commands.AddRelation<Follows>(a, b);
         world.ApplyCommands();
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         world.EnumerateRelations(registry).Should().BeEmpty();
     }
@@ -78,7 +78,7 @@ public class EnumerateRelationsTests
         world.Commands.AddRelation(a, b, new Likes { Weight = 1f });
         world.ApplyCommands();
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
         world.EnumerateRelations(registry).Should().ContainSingle();

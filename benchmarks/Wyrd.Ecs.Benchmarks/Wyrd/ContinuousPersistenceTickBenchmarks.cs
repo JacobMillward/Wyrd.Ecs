@@ -30,11 +30,11 @@ public class ContinuousPersistenceTickBenchmarks
         _directory = Path.Combine(Path.GetTempPath(), $"wyrd-benchmarks-continuous-tick-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_directory);
 
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), bytes => new Position { X = BitConverter.ToSingle(bytes) });
 
         _world = new WorldBuilder()
-            .SetDefaultComponentCodecRegistry(registry)
+            .SetDefaultCodecRegistry(registry)
             .SetDefaultPersistenceStore(new FileStore(Path.Combine(_directory, "world.checkpoint")))
             .EnableContinuousPersistence(
                 new FileWalStore(Path.Combine(_directory, "world")),

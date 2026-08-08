@@ -9,7 +9,7 @@ namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 /// captured: tags carry no data and are already skipped by
 /// <see cref="World.EnumerateAll"/> on checkpoint.
 /// </summary>
-internal sealed class StructuralChangeCapture(World world, ComponentCodecRegistry registry, Action<CapturedWalEntry> onCaptured) : IStructuralChangeObserver
+internal sealed class StructuralChangeCapture(World world, CodecRegistry registry, Action<CapturedWalEntry> onCaptured) : IStructuralChangeObserver
 {
     public void OnEntityCreated(Entity entity) =>
         onCaptured(new CapturedWalEntry(WalRecordKind.EntityCreated, world.CurrentTick, world.GetPermanentId(entity), "", null, []));

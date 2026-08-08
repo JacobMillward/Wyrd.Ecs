@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Persistence.Binary;
 
 /// <summary>
 /// Sets up binary (MemoryPack) save/load for a <see cref="WorldBuilder"/>. Both
-/// overloads here need an explicit <see cref="ComponentCodecRegistry"/> listing which
+/// overloads here need an explicit <see cref="CodecRegistry"/> listing which
 /// component types to save. If your project also references
 /// <c>Wyrd.Ecs.Persistence.Binary.Generators</c>, use the generated
 /// <c>AddBinaryPersistence(store)</c>/<c>AddBinaryPersistence(path)</c> overloads
@@ -15,12 +15,12 @@ public static class WorldBuilderBinaryPersistenceExtensions
     {
         /// <summary>
         /// Same as
-        /// <see cref="AddBinaryPersistence(WorldBuilder, IPersistenceStore, ComponentCodecRegistry)"/>
+        /// <see cref="AddBinaryPersistence(WorldBuilder, IPersistenceStore, CodecRegistry)"/>
         /// but takes a file path directly, wrapping it in a <c>new FileStore(path)</c>.
         /// Use this when you just want to save to a file and don't need a custom
         /// <see cref="IPersistenceStore"/>.
         /// </summary>
-        public WorldBuilder AddBinaryPersistence(string path, ComponentCodecRegistry registry) =>
+        public WorldBuilder AddBinaryPersistence(string path, CodecRegistry registry) =>
             builder.AddBinaryPersistence(new FileStore(path), registry);
     }
 
@@ -31,7 +31,7 @@ public static class WorldBuilderBinaryPersistenceExtensions
         /// <paramref name="registry"/> as its default component codec registry, exactly
         /// as given.
         /// </summary>
-        public WorldBuilder AddBinaryPersistence(IPersistenceStore store, ComponentCodecRegistry registry) =>
-            builder.SetDefaultPersistenceStore(store).SetDefaultComponentCodecRegistry(registry);
+        public WorldBuilder AddBinaryPersistence(IPersistenceStore store, CodecRegistry registry) =>
+            builder.SetDefaultPersistenceStore(store).SetDefaultCodecRegistry(registry);
     }
 }

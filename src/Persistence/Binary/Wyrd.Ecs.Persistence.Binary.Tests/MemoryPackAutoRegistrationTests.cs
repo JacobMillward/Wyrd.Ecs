@@ -33,7 +33,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_RegistersEveryMemoryPackableComponent()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         MemoryPackAutoRegistration.RegisterAll(registry);
 
@@ -44,7 +44,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     [Fact]
     public void RegisterAll_DoesNotRegisterAComponentWithoutTheMemoryPackableAttribute()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
 
         MemoryPackAutoRegistration.RegisterAll(registry);
 
@@ -54,11 +54,11 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     [Fact]
     public void Save_ThenLoad_UsingOnlyAutoRegisteredMemoryPackTypes_RoundTripsCorrectly()
     {
-        var registry = new ComponentCodecRegistry();
+        var registry = new CodecRegistry();
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultComponentCodecRegistry = registry;
+        source.DefaultCodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "hi" });
         source.ApplyCommands();
         var store = new FileStore(_path);
@@ -66,7 +66,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultComponentCodecRegistry = registry;
+        target.DefaultCodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -92,7 +92,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddBinaryPersistence(store).Build();
 
         world.DefaultPersistenceStore.Should().BeSameAs(store);
-        world.DefaultComponentCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -101,6 +101,6 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddBinaryPersistence(_path).Build();
 
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
-        world.DefaultComponentCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 }
