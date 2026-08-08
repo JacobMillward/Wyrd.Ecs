@@ -52,16 +52,50 @@ var world = new WorldBuilder()
     .Build();
 ```
 
-Opt a specific component out with `[JsonPersistenceIgnore]`:
+Opt a specific component out with `[PersistenceIgnore]`:
 
 ```csharp
-[JsonPersistenceIgnore]
+[PersistenceIgnore]
 public struct Transient : IComponent { }
 ```
 
 :::note
 Nothing stops a `World` from having both a binary and a JSON store configured at once, their codec registries stay independent if you do. Most worlds want one codec though, this is the unusual case, not the norm.
 :::
+
+## Rename-safety
+
+A component/relation/tag's discriminator defaults to its fully qualified type name. Pin it explicitly instead with `[StableName]`:
+
+```csharp
+[StableName("Enemy")]
+public partial struct EnemyController : IComponent { }
+```
+
+Renamed a type that's already been saved under its old name? `[RenamedFrom]` keeps that data resolving, repeatable for a type renamed more than once:
+
+```csharp
+[RenamedFrom("Old.Namespace.EnemyController")]
+[StableName("Enemy")]
+public partial struct EnemyController : IComponent { }
+```
+
+## Migration
+
+A component's shape can change over time without losing old saves. Register a step for each schema-hash transition; `Load` walks the chain automatically:
+
+```csharp
+registry.RegisterMigration("Enemy", fromSchemaHash: 1, toSchemaHash: 2, oldBytes => /* transform */);
+```
+
+## Tags
+
+Tag presence is part of saved state, on by default for every `ITag` type, no attribute or manual registration needed. Opt a specific tag out with `[PersistenceIgnore]`, the same attribute the JSON codec uses for components:
+
+```csharp
+[PersistenceIgnore]
+public struct Hovered : ITag { }
+```
 
 ## Then, optionally: continuous persistence
 
@@ -88,4 +122,4 @@ world.StopContinuousPersistence();
 
 - `world.Save()`/`Load()` are the manual, on-demand primitive: a synchronous walk of every entity and every registered component, through an `IPersistenceStore`. Continuous persistence's periodic checkpoint calls the same `Save`, it doesn't duplicate the walk.
 - `IPersistenceStore` is where the bytes go. `FileStore` (a single local file, written atomically) is the only implementation today.
-- `ComponentCodecRegistry` is what makes a component type persistable at all. The binary and JSON packages populate one for you from your own component types, you only touch it directly if you're writing a custom codec.
+- `CodecRegistry` is the surface for a custom codec, a manual `RegisterTag`, or a hand-written migration/alias, the binary and JSON packages populate one automatically for the common case.
