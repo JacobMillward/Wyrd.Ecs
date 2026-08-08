@@ -7,8 +7,8 @@ namespace Wyrd.Ecs;
 /// <para>
 /// Also maps tag types (<see cref="ITag"/>, which carry no data and so need no codec) to
 /// a display discriminator via <see cref="RegisterTag{T}"/>, used by debug/inspection
-/// output (<see cref="World.EnumerateArchetypes"/>/<see cref="World.EnumerateEntities"/>),
-/// not persistence.
+/// output (<see cref="World.EnumerateArchetypes(ComponentCodecRegistry)"/>/
+/// <see cref="World.EnumerateEntities(ComponentCodecRegistry)"/>), not persistence.
 /// </para>
 /// </summary>
 public sealed partial class ComponentCodecRegistry

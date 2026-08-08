@@ -1,5 +1,11 @@
 namespace Wyrd.Ecs.Tests;
 
+// Public (unlike the fixtures nested in WorldDebugTests below), since DebugNameGenerator
+// only registers accessible types - the zero-arg overloads need a debug name that's
+// actually been auto-registered.
+public struct DebugPosition : IComponent { public float X; }
+public struct DebugEnemyTag : ITag { }
+
 public class WorldDebugTests
 {
     private struct Position : IComponent { public float X; }
@@ -190,5 +196,47 @@ public class WorldDebugTests
         world.ApplyCommands();
 
         snapshots.Should().ContainSingle().Which.Components.Should().HaveCount(1, "the pre-mutation snapshot: Position only");
+    }
+
+    [Fact]
+    public void EnumerateArchetypes_ZeroArg_NeedsNoRegistry()
+    {
+        var world = new World();
+        var entity = world.Commands.CreateEntity(new DebugPosition());
+        world.Commands.AddTag<DebugEnemyTag>(entity);
+        world.ApplyCommands();
+
+        var snapshot = world.EnumerateArchetypes().Should().ContainSingle().Subject;
+
+        snapshot.EntityCount.Should().Be(1);
+        snapshot.ComponentDiscriminators.Should().BeEquivalentTo([nameof(DebugPosition)]);
+        snapshot.TagDiscriminators.Should().BeEquivalentTo([nameof(DebugEnemyTag)]);
+    }
+
+    [Fact]
+    public void EnumerateEntities_ZeroArg_ComponentWithNoCodec_ShowsNameWithEmptyData()
+    {
+        var world = new World();
+        world.Commands.CreateEntity(new DebugPosition());
+        world.ApplyCommands();
+
+        var entities = world.EnumerateEntities();
+
+        var component = entities.Should().ContainSingle().Subject.Components.Should().ContainSingle().Subject;
+        component.Discriminator.Should().Be(nameof(DebugPosition));
+        component.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EnumerateEntities_ZeroArg_IncludesAnEntityWithNoComponentsOrTags()
+    {
+        var world = new World();
+        world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        var snapshot = world.EnumerateEntities().Should().ContainSingle().Subject;
+
+        snapshot.Components.Should().BeEmpty();
+        snapshot.Tags.Should().BeEmpty();
     }
 }

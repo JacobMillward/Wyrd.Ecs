@@ -36,9 +36,74 @@ public sealed partial class World
     }
 
     /// <summary>
+    /// Every archetype with at least one live entity: its entity count and the debug name
+    /// of every component/tag type present, resolved via
+    /// <see cref="Internal.DebugNameRegistry"/> - no registry parameter, no setup, works
+    /// for any type the generated module initializer discovered. Same
+    /// eager-materialization and trimming guidance as the registry-taking overload in
+    /// <c>Wyrd.Ecs.Persistence</c>.
+    /// </summary>
+    public IReadOnlyList<ArchetypeSnapshot> EnumerateArchetypes()
+    {
+        var result = new List<ArchetypeSnapshot>();
+
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0) continue;
+
+            var components = new List<string>();
+            var tags = new List<string>();
+            foreach (var typeIndex in archetype.Signature.SetBits)
+            {
+                if (!Internal.DebugNameRegistry.TryGetName(typeIndex, out var name)) continue;
+                if (archetype.Storages.TryGetValue(typeIndex, out _)) components.Add(name);
+                else tags.Add(name);
+            }
+
+            result.Add(new ArchetypeSnapshot(archetype.Count, components, tags));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Every live entity, by debug name only - no byte payloads, no registry needed. A
+    /// component appears with an empty <see cref="EncodedComponent.Data"/> rather than
+    /// being omitted, unlike the registry-taking overload in <c>Wyrd.Ecs.Persistence</c>,
+    /// which attaches real encoded bytes for any type that also has a registered codec.
+    /// </summary>
+    public IReadOnlyList<EntitySnapshot> EnumerateEntities()
+    {
+        var result = new List<EntitySnapshot>();
+
+        foreach (var archetype in _archetypes.Values)
+        {
+            if (archetype.Count == 0) continue;
+
+            var tags = new List<string>();
+            var componentNames = new List<string>();
+            foreach (var typeIndex in archetype.Signature.SetBits)
+            {
+                if (!Internal.DebugNameRegistry.TryGetName(typeIndex, out var name)) continue;
+                if (archetype.Storages.TryGetValue(typeIndex, out _)) componentNames.Add(name);
+                else tags.Add(name);
+            }
+
+            for (var row = 0; row < archetype.Count; row++)
+            {
+                var components = componentNames.Select(name => new EncodedComponent(archetype.Entities[row], name, null, [])).ToList();
+                result.Add(new EntitySnapshot(archetype.Entities[row], components, tags));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Every tag discriminator set in <paramref name="signature"/> that
     /// <paramref name="registry"/> has a name for. Shared by
-    /// <see cref="EnumerateArchetypes"/> and <see cref="EnumerateEntities"/>. Resolved
+    /// <see cref="EnumerateArchetypes(ComponentCodecRegistry)"/> and
+    /// <see cref="EnumerateEntities(ComponentCodecRegistry)"/>. Resolved
     /// once per archetype by each caller, not once per entity row, since the answer is
     /// identical for every entity in the same archetype.
     /// </summary>
@@ -56,7 +121,7 @@ public sealed partial class World
     /// <see cref="EnumerateAll"/> silently drops, since it only visits archetypes by
     /// walking their registered component storages. Debug/tooling path, not a per-tick
     /// one; same trimming guidance and eager-materialization reasoning as
-    /// <see cref="EnumerateArchetypes"/> apply here too.
+    /// <see cref="EnumerateArchetypes(ComponentCodecRegistry)"/> apply here too.
     /// </summary>
     public IReadOnlyList<EntitySnapshot> EnumerateEntities(ComponentCodecRegistry registry)
     {
