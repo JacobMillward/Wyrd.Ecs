@@ -3,7 +3,7 @@ title: Debugging
 description: Inspecting live world state, every archetype, every entity, every component value.
 ---
 
-Sometimes you need to see what the world actually contains right now: which archetypes exist, how many entities are in each, what a specific entity's components hold. `World.EnumerateArchetypes`/`EnumerateEntities` need nothing extra: every component, tag, and relation type gets a debug name automatically, whether or not a persistence package is referenced.
+Sometimes you need to see what the world actually contains right now: which archetypes exist, how many entities are in each, what a specific entity's components hold. `World.EnumerateArchetypes`/`EnumerateEntities` resolve every component, tag, and relation type to its debug name for you.
 
 ## Reading world state
 
