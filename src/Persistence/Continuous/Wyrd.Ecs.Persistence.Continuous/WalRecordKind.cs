@@ -1,10 +1,6 @@
 namespace Wyrd.Ecs.Persistence.Continuous;
 
-/// <summary>
-/// What kind of structural or value change one WAL record represents. Tag add/remove
-/// are not represented: tags carry no data and are already skipped by
-/// <see cref="World.EnumerateAll"/> on checkpoint.
-/// </summary>
+/// <summary>What kind of structural or value change one WAL record represents.</summary>
 public enum WalRecordKind : byte
 {
     /// <summary>A tracked component's value changed (via <c>ReadChanges&lt;T&gt;</c>).</summary>
@@ -27,4 +23,10 @@ public enum WalRecordKind : byte
 
     /// <summary>A relation edge no longer exists.</summary>
     RelationUnlinked = 6,
+
+    /// <summary>A tag was added to an entity.</summary>
+    TagAdded = 7,
+
+    /// <summary>A tag was removed from an entity.</summary>
+    TagRemoved = 8,
 }

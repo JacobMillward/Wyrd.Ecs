@@ -5,8 +5,8 @@ namespace Wyrd.Ecs.Persistence.Continuous;
 /// touches a live <see cref="World"/> or interprets a payload's bytes: every record
 /// already carries an encoded value, so merging reduces to replaying records with a
 /// tick in <c>(priorTick, targetTick]</c> over the prior checkpoint (keyed by entity and
-/// discriminator for components, by source/target/discriminator for relations; removal
-/// kinds delete rather than skip) and writing the result back via the same atomic-swap
+/// discriminator for components and tags, by source/target/discriminator for relations;
+/// removal kinds delete rather than skip) and writing the result back via the same atomic-swap
 /// <see cref="IPersistenceStore"/> path <c>World.Save</c> uses. Runs entirely out of
 /// band, with no synchronization needed against a live sim thread.
 /// </summary>
@@ -21,7 +21,7 @@ public static class CheckpointBuilder
     /// </summary>
     public static void Build(IPersistenceStore checkpointStore, IWalStore walStore, int targetTick)
     {
-        var (priorTick, entries, relationEntries) = ReadCheckpoint(checkpointStore);
+        var (priorTick, entries, relationEntries, tagEntries) = ReadCheckpoint(checkpointStore);
         var destroyed = new HashSet<EntityId>();
 
         foreach (var startTick in walStore.ListSegmentStartTicks())
@@ -34,16 +34,17 @@ public static class CheckpointBuilder
             while (Internal.WalSegmentIO.TryReadRecord(segmentStream, out var record))
             {
                 if (record.Tick <= priorTick || record.Tick > targetTick) continue;
-                Apply(entries, relationEntries, destroyed, record.Kind, record.EntityId, record.TargetId, record.Discriminator, record.SchemaHash, record.Payload);
+                Apply(entries, relationEntries, tagEntries, destroyed, record.Kind, record.EntityId, record.TargetId, record.Discriminator, record.SchemaHash, record.Payload);
             }
         }
 
-        WriteCheckpoint(checkpointStore, targetTick, entries, relationEntries, destroyed);
+        WriteCheckpoint(checkpointStore, targetTick, entries, relationEntries, tagEntries, destroyed);
     }
 
     private static void Apply(
         Dictionary<(EntityId EntityId, string Discriminator), (uint? SchemaHash, byte[] Payload)> entries,
         Dictionary<(EntityId Source, EntityId Target, string Discriminator), (uint? SchemaHash, byte[] Payload)> relationEntries,
+        HashSet<(EntityId EntityId, string Discriminator)> tagEntries,
         HashSet<EntityId> destroyed,
         WalRecordKind kind, EntityId entityId, EntityId targetId, string discriminator, uint? schemaHash, byte[] payload)
     {
@@ -72,13 +73,22 @@ public static class CheckpointBuilder
             case WalRecordKind.RelationUnlinked:
                 relationEntries.Remove((entityId, targetId, discriminator));
                 break;
+
+            case WalRecordKind.TagAdded:
+                tagEntries.Add((entityId, discriminator));
+                break;
+
+            case WalRecordKind.TagRemoved:
+                tagEntries.Remove((entityId, discriminator));
+                break;
         }
     }
 
     internal static (
         int Tick,
         Dictionary<(EntityId EntityId, string Discriminator), (uint? SchemaHash, byte[] Payload)> Entries,
-        Dictionary<(EntityId Source, EntityId Target, string Discriminator), (uint? SchemaHash, byte[] Payload)> RelationEntries
+        Dictionary<(EntityId Source, EntityId Target, string Discriminator), (uint? SchemaHash, byte[] Payload)> RelationEntries,
+        HashSet<(EntityId EntityId, string Discriminator)> TagEntries
     ) ReadCheckpoint(IPersistenceStore checkpointStore)
     {
         Stream stream;
@@ -90,7 +100,7 @@ public static class CheckpointBuilder
         {
             // IPersistenceStore.OpenCheckpointRead's contract: this exception (or a
             // subclass) means "no checkpoint written yet," not a real read failure.
-            return (0, [], []);
+            return (0, [], [], []);
         }
 
         using (stream)
@@ -98,14 +108,17 @@ public static class CheckpointBuilder
             var tick = Persistence.Internal.CheckpointRecordIO.ReadHeader(stream);
             var entries = new Dictionary<(EntityId, string), (uint?, byte[])>();
             var relationEntries = new Dictionary<(EntityId, EntityId, string), (uint?, byte[])>();
+            var tagEntries = new HashSet<(EntityId, string)>();
             while (Persistence.Internal.CheckpointRecordIO.TryReadRecord(stream, out var record))
             {
                 if (record.Kind == Persistence.Internal.CheckpointRecordKind.Component)
                     entries[(record.EntityId, record.Discriminator)] = (record.SchemaHash, record.Payload);
+                else if (record.Kind == Persistence.Internal.CheckpointRecordKind.Tag)
+                    tagEntries.Add((record.EntityId, record.Discriminator));
                 else
                     relationEntries[(record.EntityId, record.TargetId, record.Discriminator)] = (record.SchemaHash, record.Payload);
             }
-            return (tick, entries, relationEntries);
+            return (tick, entries, relationEntries, tagEntries);
         }
     }
 
@@ -113,6 +126,7 @@ public static class CheckpointBuilder
         IPersistenceStore checkpointStore, int tick,
         Dictionary<(EntityId EntityId, string Discriminator), (uint? SchemaHash, byte[] Payload)> entries,
         Dictionary<(EntityId Source, EntityId Target, string Discriminator), (uint? SchemaHash, byte[] Payload)> relationEntries,
+        HashSet<(EntityId EntityId, string Discriminator)> tagEntries,
         HashSet<EntityId> destroyed)
     {
         var stream = checkpointStore.OpenCheckpointWrite();
@@ -130,6 +144,12 @@ public static class CheckpointBuilder
             {
                 if (destroyed.Contains(sourceId) || destroyed.Contains(targetId)) continue;
                 Persistence.Internal.CheckpointRecordIO.WriteRelationRecord(stream, sourceId, targetId, discriminator, schemaHash, payload);
+            }
+
+            foreach (var (entityId, discriminator) in tagEntries)
+            {
+                if (destroyed.Contains(entityId)) continue;
+                Persistence.Internal.CheckpointRecordIO.WriteTagRecord(stream, entityId, discriminator);
             }
         }
         catch

@@ -39,7 +39,7 @@ public class CheckpointBuilderTests : IDisposable
 
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 1);
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(1);
         entries.Should().ContainKey((entity, "Position"));
         entries[(entity, "Position")].SchemaHash.Should().Be(42u);
@@ -59,7 +59,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.ComponentChanged, 2, entity, "Position", null, [9, 9]));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(2);
         entries[(entity, "Position")].Payload.Should().Equal(new byte[] { 9, 9 });
     }
@@ -80,7 +80,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.ComponentChanged, 2, touched, "Velocity", null, [9]));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         entries.Should().ContainKey((untouched, "Position"));
         entries[(untouched, "Position")].Payload.Should().Equal(new byte[] { 1 });
     }
@@ -100,7 +100,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.ComponentRemoved, 2, entity, "Velocity", null, []));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         entries.Should().ContainKey((entity, "Position"));
         entries.Should().NotContainKey((entity, "Velocity"));
     }
@@ -122,7 +122,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.EntityDestroyed, 2, destroyed, "", null, []));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         entries.Should().NotContainKey((destroyed, "Position"));
         entries.Should().NotContainKey((destroyed, "Velocity"));
         entries.Should().ContainKey((survivor, "Position"));
@@ -138,7 +138,7 @@ public class CheckpointBuilderTests : IDisposable
 
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 1);
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(1);
         entries.Should().BeEmpty();
     }
@@ -160,7 +160,7 @@ public class CheckpointBuilderTests : IDisposable
 
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         entries[(entity, "Position")].Payload.Should().Equal(new byte[] { 9 });
     }
 
@@ -176,7 +176,7 @@ public class CheckpointBuilderTests : IDisposable
 
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 1);
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(1);
         entries[(entity, "Position")].Payload.Should().Equal(new byte[] { 1 });
     }
@@ -192,9 +192,60 @@ public class CheckpointBuilderTests : IDisposable
 
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(2);
         entries[(entity, "Position")].Payload.Should().Equal(new byte[] { 2 });
+    }
+
+    [Fact]
+    public void Build_TagAdded_SurvivesAMergeWithNoFurtherWalActivity()
+    {
+        var checkpointStore = CheckpointStore;
+        var walStore = WalStore;
+        var entity = EntityId.NewId();
+        WriteSegment(walStore, startTick: 1, (WalRecordKind.TagAdded, 1, entity, "Enemy", null, []));
+        CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 1);
+        walStore.DeleteSegment(1);
+
+        WriteSegment(walStore, startTick: 2, (WalRecordKind.ComponentChanged, 2, EntityId.NewId(), "Position", null, [9]));
+        CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
+
+        var (_, _, _, tagEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        tagEntries.Should().Contain((entity, "Enemy"));
+    }
+
+    [Fact]
+    public void Build_TagAddedThenRemovedAcrossSegments_FinalCheckpointReflectsRemoval()
+    {
+        var checkpointStore = CheckpointStore;
+        var walStore = WalStore;
+        var entity = EntityId.NewId();
+        WriteSegment(walStore, startTick: 1, (WalRecordKind.TagAdded, 1, entity, "Enemy", null, []));
+        CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 1);
+        walStore.DeleteSegment(1);
+
+        WriteSegment(walStore, startTick: 2, (WalRecordKind.TagRemoved, 2, entity, "Enemy", null, []));
+        CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
+
+        var (_, _, _, tagEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        tagEntries.Should().NotContain((entity, "Enemy"));
+    }
+
+    [Fact]
+    public void Build_EntityDestroyed_RemovesItsTags()
+    {
+        var checkpointStore = CheckpointStore;
+        var walStore = WalStore;
+        var destroyed = EntityId.NewId();
+        WriteSegment(walStore, startTick: 1, (WalRecordKind.TagAdded, 1, destroyed, "Enemy", null, []));
+        CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 1);
+        walStore.DeleteSegment(1);
+
+        WriteSegment(walStore, startTick: 2, (WalRecordKind.EntityDestroyed, 2, destroyed, "", null, []));
+        CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
+
+        var (_, _, _, tagEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        tagEntries.Should().NotContain((destroyed, "Enemy"));
     }
 
     private struct Likes : IRelation
@@ -216,7 +267,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.ComponentChanged, 2, EntityId.NewId(), "Position", null, [9]));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, _, relationEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, _, relationEntries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         relationEntries.Should().ContainKey((source, target, "Likes"));
         relationEntries[(source, target, "Likes")].SchemaHash.Should().Be(42u);
         relationEntries[(source, target, "Likes")].Payload.Should().Equal(new byte[] { 1, 2, 3 });
@@ -236,7 +287,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteRelationSegment(walStore, startTick: 2, (WalRecordKind.RelationUnlinked, 2, source, target, "Likes", null, []));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, _, relationEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, _, relationEntries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         relationEntries.Should().NotContainKey((source, target, "Likes"));
     }
 
@@ -254,7 +305,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.EntityDestroyed, 2, destroyed, "", null, []));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, _, relationEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, _, relationEntries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         relationEntries.Should().NotContainKey((destroyed, otherTarget, "Likes"));
     }
 
@@ -272,7 +323,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: 2, (WalRecordKind.EntityDestroyed, 2, destroyed, "", null, []));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: 2);
 
-        var (_, _, relationEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, _, relationEntries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         relationEntries.Should().NotContainKey((otherSource, destroyed, "Likes"));
     }
 
@@ -299,7 +350,7 @@ public class CheckpointBuilderTests : IDisposable
         WriteSegment(walStore, startTick: world.CurrentTick + 1, (WalRecordKind.ComponentChanged, world.CurrentTick + 1, EntityId.NewId(), "Unrelated", null, [1]));
         CheckpointBuilder.Build(checkpointStore, walStore, targetTick: world.CurrentTick + 1);
 
-        var (_, _, relationEntries) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, _, relationEntries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         relationEntries.Should().ContainKey((sourceId, targetId, "Likes"));
         BitConverter.ToSingle(relationEntries[(sourceId, targetId, "Likes")].Payload).Should().Be(7f);
     }

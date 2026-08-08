@@ -172,6 +172,68 @@ public class StructuralChangeCaptureTests
         captured[0].Payload.Should().BeEmpty();
     }
 
+    private struct Enemy : ITag;
+
+    [Fact]
+    public void OnTagAdded_ForARegisteredTag_CapturesItsDiscriminator()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        registry.RegisterTag<Enemy>("Enemy");
+        Entity entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        var captured = new List<CapturedWalEntry>();
+        var observer = new StructuralChangeCapture(world, registry, captured.Add);
+        using var subscription = world.ObserveStructuralChanges(observer);
+
+        world.Commands.AddTag<Enemy>(entity);
+        world.ApplyCommands();
+
+        captured.Should().ContainSingle();
+        captured[0].Kind.Should().Be(WalRecordKind.TagAdded);
+        captured[0].EntityId.Should().Be(world.GetPermanentId(entity));
+        captured[0].Discriminator.Should().Be("Enemy");
+    }
+
+    [Fact]
+    public void OnTagAdded_ForAnUnregisteredTag_CapturesNothing()
+    {
+        var world = new World();
+        var registry = BuildRegistry(); // Enemy deliberately not registered
+        Entity entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+        var captured = new List<CapturedWalEntry>();
+        var observer = new StructuralChangeCapture(world, registry, captured.Add);
+        using var subscription = world.ObserveStructuralChanges(observer);
+
+        world.Commands.AddTag<Enemy>(entity);
+        world.ApplyCommands();
+
+        captured.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void OnTagRemoved_ForARegisteredTag_CapturesItsDiscriminator()
+    {
+        var world = new World();
+        var registry = BuildRegistry();
+        registry.RegisterTag<Enemy>("Enemy");
+        Entity entity = world.Commands.CreateEntity();
+        world.Commands.AddTag<Enemy>(entity);
+        world.ApplyCommands();
+        var captured = new List<CapturedWalEntry>();
+        var observer = new StructuralChangeCapture(world, registry, captured.Add);
+        using var subscription = world.ObserveStructuralChanges(observer);
+
+        world.Commands.RemoveTag<Enemy>(entity);
+        world.ApplyCommands();
+
+        captured.Should().ContainSingle();
+        captured[0].Kind.Should().Be(WalRecordKind.TagRemoved);
+        captured[0].EntityId.Should().Be(world.GetPermanentId(entity));
+        captured[0].Discriminator.Should().Be("Enemy");
+    }
+
     [Fact]
     public void OnRelationLinked_ForAnUnregisteredRelationType_CapturesNothing()
     {

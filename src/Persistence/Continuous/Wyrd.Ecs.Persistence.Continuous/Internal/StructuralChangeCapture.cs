@@ -1,13 +1,14 @@
 namespace Wyrd.Ecs.Persistence.Continuous.Internal;
 
 /// <summary>
-/// Turns entity/component/relation lifecycle events into <see cref="CapturedWalEntry"/>
+/// Turns entity/component/relation/tag lifecycle events into <see cref="CapturedWalEntry"/>
 /// values via <paramref name="onCaptured"/>. <see cref="OnComponentAdded"/> is a
 /// deliberate no-op: <c>World.AddComponent</c> already marks storage dirty, so the next
 /// <see cref="World.Subscribe(IComponentCodec)"/> scan captures the same data as an
-/// ordinary value change, making a separate record redundant. Tag events are never
-/// captured: tags carry no data and are already skipped by
-/// <see cref="World.EnumerateAll"/> on checkpoint.
+/// ordinary value change, making a separate record redundant. A tag has no such scan to
+/// fall back on - its presence is the entire signal - so both <see cref="OnTagAdded"/>
+/// and <see cref="OnTagRemoved"/> capture explicitly, mirroring
+/// <see cref="OnComponentRemoved"/>'s shape rather than <see cref="OnComponentAdded"/>'s.
 /// </summary>
 internal sealed class StructuralChangeCapture(World world, CodecRegistry registry, Action<CapturedWalEntry> onCaptured) : IStructuralChangeObserver
 {
@@ -25,9 +26,17 @@ internal sealed class StructuralChangeCapture(World world, CodecRegistry registr
         onCaptured(new CapturedWalEntry(WalRecordKind.ComponentRemoved, world.CurrentTick, world.GetPermanentId(entity), codec.Discriminator, codec.SchemaHash, []));
     }
 
-    public void OnTagAdded(Entity entity, int typeIndex) { }
+    public void OnTagAdded(Entity entity, int typeIndex)
+    {
+        if (!registry.TryGetTagByTypeIndex(typeIndex, out var binder)) return;
+        onCaptured(new CapturedWalEntry(WalRecordKind.TagAdded, world.CurrentTick, world.GetPermanentId(entity), binder.Discriminator, null, []));
+    }
 
-    public void OnTagRemoved(Entity entity, int typeIndex) { }
+    public void OnTagRemoved(Entity entity, int typeIndex)
+    {
+        if (!registry.TryGetTagByTypeIndex(typeIndex, out var binder)) return;
+        onCaptured(new CapturedWalEntry(WalRecordKind.TagRemoved, world.CurrentTick, world.GetPermanentId(entity), binder.Discriminator, null, []));
+    }
 
     public void OnRelationLinked(Entity source, Entity target, int typeIndex)
     {

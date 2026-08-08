@@ -139,7 +139,7 @@ public class ContinuousWalWorkerTests : IDisposable
         mergeThread.Join(TimeSpan.FromSeconds(1)).Should().BeTrue();
 
         walStore.ListSegmentStartTicks().Should().NotContain(initialSegmentTick);
-        var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         entries.Keys.Should().Contain(k => k.Discriminator == "Position");
     }
 
@@ -243,7 +243,7 @@ public class ContinuousWalWorkerTests : IDisposable
         var found = false;
         while (!found && DateTime.UtcNow < deadline)
         {
-            var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+            var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
             found = entries.Keys.Any(k => k.Discriminator == "Position");
             if (!found) Thread.Sleep(10);
         }
@@ -306,7 +306,7 @@ public class ContinuousWalWorkerTests : IDisposable
 
         worker.MergeFinalCheckpoint();
 
-        var (_, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (_, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         entries.Keys.Should().Contain(k => k.Discriminator == "Position");
     }
 

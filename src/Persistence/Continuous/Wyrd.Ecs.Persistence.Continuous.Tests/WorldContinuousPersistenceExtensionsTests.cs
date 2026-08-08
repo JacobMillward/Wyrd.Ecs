@@ -119,7 +119,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
             .EnableContinuousPersistence(new FileWalStore(WalBasePath))
             .Build();
 
-        var (tick, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, _, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(world.CurrentTick - 1, "EnableContinuousPersistence advances the tick once after taking the bootstrap snapshot, sealing its boundary");
         world.StopContinuousPersistence();
     }
@@ -240,7 +240,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
 
         world.StopContinuousPersistence();
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(world.CurrentTick);
         entries.Keys.Should().Contain(k => k.Discriminator == "Position");
     }
@@ -255,7 +255,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
             .SetDefaultPersistenceStore(checkpointStore)
             .EnableContinuousPersistence(walStore)
             .Build();
-        var (bootstrapTick, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (bootstrapTick, _, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
 
         world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
@@ -263,7 +263,7 @@ public class WorldContinuousPersistenceExtensionsTests : IDisposable
 
         world.StopContinuousPersistence(mergeFinalCheckpoint: false);
 
-        var (tick, entries, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
+        var (tick, entries, _, _) = CheckpointBuilder.ReadCheckpoint(checkpointStore);
         tick.Should().Be(bootstrapTick);
         entries.Keys.Should().NotContain(k => k.Discriminator == "Position");
     }
