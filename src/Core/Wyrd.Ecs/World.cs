@@ -19,6 +19,14 @@ public sealed partial class World
     internal const int DefaultArchetypeCapacity = 64;
 
     private readonly Dictionary<TypeBitSet, Archetype> _archetypes = new();
+
+    /// <summary>
+    /// Every archetype that has ever existed in this World, whether or not it currently has
+    /// live entities. Wyrd.Ecs.Persistence's own enumeration/save-load walk needs this;
+    /// kept as a narrow read-only accessor rather than promoting <see cref="_archetypes"/>
+    /// itself to internal.
+    /// </summary>
+    internal IReadOnlyCollection<Archetype> Archetypes => _archetypes.Values;
     private readonly Dictionary<TypeBitSet, Archetype[]> _queryCache = new();
     private readonly Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> _filteredQueryCache = new();
     private readonly Archetype _emptyArchetype;
