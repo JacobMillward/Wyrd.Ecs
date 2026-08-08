@@ -11,6 +11,7 @@ internal static class GeneratorTestHost
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .Append(MetadataReference.CreateFromFile(typeof(IComponent).Assembly.Location))
             .Append(MetadataReference.CreateFromFile(typeof(MemoryPack.MemoryPackableAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute).Assembly.Location))
             .ToArray();
 
     public static CSharpCompilation Compile(string source) =>

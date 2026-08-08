@@ -6,18 +6,51 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators.Tests;
 public class MemoryPackRegistrationGeneratorTests
 {
     [Fact]
-    public void NoMemoryPackableComponents_EmitsAnEmptyRegisterAll()
+    public void NoComponents_EmitsAnEmptyRegisterAll()
     {
         const string source = """
             using Wyrd.Ecs;
 
-            public struct Position : IComponent { public float X; }
+            public static class NotAComponentAtAll { }
             """;
 
         var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
 
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().Contain("public static void RegisterAll(global::Wyrd.Ecs.CodecRegistry registry)");
+        generated.Should().NotContain("registry.Register<");
+    }
+
+    [Fact]
+    public void UnmanagedComponentWithNoAttribute_RegistersIt()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; public float Y; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("registry.Register<global::Position>(\"Position\",");
+        generated.Should().Contain("global::MemoryPack.MemoryPackSerializer.Serialize(v)");
+    }
+
+    [Fact]
+    public void ComponentMarkedPersistenceIgnore_IsNotRegistered()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            using Wyrd.Ecs.Persistence;
+
+            [PersistenceIgnore]
+            public struct Position : IComponent { public float X; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().NotContain("registry.Register<");
     }
 

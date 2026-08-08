@@ -108,6 +108,11 @@
         "resolved": "13.0.3",
         "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
       },
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "seeO8icDfED/Qwl9PDFUx2Gf/7xv7dPsMnw5PnRwNZuz4EWMpy0wIVohC4MfCcTIoJgp+KUrWG4WH3NPSusQOA=="
+      },
       "xunit.abstractions": {
         "type": "Transitive",
         "resolved": "2.0.3",
@@ -150,6 +155,21 @@
       },
       "wyrd.ecs": {
         "type": "Project"
+      },
+      "wyrd.ecs.persistence": {
+        "type": "Project",
+        "dependencies": {
+          "System.IO.Hashing": "[9.0.0, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.persistence.binary": {
+        "type": "Project",
+        "dependencies": {
+          "MemoryPack": "[1.21.4, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Persistence": "[0.1.0-alpha, )"
+        }
       },
       "wyrd.ecs.persistence.binary.generators": {
         "type": "Project"

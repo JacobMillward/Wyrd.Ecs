@@ -34,7 +34,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var candidates = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is StructDeclarationSyntax { AttributeLists.Count: > 0 },
+                predicate: static (node, _) => node is StructDeclarationSyntax,
                 transform: static (ctx, _) => TryExtract((StructDeclarationSyntax)ctx.Node, ctx.SemanticModel))
             .Where(static info => info is not null)
             .Select(static (info, _) => info!.Value)
@@ -48,7 +48,8 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
     {
         if (semanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol symbol) return null;
         if (!IsComponent(symbol)) return null;
-        if (!HasMemoryPackableAttribute(symbol)) return null;
+        if (HasPersistenceIgnoreAttribute(symbol)) return null;
+        if (!HasMemoryPackableAttribute(symbol) && !symbol.IsUnmanagedType) return null;
 
         var stableName = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
@@ -117,4 +118,7 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
 
     private static bool HasMemoryPackableAttribute(INamedTypeSymbol symbol) =>
         symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "MemoryPack.MemoryPackableAttribute");
+
+    private static bool HasPersistenceIgnoreAttribute(INamedTypeSymbol symbol) =>
+        symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute");
 }

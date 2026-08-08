@@ -16,7 +16,14 @@ public partial struct AutoVelocity : IComponent
     public float X;
 }
 
-public struct NotMemoryPackable : IComponent
+public struct UnmanagedNoAttribute : IComponent
+{
+    public float X;
+    public float Y;
+}
+
+[PersistenceIgnore]
+public struct Ignored : IComponent
 {
     public float X;
 }
@@ -42,13 +49,23 @@ public class MemoryPackAutoRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void RegisterAll_DoesNotRegisterAComponentWithoutTheMemoryPackableAttribute()
+    public void RegisterAll_RegistersAnUnmanagedComponentWithNoAttribute()
     {
         var registry = new CodecRegistry();
 
         MemoryPackAutoRegistration.RegisterAll(registry);
 
-        registry.TryGetByDiscriminator(typeof(NotMemoryPackable).FullName!, out _).Should().BeFalse();
+        registry.TryGetByDiscriminator(typeof(UnmanagedNoAttribute).FullName!, out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegisterAll_DoesNotRegisterAComponentMarkedPersistenceIgnore()
+    {
+        var registry = new CodecRegistry();
+
+        MemoryPackAutoRegistration.RegisterAll(registry);
+
+        registry.TryGetByDiscriminator(typeof(Ignored).FullName!, out _).Should().BeFalse();
     }
 
     [Fact]
