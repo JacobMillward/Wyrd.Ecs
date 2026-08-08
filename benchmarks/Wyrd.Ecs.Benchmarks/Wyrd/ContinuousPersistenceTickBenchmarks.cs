@@ -34,7 +34,7 @@ public class ContinuousPersistenceTickBenchmarks
         registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), bytes => new Position { X = BitConverter.ToSingle(bytes) });
 
         _world = new WorldBuilder()
-            .SetDefaultCodecRegistry(registry)
+            .SetCodecRegistry(registry)
             .SetDefaultPersistenceStore(new FileStore(Path.Combine(_directory, "world.checkpoint")))
             .EnableContinuousPersistence(
                 new FileWalStore(Path.Combine(_directory, "world")),

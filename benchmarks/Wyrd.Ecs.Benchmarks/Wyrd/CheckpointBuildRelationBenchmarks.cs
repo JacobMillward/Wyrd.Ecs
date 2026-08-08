@@ -34,7 +34,7 @@ public class CheckpointBuildRelationBenchmarks
         registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
         var world = new World();
-        world.DefaultCodecRegistry = registry;
+        world.CodecRegistry = registry;
         var hub = world.Commands.CreateEntity();
         var targets = new List<Entity>(EdgeCount);
         for (var i = 0; i < EdgeCount; i++)

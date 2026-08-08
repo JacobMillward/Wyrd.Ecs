@@ -37,7 +37,7 @@ public class RelationCaptureBenchmarks
         registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
 
         _world = new WorldBuilder()
-            .SetDefaultCodecRegistry(registry)
+            .SetCodecRegistry(registry)
             .SetDefaultPersistenceStore(new FileStore(Path.Combine(_directory, "world.checkpoint")))
             .EnableContinuousPersistence(
                 new FileWalStore(Path.Combine(_directory, "world")),

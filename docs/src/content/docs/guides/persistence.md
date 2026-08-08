@@ -74,10 +74,10 @@ public partial struct EnemyController : IComponent { }
 
 ## Migration
 
-A component's shape can change over time without losing old saves. `AddBinaryPersistence`/`AddJsonPersistence` already set `World.DefaultCodecRegistry` to the registry they built, register a step on it for each schema-hash transition; `Load` walks the chain automatically:
+A component's shape can change over time without losing old saves. `AddBinaryPersistence`/`AddJsonPersistence` already set `World.CodecRegistry` to the registry they built, register a step on it for each schema-hash transition; `Load` walks the chain automatically:
 
 ```csharp
-world.DefaultCodecRegistry!.RegisterMigration("Enemy", fromSchemaHash: 1, toSchemaHash: 2, oldBytes => /* transform */);
+world.CodecRegistry!.RegisterMigration("Enemy", fromSchemaHash: 1, toSchemaHash: 2, oldBytes => /* transform */);
 ```
 
 ## Tags

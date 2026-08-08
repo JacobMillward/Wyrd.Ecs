@@ -18,7 +18,7 @@ public class WorldBuilderJsonPersistenceExtensionsTests : IDisposable
         var world = new WorldBuilder().AddJsonPersistence(store, registry).Build();
 
         world.DefaultPersistenceStore.Should().BeSameAs(store);
-        world.DefaultCodecRegistry.Should().BeSameAs(registry);
+        world.CodecRegistry.Should().BeSameAs(registry);
     }
 
     [Fact]
@@ -29,6 +29,6 @@ public class WorldBuilderJsonPersistenceExtensionsTests : IDisposable
         var world = new WorldBuilder().AddJsonPersistence(_path, registry).Build();
 
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
-        world.DefaultCodecRegistry.Should().BeSameAs(registry);
+        world.CodecRegistry.Should().BeSameAs(registry);
     }
 }

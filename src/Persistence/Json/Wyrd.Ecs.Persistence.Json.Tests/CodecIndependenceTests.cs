@@ -37,16 +37,16 @@ public class CodecIndependenceTests : IDisposable
         source.Commands.CreateEntity(new BinaryOnlyComponent { Value = 42 });
         source.ApplyCommands();
 
-        source.DefaultCodecRegistry = jsonRegistry;
+        source.CodecRegistry = jsonRegistry;
         source.Save(_jsonPath);
-        source.DefaultCodecRegistry = binaryRegistry;
+        source.CodecRegistry = binaryRegistry;
         source.Save(_binaryPath);
 
         var jsonTarget = new World();
-        jsonTarget.DefaultCodecRegistry = jsonRegistry;
+        jsonTarget.CodecRegistry = jsonRegistry;
         jsonTarget.Load(_jsonPath);
         var binaryTarget = new World();
-        binaryTarget.DefaultCodecRegistry = binaryRegistry;
+        binaryTarget.CodecRegistry = binaryRegistry;
         binaryTarget.Load(_binaryPath);
 
         var foundInJsonTarget = false;

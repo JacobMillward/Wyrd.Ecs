@@ -337,7 +337,7 @@ public class CheckpointBuilderTests : IDisposable
         var registry = new CodecRegistry();
         registry.RegisterRelation<Likes>("Likes", v => BitConverter.GetBytes(v.Weight), d => new Likes { Weight = BitConverter.ToSingle(d) });
         var world = new World();
-        world.DefaultCodecRegistry = registry;
+        world.CodecRegistry = registry;
         Entity a = world.Commands.CreateEntity();
         Entity b = world.Commands.CreateEntity();
         world.Commands.AddRelation(a, b, new Likes { Weight = 7f });

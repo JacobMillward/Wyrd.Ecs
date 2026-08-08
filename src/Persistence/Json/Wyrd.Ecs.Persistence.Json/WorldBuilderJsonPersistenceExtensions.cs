@@ -26,10 +26,10 @@ public static class WorldBuilderJsonPersistenceExtensions
     {
         /// <summary>
         /// Sets <paramref name="store"/> as the World's default persistence store and
-        /// <paramref name="registry"/> as its default component codec registry, exactly
+        /// <paramref name="registry"/> as its component codec registry, exactly
         /// as given.
         /// </summary>
         public WorldBuilder AddJsonPersistence(IPersistenceStore store, CodecRegistry registry) =>
-            builder.SetDefaultPersistenceStore(store).SetDefaultCodecRegistry(registry);
+            builder.SetDefaultPersistenceStore(store).SetCodecRegistry(registry);
     }
 }

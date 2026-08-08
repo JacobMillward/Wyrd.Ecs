@@ -14,7 +14,7 @@ public static class WorldContinuousPersistenceExtensions
         /// <summary>
         /// Enables continuous persistence: writes an initial bootstrap checkpoint, then
         /// starts the WAL-writer and checkpoint-merge background threads. Requires
-        /// <c>World.DefaultCodecRegistry</c> and <c>World.DefaultPersistenceStore</c>
+        /// <c>World.CodecRegistry</c> and <c>World.DefaultPersistenceStore</c>
         /// to already be configured earlier in the builder chain. Applied via
         /// <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
         /// Throws if continuous persistence is already enabled for this World.
@@ -39,11 +39,11 @@ public static class WorldContinuousPersistenceExtensions
                         "Continuous persistence is already enabled for this World. " +
                         "Call StopContinuousPersistence before enabling it again.");
 
-                var registry = world.DefaultCodecRegistry
+                var registry = world.CodecRegistry
                     ?? throw new InvalidOperationException(
                         "No CodecRegistry was provided and none is configured via " +
-                        "World.DefaultCodecRegistry (set directly, or via " +
-                        "WorldBuilder.SetDefaultCodecRegistry, before " +
+                        "World.CodecRegistry (set directly, or via " +
+                        "WorldBuilder.SetCodecRegistry, before " +
                         "EnableContinuousPersistence in the builder chain).");
 
                 var checkpointStore = world.DefaultPersistenceStore

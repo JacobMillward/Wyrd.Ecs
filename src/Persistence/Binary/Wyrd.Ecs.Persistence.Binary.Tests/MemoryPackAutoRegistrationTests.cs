@@ -97,7 +97,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultCodecRegistry = registry;
+        source.CodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "hi" });
         source.ApplyCommands();
         var store = new FileStore(_path);
@@ -105,7 +105,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultCodecRegistry = registry;
+        target.CodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -130,14 +130,14 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultCodecRegistry = registry;
+        source.CodecRegistry = registry;
         source.Commands.CreateEntity(new WithStringField { Name = "hello", Count = 42 });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
         var target = new World();
-        target.DefaultCodecRegistry = registry;
+        target.CodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -161,14 +161,14 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultCodecRegistry = registry;
+        source.CodecRegistry = registry;
         source.Commands.CreateEntity(new WithNestedField { Label = new Label { Text = "nested" } });
         source.ApplyCommands();
         var store = new FileStore(_path);
         source.Save(store);
 
         var target = new World();
-        target.DefaultCodecRegistry = registry;
+        target.CodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -191,7 +191,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         MemoryPackAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultCodecRegistry = registry;
+        source.CodecRegistry = registry;
         source.Commands.CreateEntity(new WithCollectionFields
         {
             Tags = new[] { "a", "b" },
@@ -202,7 +202,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultCodecRegistry = registry;
+        target.CodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -227,7 +227,7 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddBinaryPersistence(store).Build();
 
         world.DefaultPersistenceStore.Should().BeSameAs(store);
-        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.CodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -236,6 +236,6 @@ public class MemoryPackAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddBinaryPersistence(_path).Build();
 
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
-        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.CodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 }

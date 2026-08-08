@@ -6,8 +6,8 @@ namespace Wyrd.Ecs.Persistence.Binary;
 /// component types to save. If your project also references
 /// <c>Wyrd.Ecs.Persistence.Binary.Generators</c>, use the generated
 /// <c>AddBinaryPersistence(store)</c>/<c>AddBinaryPersistence(path)</c> overloads
-/// instead: they build that registry for you from every <c>[MemoryPackable]</c>
-/// component in your project.
+/// instead: they build that registry for you from every non-excluded
+/// <c>IComponent</c> in your project.
 /// </summary>
 public static class WorldBuilderBinaryPersistenceExtensions
 {
@@ -28,10 +28,10 @@ public static class WorldBuilderBinaryPersistenceExtensions
     {
         /// <summary>
         /// Sets <paramref name="store"/> as the World's default persistence store and
-        /// <paramref name="registry"/> as its default component codec registry, exactly
+        /// <paramref name="registry"/> as its component codec registry, exactly
         /// as given.
         /// </summary>
         public WorldBuilder AddBinaryPersistence(IPersistenceStore store, CodecRegistry registry) =>
-            builder.SetDefaultPersistenceStore(store).SetDefaultCodecRegistry(registry);
+            builder.SetDefaultPersistenceStore(store).SetCodecRegistry(registry);
     }
 }

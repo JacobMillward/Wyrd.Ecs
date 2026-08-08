@@ -55,7 +55,7 @@ public class JsonAutoRegistrationTests : IDisposable
         JsonAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultCodecRegistry = registry;
+        source.CodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "top" });
         source.Commands.CreateEntity(new Other.AutoPosition { Layer = 5 });
         source.ApplyCommands();
@@ -64,7 +64,7 @@ public class JsonAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultCodecRegistry = registry;
+        target.CodecRegistry = registry;
         target.Load(store);
 
         var foundTop = false;
@@ -100,7 +100,7 @@ public class JsonAutoRegistrationTests : IDisposable
         JsonAutoRegistration.RegisterAll(registry);
 
         var source = new World();
-        source.DefaultCodecRegistry = registry;
+        source.CodecRegistry = registry;
         source.Commands.CreateEntity(new AutoPosition { X = 1f, Y = 2f, Name = "hi" });
         source.ApplyCommands();
         var store = new FileStore(_path);
@@ -108,7 +108,7 @@ public class JsonAutoRegistrationTests : IDisposable
         source.Save(store);
 
         var target = new World();
-        target.DefaultCodecRegistry = registry;
+        target.CodecRegistry = registry;
         target.Load(store);
 
         var found = false;
@@ -134,7 +134,7 @@ public class JsonAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddJsonPersistence(store).Build();
 
         world.DefaultPersistenceStore.Should().BeSameAs(store);
-        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.CodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -143,6 +143,6 @@ public class JsonAutoRegistrationTests : IDisposable
         var world = new WorldBuilder().AddJsonPersistence(_path).Build();
 
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
-        world.DefaultCodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
+        world.CodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
 }

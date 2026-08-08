@@ -9,7 +9,7 @@ namespace Wyrd.Ecs.Persistence;
 public static class WorldPersistenceExtensions
 {
     private static readonly Internal.WorldAttachedProperty<IPersistenceStore> DefaultStores = new();
-    private static readonly Internal.WorldAttachedProperty<CodecRegistry> DefaultRegistries = new();
+    private static readonly Internal.WorldAttachedProperty<CodecRegistry> Registries = new();
 
     extension(World world)
     {
@@ -27,19 +27,20 @@ public static class WorldPersistenceExtensions
 
         /// <summary>
         /// The <see cref="CodecRegistry"/> <c>Save</c>/<c>Load</c> and continuous
-        /// persistence's capture step fall back to when they have no registry of their
-        /// own. Null until set, either directly or via
-        /// <c>WorldBuilder.SetDefaultCodecRegistry</c>. Assigning <c>null</c> clears it.
+        /// persistence's capture step use - the World's only registry, not a fallback among
+        /// alternatives (there's no per-call override the way <c>DefaultPersistenceStore</c>
+        /// has one). Null until set, either directly or via
+        /// <c>WorldBuilder.SetCodecRegistry</c>. Assigning <c>null</c> clears it.
         /// </summary>
-        public CodecRegistry? DefaultCodecRegistry
+        public CodecRegistry? CodecRegistry
         {
-            get => DefaultRegistries.Get(world);
-            set => DefaultRegistries.Set(world, value);
+            get => Registries.Get(world);
+            set => Registries.Set(world, value);
         }
 
         /// <summary>
         /// Writes a full checkpoint of every entity, component, relation edge, and tag
-        /// registered in <c>World.DefaultCodecRegistry</c> to <paramref name="store"/>
+        /// registered in <c>World.CodecRegistry</c> to <paramref name="store"/>
         /// (defaults to <c>World.DefaultPersistenceStore</c>). A component or tag type
         /// present on an entity but absent from the registry is silently skipped, not an
         /// error. If the write throws partway through and <paramref name="store"/> returns
@@ -49,7 +50,7 @@ public static class WorldPersistenceExtensions
         public void Save(IPersistenceStore? store = null)
         {
             store ??= ResolveDefaultStore(world);
-            var registry = ResolveDefaultRegistry(world);
+            var registry = ResolveRegistry(world);
             var stream = store.OpenCheckpointWrite();
             try
             {
@@ -99,7 +100,7 @@ public static class WorldPersistenceExtensions
         /// as either side of a relation edge, gets one fresh <see cref="Entity"/> the
         /// first time it appears; an entity referenced only as a relation target is
         /// valid, not a corruption signal. A record for a discriminator absent from
-        /// <c>World.DefaultCodecRegistry</c> is silently skipped, same as on
+        /// <c>World.CodecRegistry</c> is silently skipped, same as on
         /// save. A file truncated or corrupted mid-record stops replay cleanly at the
         /// last complete record. A record whose schema hash doesn't match the
         /// currently-registered type is migrated via
@@ -109,7 +110,7 @@ public static class WorldPersistenceExtensions
         public void Load(IPersistenceStore? store = null)
         {
             store ??= ResolveDefaultStore(world);
-            var registry = ResolveDefaultRegistry(world);
+            var registry = ResolveRegistry(world);
             using var stream = store.OpenCheckpointRead();
             Internal.CheckpointRecordIO.ReadHeader(stream);
             var entities = new Dictionary<EntityId, Entity>();
@@ -181,12 +182,12 @@ public static class WorldPersistenceExtensions
 
         /// <summary>
         /// Configures the <see cref="CodecRegistry"/> the constructed
-        /// <see cref="World"/>'s <c>DefaultCodecRegistry</c> is set to, applied
+        /// <see cref="World"/>'s <c>CodecRegistry</c> is set to, applied
         /// via <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
         /// </summary>
-        public WorldBuilder SetDefaultCodecRegistry(CodecRegistry registry)
+        public WorldBuilder SetCodecRegistry(CodecRegistry registry)
         {
-            builder.OnBuilt += world => world.DefaultCodecRegistry = registry;
+            builder.OnBuilt += world => world.CodecRegistry = registry;
             return builder;
         }
     }
@@ -197,9 +198,9 @@ public static class WorldPersistenceExtensions
             "No persistence store was provided and none is configured via World.DefaultPersistenceStore " +
             "(set directly, or via WorldBuilder.SetDefaultPersistenceStore/AddBinaryPersistence at construction time).");
 
-    private static CodecRegistry ResolveDefaultRegistry(World world) =>
-        world.DefaultCodecRegistry
+    private static CodecRegistry ResolveRegistry(World world) =>
+        world.CodecRegistry
         ?? throw new InvalidOperationException(
-            "No CodecRegistry was provided and none is configured via World.DefaultCodecRegistry " +
-            "(set directly, or via WorldBuilder.SetDefaultCodecRegistry/AddBinaryPersistence/AddJsonPersistence at construction time).");
+            "No CodecRegistry was provided and none is configured via World.CodecRegistry " +
+            "(set directly, or via WorldBuilder.SetCodecRegistry/AddBinaryPersistence/AddJsonPersistence at construction time).");
 }

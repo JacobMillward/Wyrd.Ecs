@@ -33,7 +33,7 @@ public class CheckpointBuildDestructionHeavyBenchmarks
         registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), bytes => new Position { X = BitConverter.ToSingle(bytes) });
 
         var world = new World();
-        world.DefaultCodecRegistry = registry;
+        world.CodecRegistry = registry;
         var entities = new List<Entity>(EntityCount);
         for (var i = 0; i < EntityCount; i++)
             entities.Add(world.Commands.CreateEntity(new Position { X = i }));
