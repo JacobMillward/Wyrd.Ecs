@@ -109,6 +109,28 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
+    public void ComponentWithInterfaceTypedField_ReportsWYRD006_DoesNotEmitAFormatter()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public interface IHandler { }
+
+            public struct WithHandler : IComponent { public IHandler Handler; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
+        result.Diagnostics.Single(d => d.Id == "WYRD006").GetMessage().Should()
+            .Contain("WithHandler.Handler").And.Contain("IHandler");
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("registry.Register<global::WithHandler>");
+        generated.Should().NotContain("MemoryPackFormatter<global::WithHandler>");
+    }
+
+    [Fact]
     public void MemoryPackableComponent_RegistersIt()
     {
         const string source = """
