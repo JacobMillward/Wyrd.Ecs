@@ -12,8 +12,7 @@ public sealed partial class CodecRegistry
     private readonly Dictionary<string, IComponentCodec> _byDiscriminator = new();
     private readonly Dictionary<int, IComponentCodec> _byTypeIndex = new();
     private readonly Dictionary<(string Discriminator, uint FromSchemaHash), (uint ToSchemaHash, SchemaMigrationStep Migrate)> _migrations = new();
-    private readonly Dictionary<string, int> _tagsByDiscriminator = new();
-    private readonly Dictionary<int, string> _tagsByTypeIndex = new();
+    private readonly Dictionary<string, string> _aliases = new();
     private readonly Dictionary<string, IRelationCodec> _relationsByDiscriminator = new();
     private readonly Dictionary<int, IRelationCodec> _relationsByTypeIndex = new();
     private readonly Dictionary<int, IRelationCodec> _relationsByLinksTypeIndex = new();
@@ -59,16 +58,43 @@ public sealed partial class CodecRegistry
         return false;
     }
 
-    /// <summary>Looks up a registration by its stable wire discriminator. Used when deserializing saved or received data back into a <see cref="World"/>.</summary>
+    /// <summary>
+    /// Looks up a registration by its stable wire discriminator, falling back through the
+    /// alias chain (<see cref="RegisterAlias"/>) if there's no direct hit. Used when
+    /// deserializing saved or received data back into a <see cref="World"/>.
+    /// </summary>
     public bool TryGetByDiscriminator(string discriminator, out IComponentCodec registered)
     {
-        if (_byDiscriminator.TryGetValue(discriminator, out var found))
+        var visited = new HashSet<string>();
+        while (true)
         {
-            registered = found;
-            return true;
-        }
+            if (_byDiscriminator.TryGetValue(discriminator, out var found))
+            {
+                registered = found;
+                return true;
+            }
 
-        registered = null!;
-        return false;
+            if (!_aliases.TryGetValue(discriminator, out var next) || !visited.Add(discriminator))
+            {
+                registered = null!;
+                return false;
+            }
+            discriminator = next;
+        }
+    }
+
+    /// <summary>
+    /// Makes discriminator lookups for <paramref name="oldDiscriminator"/> resolve to
+    /// <paramref name="currentDiscriminator"/>'s registration instead. Not validated
+    /// eagerly against <paramref name="currentDiscriminator"/> being registered yet -
+    /// generator emission order isn't guaranteed, so resolution is lazy, at lookup time in
+    /// <see cref="TryGetByDiscriminator"/>/<see cref="TryGetRelationByDiscriminator"/>.
+    /// </summary>
+    public void RegisterAlias(string oldDiscriminator, string currentDiscriminator)
+    {
+        if (_byDiscriminator.ContainsKey(oldDiscriminator) || _relationsByDiscriminator.ContainsKey(oldDiscriminator) || _aliases.ContainsKey(oldDiscriminator))
+            throw new ArgumentException($"Discriminator '{oldDiscriminator}' is already registered.", nameof(oldDiscriminator));
+
+        _aliases[oldDiscriminator] = currentDiscriminator;
     }
 }

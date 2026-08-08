@@ -39,14 +39,22 @@ public sealed partial class CodecRegistry
     /// <summary>Same as <see cref="TryGetByDiscriminator"/>, for a registered relation payload type.</summary>
     public bool TryGetRelationByDiscriminator(string discriminator, out IRelationCodec registered)
     {
-        if (_relationsByDiscriminator.TryGetValue(discriminator, out var found))
+        var visited = new HashSet<string>();
+        while (true)
         {
-            registered = found;
-            return true;
-        }
+            if (_relationsByDiscriminator.TryGetValue(discriminator, out var found))
+            {
+                registered = found;
+                return true;
+            }
 
-        registered = null!;
-        return false;
+            if (!_aliases.TryGetValue(discriminator, out var next) || !visited.Add(discriminator))
+            {
+                registered = null!;
+                return false;
+            }
+            discriminator = next;
+        }
     }
 
     /// <summary>

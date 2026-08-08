@@ -231,4 +231,41 @@ public class CodecRegistryTests
     // gone (Wyrd.Ecs.Internal.DebugNameRegistry replaces it, zero setup). A new,
     // differently-shaped, persistence-real RegisterTag/ITagBinder pair is tested in
     // CodecRegistryTagTests.cs once it lands.
+
+    [Fact]
+    public void RegisterAlias_OldDiscriminatorResolvesToCurrentRegistration()
+    {
+        var registry = new CodecRegistry();
+        registry.Register<Position>("Position", p => [], bytes => default);
+        registry.RegisterAlias("Old.Position", "Position");
+
+        registry.TryGetByDiscriminator("Old.Position", out var registered).Should().BeTrue();
+        registered.Discriminator.Should().Be("Position");
+    }
+
+    [Fact]
+    public void RegisterAlias_DuplicateOldDiscriminator_Throws()
+    {
+        var registry = new CodecRegistry();
+        registry.Register<Position>("Position", p => [], bytes => default);
+        registry.RegisterAlias("Old.Position", "Position");
+
+        var act = () => registry.RegisterAlias("Old.Position", "Position");
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void RegisterAlias_ThenSchemaMigration_BothApply()
+    {
+        var registry = new CodecRegistry();
+        registry.Register<Position>("Position", p => [1], bytes => default, schemaHash: 2);
+        registry.RegisterAlias("Old.Position", "Position");
+        registry.RegisterMigration("Position", fromSchemaHash: 1, toSchemaHash: 2, oldBytes => [.. oldBytes, 9]);
+
+        registry.TryGetByDiscriminator("Old.Position", out var registered).Should().BeTrue();
+        var migrated = registry.Migrate("Position", fromSchemaHash: 1, [0]);
+
+        migrated.Should().Equal(0, 9);
+    }
 }
