@@ -7,9 +7,7 @@ If you want to persist world state to disk, Wyrd treats it as a package away, no
 
 ## Pick a codec
 
-### Binary (MemoryPack)
-
-Reference `Wyrd.Ecs.Persistence.Binary`. Every `IComponent` is included by default, no attribute required:
+Binary and JSON share one DX: reference the package, every `IComponent` is included by default, no attribute required.
 
 ```csharp
 public struct Position : IComponent
@@ -19,22 +17,25 @@ public struct Position : IComponent
 }
 ```
 
-The builder call is a one-liner, wired to every non-excluded component in your project:
-
-```csharp
-var world = new WorldBuilder()
-    .AddBinaryPersistence("save.bin")
-    .Build();
-```
-
-Opt a specific component out with `[PersistenceIgnore]`, the same attribute JSON uses:
+Opt a specific component out with `[PersistenceIgnore]`, identically for either codec:
 
 ```csharp
 [PersistenceIgnore]
 public struct Transient : IComponent { }
 ```
 
-A component field shape too complex to generate a serializer for automatically (a build error names the field) can still be hand-annotated with `[MemoryPackable]`, following MemoryPack's own conventions for that shape.
+What differs between them is what the save file is *for*:
+
+- **Binary** (`Wyrd.Ecs.Persistence.Binary`, backed by MemoryPack) is compact and the faster of the two to write and read, at the cost of being opaque bytes on disk. A component field shape too complex to generate a serializer for automatically (a build error names the field) can still be hand-annotated with `[MemoryPackable]`, following MemoryPack's own conventions for that shape.
+- **JSON** (`Wyrd.Ecs.Persistence.Json`) is human-readable and diffable, worth it for save files you want to inspect, hand-edit, or check into version control as test fixtures, at the cost of being larger and slower than binary.
+
+Reference whichever fits, then wire it up with a one-liner:
+
+```csharp
+var world = new WorldBuilder()
+    .AddBinaryPersistence("save.bin") // or .AddJsonPersistence("save.json")
+    .Build();
+```
 
 Save and load whenever you want a checkpoint:
 
@@ -43,28 +44,11 @@ world.Save();
 world.Load();
 ```
 
-`AddBinaryPersistence("save.bin")` sets `World.DefaultPersistenceStore` to that file, so a bare `Save()`/`Load()` targets it automatically. Pass a path or an `IPersistenceStore` explicitly to target a different file for that one call, without changing the default:
+`AddBinaryPersistence`/`AddJsonPersistence` sets `World.DefaultPersistenceStore` to the path given, so a bare `Save()`/`Load()` targets it automatically. Pass a path or an `IPersistenceStore` explicitly to target a different file for that one call, without changing the default:
 
 ```csharp
 world.Save("saves/other.bin");
 world.Load("saves/other.bin");
-```
-
-### JSON
-
-Reference `Wyrd.Ecs.Persistence.Json` instead. Every `IComponent` is included by default, no attribute required:
-
-```csharp
-var world = new WorldBuilder()
-    .AddJsonPersistence("save.json")
-    .Build();
-```
-
-Opt a specific component out with `[PersistenceIgnore]`:
-
-```csharp
-[PersistenceIgnore]
-public struct Transient : IComponent { }
 ```
 
 :::note
@@ -98,7 +82,7 @@ registry.RegisterMigration("Enemy", fromSchemaHash: 1, toSchemaHash: 2, oldBytes
 
 ## Tags
 
-Tag presence is part of saved state, on by default for every `ITag` type. Opt a specific tag out with `[PersistenceIgnore]`, the same attribute the JSON codec uses for components:
+Tag presence is part of saved state, on by default for every `ITag` type. Opt a specific tag out with `[PersistenceIgnore]`, the same attribute components use:
 
 ```csharp
 [PersistenceIgnore]
