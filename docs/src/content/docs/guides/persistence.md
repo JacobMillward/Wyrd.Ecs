@@ -9,24 +9,32 @@ If you want to persist world state to disk, Wyrd treats it as a package away, no
 
 ### Binary (MemoryPack)
 
-Reference `Wyrd.Ecs.Persistence.Binary` and mark each component you want saved:
+Reference `Wyrd.Ecs.Persistence.Binary`. Every `IComponent` is included by default, no attribute required:
 
 ```csharp
-[MemoryPackable]
-public partial struct Position : IComponent
+public struct Position : IComponent
 {
     public float X;
     public float Y;
 }
 ```
 
-The builder call is a one-liner, wired to every `[MemoryPackable]` component in your project:
+The builder call is a one-liner, wired to every non-excluded component in your project:
 
 ```csharp
 var world = new WorldBuilder()
     .AddBinaryPersistence("save.bin")
     .Build();
 ```
+
+Opt a specific component out with `[PersistenceIgnore]`, the same attribute JSON uses:
+
+```csharp
+[PersistenceIgnore]
+public struct Transient : IComponent { }
+```
+
+A component field shape too complex to generate a serializer for automatically (a build error names the field) can still be hand-annotated with `[MemoryPackable]`, following MemoryPack's own conventions for that shape.
 
 Save and load whenever you want a checkpoint:
 
