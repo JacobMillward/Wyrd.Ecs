@@ -95,6 +95,45 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
+    public void StableName_OverridesTheDefaultDiscriminator()
+    {
+        const string source = """
+            using MemoryPack;
+            using Wyrd.Ecs;
+
+            [MemoryPackable]
+            [StableName("Enemy")]
+            public partial struct OldEnemyTypeName : IComponent { }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("registry.Register<global::OldEnemyTypeName>(\"Enemy\",");
+        generated.Should().NotContain("\"OldEnemyTypeName\"");
+    }
+
+    [Fact]
+    public void RenamedFrom_EmitsRegisterAlias()
+    {
+        const string source = """
+            using MemoryPack;
+            using Wyrd.Ecs;
+
+            [MemoryPackable]
+            [RenamedFrom("Old.A")]
+            [RenamedFrom("Old.B")]
+            public partial struct Enemy : IComponent { }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("registry.RegisterAlias(\"Old.A\", \"Enemy\");");
+        generated.Should().Contain("registry.RegisterAlias(\"Old.B\", \"Enemy\");");
+    }
+
+    [Fact]
     public void EditingAnUnrelatedMethodBody_LeavesTheCandidateStepUnchanged()
     {
         const string sourceV1 = """

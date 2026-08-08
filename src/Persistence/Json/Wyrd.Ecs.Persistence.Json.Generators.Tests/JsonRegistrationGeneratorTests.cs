@@ -87,6 +87,41 @@ public class JsonRegistrationGeneratorTests
     }
 
     [Fact]
+    public void StableName_OverridesTheDefaultDiscriminator()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            namespace Test;
+            [StableName("Enemy")]
+            public struct OldEnemyTypeName : IComponent { }
+            """;
+
+        var result = GeneratorTestHost.Run(new JsonRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("registry.Register<global::Test.OldEnemyTypeName>(\"Enemy\",");
+        generated.Should().NotContain("\"Test.OldEnemyTypeName\"");
+    }
+
+    [Fact]
+    public void RenamedFrom_EmitsRegisterAlias()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            namespace Test;
+            [RenamedFrom("Old.A")]
+            [RenamedFrom("Old.B")]
+            public struct Enemy : IComponent { }
+            """;
+
+        var result = GeneratorTestHost.Run(new JsonRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("registry.RegisterAlias(\"Old.A\", \"Test.Enemy\");");
+        generated.Should().Contain("registry.RegisterAlias(\"Old.B\", \"Test.Enemy\");");
+    }
+
+    [Fact]
     public void EditingAnUnrelatedMethodBody_LeavesTheCandidateStepUnchanged()
     {
         const string sourceV1 = """
