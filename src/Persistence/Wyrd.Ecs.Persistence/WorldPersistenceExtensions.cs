@@ -38,12 +38,12 @@ public static class WorldPersistenceExtensions
         }
 
         /// <summary>
-        /// Writes a full checkpoint of every entity and component registered in
-        /// <c>World.DefaultCodecRegistry</c> to <paramref name="store"/>
-        /// (defaults to <c>World.DefaultPersistenceStore</c>). A component type present
-        /// on an entity but absent from the registry is silently skipped, not an error.
-        /// If the write throws partway through and <paramref name="store"/> returns an
-        /// <see cref="ITransactionalWriteStream"/>, the stream is aborted first, so the
+        /// Writes a full checkpoint of every entity, component, relation edge, and tag
+        /// registered in <c>World.DefaultCodecRegistry</c> to <paramref name="store"/>
+        /// (defaults to <c>World.DefaultPersistenceStore</c>). A component or tag type
+        /// present on an entity but absent from the registry is silently skipped, not an
+        /// error. If the write throws partway through and <paramref name="store"/> returns
+        /// an <see cref="ITransactionalWriteStream"/>, the stream is aborted first, so the
         /// previous checkpoint is never replaced by a truncated one.
         /// </summary>
         public void Save(IPersistenceStore? store = null)
@@ -66,6 +66,12 @@ public static class WorldPersistenceExtensions
                     var sourceId = world.GetPermanentId(relation.Source);
                     var targetId = world.GetPermanentId(relation.Target);
                     Internal.CheckpointRecordIO.WriteRelationRecord(stream, sourceId, targetId, relation.Discriminator, relation.SchemaHash, relation.Data);
+                }
+
+                foreach (var tag in world.EnumerateAllTags(registry))
+                {
+                    var entityId = world.GetPermanentId(tag.Entity);
+                    Internal.CheckpointRecordIO.WriteTagRecord(stream, entityId, tag.Discriminator);
                 }
             }
             catch
@@ -125,6 +131,11 @@ public static class WorldPersistenceExtensions
                         bytesToDecode = registry.Migrate(record.Discriminator, recordHash, record.Payload);
 
                     registered.DecodeInto(world, entity, bytesToDecode);
+                }
+                else if (record.Kind == Internal.CheckpointRecordKind.Tag)
+                {
+                    if (!registry.TryGetTagByDiscriminator(record.Discriminator, out var binder)) continue;
+                    binder.Bind(world.Commands, entity);
                 }
                 else
                 {

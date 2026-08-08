@@ -99,6 +99,20 @@ internal static class CheckpointRecordIO
         FlushRecord(stream, recordBuffer);
     }
 
+    /// <summary>Writes a tag's bare presence: no schema hash, no payload - there's nothing beyond entity+discriminator to encode.</summary>
+    public static void WriteTagRecord(Stream stream, EntityId entityId, string discriminator)
+    {
+        using var recordBuffer = new MemoryStream();
+        using (var writer = new BinaryWriter(recordBuffer, Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write((byte)CheckpointRecordKind.Tag);
+            WriteEntityId(writer, entityId);
+            writer.Write(discriminator);
+        }
+
+        FlushRecord(stream, recordBuffer);
+    }
+
     private static void WriteEntityId(BinaryWriter writer, EntityId entityId)
     {
         writer.Write((ulong)(entityId.Value >> 64));
@@ -150,11 +164,16 @@ internal static class CheckpointRecordIO
         var targetId = kind == CheckpointRecordKind.RelationEdge ? ReadEntityId(reader) : default;
 
         var discriminator = reader.ReadString();
-        var hasSchemaHash = reader.ReadBoolean();
-        var schemaHashValue = reader.ReadUInt32();
-        var schemaHash = hasSchemaHash ? schemaHashValue : (uint?)null;
-        var payloadLength = reader.ReadInt32();
-        var payload = reader.ReadBytes(payloadLength);
+        uint? schemaHash = null;
+        var payload = Array.Empty<byte>();
+        if (kind != CheckpointRecordKind.Tag)
+        {
+            var hasSchemaHash = reader.ReadBoolean();
+            var schemaHashValue = reader.ReadUInt32();
+            schemaHash = hasSchemaHash ? schemaHashValue : null;
+            var payloadLength = reader.ReadInt32();
+            payload = reader.ReadBytes(payloadLength);
+        }
 
         record = new CheckpointRecord(kind, entityId, targetId, discriminator, schemaHash, payload);
         return true;
