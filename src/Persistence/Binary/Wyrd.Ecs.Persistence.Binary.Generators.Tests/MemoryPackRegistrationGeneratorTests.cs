@@ -128,7 +128,7 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
-    public void ComponentWithInterfaceTypedField_ReportsWYRD006_DoesNotEmitAFormatter()
+    public void ComponentWithInterfaceTypedField_ReportsWYRDBIN001_DoesNotEmitAFormatter()
     {
         const string source = """
             using Wyrd.Ecs;
@@ -140,8 +140,8 @@ public class MemoryPackRegistrationGeneratorTests
 
         var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
 
-        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
-        result.Diagnostics.Single(d => d.Id == "WYRD006").GetMessage().Should()
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRDBIN001");
+        result.Diagnostics.Single(d => d.Id == "WYRDBIN001").GetMessage().Should()
             .Contain("WithHandler.Handler").And.Contain("IHandler");
 
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
@@ -150,7 +150,7 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
-    public void ComponentWithReadonlyManagedField_ReportsWYRD006_DoesNotEmitAnUnassignableFormatter()
+    public void ComponentWithReadonlyManagedField_ReportsWYRDBIN001_DoesNotEmitAnUnassignableFormatter()
     {
         const string source = """
             using Wyrd.Ecs;
@@ -160,8 +160,8 @@ public class MemoryPackRegistrationGeneratorTests
 
         var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
 
-        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
-        result.Diagnostics.Single(d => d.Id == "WYRD006").GetMessage().Should().Contain("Foo.Id");
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRDBIN001");
+        result.Diagnostics.Single(d => d.Id == "WYRDBIN001").GetMessage().Should().Contain("Foo.Id");
 
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().NotContain("registry.Register<global::Foo>");
@@ -169,7 +169,7 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
-    public void ComponentWithInitOnlyManagedProperty_ReportsWYRD006_DoesNotEmitAnUnassignableFormatter()
+    public void ComponentWithInitOnlyManagedProperty_ReportsWYRDBIN001_DoesNotEmitAnUnassignableFormatter()
     {
         const string source = """
             using Wyrd.Ecs;
@@ -179,8 +179,8 @@ public class MemoryPackRegistrationGeneratorTests
 
         var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
 
-        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
-        result.Diagnostics.Single(d => d.Id == "WYRD006").GetMessage().Should().Contain("Foo.Id");
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRDBIN001");
+        result.Diagnostics.Single(d => d.Id == "WYRDBIN001").GetMessage().Should().Contain("Foo.Id");
 
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().NotContain("registry.Register<global::Foo>");

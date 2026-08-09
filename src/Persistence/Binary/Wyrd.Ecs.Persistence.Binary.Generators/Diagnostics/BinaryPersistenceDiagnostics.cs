@@ -14,7 +14,7 @@ internal static class BinaryPersistenceDiagnostics
     /// <c>[PersistenceIgnore]</c>.
     /// </summary>
     internal static readonly DiagnosticDescriptor UnsupportedFieldShape = new(
-        id: "WYRD006",
+        id: "WYRDBIN001",
         title: "Component field cannot be automatically serialized for binary persistence",
         messageFormat: "'{0}.{1}' cannot be automatically serialized for binary persistence: {2}. Mark '{0}' with [MemoryPackable] to hand-write its serializer, or [PersistenceIgnore] to exclude it.",
         category: "Wyrd.Ecs.Persistence.Binary",

@@ -30,7 +30,7 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// component that is neither gets a hand-generated <c>MemoryPackFormatter&lt;T&gt;</c>
 /// instead (see <see cref="FormatterPlanner"/>/<see cref="FormatterEmitter"/>), registered
 /// via a <c>[ModuleInitializer]</c> so it's live before any <c>RegisterAll</c> call runs. A
-/// field shape that can't be safely auto-handled reports <c>WYRD006</c> instead of silently
+/// field shape that can't be safely auto-handled reports <c>WYRDBIN001</c> instead of silently
 /// excluding the component.
 ///
 /// Discriminators default to each type's fully qualified name, so two same-named components
