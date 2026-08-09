@@ -45,12 +45,21 @@ internal static class FormatterPlanner
             {
                 var memberType = GetMemberType(member);
 
+                if (!IsWritableFromOutsideTheType(member))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        BinaryPersistenceDiagnostics.UnsupportedFieldShape,
+                        diagnosticLocation,
+                        type.Name, member.Name, "it has no accessible setter (readonly field or init-only property)"));
+                    continue;
+                }
+
                 if (IsUnsupportedShape(memberType))
                 {
                     diagnostics.Add(Diagnostic.Create(
                         BinaryPersistenceDiagnostics.UnsupportedFieldShape,
                         diagnosticLocation,
-                        type.Name, member.Name, memberType.ToDisplayString()));
+                        type.Name, member.Name, $"its type '{memberType.ToDisplayString()}' isn't supported"));
                     continue;
                 }
 
@@ -102,6 +111,24 @@ internal static class FormatterPlanner
         IFieldSymbol field => field.Type,
         IPropertySymbol property => property.Type,
         _ => throw new System.InvalidOperationException($"Unexpected member kind: {member.Kind}"),
+    };
+
+    /// <summary>
+    /// A readonly field or an init-only property is discoverable by
+    /// <see cref="GetSerializableMembers"/> (its accessibility/staticness look identical to
+    /// an ordinary writable member) but can't actually be assigned from a generated
+    /// formatter class, a different type than the component itself: <c>value.Field = ...</c>
+    /// on a readonly field is CS0191, and on an init-only property is CS8852. Diagnosed via
+    /// <see cref="BinaryPersistenceDiagnostics.UnsupportedFieldShape"/> rather than silently
+    /// dropped, the same "loud, not silent" contract <see cref="IsUnsupportedShape"/>
+    /// enforces for a field's type - dropping it silently would lose that field's data on
+    /// load with no signal anything happened.
+    /// </summary>
+    private static bool IsWritableFromOutsideTheType(ISymbol member) => member switch
+    {
+        IFieldSymbol field => !field.IsReadOnly,
+        IPropertySymbol property => property.SetMethod is { IsInitOnly: false },
+        _ => false,
     };
 
     private static bool IsUnsupportedShape(ITypeSymbol type) =>

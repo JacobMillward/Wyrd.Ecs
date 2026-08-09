@@ -150,6 +150,77 @@ public class MemoryPackRegistrationGeneratorTests
     }
 
     [Fact]
+    public void ComponentWithReadonlyManagedField_ReportsWYRD006_DoesNotEmitAnUnassignableFormatter()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public struct Foo : IComponent { public readonly int Id; public string Name; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
+        result.Diagnostics.Single(d => d.Id == "WYRD006").GetMessage().Should().Contain("Foo.Id");
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("registry.Register<global::Foo>");
+        generated.Should().NotContain("value.Id =");
+    }
+
+    [Fact]
+    public void ComponentWithInitOnlyManagedProperty_ReportsWYRD006_DoesNotEmitAnUnassignableFormatter()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public struct Foo : IComponent { public int Id { get; init; } public string Name; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
+        result.Diagnostics.Single(d => d.Id == "WYRD006").GetMessage().Should().Contain("Foo.Id");
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("registry.Register<global::Foo>");
+        generated.Should().NotContain("value.Id =");
+    }
+
+    [Fact]
+    public void TwoComponentsSharingAManagedFieldType_EmitOnlyOneFormatterForTheSharedType()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            public struct Label { public string Text; }
+            public struct A : IComponent { public Label L; }
+            public struct B : IComponent { public Label L; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        System.Text.RegularExpressions.Regex.Matches(generated, "class LabelGeneratedFormatter\\s*:").Count.Should().Be(1);
+        System.Text.RegularExpressions.Regex.Matches(generated, "new LabelGeneratedFormatter\\(\\)").Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void FileLocalComponent_IsNotRegistered()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+
+            file struct Position : IComponent { public float X; }
+            """;
+
+        var result = GeneratorTestHost.Run(new MemoryPackRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("registry.Register<");
+    }
+
+    [Fact]
     public void MemoryPackableComponent_RegistersIt()
     {
         const string source = """

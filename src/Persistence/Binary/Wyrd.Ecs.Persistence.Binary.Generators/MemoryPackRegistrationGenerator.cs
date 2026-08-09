@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -8,10 +9,12 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c>, not marked
-/// <c>[PersistenceIgnore]</c> and accessible from a top-level class in a different
-/// namespace (skips a component nested inside a <c>private</c> containing type - see
-/// <see cref="IsAccessibleForGeneratedRegistration"/>), and emits two things into the
-/// referencing project's own compilation:
+/// <c>[PersistenceIgnore]</c>, not <c>file</c>-scoped, and accessible from
+/// <c>MemoryPackAutoRegistration</c> (a top-level class in a different namespace - skips a
+/// component nested inside a <c>private</c> containing type), the same
+/// <c>IsFileLocal</c>/<c>Compilation.IsSymbolAccessibleWithin</c> check
+/// <c>TagPersistenceAutoRegistrationGenerator</c> already uses, and emits two things into
+/// the referencing project's own compilation:
 /// <list type="bullet">
 /// <item><c>MemoryPackAutoRegistration.RegisterAll</c>: one
 /// <c>CodecRegistry.Register&lt;T&gt;</c> call per match, using
@@ -23,7 +26,7 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// </list>
 /// A matched component needs no other annotation if it's unmanaged (MemoryPack's own
 /// built-in fast path handles it directly) or already marked <c>[MemoryPackable]</c>
-/// (MemoryPack's own generator handles it, unchanged from before this comment). A
+/// (MemoryPack's own generator handles it). A
 /// component that is neither gets a hand-generated <c>MemoryPackFormatter&lt;T&gt;</c>
 /// instead (see <see cref="FormatterPlanner"/>/<see cref="FormatterEmitter"/>), registered
 /// via a <c>[ModuleInitializer]</c> so it's live before any <c>RegisterAll</c> call runs. A
@@ -68,8 +71,9 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         var none = new ExtractResult(null, ImmutableArray<Diagnostic>.Empty);
         if (semanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol symbol) return none;
         if (!IsComponent(symbol)) return none;
+        if (symbol.IsFileLocal) return none;
+        if (!semanticModel.Compilation.IsSymbolAccessibleWithin(symbol, semanticModel.Compilation.Assembly)) return none;
         if (HasPersistenceIgnoreAttribute(symbol)) return none;
-        if (!IsAccessibleForGeneratedRegistration(symbol)) return none;
 
         var stableName = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
@@ -138,10 +142,33 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    }");
         sb.AppendLine("}");
 
-        var allFormatters = infos.SelectMany(i => i.GeneratedFormatters).ToImmutableArray();
-        FormatterEmitter.AppendFormatters(sb, allFormatters);
+        FormatterEmitter.AppendFormatters(sb, DeduplicateFormatters(infos));
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// <see cref="FormatterPlanner.Plan"/> runs once per component, independently, with its
+    /// own local visited set (<c>TryExtract</c>'s own doc comment explains why - it can't
+    /// share state across calls without defeating incremental caching). Two components that
+    /// both reference the same plain managed type (e.g. two components each with a
+    /// <c>Label</c> field) each produce their own <c>PlannedFormatter</c> for
+    /// <c>Label</c>, identical in content since it's derived from the same type's own
+    /// members either way. Kept the same way <c>MemoryPack</c>Formatter classes are
+    /// keyed - by <see cref="PlannedFormatter.TypeDisplayName"/> - so only the first of
+    /// any duplicate reaches <see cref="FormatterEmitter.AppendFormatters"/>; without this,
+    /// two components sharing a managed field type would each emit their own copy of the
+    /// same formatter class, a duplicate-type compile error.
+    /// </summary>
+    private static ImmutableArray<PlannedFormatter> DeduplicateFormatters(ImmutableArray<RegisteredComponentInfo> infos)
+    {
+        var seen = new HashSet<string>();
+        var result = ImmutableArray.CreateBuilder<PlannedFormatter>();
+        foreach (var info in infos)
+            foreach (var formatter in info.GeneratedFormatters)
+                if (seen.Add(formatter.TypeDisplayName))
+                    result.Add(formatter);
+        return result.ToImmutable();
     }
 
     private record struct ExtractResult(RegisteredComponentInfo? Info, ImmutableArray<Diagnostic> Diagnostics);
@@ -156,22 +183,4 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
 
     private static bool HasPersistenceIgnoreAttribute(INamedTypeSymbol symbol) =>
         symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute");
-
-    /// <summary>
-    /// A component nested inside a <c>private</c> (or otherwise not public/internal)
-    /// containing type - a common shape for scratch component structs in benchmarks and
-    /// tests - can't be referenced from <c>MemoryPackAutoRegistration</c>, a top-level
-    /// class in a different namespace. Skipped the same way <c>[PersistenceIgnore]</c> is:
-    /// silently, since this is "not reachable for registration," not "shape this generator
-    /// can't handle" (that's <c>WYRD006</c>'s job).
-    /// </summary>
-    private static bool IsAccessibleForGeneratedRegistration(INamedTypeSymbol symbol)
-    {
-        for (var current = symbol; current is not null; current = current.ContainingType)
-        {
-            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal))
-                return false;
-        }
-        return true;
-    }
 }
