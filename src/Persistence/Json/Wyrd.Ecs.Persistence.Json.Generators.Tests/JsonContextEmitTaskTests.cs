@@ -76,7 +76,7 @@ public class JsonContextEmitTaskTests : IDisposable
     }
 
     [Fact]
-    public void Execute_SkipsAComponentMarkedPersistenceIgnore()
+    public void Execute_IncludesAComponentMarkedPersistenceIgnore()
     {
         var path = WriteSource("Secret.cs", """
             using Wyrd.Ecs;
@@ -85,9 +85,9 @@ public class JsonContextEmitTaskTests : IDisposable
             public struct Secret : IComponent { public string Value; }
             """);
 
-        RunTask([path], out var output);
+        RunTask([path], out var output).Should().BeTrue();
 
-        output.Should().NotContain("Secret");
+        output.Should().Contain("typeof(global::Secret)");
     }
 
     [Fact]

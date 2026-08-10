@@ -11,13 +11,15 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// MSBuild task, wired to run <c>BeforeTargets="CoreCompile"</c> by
 /// <c>build/Wyrd.Ecs.Persistence.Json.Generators.targets</c>. Builds an ad hoc
 /// <see cref="CSharpCompilation"/> from the consuming project's own <c>@(Compile)</c>
-/// items, scans it for <c>Wyrd.Ecs.IComponent</c> implementers not marked
-/// <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/>, and materializes a
-/// <c>[JsonSerializable]</c>-decorated <c>JsonSerializerContext</c> partial class to
-/// disk before <c>CoreCompile</c> runs, so System.Text.Json's own source generator
-/// processes it like any hand-written source. This materialize-then-let-STJ-run step
-/// exists because one Roslyn generator cannot see another generator's output within the
-/// same compilation (dotnet/roslyn#77560): an ordinary <c>IIncrementalGenerator</c>
+/// items, scans it for every <c>Wyrd.Ecs.IComponent</c> implementer, including types
+/// marked <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/> (whether a type can
+/// be serialized and whether it's wired into a given CodecRegistry are different questions;
+/// only <see cref="JsonRegistrationGenerator"/> enforces the ignore semantics), and
+/// materializes a <c>[JsonSerializable]</c>-decorated <c>JsonSerializerContext</c>
+/// partial class to disk before <c>CoreCompile</c> runs, so System.Text.Json's own source
+/// generator processes it like any hand-written source. This materialize-then-let-STJ-run
+/// step exists because one Roslyn generator cannot see another generator's output within
+/// the same compilation (dotnet/roslyn#77560): an ordinary <c>IIncrementalGenerator</c>
 /// can't populate <c>[JsonSerializable]</c> on STJ's own context class the way
 /// <see cref="JsonRegistrationGenerator"/> populates <c>CodecRegistry</c>.
 /// </summary>
@@ -60,7 +62,6 @@ public sealed class JsonContextEmitTask : Microsoft.Build.Utilities.Task
             {
                 if (model.GetDeclaredSymbol(structDeclaration) is not INamedTypeSymbol symbol) continue;
                 if (!symbol.AllInterfaces.Any(i => i.ToDisplayString() == "Wyrd.Ecs.IComponent")) continue;
-                if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute")) continue;
 
                 componentTypeNames.Add(symbol.ToDisplayString());
             }
