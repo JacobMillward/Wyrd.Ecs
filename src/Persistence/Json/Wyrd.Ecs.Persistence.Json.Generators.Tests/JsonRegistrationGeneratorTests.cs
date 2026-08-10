@@ -157,4 +157,79 @@ public class JsonRegistrationGeneratorTests
         steps[0].Outputs.Should().Contain(o =>
             o.Reason == IncrementalStepRunReason.Cached || o.Reason == IncrementalStepRunReason.Unchanged);
     }
+
+    [Fact]
+    public void WithoutTheMSBuildProperty_DoesNotEmitRegisterAllIncludingIgnored()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            using Wyrd.Ecs.Persistence;
+            namespace Test;
+            [PersistenceIgnore]
+            public struct Secret : IComponent { public string Value; }
+            """;
+
+        var result = GeneratorTestHost.Run(new JsonRegistrationGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("RegisterAllIncludingIgnored");
+        generated.Should().NotContain("PersistenceIgnoredTypes");
+    }
+
+    [Fact]
+    public void WithTheMSBuildPropertySet_EmitsRegisterAllIncludingIgnoredForAnIgnoredType()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            using Wyrd.Ecs.Persistence;
+            namespace Test;
+            [PersistenceIgnore]
+            public struct Secret : IComponent { public string Value; }
+            public struct Position : IComponent { public float X; }
+            """;
+
+        var result = GeneratorTestHost.Run(
+            new JsonRegistrationGenerator(),
+            GeneratorTestHost.Compile(source),
+            globalOptions: new Dictionary<string, string> { ["build_property.WyrdJsonRegisterIgnoredTypes"] = "true" });
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+
+        // Sliced, not whole-file Contains: "RegisterAll(registry);" and "Test.Secret" both
+        // already appear elsewhere in AddJsonPersistence/PersistenceIgnoredTypes, so a
+        // whole-file Contains would pass against the unmodified generator too.
+        var includingIgnoredStart = generated.IndexOf("public static void RegisterAllIncludingIgnored(global::Wyrd.Ecs.CodecRegistry registry)");
+        includingIgnoredStart.Should().BeGreaterThan(-1);
+        var includingIgnoredBody = generated.Substring(includingIgnoredStart, generated.IndexOf("public static class PersistenceIgnoredTypes") - includingIgnoredStart);
+        includingIgnoredBody.Should().Contain("RegisterAll(registry);"); // calls the base method first
+        includingIgnoredBody.Should().Contain("registry.Register<global::Test.Secret>(\"Test.Secret\",");
+
+        var discriminatorsStart = generated.IndexOf("public static class PersistenceIgnoredTypes");
+        discriminatorsStart.Should().BeGreaterThan(-1);
+        var discriminatorsBody = generated.Substring(discriminatorsStart);
+        discriminatorsBody.Should().Contain("IReadOnlySet<string> Discriminators");
+        discriminatorsBody.Should().Contain("\"Test.Secret\",");
+    }
+
+    [Fact]
+    public void WithTheMSBuildPropertySet_RegisterAllStillSkipsTheIgnoredType()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            using Wyrd.Ecs.Persistence;
+            namespace Test;
+            [PersistenceIgnore]
+            public struct Secret : IComponent { public string Value; }
+            """;
+
+        var result = GeneratorTestHost.Run(
+            new JsonRegistrationGenerator(),
+            GeneratorTestHost.Compile(source),
+            globalOptions: new Dictionary<string, string> { ["build_property.WyrdJsonRegisterIgnoredTypes"] = "true" });
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        // Extract just the RegisterAll method body (before RegisterAllIncludingIgnored starts) and assert it alone has no Secret registration.
+        var registerAllBody = generated.Substring(0, generated.IndexOf("RegisterAllIncludingIgnored"));
+        registerAllBody.Should().NotContain("registry.Register<global::Test.Secret>");
+    }
 }

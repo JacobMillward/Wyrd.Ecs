@@ -6,15 +6,20 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Wyrd.Ecs.Persistence.Json.Generators;
 
 /// <summary>
-/// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c> not marked
-/// <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/>, and emits two things into the
+/// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c>, and emits into the
 /// referencing project's own compilation:
 /// <list type="bullet">
 /// <item><c>JsonAutoRegistration.RegisterAll</c>: one
-/// <c>CodecRegistry.Register&lt;T&gt;</c> call per match, using
+/// <c>CodecRegistry.Register&lt;T&gt;</c> call per match not marked
+/// <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/>, using
 /// <c>JsonSerializer.SerializeToUtf8Bytes</c>/<c>Deserialize</c> against the
 /// <c>JsonTypeInfo&lt;T&gt;</c> <see cref="JsonContextEmitTask"/> materializes onto
 /// <c>&lt;ConsumerName&gt;JsonPersistenceContext.Default</c>.</item>
+/// <item>When the <c>WyrdJsonRegisterIgnoredTypes</c> MSBuild property is set:
+/// <c>JsonAutoRegistration.RegisterAllIncludingIgnored</c>, covering every match
+/// <c>RegisterAll</c> skips too, plus <c>PersistenceIgnoredTypes.Discriminators</c>, for a
+/// caller that wants full visibility regardless of persistence opt-out, not real
+/// persistence. Off by default; <c>RegisterAll</c>'s own behavior never changes.</item>
 /// <item>A one-argument <c>WorldBuilder.AddJsonPersistence(IPersistenceStore)</c>/
 /// <c>AddJsonPersistence(string)</c> pair delegating to the two-argument
 /// <c>AddJsonPersistence(store, registry)</c>.</item>
@@ -37,15 +42,23 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
 
         var assemblyName = context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Consumer");
 
-        context.RegisterSourceOutput(candidates.Collect().Combine(assemblyName), static (spc, pair) =>
-            spc.AddSource("JsonAutoRegistration.g.cs", Render(pair.Left, pair.Right)));
+        var registerIgnoredTypes = context.AnalyzerConfigOptionsProvider.Select(static (options, _) =>
+            options.GlobalOptions.TryGetValue("build_property.WyrdJsonRegisterIgnoredTypes", out var value)
+            && bool.TryParse(value, out var parsed) && parsed);
+
+        var combined = candidates.Collect().Combine(assemblyName).Combine(registerIgnoredTypes);
+
+        context.RegisterSourceOutput(combined, static (spc, pair) =>
+            spc.AddSource("JsonAutoRegistration.g.cs", Render(pair.Left.Left, pair.Left.Right, pair.Right)));
     }
 
     private static RegisteredComponentInfo? TryExtract(StructDeclarationSyntax declaration, SemanticModel semanticModel)
     {
         if (semanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol symbol) return null;
         if (!symbol.AllInterfaces.Any(i => i.ToDisplayString() == "Wyrd.Ecs.IComponent")) return null;
-        if (symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute")) return null;
+
+        var isPersistenceIgnored = symbol.GetAttributes()
+            .Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute");
 
         var stableName = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.StableNameAttribute")
@@ -57,12 +70,14 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
             .Select(a => (string)a.ConstructorArguments[0].Value!)
             .ToImmutableArray();
 
-        return new RegisteredComponentInfo(symbol.ToDisplayString(), discriminator, renamedFrom);
+        return new RegisteredComponentInfo(symbol.ToDisplayString(), discriminator, renamedFrom, isPersistenceIgnored);
     }
 
-    private static string Render(ImmutableArray<RegisteredComponentInfo> infos, string assemblyName)
+    private static string Render(ImmutableArray<RegisteredComponentInfo> infos, string assemblyName, bool registerIgnoredTypes)
     {
         var contextClassName = ConsumerContextNaming.ContextClassName(assemblyName);
+        var registered = infos.Where(i => !i.IsPersistenceIgnored).ToImmutableArray();
+        var ignored = infos.Where(i => i.IsPersistenceIgnored).ToImmutableArray();
 
         var sb = new StringBuilder();
         sb.AppendLine("namespace Wyrd.Ecs.Persistence.Json;");
@@ -71,20 +86,34 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("{");
         sb.AppendLine("    public static void RegisterAll(global::Wyrd.Ecs.CodecRegistry registry)");
         sb.AppendLine("    {");
+        AppendRegistrations(sb, registered, contextClassName);
+        sb.AppendLine("    }");
 
-        foreach (var info in infos)
+        if (registerIgnoredTypes)
         {
-            var typeName = info.FullyQualifiedName;
-            var propertyName = ConsumerContextNaming.TypeInfoPropertyName(typeName);
-            sb.AppendLine($"        registry.Register<global::{typeName}>(\"{info.Discriminator}\",");
-            sb.AppendLine($"            v => global::System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(v, global::{contextClassName}.Default.{propertyName}),");
-            sb.AppendLine($"            bytes => global::System.Text.Json.JsonSerializer.Deserialize(bytes, global::{contextClassName}.Default.{propertyName}));");
-            foreach (var old in info.RenamedFrom)
-                sb.AppendLine($"        registry.RegisterAlias(\"{old}\", \"{info.Discriminator}\");");
+            sb.AppendLine();
+            sb.AppendLine("    public static void RegisterAllIncludingIgnored(global::Wyrd.Ecs.CodecRegistry registry)");
+            sb.AppendLine("    {");
+            sb.AppendLine("        RegisterAll(registry);");
+            AppendRegistrations(sb, ignored, contextClassName);
+            sb.AppendLine("    }");
         }
 
-        sb.AppendLine("    }");
         sb.AppendLine("}");
+
+        if (registerIgnoredTypes)
+        {
+            sb.AppendLine();
+            sb.AppendLine("public static class PersistenceIgnoredTypes");
+            sb.AppendLine("{");
+            sb.AppendLine("    public static global::System.Collections.Generic.IReadOnlySet<string> Discriminators { get; } = new global::System.Collections.Generic.HashSet<string>");
+            sb.AppendLine("    {");
+            foreach (var info in ignored)
+                sb.AppendLine($"        \"{info.Discriminator}\",");
+            sb.AppendLine("    };");
+            sb.AppendLine("}");
+        }
+
         sb.AppendLine();
         sb.AppendLine("public static class JsonAutoRegistrationWorldBuilderExtensions");
         sb.AppendLine("{");
@@ -110,5 +139,19 @@ public sealed class JsonRegistrationGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    private record struct RegisteredComponentInfo(string FullyQualifiedName, string Discriminator, ImmutableArray<string> RenamedFrom);
+    private static void AppendRegistrations(StringBuilder sb, ImmutableArray<RegisteredComponentInfo> infos, string contextClassName)
+    {
+        foreach (var info in infos)
+        {
+            var typeName = info.FullyQualifiedName;
+            var propertyName = ConsumerContextNaming.TypeInfoPropertyName(typeName);
+            sb.AppendLine($"        registry.Register<global::{typeName}>(\"{info.Discriminator}\",");
+            sb.AppendLine($"            v => global::System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(v, global::{contextClassName}.Default.{propertyName}),");
+            sb.AppendLine($"            bytes => global::System.Text.Json.JsonSerializer.Deserialize(bytes, global::{contextClassName}.Default.{propertyName}));");
+            foreach (var old in info.RenamedFrom)
+                sb.AppendLine($"        registry.RegisterAlias(\"{old}\", \"{info.Discriminator}\");");
+        }
+    }
+
+    private record struct RegisteredComponentInfo(string FullyQualifiedName, string Discriminator, ImmutableArray<string> RenamedFrom, bool IsPersistenceIgnored);
 }
