@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "seeO8icDfED/Qwl9PDFUx2Gf/7xv7dPsMnw5PnRwNZuz4EWMpy0wIVohC4MfCcTIoJgp+KUrWG4WH3NPSusQOA=="
+      },
+      "wyrd.ecs": {
+        "type": "Project"
+      },
+      "wyrd.ecs.persistence": {
+        "type": "Project",
+        "dependencies": {
+          "System.IO.Hashing": "[9.0.0, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.persistence.json": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Persistence": "[0.1.0-alpha, )"
+        }
+      }
+    }
+  }
+}
