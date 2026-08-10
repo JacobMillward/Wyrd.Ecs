@@ -1,0 +1,7 @@
+<Project>
+
+  <PropertyGroup>
+    <WyrdJsonRegisterIgnoredTypes>true</WyrdJsonRegisterIgnoredTypes>
+  </PropertyGroup>
+
+</Project>

@@ -26,7 +26,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <ProjectReference Include="..\Wyrd.Ecs.Debug.Generators\Wyrd.Ecs.Debug.Generators.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="build\Wyrd.Ecs.Debug.targets" Pack="true" PackagePath="buildTransitive\Wyrd.Ecs.Debug.targets" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_WyrdEmbedDebugGeneratorAnalyzer" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="..\Wyrd.Ecs.Debug.Generators\Wyrd.Ecs.Debug.Generators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WyrdDebugGeneratorTargetPath" />
+    </MSBuild>
+    <ItemGroup>
+      <None Include="@(_WyrdDebugGeneratorTargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>
