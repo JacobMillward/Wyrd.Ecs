@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 
 namespace Wyrd.Ecs.Debug;
@@ -8,7 +7,7 @@ namespace Wyrd.Ecs.Debug;
 /// Owns the in-process host lifecycle for the debug/inspection server: bind/listen/stop
 /// against <c>127.0.0.1</c> only, the security boundary for this server.
 /// <see cref="Start"/> lets a bind failure (e.g. the port is already in
-/// use) throw normally; <see cref="World.WithDebugServer"/> is the sugar layer that
+/// use) throw normally; <see cref="World.WithDebugServer"/> is the generated layer that
 /// catches that and routes it through <see cref="DebugServerOptions.OnError"/> instead.
 /// </summary>
 public sealed class DebugServer : IDisposable
@@ -27,8 +26,8 @@ public sealed class DebugServer : IDisposable
     public void Start()
     {
         var builder = WebApplication.CreateSlimBuilder();
-        builder.WebHost.UseUrls($"http://127.0.0.1:{_options.Port}");
         _app = builder.Build();
+        _app.Urls.Add($"http://127.0.0.1:{_options.Port}");
         _app.Start();
     }
 
