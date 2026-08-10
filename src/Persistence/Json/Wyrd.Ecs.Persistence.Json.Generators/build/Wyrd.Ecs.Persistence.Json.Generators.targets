@@ -16,7 +16,7 @@
       References="@(ReferencePath)"
       AssemblyName="$(AssemblyName)"
       OutputPath="$(_WyrdJsonContextOutputPath)" />
-    <ItemGroup>
+    <ItemGroup Condition="Exists('$(_WyrdJsonContextOutputPath)')">
       <Compile Include="$(_WyrdJsonContextOutputPath)" />
       <FileWrites Include="$(_WyrdJsonContextOutputPath)" />
     </ItemGroup>

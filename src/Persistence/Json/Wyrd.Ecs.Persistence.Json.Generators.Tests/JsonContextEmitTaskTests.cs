@@ -106,9 +106,27 @@ public class JsonContextEmitTaskTests : IDisposable
     [Fact]
     public void Execute_UsesTheAssemblyNameToDeriveTheContextClassName()
     {
-        RunTask([], out var output);
+        var path = WriteSource("Position.cs", """
+            using Wyrd.Ecs;
+            public struct Position : IComponent { public float X; }
+            """);
+
+        RunTask([path], out var output);
 
         output.Should().Contain("public partial class TestAssemblyJsonPersistenceContext : JsonSerializerContext");
+    }
+
+    [Fact]
+    public void Execute_WithNoComponentTypesFound_WritesNoFile()
+    {
+        var path = WriteSource("NotAComponent.cs", """
+            public struct NotAComponent { public float X; }
+            """);
+
+        RunTask([path], out var output).Should().BeTrue();
+
+        output.Should().BeEmpty();
+        File.Exists(_outputPath).Should().BeFalse();
     }
 
     [Fact]

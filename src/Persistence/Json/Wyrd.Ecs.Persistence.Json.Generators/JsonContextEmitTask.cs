@@ -67,6 +67,18 @@ public sealed class JsonContextEmitTask : Microsoft.Build.Utilities.Task
             }
         }
 
+        // A JsonSerializerContext with no [JsonSerializable] entries never gets its
+        // abstract members completed by System.Text.Json's own generator, so it fails to
+        // compile - and JsonRegistrationGenerator's RegisterAll never references this
+        // class when there's nothing to register anyway. Skip emitting it entirely rather
+        // than write something guaranteed uncompilable, and remove a stale one from an
+        // earlier build where components existed but don't anymore.
+        if (componentTypeNames.Count == 0)
+        {
+            if (File.Exists(OutputPath)) File.Delete(OutputPath);
+            return true;
+        }
+
         var contextClassName = ConsumerContextNaming.ContextClassName(AssemblyName);
 
         var sb = new StringBuilder();
