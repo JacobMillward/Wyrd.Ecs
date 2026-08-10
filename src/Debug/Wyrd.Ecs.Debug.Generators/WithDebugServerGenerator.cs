@@ -3,11 +3,21 @@ using Microsoft.CodeAnalysis;
 namespace Wyrd.Ecs.Debug.Generators;
 
 /// <summary>
-/// Emits <c>World.WithDebugServer(int port = 5299)</c> into every project that
-/// references <c>Wyrd.Ecs.Debug</c>: unconditional, no scanning needed. Unlike
+/// Emits two extension methods into every project that references
+/// <c>Wyrd.Ecs.Debug</c>: unconditional, no scanning needed. Unlike
 /// <see cref="Wyrd.Ecs.Persistence.Json.Generators.JsonRegistrationGenerator"/>, there's
-/// no per-consumer content to discover, just one fixed overload to add.
-/// References <c>Wyrd.Ecs.Persistence.Json.JsonAutoRegistration.RegisterAllIncludingIgnored</c>
+/// no per-consumer content to discover, just fixed overloads to add.
+/// <list type="bullet">
+/// <item><c>World.WithDebugServer(int port = 5299)</c>: construct, start, and return.</item>
+/// <item><c>World.CreateDebugServer(DebugServerOptions? options = null)</c>: construct and
+/// return without starting, for a caller that wants control over exactly when to call
+/// <c>Start()</c> without also having to deal with a <c>CodecRegistry</c> - deferred start
+/// and a custom registry are orthogonal concerns; this covers deferred start with the
+/// default registry, leaving <c>new DebugServer(world, registry, options)</c> as the
+/// primitive for a caller who genuinely wants both deferred start and a custom
+/// registry.</item>
+/// </list>
+/// Both reference <c>Wyrd.Ecs.Persistence.Json.JsonAutoRegistration.RegisterAllIncludingIgnored</c>
 /// and <c>World.WithDebugServer(CodecRegistry, DebugServerOptions?)</c> by name only,
 /// never by seeing their generated/compiled syntax. Same by-convention technique
 /// <c>JsonRegistrationGenerator</c> already documents for referencing
@@ -25,10 +35,18 @@ public sealed class WithDebugServerGenerator : IIncrementalGenerator
     }
 
     private const string Source = """
+        #nullable enable
         namespace Wyrd.Ecs.Debug;
 
         public static class GeneratedWorldExtensions
         {
+            public static global::Wyrd.Ecs.Debug.DebugServer CreateDebugServer(this global::Wyrd.Ecs.World world, global::Wyrd.Ecs.Debug.DebugServerOptions? options = null)
+            {
+                var registry = new global::Wyrd.Ecs.CodecRegistry();
+                global::Wyrd.Ecs.Persistence.Json.JsonAutoRegistration.RegisterAllIncludingIgnored(registry);
+                return new global::Wyrd.Ecs.Debug.DebugServer(world, registry, options ?? new global::Wyrd.Ecs.Debug.DebugServerOptions());
+            }
+
             public static global::Wyrd.Ecs.Debug.DebugServer WithDebugServer(this global::Wyrd.Ecs.World world, int port = 5299)
             {
                 var registry = new global::Wyrd.Ecs.CodecRegistry();

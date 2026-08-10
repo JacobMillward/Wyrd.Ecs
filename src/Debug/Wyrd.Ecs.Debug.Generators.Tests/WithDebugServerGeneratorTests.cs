@@ -21,6 +21,16 @@ public class WithDebugServerGeneratorTests
 
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().Contain("public static global::Wyrd.Ecs.Debug.DebugServer WithDebugServer(this global::Wyrd.Ecs.World world, int port = 5299)");
-        generated.Should().Contain("global::Wyrd.Ecs.Persistence.Json.JsonAutoRegistration.RegisterAllIncludingIgnored(registry);");
+        generated.Should().Contain("public static global::Wyrd.Ecs.Debug.DebugServer CreateDebugServer(this global::Wyrd.Ecs.World world, global::Wyrd.Ecs.Debug.DebugServerOptions? options = null)");
+
+        // Sliced, not whole-file Contains: RegisterAllIncludingIgnored appears once per
+        // method, and each occurrence needs to be inside that method's own body to prove
+        // both methods independently auto-wire a registry, not just one of them.
+        var createStart = generated.IndexOf("CreateDebugServer");
+        var withStart = generated.IndexOf("WithDebugServer(this");
+        createStart.Should().BeGreaterThan(-1);
+        withStart.Should().BeGreaterThan(-1);
+        generated.Substring(createStart, withStart - createStart).Should().Contain("RegisterAllIncludingIgnored(registry);");
+        generated.Substring(withStart).Should().Contain("RegisterAllIncludingIgnored(registry);");
     }
 }
