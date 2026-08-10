@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\..\Core\Wyrd.Ecs.Generators\Wyrd.Ecs.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\Persistence\Json\Wyrd.Ecs.Persistence.Json\Wyrd.Ecs.Persistence.Json.csproj" />
     <ProjectReference Include="..\..\Persistence\Json\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\Persistence\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
