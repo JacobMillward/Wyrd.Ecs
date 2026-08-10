@@ -13,7 +13,7 @@ public static class WorldExtensions
     public static DebugServer WithDebugServer(this World world, CodecRegistry registry, DebugServerOptions? options = null)
     {
         options ??= new DebugServerOptions();
-        var server = new DebugServer(world, options);
+        var server = new DebugServer(world, registry, options);
         try
         {
             server.Start();
