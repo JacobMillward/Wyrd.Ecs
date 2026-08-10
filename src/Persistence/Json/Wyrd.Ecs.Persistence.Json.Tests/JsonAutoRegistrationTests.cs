@@ -145,4 +145,51 @@ public class JsonAutoRegistrationTests : IDisposable
         world.DefaultPersistenceStore.Should().BeOfType<FileStore>().Which.Path.Should().Be(_path);
         world.CodecRegistry!.TryGetByDiscriminator(typeof(AutoPosition).FullName!, out _).Should().BeTrue();
     }
+
+    [Fact]
+    public void RegisterAllIncludingIgnored_RegistersAPersistenceIgnoredComponent()
+    {
+        var registry = new CodecRegistry();
+
+        JsonAutoRegistration.RegisterAllIncludingIgnored(registry);
+
+        registry.TryGetByDiscriminator(typeof(Ignored).FullName!, out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegisterAllIncludingIgnored_RoundTripsAPersistenceIgnoredComponentThroughRealJson()
+    {
+        var registry = new CodecRegistry();
+        JsonAutoRegistration.RegisterAllIncludingIgnored(registry);
+
+        var source = new World();
+        source.CodecRegistry = registry;
+        source.Commands.CreateEntity(new Ignored { X = 42f });
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+
+        source.Save(store);
+
+        var target = new World();
+        target.CodecRegistry = registry;
+        target.Load(store);
+
+        var found = false;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Ignored>>().Resolve(target))
+        {
+            var values = chunk.Access<Ref<Ignored>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                values[i].X.Should().Be(42f);
+                found = true;
+            }
+        }
+        found.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PersistenceIgnoredTypes_Discriminators_ContainsTheIgnoredComponent()
+    {
+        PersistenceIgnoredTypes.Discriminators.Should().Contain(typeof(Ignored).FullName!);
+    }
 }

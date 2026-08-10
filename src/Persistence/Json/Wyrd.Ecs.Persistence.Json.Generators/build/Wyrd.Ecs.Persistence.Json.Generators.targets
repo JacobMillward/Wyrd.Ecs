@@ -1,5 +1,9 @@
 <Project>
 
+  <ItemGroup>
+    <CompilerVisibleProperty Include="WyrdJsonRegisterIgnoredTypes" />
+  </ItemGroup>
+
   <UsingTask TaskName="Wyrd.Ecs.Persistence.Json.Generators.JsonContextEmitTask"
              AssemblyFile="$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Wyrd.Ecs.Persistence.Json.Generators.dll" />
 
