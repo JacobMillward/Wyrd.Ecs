@@ -202,6 +202,7 @@ public class WalSegmentWriterTests : IDisposable
         public uint? SchemaHash => null;
         public byte[] EncodeRow(Array rawItems, int row) => throw new NotSupportedException();
         public byte[] EncodeValue(object value) => BitConverter.GetBytes((float)value);
+        public object DecodeValue(byte[] data) => BitConverter.ToSingle(data);
         public void DecodeInto(World world, Entity entity, byte[] data) => throw new NotSupportedException();
     }
 }
