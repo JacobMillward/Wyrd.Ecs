@@ -69,4 +69,31 @@ public class SnapshotPublisherTests
 
         publisher.Latest.Should().NotBeNull();
     }
+
+    [Fact]
+    public void WithAConnectedClient_OnTickAdvancedRaisesChanged()
+    {
+        var world = new World();
+        var publisher = new SnapshotPublisher(world, new CodecRegistry());
+        publisher.Connect();
+        var raised = false;
+        publisher.Changed += () => raised = true;
+
+        publisher.OnTickAdvanced(1);
+
+        raised.Should().BeTrue();
+    }
+
+    [Fact]
+    public void WithNoConnectedClient_OnTickAdvancedDoesNotRaiseChanged()
+    {
+        var world = new World();
+        var publisher = new SnapshotPublisher(world, new CodecRegistry());
+        var raised = false;
+        publisher.Changed += () => raised = true;
+
+        publisher.OnTickAdvanced(1);
+
+        raised.Should().BeFalse();
+    }
 }

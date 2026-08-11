@@ -101,4 +101,19 @@ public class ChangeLogRecorderTests
 
         recorder.Entries.Should().Contain(e => e.Kind == ChangeKind.EntityCreated && e.ComponentName == null);
     }
+
+    [Fact]
+    public void RecordingAnEntry_RaisesChanged()
+    {
+        var world = new World();
+        var recorder = new ChangeLogRecorder(capacity: 10);
+        using var handle = world.ObserveStructuralChanges(recorder);
+        var raised = false;
+        recorder.Changed += () => raised = true;
+
+        world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        raised.Should().BeTrue();
+    }
 }

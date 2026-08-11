@@ -16,6 +16,8 @@ internal sealed class SnapshotPublisher(World world, CodecRegistry registry)
     private WorldSnapshot? _latest;
     private int _connectedCount;
 
+    public event Action? Changed;
+
     public WorldSnapshot? Latest => _latest;
 
     public void Connect() => Interlocked.Increment(ref _connectedCount);
@@ -27,5 +29,6 @@ internal sealed class SnapshotPublisher(World world, CodecRegistry registry)
 
         var snapshot = new WorldSnapshot(world.EnumerateArchetypes(), world.EnumerateEntities(registry));
         Interlocked.Exchange(ref _latest, snapshot);
+        Changed?.Invoke();
     }
 }

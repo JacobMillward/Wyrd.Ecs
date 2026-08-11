@@ -12,6 +12,8 @@ internal sealed class ChangeLogRecorder(int capacity) : IStructuralChangeObserve
     private readonly Lock _lock = new();
     private int _tick;
 
+    public event Action? Changed;
+
     public IReadOnlyList<ChangeLogEntry> Entries
     {
         get { lock (_lock) return _entries.ToArray(); }
@@ -36,5 +38,6 @@ internal sealed class ChangeLogRecorder(int capacity) : IStructuralChangeObserve
             _entries.AddFirst(new ChangeLogEntry(Volatile.Read(ref _tick), kind, entity, componentName));
             if (_entries.Count > capacity) _entries.RemoveLast();
         }
+        Changed?.Invoke();
     }
 }
