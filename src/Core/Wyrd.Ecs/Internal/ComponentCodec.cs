@@ -37,6 +37,8 @@ internal sealed class ComponentCodec<T> : IComponentCodec, IComponentChangeSourc
 
     public byte[] EncodeValue(object value) => _encode((T)value);
 
+    public object DecodeValue(byte[] data) => _decode(data);
+
     public byte[] EncodeRow(Array rawItems, int row) => _encode(((T[])rawItems)[row]);
 
     public void DecodeInto(World world, Entity entity, byte[] data) =>

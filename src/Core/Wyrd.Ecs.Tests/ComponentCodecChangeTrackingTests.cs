@@ -111,4 +111,16 @@ public class ComponentCodecChangeTrackingTests
 
         Encoding.UTF8.GetString(encoded).Should().Be("5");
     }
+
+    [Fact]
+    public void DecodeValue_DecodesBytesTheSameWayEncodeValueProducedThem()
+    {
+        var registry = BuildRegistry();
+        registry.TryGetByDiscriminator("Position", out var codec);
+        var encoded = codec.EncodeValue(new Position { X = 9f });
+
+        var decoded = codec.DecodeValue(encoded);
+
+        decoded.Should().BeOfType<Position>().Which.X.Should().Be(9f);
+    }
 }

@@ -34,6 +34,14 @@ public interface IComponentCodec
     byte[] EncodeValue(object value);
 
     /// <summary>
+    /// Deserializes <paramref name="data"/> into a boxed value of this registration's
+    /// concrete component type, for a caller that needs the value itself rather than to
+    /// apply it to a <see cref="World"/> (see <see cref="DecodeInto"/> for that). The
+    /// inverse of <see cref="EncodeValue"/>.
+    /// </summary>
+    object DecodeValue(byte[] data);
+
+    /// <summary>
     /// Deserializes <paramref name="data"/> and queues adding it to <paramref name="entity"/>
     /// in <paramref name="world"/> as this registration's concrete component type, via
     /// <see cref="CommandBuffer.AddComponent{T}"/>: same silent-no-op-if-not-alive contract as
