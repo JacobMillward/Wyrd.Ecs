@@ -35,6 +35,8 @@
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Tests/Wyrd.Ecs.Debug.Tests.csproj" />
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Generators/Wyrd.Ecs.Debug.Generators.csproj" />
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Generators.Tests/Wyrd.Ecs.Debug.Generators.Tests.csproj" />
+    <Project Path="src/Debug/Wyrd.Ecs.Debug.Abstractions/Wyrd.Ecs.Debug.Abstractions.csproj" />
+    <Project Path="src/Debug/Wyrd.Ecs.Debug.Abstractions.Tests/Wyrd.Ecs.Debug.Abstractions.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
