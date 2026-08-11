@@ -1,5 +1,10 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Wyrd.Ecs.Debug.Internal;
 
 namespace Wyrd.Ecs.Debug;
@@ -17,11 +22,13 @@ public sealed class DebugServer : IDisposable
     private readonly DebugServerOptions _options;
     private readonly SnapshotPublisher _snapshots;
     private readonly ChangeLogRecorder _changeLog;
+    private readonly PlaybackControls _playback;
     private WebApplication? _app;
     private IDisposable? _structuralChangeHandle;
 
     internal SnapshotPublisher Snapshots => _snapshots;
     internal ChangeLogRecorder ChangeLog => _changeLog;
+    internal PlaybackControls Playback => _playback;
 
     public DebugServer(World world, CodecRegistry registry, DebugServerOptions options)
     {
@@ -29,13 +36,26 @@ public sealed class DebugServer : IDisposable
         _options = options;
         _snapshots = new SnapshotPublisher(world, registry);
         _changeLog = new ChangeLogRecorder(options.ChangeLogCapacity);
+        _playback = new PlaybackControls(world);
     }
 
     /// <summary>Binds and starts listening. Throws if the port is already in use.</summary>
     public void Start()
     {
         var builder = WebApplication.CreateSlimBuilder();
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.Converters.Add(new EncodedComponentJsonConverter());
+            // Enums (ChangeKind) default to numeric values without this - a debug UI
+            // wants "EntityCreated", not "0".
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        });
         _app = builder.Build();
+
+        _app.MapGet("/api/snapshot", () => Results.Json(_snapshots.Latest, statusCode: _snapshots.Latest is null ? 404 : 200));
+        _app.MapGet("/api/changelog", () => Results.Json(_changeLog.Entries));
+
         _app.Urls.Add($"http://127.0.0.1:{_options.Port}");
         _app.Start();
 
