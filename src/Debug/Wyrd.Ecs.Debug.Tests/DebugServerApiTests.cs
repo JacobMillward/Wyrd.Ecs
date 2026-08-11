@@ -70,4 +70,68 @@ public class DebugServerApiTests
 
         server.Stop();
     }
+
+    [Fact]
+    public async Task GetEvents_AfterATickAdvance_PushesASnapshotEvent()
+    {
+        var port = FreeLoopbackPort();
+        var world = new World();
+        using var server = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
+        server.Start();
+        server.Snapshots.Connect();
+
+        using var client = new HttpClient();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        string? eventLine;
+        string? dataLine;
+        string? contentType;
+        // Response/stream/reader are disposed here, before server.Stop() - otherwise the
+        // SSE connection is still open when Stop() runs, and StopAsync() has to wait out
+        // Kestrel's graceful-shutdown grace period for it instead of returning promptly.
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{port}/api/events");
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            using var stream = await response.Content.ReadAsStreamAsync(cts.Token);
+            using var reader = new StreamReader(stream);
+
+            world.AdvanceTick();
+
+            eventLine = await reader.ReadLineAsync(cts.Token);
+            dataLine = await reader.ReadLineAsync(cts.Token);
+            contentType = response.Content.Headers.ContentType!.MediaType;
+        }
+
+        contentType.Should().Be("text/event-stream");
+        eventLine.Should().Be("event: snapshot");
+        dataLine.Should().StartWith("data: ");
+
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task GetEvents_AfterTheClientDisconnects_UnsubscribesFromChanged()
+    {
+        var port = FreeLoopbackPort();
+        var world = new World();
+        using var server = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
+        server.Start();
+
+        using (var client = new HttpClient())
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{port}/api/events");
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+        }
+
+        // Give the server a moment to observe the client's disconnect and run the `finally`.
+        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        var countBefore = server.ChangeLog.Entries.Count;
+        world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        server.ChangeLog.Entries.Count.Should().Be(countBefore + 1);
+
+        server.Stop();
+    }
 }

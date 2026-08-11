@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Channels;
 using Wyrd.Ecs.Debug.Internal;
 
 namespace Wyrd.Ecs.Debug;
@@ -56,6 +58,42 @@ public sealed class DebugServer : IDisposable
         _app.MapGet("/api/snapshot", () => Results.Json(_snapshots.Latest, statusCode: _snapshots.Latest is null ? 404 : 200));
         _app.MapGet("/api/changelog", () => Results.Json(_changeLog.Entries));
 
+        _app.MapGet("/api/events", async (HttpContext context, CancellationToken cancellationToken) =>
+        {
+            context.Response.ContentType = "text/event-stream";
+            context.Response.Headers.CacheControl = "no-cache";
+            // Setting headers alone doesn't send anything - Kestrel buffers until the
+            // first body write. A caller awaiting response headers (before any event has
+            // fired) would otherwise hang until the first Changed. The explicit flush
+            // matters too: StartAsync alone commits the headers without necessarily
+            // pushing them onto the wire yet.
+            await context.Response.StartAsync(cancellationToken);
+            await context.Response.Body.FlushAsync(cancellationToken);
+
+            var channel = Channel.CreateUnbounded<string>();
+            var jsonOptions = context.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions;
+
+            void OnSnapshotChanged() => channel.Writer.TryWrite(FormatSseEvent("snapshot", _snapshots.Latest, jsonOptions));
+            void OnChangeLogChanged() => channel.Writer.TryWrite(FormatSseEvent("changelog", _changeLog.Entries, jsonOptions));
+
+            _snapshots.Changed += OnSnapshotChanged;
+            _changeLog.Changed += OnChangeLogChanged;
+
+            try
+            {
+                await foreach (var message in channel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    await context.Response.WriteAsync(message, cancellationToken);
+                    await context.Response.Body.FlushAsync(cancellationToken);
+                }
+            }
+            finally
+            {
+                _snapshots.Changed -= OnSnapshotChanged;
+                _changeLog.Changed -= OnChangeLogChanged;
+            }
+        });
+
         _app.Urls.Add($"http://127.0.0.1:{_options.Port}");
         _app.Start();
 
@@ -78,4 +116,7 @@ public sealed class DebugServer : IDisposable
     }
 
     public void Dispose() => Stop();
+
+    private static string FormatSseEvent(string eventName, object? payload, JsonSerializerOptions options) =>
+        $"event: {eventName}\ndata: {JsonSerializer.Serialize(payload, options)}\n\n";
 }
