@@ -19,18 +19,21 @@ internal sealed class ChangeLogRecorder(int capacity) : IStructuralChangeObserve
 
     public void OnEntityCreated(Entity entity) => Record(ChangeKind.EntityCreated, entity, null);
     public void OnEntityDestroyed(Entity entity) => Record(ChangeKind.EntityDestroyed, entity, null);
-    public void OnComponentAdded(Entity entity, int typeIndex) => Record(ChangeKind.ComponentAdded, entity, null);
-    public void OnComponentRemoved(Entity entity, int typeIndex) => Record(ChangeKind.ComponentRemoved, entity, null);
-    public void OnTagAdded(Entity entity, int typeIndex) => Record(ChangeKind.TagAdded, entity, null);
-    public void OnTagRemoved(Entity entity, int typeIndex) => Record(ChangeKind.TagRemoved, entity, null);
+    public void OnComponentAdded(Entity entity, int typeIndex) => Record(ChangeKind.ComponentAdded, entity, ResolveName(typeIndex));
+    public void OnComponentRemoved(Entity entity, int typeIndex) => Record(ChangeKind.ComponentRemoved, entity, ResolveName(typeIndex));
+    public void OnTagAdded(Entity entity, int typeIndex) => Record(ChangeKind.TagAdded, entity, ResolveName(typeIndex));
+    public void OnTagRemoved(Entity entity, int typeIndex) => Record(ChangeKind.TagRemoved, entity, ResolveName(typeIndex));
 
     internal void AdvanceTick(int tick) => Volatile.Write(ref _tick, tick);
 
-    private void Record(ChangeKind kind, Entity entity, string? discriminator)
+    private static string? ResolveName(int typeIndex) =>
+        Wyrd.Ecs.Internal.DebugNameRegistry.TryGetName(typeIndex, out var name) ? name : null;
+
+    private void Record(ChangeKind kind, Entity entity, string? componentName)
     {
         lock (_lock)
         {
-            _entries.AddFirst(new ChangeLogEntry(Volatile.Read(ref _tick), kind, entity, discriminator));
+            _entries.AddFirst(new ChangeLogEntry(Volatile.Read(ref _tick), kind, entity, componentName));
             if (_entries.Count > capacity) _entries.RemoveLast();
         }
     }

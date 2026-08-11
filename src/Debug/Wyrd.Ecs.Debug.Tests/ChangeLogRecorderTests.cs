@@ -73,4 +73,32 @@ public class ChangeLogRecorderTests
         recorder.Entries.Should().Contain(e => e.Entity == second);
         recorder.Entries.Should().Contain(e => e.Entity == third);
     }
+
+    [Fact]
+    public void ComponentAdded_RecordsTheComponentsDebugName()
+    {
+        var world = new World();
+        var recorder = new ChangeLogRecorder(capacity: 10);
+        using var handle = world.ObserveStructuralChanges(recorder);
+        Entity entity = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        world.Commands.AddComponent(entity, new Position { X = 1f });
+        world.ApplyCommands();
+
+        recorder.Entries.Should().Contain(e => e.Kind == ChangeKind.ComponentAdded && e.ComponentName == "Position");
+    }
+
+    [Fact]
+    public void EntityCreated_HasNoComponentName()
+    {
+        var world = new World();
+        var recorder = new ChangeLogRecorder(capacity: 10);
+        using var handle = world.ObserveStructuralChanges(recorder);
+
+        world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        recorder.Entries.Should().Contain(e => e.Kind == ChangeKind.EntityCreated && e.ComponentName == null);
+    }
 }
