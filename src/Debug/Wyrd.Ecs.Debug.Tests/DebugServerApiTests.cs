@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Net.Sockets;
 using System.Text.Json;
 
 namespace Wyrd.Ecs.Debug.Tests;
@@ -12,21 +11,11 @@ public class DebugServerApiTests
     // parameterless JsonSerializer.Serialize overload.
     private static readonly JsonSerializerOptions FieldOptions = new() { IncludeFields = true };
 
-    private static int FreeLoopbackPort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     public struct Health : IComponent { public int Current; }
 
     [Fact]
     public async Task GetSnapshot_WithAConnectedClientAndAnAdvancedTick_ReturnsTheEntitiesAndArchetypes()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
         var registry = new CodecRegistry();
         registry.Register<Health>("Health",
@@ -34,8 +23,8 @@ public class DebugServerApiTests
             b => JsonSerializer.Deserialize<Health>(b, FieldOptions));
         world.Commands.CreateEntity(new Health { Current = 7 });
         world.ApplyCommands();
-        using var server = new DebugServer(world, registry, new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+        using var _ = server;
         server.Snapshots.Connect();
         world.AdvanceTick();
 
@@ -53,10 +42,9 @@ public class DebugServerApiTests
     [Fact]
     public async Task GetChangelog_AfterAStructuralChange_ReturnsTheEntry()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
-        using var server = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
         world.AdvanceTick();
         world.Commands.CreateEntity();
         world.ApplyCommands();
@@ -74,10 +62,9 @@ public class DebugServerApiTests
     [Fact]
     public async Task GetEvents_AfterATickAdvance_PushesASnapshotEvent()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
-        using var server = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
         server.Snapshots.Connect();
 
         using var client = new HttpClient();
@@ -112,10 +99,9 @@ public class DebugServerApiTests
     [Fact]
     public async Task GetEvents_AfterTheClientDisconnects_UnsubscribesFromChanged()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
-        using var server = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
 
         using (var client = new HttpClient())
         using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2)))

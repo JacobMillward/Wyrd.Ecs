@@ -5,23 +5,12 @@ namespace Wyrd.Ecs.Debug.Tests;
 
 public class DebugServerTests
 {
-    private static int FreeLoopbackPort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
     [Fact]
     public void Start_BindsTheConfiguredLoopbackPort()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
-        using var server = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
-
-        server.Start();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
 
         using var probe = new TcpClient();
         var connected = probe.ConnectAsync(IPAddress.Loopback, port).Wait(TimeSpan.FromSeconds(5));
@@ -33,12 +22,11 @@ public class DebugServerTests
     [Fact]
     public void Stop_ReleasesThePortForANewServerToBindAgain()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
 
-        using (var first = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port)))
+        var (first, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using (first)
         {
-            first.Start();
             first.Stop();
         }
 
@@ -51,7 +39,9 @@ public class DebugServerTests
     [Fact]
     public void Start_OnAPortAlreadyInUse_Throws()
     {
-        var port = FreeLoopbackPort();
+        // Deliberately not DebugServerTestHost.Start: this test needs a real,
+        // deterministic port conflict, not a helper that retries past one.
+        var port = DebugServerTestHost.FreeLoopbackPort();
         var world = new World();
         using var blocker = new DebugServer(world, new CodecRegistry(), new DebugServerOptions(Port: port));
         blocker.Start();
@@ -67,11 +57,9 @@ public class DebugServerTests
     [Fact]
     public void AfterStop_OnTickAdvancedNoLongerPublishesSnapshots()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
         var registry = new CodecRegistry();
-        var server = new DebugServer(world, registry, new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, _) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
         server.Snapshots.Connect();
         world.AdvanceTick();
         var firstSnapshot = server.Snapshots.Latest;
@@ -85,11 +73,9 @@ public class DebugServerTests
     [Fact]
     public void AfterDispose_AStructuralChangeProducesNoNewLogEntry()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
         var registry = new CodecRegistry();
-        var server = new DebugServer(world, registry, new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, _) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
         var countBeforeDispose = server.ChangeLog.Entries.Count;
 
         server.Dispose();
@@ -102,11 +88,10 @@ public class DebugServerTests
     [Fact]
     public void AfterStart_AStructuralChangeIsStampedWithTheCurrentTick()
     {
-        var port = FreeLoopbackPort();
         var world = new World();
         var registry = new CodecRegistry();
-        using var server = new DebugServer(world, registry, new DebugServerOptions(Port: port));
-        server.Start();
+        var (server, _) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+        using var _ = server;
 
         world.AdvanceTick();
         world.AdvanceTick();
