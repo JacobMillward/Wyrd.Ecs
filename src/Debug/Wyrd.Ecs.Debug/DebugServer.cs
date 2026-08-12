@@ -144,6 +144,14 @@ public sealed class DebugServer : IDisposable
             return Results.Ok();
         });
 
+        _app.MapPost("/api/playback/pause", () => { _playback.Pause(); return Results.Ok(); });
+        _app.MapPost("/api/playback/resume", () => { _playback.Resume(); return Results.Ok(); });
+        _app.MapPost("/api/playback/timescale", (SetTimeScaleRequest request) =>
+        {
+            _playback.SetTimeScale(request.Value);
+            return Results.Ok();
+        });
+
         _app.Urls.Add($"http://127.0.0.1:{_options.Port}");
         _app.Start();
 

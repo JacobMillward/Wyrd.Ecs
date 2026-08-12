@@ -201,4 +201,36 @@ public class DebugServerApiTests
 
         server.Stop();
     }
+
+    [Fact]
+    public async Task PostPlaybackPause_PausesTheWorld()
+    {
+        var world = new World();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
+
+        using var client = new HttpClient();
+        var response = await client.PostAsync($"http://127.0.0.1:{port}/api/playback/pause", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        world.IsPaused.Should().BeTrue();
+
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task PostPlaybackTimescale_SetsTheWorldsTimeScale()
+    {
+        var world = new World();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
+
+        using var client = new HttpClient();
+        var response = await client.PostAsJsonAsync($"http://127.0.0.1:{port}/api/playback/timescale", new { value = 2.0 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        world.TimeScale.Should().Be(2.0);
+
+        server.Stop();
+    }
 }
