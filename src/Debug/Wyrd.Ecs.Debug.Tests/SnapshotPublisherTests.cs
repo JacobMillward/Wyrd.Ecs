@@ -7,7 +7,7 @@ public struct Position : IComponent { public float X; }
 public class SnapshotPublisherTests
 {
     [Fact]
-    public void WithNoConnectedClient_OnTickAdvancedDoesNoWork()
+    public void WithNoSubscriber_OnTickAdvancedDoesNoWork()
     {
         var world = new World();
         var registry = new CodecRegistry();
@@ -19,7 +19,7 @@ public class SnapshotPublisherTests
     }
 
     [Fact]
-    public void WithAConnectedClient_OnTickAdvancedPublishesASnapshot()
+    public void WithASubscriber_OnTickAdvancedPublishesASnapshot()
     {
         var world = new World();
         var registry = new CodecRegistry();
@@ -28,7 +28,7 @@ public class SnapshotPublisherTests
         world.ApplyCommands();
 
         var publisher = new SnapshotPublisher(world, registry);
-        publisher.Connect();
+        publisher.Changed += () => { };
 
         publisher.OnTickAdvanced(1);
 
@@ -38,16 +38,17 @@ public class SnapshotPublisherTests
     }
 
     [Fact]
-    public void AfterDisconnect_OnTickAdvancedStopsPublishingNewSnapshots()
+    public void AfterTheLastSubscriberUnsubscribes_OnTickAdvancedStopsPublishingNewSnapshots()
     {
         var world = new World();
         var registry = new CodecRegistry();
         var publisher = new SnapshotPublisher(world, registry);
-        publisher.Connect();
+        Action subscriber = () => { };
+        publisher.Changed += subscriber;
         publisher.OnTickAdvanced(1);
         var firstSnapshot = publisher.Latest;
 
-        publisher.Disconnect();
+        publisher.Changed -= subscriber;
         world.Commands.CreateEntity(new Position { X = 1f });
         world.ApplyCommands();
         publisher.OnTickAdvanced(2);
@@ -56,44 +57,32 @@ public class SnapshotPublisherTests
     }
 
     [Fact]
-    public void TwoConnectedClients_DisconnectingOneKeepsPublishing()
+    public void TwoSubscribers_OneUnsubscribingKeepsPublishing()
     {
         var world = new World();
         var registry = new CodecRegistry();
         var publisher = new SnapshotPublisher(world, registry);
-        publisher.Connect();
-        publisher.Connect();
+        Action first = () => { };
+        Action second = () => { };
+        publisher.Changed += first;
+        publisher.Changed += second;
 
-        publisher.Disconnect();
+        publisher.Changed -= first;
         publisher.OnTickAdvanced(1);
 
         publisher.Latest.Should().NotBeNull();
     }
 
     [Fact]
-    public void WithAConnectedClient_OnTickAdvancedRaisesChanged()
+    public void WithASubscriber_OnTickAdvancedRaisesChanged()
     {
         var world = new World();
         var publisher = new SnapshotPublisher(world, new CodecRegistry());
-        publisher.Connect();
         var raised = false;
         publisher.Changed += () => raised = true;
 
         publisher.OnTickAdvanced(1);
 
         raised.Should().BeTrue();
-    }
-
-    [Fact]
-    public void WithNoConnectedClient_OnTickAdvancedDoesNotRaiseChanged()
-    {
-        var world = new World();
-        var publisher = new SnapshotPublisher(world, new CodecRegistry());
-        var raised = false;
-        publisher.Changed += () => raised = true;
-
-        publisher.OnTickAdvanced(1);
-
-        raised.Should().BeFalse();
     }
 }
