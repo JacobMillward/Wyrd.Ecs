@@ -10,6 +10,12 @@
       "wyrd.ecs": {
         "type": "Project"
       },
+      "wyrd.ecs.debug.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
       "wyrd.ecs.persistence": {
         "type": "Project",
         "dependencies": {

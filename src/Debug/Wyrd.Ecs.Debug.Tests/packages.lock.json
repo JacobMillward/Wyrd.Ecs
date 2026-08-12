@@ -117,7 +117,14 @@
         "type": "Project",
         "dependencies": {
           "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Debug.Abstractions": "[0.1.0-alpha, )",
           "Wyrd.Ecs.Persistence.Json": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.debug.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
         }
       },
       "wyrd.ecs.persistence": {
