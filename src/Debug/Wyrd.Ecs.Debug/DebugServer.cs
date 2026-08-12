@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
+using Wyrd.Ecs.Debug.Abstractions;
 using Wyrd.Ecs.Debug.Internal;
 
 namespace Wyrd.Ecs.Debug;
@@ -120,6 +121,27 @@ public sealed class DebugServer : IDisposable
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
+        });
+
+        _app.MapPost("/api/entities/{id:int}/{generation:int}/components/{discriminator}/renderer-edit", (
+            int id, int generation, string discriminator, JsonElement editValue) =>
+        {
+            var entity = new Entity(id, generation);
+            if (_snapshots.Latest is not { } snapshot) return Results.NotFound();
+
+            var entitySnapshot = snapshot.Entities.FirstOrDefault(e => e.Entity == entity);
+            if (entitySnapshot.Entity.IsNull) return Results.NotFound();
+
+            var component = entitySnapshot.Components.FirstOrDefault(c => c.Discriminator == discriminator);
+            if (component.Discriminator is null) return Results.NotFound();
+
+            if (!_registry.TryGetByDebugName(discriminator, out var codec)) return Results.NotFound();
+            if (!DebugRendererRegistry.TryGetRenderer(discriminator, out var renderer)) return Results.NotFound();
+
+            var currentValue = codec.DecodeValue(component.Data);
+            var newValue = renderer.Apply(currentValue, new InspectorEdit(editValue));
+            codec.DecodeInto(_world, entity, codec.EncodeValue(newValue));
+            return Results.Ok();
         });
 
         _app.Urls.Add($"http://127.0.0.1:{_options.Port}");

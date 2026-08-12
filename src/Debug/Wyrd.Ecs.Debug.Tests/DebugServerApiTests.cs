@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Wyrd.Ecs.Debug.Abstractions;
 
 namespace Wyrd.Ecs.Debug.Tests;
 
@@ -165,6 +166,38 @@ public class DebugServerApiTests
             new { field = "Current", value = 9 });
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task PostRendererEdit_AppliesTheCustomRendererAndPersistsTheResult()
+    {
+        var world = new World();
+        var registry = new CodecRegistry();
+        registry.Register<Health>("Health",
+            h => JsonSerializer.SerializeToUtf8Bytes(h, FieldOptions),
+            b => JsonSerializer.Deserialize<Health>(b, FieldOptions));
+        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("Health",
+            value => new InspectorField.ReadOnly("Current", ((Health)value).Current.ToString()),
+            (value, edit) => new Health { Current = edit.AsInt() });
+        Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
+        world.ApplyCommands();
+        var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+        using var _ = server;
+        server.Snapshots.Connect();
+        world.AdvanceTick();
+
+        using var client = new HttpClient();
+        var response = await client.PostAsJsonAsync(
+            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health/renderer-edit",
+            9);
+        world.ApplyCommands();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        ref var updated = ref world.TryGetComponent<Health>(entity, out var found);
+        found.Should().BeTrue();
+        updated.Current.Should().Be(9);
 
         server.Stop();
     }
