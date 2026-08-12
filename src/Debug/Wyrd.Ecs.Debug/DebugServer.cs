@@ -21,6 +21,7 @@ namespace Wyrd.Ecs.Debug;
 public sealed class DebugServer : IDisposable
 {
     private readonly World _world;
+    private readonly CodecRegistry _registry;
     private readonly DebugServerOptions _options;
     private readonly SnapshotPublisher _snapshots;
     private readonly ChangeLogRecorder _changeLog;
@@ -35,6 +36,7 @@ public sealed class DebugServer : IDisposable
     public DebugServer(World world, CodecRegistry registry, DebugServerOptions options)
     {
         _world = world;
+        _registry = registry;
         _options = options;
         _snapshots = new SnapshotPublisher(world, registry);
         _changeLog = new ChangeLogRecorder(options.ChangeLogCapacity);
@@ -91,6 +93,32 @@ public sealed class DebugServer : IDisposable
             {
                 _snapshots.Changed -= OnSnapshotChanged;
                 _changeLog.Changed -= OnChangeLogChanged;
+            }
+        });
+
+        _app.MapPost("/api/entities/{id:int}/{generation:int}/components/{discriminator}", (
+            int id, int generation, string discriminator, FieldEditRequest request) =>
+        {
+            var entity = new Entity(id, generation);
+            if (_snapshots.Latest is not { } snapshot) return Results.NotFound();
+
+            var entitySnapshot = snapshot.Entities.FirstOrDefault(e => e.Entity == entity);
+            if (entitySnapshot.Entity.IsNull) return Results.NotFound();
+
+            var component = entitySnapshot.Components.FirstOrDefault(c => c.Discriminator == discriminator);
+            if (component.Discriminator is null) return Results.NotFound();
+
+            if (!_registry.TryGetByDebugName(discriminator, out var codec)) return Results.NotFound();
+
+            try
+            {
+                var merged = FieldMerge.MergeField(component.Data, request.Field, request.Value);
+                codec.DecodeInto(_world, entity, merged);
+                return Results.Ok();
+            }
+            catch (JsonException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
             }
         });
 

@@ -120,4 +120,52 @@ public class DebugServerApiTests
 
         server.Stop();
     }
+
+    [Fact]
+    public async Task PostFieldEdit_AppliesTheChangeToTheLiveEntity()
+    {
+        var world = new World();
+        var registry = new CodecRegistry();
+        registry.Register<Health>("Health",
+            h => JsonSerializer.SerializeToUtf8Bytes(h, FieldOptions),
+            b => JsonSerializer.Deserialize<Health>(b, FieldOptions));
+        Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
+        world.ApplyCommands();
+        var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+        using var _ = server;
+        server.Snapshots.Connect();
+        world.AdvanceTick();
+
+        using var client = new HttpClient();
+        var response = await client.PostAsJsonAsync(
+            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health",
+            new { field = "Current", value = 9 });
+        // DecodeInto queues the edit via CommandBuffer.AddComponent - it takes effect on
+        // the next ApplyCommands, same as every other structural mutation in this engine.
+        world.ApplyCommands();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        ref var updated = ref world.TryGetComponent<Health>(entity, out var found);
+        found.Should().BeTrue();
+        updated.Current.Should().Be(9);
+
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task PostFieldEdit_ForAnUnknownEntity_ReturnsNotFound()
+    {
+        var world = new World();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
+
+        using var client = new HttpClient();
+        var response = await client.PostAsJsonAsync(
+            $"http://127.0.0.1:{port}/api/entities/999/1/components/Health",
+            new { field = "Current", value = 9 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        server.Stop();
+    }
 }
