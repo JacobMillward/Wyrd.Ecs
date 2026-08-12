@@ -45,4 +45,16 @@ public class EncodedComponentJsonConverterTests
         json.Should().Contain("\"id\":5");
         json.Should().Contain("\"generation\":2");
     }
+
+    [Fact]
+    public void AComponentWithNonJsonData_ThrowsAnErrorNamingTheActualCause()
+    {
+        // A registry populated with a non-JSON codec (e.g. Wyrd.Ecs.Persistence.Binary's
+        // MemoryPack-encoded ones) would produce bytes like this, not JSON.
+        var component = new EncodedComponent(new Entity(5, 1), "Health", null, [0xFF, 0x00, 0x01]);
+
+        var act = () => JsonSerializer.Serialize(component, Options);
+
+        act.Should().Throw<JsonException>().WithMessage("*Health*");
+    }
 }

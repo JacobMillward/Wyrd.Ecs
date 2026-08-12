@@ -5,11 +5,14 @@ namespace Wyrd.Ecs.Debug.Internal;
 
 /// <summary>
 /// Serializes <see cref="EncodedComponent"/> for API responses only - <see cref="Read"/>
-/// throws, since no endpoint ever deserializes one back. Exists purely so
-/// <see cref="EncodedComponent.Data"/> (already JSON bytes, since
-/// <c>World.WithDebugServer</c>/<c>CreateDebugServer</c> always populate the registry via
-/// the JSON persistence package) embeds as real nested JSON in the response instead of
-/// <see cref="JsonSerializer"/>'s default base64-string handling of <c>byte[]</c>.
+/// throws, since no endpoint ever deserializes one back. Exists so
+/// <see cref="EncodedComponent.Data"/> embeds as real nested JSON in the response instead
+/// of <see cref="JsonSerializer"/>'s default base64-string handling of <c>byte[]</c>.
+/// Assumes <c>Data</c> is JSON, guaranteed only when the registry's codecs are JSON-based
+/// (true for <c>World.WithDebugServer</c>/<c>CreateDebugServer</c>'s generated overloads,
+/// not for the bare <c>DebugServer(world, registry, options)</c> constructor with an
+/// arbitrary registry) - <see cref="Write"/> names the offending component if that
+/// assumption is ever violated, rather than surfacing a bare JSON-parse error.
 /// </summary>
 internal sealed class EncodedComponentJsonConverter : JsonConverter<EncodedComponent>
 {
@@ -32,8 +35,20 @@ internal sealed class EncodedComponentJsonConverter : JsonConverter<EncodedCompo
         }
         else
         {
-            using var document = JsonDocument.Parse(value.Data);
-            document.RootElement.WriteTo(writer);
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(value.Data);
+            }
+            catch (JsonException ex)
+            {
+                throw new JsonException(
+                    $"Component '{value.Discriminator}' did not decode as JSON. " +
+                    "EncodedComponentJsonConverter requires every codec in the registry " +
+                    "to produce JSON bytes.", ex);
+            }
+
+            using (document) document.RootElement.WriteTo(writer);
         }
 
         writer.WriteEndObject();
