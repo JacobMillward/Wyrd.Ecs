@@ -58,7 +58,14 @@ public sealed class DebugServer : IDisposable
         });
         _app = builder.Build();
 
-        _app.MapGet("/api/snapshot", () => Results.Json(_snapshots.Latest, statusCode: _snapshots.Latest is null ? 404 : 200));
+        _app.MapGet("/api/snapshot", () =>
+        {
+            // One read, not two - Latest is written via Interlocked.Exchange from the
+            // world's tick thread, so re-reading it for the status code could observe a
+            // different value than the body just serialized.
+            var snapshot = _snapshots.Latest;
+            return Results.Json(snapshot, statusCode: snapshot is null ? 404 : 200);
+        });
         _app.MapGet("/api/changelog", () => Results.Json(_changeLog.Entries));
 
         _app.MapGet("/api/events", async (HttpContext context, CancellationToken cancellationToken) =>
@@ -138,10 +145,19 @@ public sealed class DebugServer : IDisposable
             if (!_registry.TryGetByDebugName(discriminator, out var codec)) return Results.NotFound();
             if (!DebugRendererRegistry.TryGetRenderer(discriminator, out var renderer)) return Results.NotFound();
 
-            var currentValue = codec.DecodeValue(component.Data);
-            var newValue = renderer.Apply(currentValue, new InspectorEdit(editValue));
-            codec.DecodeInto(_world, entity, codec.EncodeValue(newValue));
-            return Results.Ok();
+            try
+            {
+                var currentValue = codec.DecodeValue(component.Data);
+                var newValue = renderer.Apply(currentValue, new InspectorEdit(editValue));
+                codec.DecodeInto(_world, entity, codec.EncodeValue(newValue));
+                return Results.Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                // InspectorEdit.AsInt()/AsDouble()/AsBool()/AsString() throw this when
+                // editValue's JsonValueKind doesn't match what the renderer expected.
+                return Results.BadRequest(new { error = ex.Message });
+            }
         });
 
         _app.MapPost("/api/playback/pause", () => { _playback.Pause(); return Results.Ok(); });

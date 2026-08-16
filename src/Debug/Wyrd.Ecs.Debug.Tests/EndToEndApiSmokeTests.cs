@@ -24,7 +24,7 @@ public class EndToEndApiSmokeTests
         world.ApplyCommands();
         var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
         using var _ = server;
-        server.Snapshots.Connect();
+        server.Snapshots.Changed += () => { };
         world.AdvanceTick();
 
         using var client = new HttpClient();

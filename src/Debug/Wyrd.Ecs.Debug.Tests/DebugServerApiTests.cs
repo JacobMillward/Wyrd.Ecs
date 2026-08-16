@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Wyrd.Ecs.Debug.Abstractions;
+using Wyrd.Ecs.Debug.Internal;
 
 namespace Wyrd.Ecs.Debug.Tests;
 
@@ -26,7 +27,7 @@ public class DebugServerApiTests
         world.ApplyCommands();
         var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
         using var _ = server;
-        server.Snapshots.Connect();
+        server.Snapshots.Changed += () => { };
         world.AdvanceTick();
 
         using var client = new HttpClient();
@@ -66,7 +67,9 @@ public class DebugServerApiTests
         var world = new World();
         var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
         using var _ = server;
-        server.Snapshots.Connect();
+        // Deliberately not subscribing to server.Snapshots.Changed here - opening the
+        // SSE connection itself is what should subscribe it, exercised on its own below
+        // in GetEvents_OpeningTheConnection_ImplicitlyConnectsTheSnapshotPublisher.
 
         using var client = new HttpClient();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -98,26 +101,62 @@ public class DebugServerApiTests
     }
 
     [Fact]
-    public async Task GetEvents_AfterTheClientDisconnects_UnsubscribesFromChanged()
+    public async Task GetEvents_OpeningTheConnection_ImplicitlyConnectsTheSnapshotPublisher()
     {
         var world = new World();
         var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
         using var _ = server;
 
-        using (var client = new HttpClient())
-        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
+        using var client = new HttpClient();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         {
             var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{port}/api/events");
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+
+            world.AdvanceTick();
+
+            server.Snapshots.Latest.Should().NotBeNull();
         }
 
-        // Give the server a moment to observe the client's disconnect and run the `finally`.
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
-        var countBefore = server.ChangeLog.Entries.Count;
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task GetEvents_AfterTheClientDisconnects_ImplicitlyDisconnectsTheSnapshotPublisher()
+    {
+        var world = new World();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
+
+        WorldSnapshot? firstSnapshot;
+        using (var client = new HttpClient())
+        using (var cts = new CancellationTokenSource())
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{port}/api/events");
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            using var stream = await response.Content.ReadAsStreamAsync(cts.Token);
+            using var reader = new StreamReader(stream);
+
+            world.AdvanceTick();
+            await reader.ReadLineAsync(cts.Token); // "event: snapshot"
+            await reader.ReadLineAsync(cts.Token); // "data: ..."
+            await reader.ReadLineAsync(cts.Token); // blank line terminating the SSE frame
+            firstSnapshot = server.Snapshots.Latest;
+
+            // Cancelling an already-idle connection just lets it go stale - Kestrel
+            // only notices via its own heartbeat, on the order of seconds. Cancelling a
+            // read that's actually pending forces an immediate abort instead.
+            var pendingRead = reader.ReadLineAsync(cts.Token);
+            await cts.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await pendingRead);
+        }
+        firstSnapshot.Should().NotBeNull();
+
         world.Commands.CreateEntity();
         world.ApplyCommands();
+        world.AdvanceTick();
 
-        server.ChangeLog.Entries.Count.Should().Be(countBefore + 1);
+        server.Snapshots.Latest.Should().BeSameAs(firstSnapshot);
 
         server.Stop();
     }
@@ -134,7 +173,7 @@ public class DebugServerApiTests
         world.ApplyCommands();
         var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
         using var _ = server;
-        server.Snapshots.Connect();
+        server.Snapshots.Changed += () => { };
         world.AdvanceTick();
 
         using var client = new HttpClient();
@@ -185,7 +224,7 @@ public class DebugServerApiTests
         world.ApplyCommands();
         var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
         using var _ = server;
-        server.Snapshots.Connect();
+        server.Snapshots.Changed += () => { };
         world.AdvanceTick();
 
         using var client = new HttpClient();
@@ -198,6 +237,35 @@ public class DebugServerApiTests
         ref var updated = ref world.TryGetComponent<Health>(entity, out var found);
         found.Should().BeTrue();
         updated.Current.Should().Be(9);
+
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task PostRendererEdit_WithAValueTheRendererCannotCoerce_ReturnsBadRequest()
+    {
+        var world = new World();
+        var registry = new CodecRegistry();
+        registry.Register<Health>("Health",
+            h => JsonSerializer.SerializeToUtf8Bytes(h, FieldOptions),
+            b => JsonSerializer.Deserialize<Health>(b, FieldOptions));
+        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("Health",
+            value => new InspectorField.ReadOnly("Current", ((Health)value).Current.ToString()),
+            (value, edit) => new Health { Current = edit.AsInt() });
+        Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
+        world.ApplyCommands();
+        var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+        using var _ = server;
+        server.Snapshots.Changed += () => { };
+        world.AdvanceTick();
+
+        using var client = new HttpClient();
+        // AsInt() calls JsonElement.GetInt32(), which throws for a string value.
+        var response = await client.PostAsJsonAsync(
+            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health/renderer-edit",
+            "not a number");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         server.Stop();
     }

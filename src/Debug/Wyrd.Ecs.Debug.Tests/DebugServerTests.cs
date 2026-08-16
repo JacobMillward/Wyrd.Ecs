@@ -60,7 +60,7 @@ public class DebugServerTests
         var world = new World();
         var registry = new CodecRegistry();
         var (server, _) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
-        server.Snapshots.Connect();
+        server.Snapshots.Changed += () => { };
         world.AdvanceTick();
         var firstSnapshot = server.Snapshots.Latest;
 
