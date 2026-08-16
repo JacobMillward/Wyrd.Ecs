@@ -6,15 +6,15 @@ namespace Wyrd.Ecs.Debug.Tests;
 public class DebugServerTests
 {
     [Fact]
-    public void Start_BindsTheConfiguredLoopbackPort()
+    public async Task Start_BindsTheConfiguredLoopbackPort()
     {
         var world = new World();
         var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
         using var _ = server;
 
         using var probe = new TcpClient();
-        var connected = probe.ConnectAsync(IPAddress.Loopback, port).Wait(TimeSpan.FromSeconds(5));
-        connected.Should().BeTrue();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await probe.ConnectAsync(IPAddress.Loopback, port, cts.Token);
 
         server.Stop();
     }

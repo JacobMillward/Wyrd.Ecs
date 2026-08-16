@@ -32,7 +32,7 @@ public class CreateDebugServerGeneratedOverloadTests
     }
 
     [Fact]
-    public void CreateDebugServer_ThenStart_ListensWithNoRegistryEverSuppliedByTheCaller()
+    public async Task CreateDebugServer_ThenStart_ListensWithNoRegistryEverSuppliedByTheCaller()
     {
         var port = FreeLoopbackPort();
         var world = new World();
@@ -41,7 +41,7 @@ public class CreateDebugServerGeneratedOverloadTests
         server.Start();
 
         using var probe = new TcpClient();
-        var connected = probe.ConnectAsync(IPAddress.Loopback, port).Wait(TimeSpan.FromSeconds(5));
-        connected.Should().BeTrue();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await probe.ConnectAsync(IPAddress.Loopback, port, cts.Token);
     }
 }

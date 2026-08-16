@@ -15,7 +15,7 @@ public class WorldExtensionsTests
     }
 
     [Fact]
-    public void WithDebugServer_ReturnsAStartedServer()
+    public async Task WithDebugServer_ReturnsAStartedServer()
     {
         var port = FreeLoopbackPort();
         var world = new World();
@@ -24,8 +24,8 @@ public class WorldExtensionsTests
         using var server = world.WithDebugServer(registry, new DebugServerOptions(Port: port));
 
         using var probe = new TcpClient();
-        var connected = probe.ConnectAsync(IPAddress.Loopback, port).Wait(TimeSpan.FromSeconds(5));
-        connected.Should().BeTrue();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await probe.ConnectAsync(IPAddress.Loopback, port, cts.Token);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class WorldExtensionsTests
     }
 
     [Fact]
-    public void WithDebugServer_NoOptions_UsesTheDefaultPort()
+    public async Task WithDebugServer_NoOptions_UsesTheDefaultPort()
     {
         var world = new World();
         var registry = new CodecRegistry();
@@ -52,7 +52,7 @@ public class WorldExtensionsTests
         using var server = world.WithDebugServer(registry);
 
         using var probe = new TcpClient();
-        var connected = probe.ConnectAsync(IPAddress.Loopback, 5299).Wait(TimeSpan.FromSeconds(5));
-        connected.Should().BeTrue();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await probe.ConnectAsync(IPAddress.Loopback, 5299, cts.Token);
     }
 }

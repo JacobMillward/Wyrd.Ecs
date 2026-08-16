@@ -15,7 +15,7 @@ public class WithDebugServerGeneratedOverloadTests
     }
 
     [Fact]
-    public void WithDebugServer_ZeroArgOverload_WithAPort_UsesIt()
+    public async Task WithDebugServer_ZeroArgOverload_WithAPort_UsesIt()
     {
         var port = FreeLoopbackPort();
         var world = new World();
@@ -23,7 +23,7 @@ public class WithDebugServerGeneratedOverloadTests
         using var server = world.WithDebugServer(port);
 
         using var probe = new TcpClient();
-        var connected = probe.ConnectAsync(IPAddress.Loopback, port).Wait(TimeSpan.FromSeconds(5));
-        connected.Should().BeTrue();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await probe.ConnectAsync(IPAddress.Loopback, port, cts.Token);
     }
 }
