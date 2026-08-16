@@ -10,10 +10,15 @@
     <Version>0.1.0-alpha</Version>
     <Description>In-process debug/inspection server for Wyrd.Ecs.</Description>
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
   </PropertyGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +39,15 @@
     <None Include="..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
     <None Include="build\Wyrd.Ecs.Debug.targets" Pack="true" PackagePath="buildTransitive\Wyrd.Ecs.Debug.targets" Visible="false" />
   </ItemGroup>
+
+  <Target Name="_WyrdBuildFrontend" AfterTargets="CoreCompile" BeforeTargets="_CalculateEmbeddedFilesManifestInputs;PrepareResourceNames">
+    <Exec Command="npm ci" WorkingDirectory="frontend" Condition="!Exists('frontend/node_modules')" />
+    <Exec Command="npm run build" WorkingDirectory="frontend" />
+    <ItemGroup>
+      <EmbeddedResource Include="wwwroot/js/app.js" Link="wwwroot/js/app.js" />
+      <EmbeddedResource Include="wwwroot/css/app.css" Link="wwwroot/css/app.css" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="_WyrdEmbedDebugGeneratorAnalyzer" BeforeTargets="_GetPackageFiles">
     <MSBuild Projects="..\Wyrd.Ecs.Debug.Generators\Wyrd.Ecs.Debug.Generators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
