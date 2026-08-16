@@ -13,3 +13,9 @@ artifacts/
 # Mirrored build output for Wyrd.Ecs.Persistence.Json.Generators' UsingTask path -
 # see the copy target in that project's csproj
 src/Persistence/Json/Wyrd.Ecs.Persistence.Json.Generators/tasks/
+
+# Wyrd.Ecs.Debug frontend - built by dotnet build, not committed
+src/Debug/Wyrd.Ecs.Debug/frontend/node_modules/
+src/Debug/Wyrd.Ecs.Debug/frontend/src/generated/
+src/Debug/Wyrd.Ecs.Debug/wwwroot/js/
+src/Debug/Wyrd.Ecs.Debug/wwwroot/css/

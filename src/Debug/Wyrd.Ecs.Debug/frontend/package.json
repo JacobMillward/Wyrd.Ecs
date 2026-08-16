@@ -1,0 +1,22 @@
+{
+  "name": "wyrd-ecs-debug-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "@rollup/plugin-typescript": "12.3.0",
+    "@wyw-in-js/rollup": "2.4.1",
+    "rollup": "4.62.4",
+    "rollup-plugin-postcss": "4.0.2",
+    "tslib": "2.8.1",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "@linaria/core": "8.2.0",
+    "preact": "10.29.8"
+  }
+}
