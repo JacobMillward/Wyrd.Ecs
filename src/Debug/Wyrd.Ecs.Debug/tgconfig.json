@@ -1,0 +1,15 @@
+{
+  "enumStringInitializers": true,
+  "csNullableTranslation": "null",
+  "outputPath": "frontend/src/generated",
+  "clearOutputDirectory": true,
+  "generationSpecs": [
+    "TypeScriptGenerationSpec"
+  ],
+  "customTypeMappings": {
+    "Wyrd.Ecs.EncodedComponent": "EncodedComponent"
+  },
+  "assemblies": [
+    "obj/typegen-staging/Wyrd.Ecs.Debug.dll"
+  ]
+}

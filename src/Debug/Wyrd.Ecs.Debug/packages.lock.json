@@ -11,6 +11,12 @@
           "Microsoft.Extensions.FileProviders.Abstractions": "10.0.0"
         }
       },
+      "TypeGen": {
+        "type": "Direct",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "Wa75efpUNY/S16fQyjq0z96AL1JlqR6J76PjbRuSlI/1/YWEUN1HvUR9fZX69Qe4MDHDRK4Yn7NvbYmZXLMzaA=="
+      },
       "Microsoft.Extensions.FileProviders.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.0",

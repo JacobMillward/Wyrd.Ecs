@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.0" />
+    <PackageReference Include="TypeGen" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,7 +45,23 @@
     <EmbeddedResource Include="wwwroot\index.html" Link="wwwroot/index.html" />
   </ItemGroup>
 
-  <Target Name="_WyrdBuildFrontend" AfterTargets="CoreCompile" BeforeTargets="_CalculateEmbeddedFilesManifestInputs;PrepareResourceNames">
+  <Target Name="_WyrdGenerateTypeScriptTypes" AfterTargets="CoreCompile">
+    <!-- TypeGen loads the compiled assembly via reflection and needs its dependencies
+         resolvable alongside it. CoreCompile only produces the intermediate obj/ output,
+         not the bin/ copy (which also holds copied ProjectReference outputs and only exists
+         after the full Build target chain finishes, too late for the embedding steps this
+         must precede) - so the primary assembly and its ProjectReference outputs are staged
+         into a fixed, config-independent folder tgconfig.json's "assemblies" can reference
+         by a literal path. -->
+    <ItemGroup>
+      <_WyrdTypeGenStagingFiles Include="@(_ResolvedProjectReferencePaths)" />
+      <_WyrdTypeGenStagingFiles Include="$(IntermediateOutputPath)$(TargetFileName)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WyrdTypeGenStagingFiles)" DestinationFolder="$(BaseIntermediateOutputPath)typegen-staging" SkipUnchangedFiles="true" />
+    <Exec Command="dotnet typegen generate -p ." />
+  </Target>
+
+  <Target Name="_WyrdBuildFrontend" AfterTargets="_WyrdGenerateTypeScriptTypes" BeforeTargets="_CalculateEmbeddedFilesManifestInputs;PrepareResourceNames">
     <Exec Command="npm ci" WorkingDirectory="frontend" Condition="!Exists('frontend/node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="frontend" />
     <ItemGroup>

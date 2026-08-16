@@ -91,6 +91,11 @@
         "resolved": "9.0.0",
         "contentHash": "seeO8icDfED/Qwl9PDFUx2Gf/7xv7dPsMnw5PnRwNZuz4EWMpy0wIVohC4MfCcTIoJgp+KUrWG4WH3NPSusQOA=="
       },
+      "TypeGen": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "Wa75efpUNY/S16fQyjq0z96AL1JlqR6J76PjbRuSlI/1/YWEUN1HvUR9fZX69Qe4MDHDRK4Yn7NvbYmZXLMzaA=="
+      },
       "xunit.abstractions": {
         "type": "Transitive",
         "resolved": "2.0.3",
@@ -138,6 +143,7 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.Extensions.FileProviders.Embedded": "[10.0.0, )",
+          "TypeGen": "[7.0.0, )",
           "Wyrd.Ecs": "[0.1.0-alpha, )",
           "Wyrd.Ecs.Debug.Abstractions": "[0.1.0-alpha, )",
           "Wyrd.Ecs.Persistence.Json": "[0.1.0-alpha, )"
