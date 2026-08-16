@@ -40,6 +40,10 @@
     <None Include="build\Wyrd.Ecs.Debug.targets" Pack="true" PackagePath="buildTransitive\Wyrd.Ecs.Debug.targets" Visible="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\index.html" Link="wwwroot/index.html" />
+  </ItemGroup>
+
   <Target Name="_WyrdBuildFrontend" AfterTargets="CoreCompile" BeforeTargets="_CalculateEmbeddedFilesManifestInputs;PrepareResourceNames">
     <Exec Command="npm ci" WorkingDirectory="frontend" Condition="!Exists('frontend/node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="frontend" />

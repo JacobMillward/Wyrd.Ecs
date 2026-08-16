@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
@@ -57,6 +58,10 @@ public sealed class DebugServer : IDisposable
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
         });
         _app = builder.Build();
+
+        var staticFiles = new ManifestEmbeddedFileProvider(typeof(DebugServer).Assembly, "wwwroot");
+        _app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = staticFiles });
+        _app.UseStaticFiles(new StaticFileOptions { FileProvider = staticFiles });
 
         _app.MapGet("/api/snapshot", () =>
         {
