@@ -1,5 +1,10 @@
 <Project>
 
+  <!-- Enables JsonRegistrationGenerator's RegisterAllIncludingIgnored output, which
+       WithDebugServerGenerator's generated overloads reference by name. Propagated via
+       buildTransitive, so this only takes effect for a PackageReference consumer; a
+       ProjectReference consumer must set WyrdJsonRegisterIgnoredTypes itself, or use the
+       WithDebugServer(registry, options) overload instead. -->
   <PropertyGroup>
     <WyrdJsonRegisterIgnoredTypes>true</WyrdJsonRegisterIgnoredTypes>
   </PropertyGroup>
