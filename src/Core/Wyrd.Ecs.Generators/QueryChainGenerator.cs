@@ -402,6 +402,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         if (shape is null) return default;
 
         var namespaceName = classSymbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
+        var resourceProperties = ExtractResourceProperties(classSymbol);
 
         // Update is name-convention-recognized, not a real override: its parameter list
         // depends on unpacking an arbitrary TShape tuple, which isn't expressible as a
@@ -429,6 +430,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 Shape = shape,
                 HasWorldParameter = classification.HasWorld,
                 HasEntityViewParameter = classification.HasEntityView,
+                ResourceProperties = resourceProperties,
             }, null);
         }
 
@@ -446,6 +448,23 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             Shape = resolvedShape,
             HasWorldParameter = classification.HasWorld,
             HasEntityViewParameter = classification.HasEntityView,
+            ResourceProperties = resourceProperties,
         }, null);
+    }
+
+    /// <summary>Collects every `[Resource]`-tagged property on <paramref name="classSymbol"/>, its read/write mode taken from whether its setter is public.</summary>
+    private static ImmutableArray<ResourcePropertyInfo> ExtractResourceProperties(INamedTypeSymbol classSymbol)
+    {
+        var result = ImmutableArray.CreateBuilder<ResourcePropertyInfo>();
+        foreach (var property in classSymbol.GetMembers().OfType<IPropertySymbol>())
+        {
+            var hasResourceAttribute = property.GetAttributes()
+                .Any(a => a.AttributeClass is { Name: "ResourceAttribute", ContainingNamespace.Name: "Ecs" } ac && ac.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");
+            if (!hasResourceAttribute) continue;
+
+            var isWrite = property.SetMethod is { DeclaredAccessibility: Accessibility.Public };
+            result.Add(new ResourcePropertyInfo(property.Name, property.Type.ToDisplayString(), isWrite));
+        }
+        return result.ToImmutable();
     }
 }
