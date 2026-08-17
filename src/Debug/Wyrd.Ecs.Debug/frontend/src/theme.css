@@ -215,4 +215,9 @@ body {
     --dv-paneview-header-border-color: var(--wyrd-hairline);
     --dv-border-radius: 4px;
     --dv-active-sash-color: var(--wyrd-accent);
+    --dv-drag-over-background-color: var(--wyrd-accent-low);
+    --dv-drag-over-border-color: var(--wyrd-accent);
+    --dv-drag-over-border: 2px solid var(--wyrd-accent);
+    --dv-icon-hover-background-color: var(--wyrd-accent-low);
+    --dv-edge-dock-indicator-color: var(--wyrd-accent);
 }
