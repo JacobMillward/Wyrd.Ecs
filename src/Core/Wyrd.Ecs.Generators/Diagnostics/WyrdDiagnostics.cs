@@ -65,4 +65,20 @@ internal static class WyrdDiagnostics
         category: "Wyrd.Ecs.QueryChain",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor ResourcePropertyWrongType = new(
+        id: "WYRD006",
+        title: "[Resource] property type must implement IResource",
+        messageFormat: "Property '{0}' is marked [Resource] but its type '{1}' does not implement IResource",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor ResourceOnNonQuerySystem = new(
+        id: "WYRD007",
+        title: "[Resource] is only supported on QuerySystem",
+        messageFormat: "Property '{0}' is marked [Resource], but its containing type '{1}' does not derive from QuerySystem. Use World.GetResource<T>()/GetResourceRef<T>() inside Execute instead.",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }
