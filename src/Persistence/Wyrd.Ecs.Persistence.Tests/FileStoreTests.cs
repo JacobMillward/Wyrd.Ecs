@@ -103,4 +103,23 @@ public class FileStoreTests : IDisposable
 
         store.Path.Should().Be(_path);
     }
+
+    [Fact]
+    public void Equals_TwoInstancesWithTheSamePath_AreEqual()
+    {
+        var a = new FileStore(_path);
+        var b = new FileStore(_path);
+
+        a.Equals(b).Should().BeTrue();
+        a.GetHashCode().Should().Be(b.GetHashCode());
+    }
+
+    [Fact]
+    public void Equals_TwoInstancesWithDifferentPaths_AreNotEqual()
+    {
+        var a = new FileStore(_path);
+        var b = new FileStore(_path + ".other");
+
+        a.Equals(b).Should().BeFalse();
+    }
 }

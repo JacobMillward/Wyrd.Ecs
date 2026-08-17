@@ -106,6 +106,19 @@ public class WorldPersistenceExtensionsTests : IDisposable
         world.CodecRegistry.Should().BeSameAs(registry);
     }
 
+    [Fact]
+    public void SetPersistence_AppliesBothTheStoreAndRegistryOnceBuildRuns()
+    {
+        var store = new FileStore(_path);
+        var registry = new CodecRegistry();
+        var builder = new WorldBuilder().SetPersistence(store, registry);
+
+        var world = builder.Build();
+
+        world.DefaultPersistenceStore.Should().BeSameAs(store);
+        world.CodecRegistry.Should().BeSameAs(registry);
+    }
+
     private struct Position : IComponent
     {
         public float X;
@@ -874,5 +887,112 @@ public class WorldPersistenceExtensionsTests : IDisposable
         target.Load(store);
 
         target.EnumerateAllTags(loadingRegistry).Should().ContainSingle(t => t.Discriminator == "Enemy");
+    }
+
+    [Fact]
+    public void SetPersistence_CalledTwiceWithDifferentStores_KeepsEachStoresRegistryIndependent()
+    {
+        var pathA = Path.Combine(Path.GetTempPath(), $"wyrd-persistence-pair-a-{Guid.NewGuid():N}.bin");
+        var pathB = Path.Combine(Path.GetTempPath(), $"wyrd-persistence-pair-b-{Guid.NewGuid():N}.bin");
+        try
+        {
+            var registryA = new CodecRegistry();
+            registryA.Register<Position>("Position",
+                p => BitConverter.GetBytes(p.X),
+                bytes => new Position { X = BitConverter.ToSingle(bytes) });
+            var registryB = new CodecRegistry();
+            registryB.Register<Velocity>("Velocity",
+                v => BitConverter.GetBytes(v.X),
+                bytes => new Velocity { X = BitConverter.ToSingle(bytes) });
+
+            var world = new WorldBuilder()
+                .SetPersistence(new FileStore(pathA), registryA)
+                .SetPersistence(new FileStore(pathB), registryB)
+                .Build();
+            world.Commands.CreateEntity(new Position { X = 1f });
+            world.Commands.CreateEntity(new Velocity { X = 2f });
+            world.ApplyCommands();
+
+            // Neither call passes a registry explicitly - each must resolve its own via
+            // the pairing SetPersistence recorded, not whichever registry is "current."
+            world.Save(pathA);
+            world.Save(pathB);
+
+            var targetA = new World();
+            targetA.CodecRegistry = registryA;
+            targetA.Load(pathA);
+            var foundPosition = false;
+            foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(targetA))
+                foundPosition |= chunk.Count > 0;
+            foundPosition.Should().BeTrue("pathA was saved with registryA, which knows about Position");
+
+            var targetB = new World();
+            targetB.CodecRegistry = registryB;
+            targetB.Load(pathB);
+            var foundVelocity = false;
+            foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Velocity>>().Resolve(targetB))
+                foundVelocity |= chunk.Count > 0;
+            foundVelocity.Should().BeTrue("pathB was saved with registryB, which knows about Velocity");
+        }
+        finally
+        {
+            if (File.Exists(pathA)) File.Delete(pathA);
+            if (File.Exists(pathB)) File.Delete(pathB);
+        }
+    }
+
+    [Fact]
+    public void Save_WithAnExplicitRegistry_UsesItInsteadOfTheStoresPairedOrWorldsDefaultRegistry()
+    {
+        var pairedRegistry = new CodecRegistry();
+        pairedRegistry.Register<Position>("Position",
+            p => BitConverter.GetBytes(p.X),
+            bytes => new Position { X = BitConverter.ToSingle(bytes) });
+        var overrideRegistry = new CodecRegistry();
+        overrideRegistry.Register<Velocity>("Velocity",
+            v => BitConverter.GetBytes(v.X),
+            bytes => new Velocity { X = BitConverter.ToSingle(bytes) });
+
+        var world = new WorldBuilder().SetPersistence(new FileStore(_path), pairedRegistry).Build();
+        world.Commands.CreateEntity(new Position { X = 1f });
+        world.Commands.CreateEntity(new Velocity { X = 2f });
+        world.ApplyCommands();
+
+        world.Save(_path, overrideRegistry);
+
+        var target = new World();
+        target.CodecRegistry = overrideRegistry;
+        target.Load(_path);
+        var foundVelocity = false;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Velocity>>().Resolve(target))
+            foundVelocity |= chunk.Count > 0;
+        foundVelocity.Should().BeTrue("the explicit registry argument, not the store's paired registry, should have been used");
+    }
+
+    [Fact]
+    public void Load_WithAnExplicitRegistry_UsesItInsteadOfTheStoresPairedOrWorldsDefaultRegistry()
+    {
+        var registry = BuildRegistry();
+        var source = new World();
+        source.CodecRegistry = registry;
+        source.Commands.CreateEntity(new Position { X = 4f });
+        source.ApplyCommands();
+        var store = new FileStore(_path);
+        source.Save(store);
+
+        var target = new World();
+        target.Load(store, registry);
+
+        var found = false;
+        foreach (var chunk in ArchetypeQuery.Empty.Access<Ref<Position>>().Resolve(target))
+        {
+            var positions = chunk.Access<Ref<Position>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                positions[i].X.Should().Be(4f);
+                found = true;
+            }
+        }
+        found.Should().BeTrue();
     }
 }

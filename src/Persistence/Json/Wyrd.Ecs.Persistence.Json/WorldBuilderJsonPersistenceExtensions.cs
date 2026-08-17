@@ -30,6 +30,6 @@ public static class WorldBuilderJsonPersistenceExtensions
         /// as given.
         /// </summary>
         public WorldBuilder AddJsonPersistence(IPersistenceStore store, CodecRegistry registry) =>
-            builder.SetDefaultPersistenceStore(store).SetCodecRegistry(registry);
+            builder.SetPersistence(store, registry);
     }
 }

@@ -32,6 +32,6 @@ public static class WorldBuilderBinaryPersistenceExtensions
         /// as given.
         /// </summary>
         public WorldBuilder AddBinaryPersistence(IPersistenceStore store, CodecRegistry registry) =>
-            builder.SetDefaultPersistenceStore(store).SetCodecRegistry(registry);
+            builder.SetPersistence(store, registry);
     }
 }
