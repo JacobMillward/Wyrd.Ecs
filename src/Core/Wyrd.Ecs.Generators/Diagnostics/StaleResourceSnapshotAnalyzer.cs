@@ -51,7 +51,7 @@ public sealed class StaleResourceSnapshotAnalyzer : DiagnosticAnalyzer
         }
 
         if (model.GetSymbolInfo(assignment.Right, context.CancellationToken).Symbol is IPropertySymbol rightProperty && HasResourceAttribute(rightProperty)
-            && model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IFieldSymbol && !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol, rightProperty))
+            && model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IFieldSymbol)
         {
             context.ReportDiagnostic(Diagnostic.Create(WyrdDiagnostics.StaleResourceSnapshot, assignment.GetLocation(),
                 $"[Resource] property '{rightProperty.Name}' is only valid for the current tick. Storing its value in a field will go stale."));

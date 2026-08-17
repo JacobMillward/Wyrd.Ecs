@@ -156,10 +156,11 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             && worldType.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs";
         var remaining = takesWorld ? parameters.RemoveAt(0) : parameters;
 
+        // remaining.Length == 0 here only when takesWorld is true: parameters.Length == 0
+        // already returned above, so !takesWorld (remaining == parameters unchanged) means
+        // remaining.Length is at least 1.
         if (remaining.Length == 0)
-            return takesWorld
-                ? new ConstructorCandidate(systemTypeName, ConstructorShape.WorldParameter, true, noResources, location)
-                : new ConstructorCandidate(systemTypeName, ConstructorShape.Unsupported, false, noResources, location);
+            return new ConstructorCandidate(systemTypeName, ConstructorShape.WorldParameter, true, noResources, location);
 
         var resources = ImmutableArray.CreateBuilder<ResourceParameter>(remaining.Length);
         foreach (var parameter in remaining)
