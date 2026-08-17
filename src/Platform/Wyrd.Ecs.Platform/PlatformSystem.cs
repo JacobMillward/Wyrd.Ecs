@@ -4,8 +4,8 @@ namespace Wyrd.Ecs.Platform;
 
 /// <summary>
 /// Owns SDL's Video subsystem lifecycle and the application window. <c>SDL_Init</c> runs in
-/// the constructor, cleanup in <see cref="OnDestroy"/> — the only real create/destroy hooks
-/// <see cref="EcsSystem"/> has today. If a consumer never calls
+/// the constructor, cleanup in <see cref="OnDestroy"/>, since those are the only real
+/// create/destroy hooks <see cref="EcsSystem"/> has today. If a consumer never calls
 /// <see cref="World.RemoveSystem(EcsSystem)"/> and just lets the process exit, cleanup never
 /// runs; that's fine, SDL doesn't require <c>SDL_Quit</c> before process exit.
 /// </summary>

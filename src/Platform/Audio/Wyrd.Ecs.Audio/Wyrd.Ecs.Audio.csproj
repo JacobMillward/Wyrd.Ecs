@@ -9,7 +9,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <Version>0.1.0-alpha</Version>
-    <Description>SDL3 audio for Wyrd.Ecs. Not yet implemented — package skeleton only.</Description>
+    <Description>SDL3 audio for Wyrd.Ecs. Not yet implemented, package skeleton only.</Description>
   </PropertyGroup>
 
   <ItemGroup>

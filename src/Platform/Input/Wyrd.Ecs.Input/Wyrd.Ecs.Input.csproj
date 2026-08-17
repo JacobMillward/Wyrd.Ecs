@@ -9,7 +9,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <Version>0.1.0-alpha</Version>
-    <Description>The Intent action-mapping system for Wyrd.Ecs. Not yet implemented — blocked on the World resource-store spec; package skeleton only.</Description>
+    <Description>The Intent action-mapping system for Wyrd.Ecs. Not yet implemented, blocked on the World resource-store spec; package skeleton only.</Description>
   </PropertyGroup>
 
   <ItemGroup>

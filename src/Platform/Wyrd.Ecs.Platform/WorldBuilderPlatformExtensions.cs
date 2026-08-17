@@ -4,7 +4,7 @@ namespace Wyrd.Ecs.Platform;
 
 /// <summary>
 /// Registers a <see cref="PlatformSystem"/> on a <see cref="WorldBuilder"/>. A thin wrapper
-/// over <c>AddSystem&lt;PlatformSystem&gt;(Func&lt;World, PlatformSystem&gt;)</c> — needed
+/// over <c>AddSystem&lt;PlatformSystem&gt;(Func&lt;World, PlatformSystem&gt;)</c>, needed
 /// because <see cref="PlatformSystem"/>'s constructor takes more than just <c>World</c>, so
 /// the generator's parameterless/ctor(World)-only <c>AddSystem&lt;T&gt;()</c> overload can't
 /// construct it.
