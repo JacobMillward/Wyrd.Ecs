@@ -1,0 +1,92 @@
+/* Wyrd.Ecs Debug UI theme tokens - values taken verbatim from the docs site's default
+   Starlight theme (confirmed via docs/dist build output, not guessed): blue accent hue
+   234, a gray-1..gray-7 scale that inverts between dark/light. Dark is the default
+   (bare :root, matching Starlight's own html { color-scheme: dark } default); light
+   applies either from prefers-color-scheme or an explicit [data-theme="light"]
+   override, mirroring Starlight's own toggle.
+
+   Chip fill/border is a deliberate split, not one color doing two jobs: fill+text is
+   independently >=7:1 (AAA), and chip-border is a separate boundary cue against the
+   page, independently >=3:1 - a single mid-tone can't satisfy both at once. */
+
+:root {
+    --wyrd-bg: #17181c;
+    --wyrd-bg-nav: #23262f;
+    --wyrd-hairline: #23262f;
+    --wyrd-text: #c1c3c8;
+    --wyrd-accent: #3369ff;
+    --wyrd-accent-high: #b3c7ff;
+    --wyrd-accent-low: #17264f;
+    --wyrd-green: hsl(101, 82%, 63%);
+    --wyrd-red: hsl(339, 82%, 63%);
+    --wyrd-chip-bg: #353841;
+    --wyrd-chip-text: #edeef3;
+    --wyrd-chip-border: #888c96;
+}
+
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) {
+        --wyrd-bg: #ffffff;
+        --wyrd-bg-nav: #edeef3;
+        --wyrd-hairline: #edeef3;
+        --wyrd-text: #353841;
+        --wyrd-accent: #3d50f5;
+        --wyrd-accent-high: #0f1c8a;
+        --wyrd-accent-low: #cfd4fc;
+        --wyrd-green: hsl(101, 90%, 30%);
+        --wyrd-red: hsl(339, 90%, 40%);
+        --wyrd-chip-bg: #c1c3c8;
+        --wyrd-chip-text: #23262f;
+        --wyrd-chip-border: #555962;
+    }
+}
+
+:root[data-theme='light'] {
+    --wyrd-bg: #ffffff;
+    --wyrd-bg-nav: #edeef3;
+    --wyrd-hairline: #edeef3;
+    --wyrd-text: #353841;
+    --wyrd-accent: #3d50f5;
+    --wyrd-accent-high: #0f1c8a;
+    --wyrd-accent-low: #cfd4fc;
+    --wyrd-green: hsl(101, 90%, 30%);
+    --wyrd-red: hsl(339, 90%, 40%);
+    --wyrd-chip-bg: #c1c3c8;
+    --wyrd-chip-text: #23262f;
+    --wyrd-chip-border: #555962;
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+    background: var(--wyrd-bg);
+    color: var(--wyrd-text);
+    font-family: system-ui, sans-serif;
+}
+
+#app {
+    height: 100%;
+}
+
+/* Dockview's own chrome reads its colors from these --dv-* custom properties (see
+   dockviewTheme.ts for the matching DockviewTheme.className). Referencing our own
+   tokens here means Dockview's tab strip/group backgrounds follow the same
+   light/dark cascade as the rest of the UI with no JS-side theme swapping. */
+.wyrd-dockview-theme {
+    --dv-group-view-background-color: var(--wyrd-bg);
+    --dv-tabs-and-actions-container-background-color: var(--wyrd-bg-nav);
+    --dv-activegroup-visiblepanel-tab-background-color: var(--wyrd-bg);
+    --dv-activegroup-hiddenpanel-tab-background-color: var(--wyrd-bg-nav);
+    --dv-inactivegroup-visiblepanel-tab-background-color: var(--wyrd-bg-nav);
+    --dv-inactivegroup-hiddenpanel-tab-background-color: var(--wyrd-bg-nav);
+    --dv-tab-divider-color: var(--wyrd-hairline);
+    --dv-activegroup-visiblepanel-tab-color: var(--wyrd-text);
+    --dv-activegroup-hiddenpanel-tab-color: var(--wyrd-text);
+    --dv-inactivegroup-visiblepanel-tab-color: var(--wyrd-text);
+    --dv-inactivegroup-hiddenpanel-tab-color: var(--wyrd-text);
+    --dv-separator-border: var(--wyrd-hairline);
+    --dv-paneview-header-border-color: var(--wyrd-hairline);
+    --dv-border-radius: 4px;
+    --dv-active-sash-color: var(--wyrd-accent);
+}
