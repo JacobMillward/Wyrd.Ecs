@@ -74,6 +74,10 @@ const linkButton = css`
     cursor: pointer;
     font-size: 11px;
     padding: 0;
+
+    &:hover {
+        text-decoration: underline;
+    }
 `;
 
 const emptyState = css`

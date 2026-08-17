@@ -15,6 +15,10 @@ const th = css`
     cursor: pointer;
     user-select: none;
     white-space: nowrap;
+
+    &:hover {
+        opacity: 1;
+    }
 `;
 
 const active = css`

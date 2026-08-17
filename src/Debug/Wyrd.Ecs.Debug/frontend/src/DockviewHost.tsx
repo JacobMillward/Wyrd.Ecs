@@ -56,6 +56,10 @@ const iconButton = css`
     background: var(--wyrd-bg-nav);
     color: var(--wyrd-accent-high);
     border: 1px solid var(--wyrd-hairline);
+
+    &:hover {
+        border-color: var(--wyrd-accent);
+    }
 `;
 
 const timescale = css`

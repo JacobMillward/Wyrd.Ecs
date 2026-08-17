@@ -23,6 +23,10 @@ const trigger = css`
     border: 1px solid var(--wyrd-hairline);
     font-size: 11px;
     padding: 0 8px;
+
+    &:hover {
+        border-color: var(--wyrd-accent);
+    }
 `;
 
 const triggerWithLabel = css`
