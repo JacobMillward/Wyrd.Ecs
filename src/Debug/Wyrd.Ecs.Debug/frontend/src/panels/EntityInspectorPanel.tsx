@@ -2,6 +2,8 @@ import { useEffect, useState } from 'preact/hooks';
 import { css } from '@linaria/core';
 import { snapshot, selectedEntity } from '../store';
 import { entityEquals } from '../entityFormat';
+import { useLiveValue } from '../components/useLiveValue';
+import { Slider } from '../components/Slider';
 import type { Entity } from '../generated/entity';
 import type { InspectedComponent } from '../generated/inspected-component';
 
@@ -114,29 +116,6 @@ const readOnlyValue = css`
     opacity: 0.8;
 `;
 
-// Shrinkable rather than flex: none for the same reason as rangeInput below: a
-// non-shrinking fixed-width item that doesn't fit its flex container overflows past
-// the card instead of compressing.
-const readout = css`
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
-    opacity: 0.75;
-    flex: 0 1 32px;
-    min-width: 20px;
-    text-align: right;
-`;
-
-// Flex items default to min-width: auto, which for a range input means it never
-// shrinks below its native intrinsic width (~129px in Chromium), wider than a narrow
-// grid column has room for. Every other control here already has width: 100% (an
-// explicit size), which is what actually makes flex-shrink work; this is the range
-// input's equivalent.
-const rangeInput = css`
-    flex: 1;
-    min-width: 0;
-    width: 100%;
-`;
-
 const fieldError = css`
     font-size: 11px;
     color: var(--wyrd-red);
@@ -149,31 +128,6 @@ const emptyState = css`
     font-size: 12px;
 `;
 
-// Every editable field here (slider, number, text, checkbox, and the raw-JSON
-// fallback below) is bound to live signal data that can update several times a
-// second (SSE snapshot pushes while the simulation runs). A plain controlled
-// value/checked prop resyncs from that live data on every render, fighting whatever
-// the user is doing to the control: reverted keystrokes for text, a slider thumb that
-// ghosts backward and forward mid-drag, the same race either way. This hook is the
-// one place that race is resolved, for every field kind: while a control has focus,
-// it reports only local interaction state and ignores incoming live values; once it
-// loses focus, it resyncs from the live value again.
-function useLiveValue<T>(liveValue: T) {
-    const [draft, setDraft] = useState(liveValue);
-    const [focused, setFocused] = useState(false);
-
-    useEffect(() => {
-        if (!focused) setDraft(liveValue);
-    }, [liveValue, focused]);
-
-    return {
-        value: draft,
-        setValue: setDraft,
-        onFocus: () => setFocused(true),
-        onBlur: () => setFocused(false),
-    };
-}
-
 interface FieldProps<TField> {
     field: TField;
     labelClass: string;
@@ -181,26 +135,11 @@ interface FieldProps<TField> {
 }
 
 function SliderField({ field, labelClass, onChange }: FieldProps<Extract<InspectorField, { kind: 'slider' }>>) {
-    const live = useLiveValue(field.value);
     return (
         <div class={fieldRow}>
             <label class={labelClass}>{field.label}</label>
             <div class={fieldControl}>
-                <input
-                    class={rangeInput}
-                    type="range"
-                    min={field.min}
-                    max={field.max}
-                    value={live.value}
-                    onFocus={live.onFocus}
-                    onBlur={live.onBlur}
-                    onInput={(e) => {
-                        const next = Number((e.target as HTMLInputElement).value);
-                        live.setValue(next);
-                        onChange(field.label, next);
-                    }}
-                />
-                <span class={readout}>{live.value}</span>
+                <Slider value={field.value} min={field.min} max={field.max} onCommit={(next) => onChange(field.label, next)} />
             </div>
         </div>
     );

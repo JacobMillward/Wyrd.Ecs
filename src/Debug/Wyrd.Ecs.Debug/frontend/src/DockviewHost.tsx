@@ -7,6 +7,7 @@ import './theme.css';
 import { wyrdTheme } from './dockviewTheme';
 import { playback } from './store';
 import { Icon } from './components/Icon';
+import { Slider } from './components/Slider';
 import { Play, Pause, RefreshCw, Sun, Moon } from './icons';
 import { ArchetypeFilterPanel } from './panels/ArchetypeFilterPanel';
 import { EntityBrowserPanel } from './panels/EntityBrowserPanel';
@@ -63,16 +64,6 @@ const timescale = css`
     gap: 6px;
     font-size: 11px;
     opacity: 0.85;
-`;
-
-const timescaleNumber = css`
-    width: 42px;
-    background: var(--wyrd-bg);
-    color: var(--wyrd-text);
-    border: 1px solid var(--wyrd-hairline);
-    border-radius: 4px;
-    padding: 2px 4px;
-    font-size: 11px;
 `;
 
 const host = css`
@@ -226,15 +217,7 @@ export function DockviewHost() {
                 </button>
                 <label class={timescale}>
                     <span>Timescale</span>
-                    <input type="range" min={0} max={4} step={0.1} value={playback.value.timeScale} onInput={(e) => postPlaybackTimescale(Number((e.target as HTMLInputElement).value))} />
-                    <input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        class={timescaleNumber}
-                        value={playback.value.timeScale}
-                        onChange={(e) => postPlaybackTimescale(Number((e.target as HTMLInputElement).value))}
-                    />
+                    <Slider value={playback.value.timeScale} min={0} max={4} step={0.1} decimals={1} onCommit={postPlaybackTimescale} />
                 </label>
                 <button type="button" class={iconButton} title="Reset Layout" onClick={resetLayout}>
                     <Icon svg={RefreshCw} />
