@@ -3,6 +3,10 @@ using Wyrd.Ecs.Persistence.Continuous.Internal;
 
 namespace Wyrd.Ecs.Persistence.Continuous.Tests;
 
+// Shares ProcessExitSafetyNetCollection with ProcessExitSafetyNetTests: sessions enabled
+// here register into that same process-wide static, and two tests below sweep it
+// directly, so this class can't run alongside that one.
+[Collection(ProcessExitSafetyNetCollection.Name)]
 public class WorldContinuousPersistenceExtensionsTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"wyrd-continuous-worldbuilder-{Guid.NewGuid():N}");

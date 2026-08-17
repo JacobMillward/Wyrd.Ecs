@@ -2,6 +2,19 @@ using Wyrd.Ecs.Persistence.Continuous.Internal;
 
 namespace Wyrd.Ecs.Persistence.Continuous.Tests;
 
+/// <summary>
+/// Groups every test touching <see cref="ProcessExitSafetyNet"/>'s process-wide session
+/// table, since <see cref="ProcessExitSafetyNet.StopAllTrackedSessions"/> sweeps every
+/// registered session in the process, not just the calling test's own World, and would
+/// otherwise race a concurrently-scheduled test class with a live session.
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class ProcessExitSafetyNetCollection
+{
+    public const string Name = "ProcessExitSafetyNet (global static)";
+}
+
+[Collection(ProcessExitSafetyNetCollection.Name)]
 public class ProcessExitSafetyNetTests
 {
     [Fact]
