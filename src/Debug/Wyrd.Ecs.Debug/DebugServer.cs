@@ -17,8 +17,9 @@ namespace Wyrd.Ecs.Debug;
 /// Owns the in-process host lifecycle for the debug/inspection server: bind/listen/stop
 /// against <c>127.0.0.1</c> only, the security boundary for this server.
 /// <see cref="Start"/> lets a bind failure (e.g. the port is already in
-/// use) throw normally; <see cref="World.WithDebugServer"/> is the generated layer that
-/// catches that and routes it through <see cref="DebugServerOptions.OnError"/> instead.
+/// use) throw normally; <see cref="WorldExtensions.WithDebugServer"/> is the layer above
+/// it that catches that and routes it through <see cref="DebugServerOptions.OnError"/>
+/// instead.
 /// </summary>
 public sealed class DebugServer : IDisposable
 {
@@ -35,6 +36,7 @@ public sealed class DebugServer : IDisposable
     internal ChangeLogRecorder ChangeLog => _changeLog;
     internal PlaybackControls Playback => _playback;
 
+    /// <summary>Constructs the server without starting it. Call <see cref="Start"/> to bind and listen.</summary>
     public DebugServer(World world, CodecRegistry registry, DebugServerOptions options)
     {
         _world = world;
@@ -122,14 +124,14 @@ public sealed class DebugServer : IDisposable
             var entitySnapshot = snapshot.Entities.FirstOrDefault(e => e.Entity == entity);
             if (entitySnapshot.Entity.IsNull) return Results.NotFound();
 
-            var component = entitySnapshot.Components.FirstOrDefault(c => c.Discriminator == discriminator);
-            if (component.Discriminator is null) return Results.NotFound();
+            var component = entitySnapshot.Components.FirstOrDefault(c => c.Component.Discriminator == discriminator);
+            if (component.Component.Discriminator is null) return Results.NotFound();
 
             if (!_registry.TryGetByDebugName(discriminator, out var codec)) return Results.NotFound();
 
             try
             {
-                var merged = FieldMerge.MergeField(component.Data, request.Field, request.Value);
+                var merged = FieldMerge.MergeField(component.Component.Data, request.Field, request.Value);
                 codec.DecodeInto(_world, entity, merged);
                 return Results.Ok();
             }
@@ -140,7 +142,7 @@ public sealed class DebugServer : IDisposable
         });
 
         _app.MapPost("/api/entities/{id:int}/{generation:int}/components/{discriminator}/renderer-edit", (
-            int id, int generation, string discriminator, JsonElement editValue) =>
+            int id, int generation, string discriminator, RendererEditRequest request) =>
         {
             var entity = new Entity(id, generation);
             if (_snapshots.Latest is not { } snapshot) return Results.NotFound();
@@ -148,23 +150,23 @@ public sealed class DebugServer : IDisposable
             var entitySnapshot = snapshot.Entities.FirstOrDefault(e => e.Entity == entity);
             if (entitySnapshot.Entity.IsNull) return Results.NotFound();
 
-            var component = entitySnapshot.Components.FirstOrDefault(c => c.Discriminator == discriminator);
-            if (component.Discriminator is null) return Results.NotFound();
+            var inspected = entitySnapshot.Components.FirstOrDefault(c => c.Component.Discriminator == discriminator);
+            if (inspected.Component.Discriminator is null) return Results.NotFound();
 
             if (!_registry.TryGetByDebugName(discriminator, out var codec)) return Results.NotFound();
             if (!DebugRendererRegistry.TryGetRenderer(discriminator, out var renderer)) return Results.NotFound();
 
             try
             {
-                var currentValue = codec.DecodeValue(component.Data);
-                var newValue = renderer.Apply(currentValue, new InspectorEdit(editValue));
+                var currentValue = codec.DecodeValue(inspected.Component.Data);
+                var newValue = renderer.Apply(currentValue, new InspectorEdit(request.Label, request.Value));
                 codec.DecodeInto(_world, entity, codec.EncodeValue(newValue));
                 return Results.Ok();
             }
             catch (InvalidOperationException ex)
             {
                 // InspectorEdit.AsInt()/AsDouble()/AsBool()/AsString() throw this when
-                // editValue's JsonValueKind doesn't match what the renderer expected.
+                // request.Value's JsonValueKind doesn't match what the renderer expected.
                 return Results.BadRequest(new { error = ex.Message });
             }
         });
@@ -198,6 +200,7 @@ public sealed class DebugServer : IDisposable
         _app = null;
     }
 
+    /// <summary>Alias for <see cref="Stop"/>, for <see cref="IDisposable"/>/<c>using</c> support.</summary>
     public void Dispose() => Stop();
 
     private static string FormatSseEvent(string eventName, object? payload, JsonSerializerOptions options) =>

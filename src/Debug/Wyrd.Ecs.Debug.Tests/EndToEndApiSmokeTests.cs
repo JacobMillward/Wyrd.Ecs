@@ -6,6 +6,9 @@ namespace Wyrd.Ecs.Debug.Tests;
 
 public class EndToEndApiSmokeTests
 {
+    // DebugNameGenerator resolves this to "EndToEndApiSmokeTests.Health", not bare
+    // "Health", since DebugServerApiTests/CodecRegistryDebugNameExtensionsTests each
+    // declare their own unrelated "Health" type too.
     public struct Health : IComponent { public int Current; }
 
     // Health's fields are public fields, not properties - JsonSerializer skips fields
@@ -49,7 +52,7 @@ public class EndToEndApiSmokeTests
             // 3. Edit a field. DecodeInto only queues the change - ApplyCommands is what
             // actually applies it, same as every other structural mutation in this engine.
             var editResponse = await client.PostAsJsonAsync(
-                $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health",
+                $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/EndToEndApiSmokeTests.Health",
                 new { field = "Current", value = 42 });
             world.ApplyCommands();
             editResponse.StatusCode.Should().Be(HttpStatusCode.OK);

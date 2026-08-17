@@ -35,7 +35,7 @@ public class InspectorFieldTests
     public void InspectorEdit_AsInt_CoercesAJsonNumber()
     {
         var element = JsonDocument.Parse("7").RootElement;
-        var edit = new InspectorEdit(element);
+        var edit = new InspectorEdit("Current", element);
 
         edit.AsInt().Should().Be(7);
     }

@@ -1,3 +1,5 @@
+using Wyrd.Ecs.Debug.Abstractions;
+
 namespace Wyrd.Ecs.Debug.Internal;
 
 /// <summary>
@@ -25,8 +27,32 @@ internal sealed class SnapshotPublisher(World world, CodecRegistry registry)
     {
         if (Changed is null) return;
 
-        var snapshot = new WorldSnapshot(world.EnumerateArchetypes(), world.EnumerateEntities(registry));
+        var entities = world.EnumerateEntities(registry);
+        var inspected = new InspectedEntity[entities.Count];
+        for (var i = 0; i < entities.Count; i++)
+        {
+            var entity = entities[i];
+            var components = new InspectedComponent[entity.Components.Count];
+            for (var j = 0; j < entity.Components.Count; j++)
+            {
+                var component = entity.Components[j];
+                components[j] = new InspectedComponent(component, DescribeIfRendered(component));
+            }
+            inspected[i] = new InspectedEntity(entity.Entity, components, entity.Tags);
+        }
+
+        var snapshot = new WorldSnapshot(world.EnumerateArchetypes(), inspected);
         Interlocked.Exchange(ref _latest, snapshot);
         Changed?.Invoke();
+    }
+
+    // Runs only for components whose discriminator has a registered [DebugRenderer];
+    // most components have none, so this is a bounded addition to the full-snapshot walk
+    // this method already does every tick, not a new order of complexity.
+    private InspectorField? DescribeIfRendered(EncodedComponent component)
+    {
+        if (!DebugRendererRegistry.TryGetRenderer(component.Discriminator, out var renderer)) return null;
+        if (!registry.TryGetByDebugName(component.Discriminator, out var codec)) return null;
+        return renderer.Describe(codec.DecodeValue(component.Data));
     }
 }

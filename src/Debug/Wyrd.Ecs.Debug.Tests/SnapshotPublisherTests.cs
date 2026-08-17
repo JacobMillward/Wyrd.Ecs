@@ -34,7 +34,37 @@ public class SnapshotPublisherTests
 
         publisher.Latest.Should().NotBeNull();
         publisher.Latest!.Archetypes.Should().ContainSingle(a => a.ComponentDiscriminators.Contains("Position"));
-        publisher.Latest!.Entities.Should().ContainSingle(e => e.Components.Any(c => c.Discriminator == "Position"));
+        publisher.Latest!.Entities.Should().ContainSingle(e => e.Components.Any(c => c.Component.Discriminator == "Position"));
+    }
+
+    [Fact]
+    public void WithARegisteredRenderer_OnTickAdvancedDescribesTheComponent()
+    {
+        var world = new World();
+        var registry = new CodecRegistry();
+        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
+        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("Position",
+            value => new Wyrd.Ecs.Debug.Abstractions.InspectorField.ReadOnly("X", ((Position)value).X.ToString()),
+            (value, edit) => new Position { X = edit.AsInt() });
+        try
+        {
+            world.Commands.CreateEntity(new Position { X = 3f });
+            world.ApplyCommands();
+
+            var publisher = new SnapshotPublisher(world, registry);
+            publisher.Changed += () => { };
+
+            publisher.OnTickAdvanced(1);
+
+            var entity = publisher.Latest!.Entities.Should().ContainSingle().Subject;
+            var component = entity.Components.Should().ContainSingle(c => c.Component.Discriminator == "Position").Subject;
+            component.Field.Should().BeOfType<Wyrd.Ecs.Debug.Abstractions.InspectorField.ReadOnly>()
+                .Which.Value.Should().Be("3");
+        }
+        finally
+        {
+            Wyrd.Ecs.Debug.DebugRendererRegistry.Unregister("Position");
+        }
     }
 
     [Fact]

@@ -8,8 +8,9 @@ internal sealed class TypeScriptGenerationSpec : GenerationSpec
     public TypeScriptGenerationSpec()
     {
         AddInterface<ArchetypeSnapshot>();
-        AddInterface<EntitySnapshot>();
         AddInterface<Entity>();
+        AddInterface<InspectedComponent>();
+        AddInterface<InspectedEntity>();
         AddInterface<ChangeLogEntry>();
         AddEnum<ChangeKind>();
         AddInterface<WorldSnapshot>();

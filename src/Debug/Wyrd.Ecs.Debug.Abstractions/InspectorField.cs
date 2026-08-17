@@ -17,15 +17,21 @@ namespace Wyrd.Ecs.Debug.Abstractions;
 [JsonDerivedType(typeof(Group), "group")]
 public abstract record InspectorField(string Label)
 {
+    /// <summary>A draggable numeric range, bounded by <see cref="Min"/>/<see cref="Max"/>.</summary>
     public sealed record Slider(string Label, double Value, double Min, double Max) : InspectorField(Label);
 
+    /// <summary>A free-form numeric input, no bounds.</summary>
     public sealed record Number(string Label, double Value) : InspectorField(Label);
 
+    /// <summary>A free-form string input.</summary>
     public sealed record Text(string Label, string Value) : InspectorField(Label);
 
+    /// <summary>A boolean toggle.</summary>
     public sealed record Checkbox(string Label, bool Value) : InspectorField(Label);
 
+    /// <summary>A display-only value with no edit control.</summary>
     public sealed record ReadOnly(string Label, string Value) : InspectorField(Label);
 
+    /// <summary>Nests <see cref="Children"/> under one label.</summary>
     public sealed record Group(string Label, IReadOnlyList<InspectorField> Children) : InspectorField(Label);
 }

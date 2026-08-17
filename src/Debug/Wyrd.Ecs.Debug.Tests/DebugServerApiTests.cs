@@ -13,6 +13,10 @@ public class DebugServerApiTests
     // parameterless JsonSerializer.Serialize overload.
     private static readonly JsonSerializerOptions FieldOptions = new() { IncludeFields = true };
 
+    // DebugNameGenerator resolves this to "DebugServerApiTests.Health" (containing-type
+    // qualified), not bare "Health", since EndToEndApiSmokeTests and
+    // CodecRegistryDebugNameExtensionsTests each declare their own unrelated "Health"
+    // type too. Every discriminator/URL literal below reflects that.
     public struct Health : IComponent { public int Current; }
 
     [Fact]
@@ -35,8 +39,8 @@ public class DebugServerApiTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.GetProperty("archetypes")[0].GetProperty("componentDiscriminators")[0].GetString().Should().Be("Health");
-        body.GetProperty("entities")[0].GetProperty("components")[0].GetProperty("data").GetProperty("Current").GetInt32().Should().Be(7);
+        body.GetProperty("archetypes")[0].GetProperty("componentDiscriminators")[0].GetString().Should().Be("DebugServerApiTests.Health");
+        body.GetProperty("entities")[0].GetProperty("components")[0].GetProperty("component").GetProperty("data").GetProperty("Current").GetInt32().Should().Be(7);
 
         server.Stop();
     }
@@ -178,7 +182,7 @@ public class DebugServerApiTests
 
         using var client = new HttpClient();
         var response = await client.PostAsJsonAsync(
-            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health",
+            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/DebugServerApiTests.Health",
             new { field = "Current", value = 9 });
         // DecodeInto queues the edit via CommandBuffer.AddComponent - it takes effect on
         // the next ApplyCommands, same as every other structural mutation in this engine.
@@ -217,28 +221,35 @@ public class DebugServerApiTests
         registry.Register<Health>("Health",
             h => JsonSerializer.SerializeToUtf8Bytes(h, FieldOptions),
             b => JsonSerializer.Deserialize<Health>(b, FieldOptions));
-        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("Health",
+        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("DebugServerApiTests.Health",
             value => new InspectorField.ReadOnly("Current", ((Health)value).Current.ToString()),
             (value, edit) => new Health { Current = edit.AsInt() });
-        Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
-        world.ApplyCommands();
-        var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
-        using var _ = server;
-        server.Snapshots.Changed += () => { };
-        world.AdvanceTick();
+        try
+        {
+            Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
+            world.ApplyCommands();
+            var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+            using var _ = server;
+            server.Snapshots.Changed += () => { };
+            world.AdvanceTick();
 
-        using var client = new HttpClient();
-        var response = await client.PostAsJsonAsync(
-            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health/renderer-edit",
-            9);
-        world.ApplyCommands();
+            using var client = new HttpClient();
+            var response = await client.PostAsJsonAsync(
+                $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/DebugServerApiTests.Health/renderer-edit",
+                new { label = "Current", value = 9 });
+            world.ApplyCommands();
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        ref var updated = ref world.TryGetComponent<Health>(entity, out var found);
-        found.Should().BeTrue();
-        updated.Current.Should().Be(9);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            ref var updated = ref world.TryGetComponent<Health>(entity, out var found);
+            found.Should().BeTrue();
+            updated.Current.Should().Be(9);
 
-        server.Stop();
+            server.Stop();
+        }
+        finally
+        {
+            Wyrd.Ecs.Debug.DebugRendererRegistry.Unregister("DebugServerApiTests.Health");
+        }
     }
 
     [Fact]
@@ -249,25 +260,32 @@ public class DebugServerApiTests
         registry.Register<Health>("Health",
             h => JsonSerializer.SerializeToUtf8Bytes(h, FieldOptions),
             b => JsonSerializer.Deserialize<Health>(b, FieldOptions));
-        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("Health",
+        Wyrd.Ecs.Debug.DebugRendererRegistry.Register("DebugServerApiTests.Health",
             value => new InspectorField.ReadOnly("Current", ((Health)value).Current.ToString()),
             (value, edit) => new Health { Current = edit.AsInt() });
-        Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
-        world.ApplyCommands();
-        var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
-        using var _ = server;
-        server.Snapshots.Changed += () => { };
-        world.AdvanceTick();
+        try
+        {
+            Entity entity = world.Commands.CreateEntity(new Health { Current = 3 });
+            world.ApplyCommands();
+            var (server, port) = DebugServerTestHost.Start(world, registry, p => new DebugServerOptions(Port: p));
+            using var _ = server;
+            server.Snapshots.Changed += () => { };
+            world.AdvanceTick();
 
-        using var client = new HttpClient();
-        // AsInt() calls JsonElement.GetInt32(), which throws for a string value.
-        var response = await client.PostAsJsonAsync(
-            $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/Health/renderer-edit",
-            "not a number");
+            using var client = new HttpClient();
+            // AsInt() calls JsonElement.GetInt32(), which throws for a string value.
+            var response = await client.PostAsJsonAsync(
+                $"http://127.0.0.1:{port}/api/entities/{entity.Id}/{entity.Generation}/components/DebugServerApiTests.Health/renderer-edit",
+                new { label = "Current", value = "not a number" });
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        server.Stop();
+            server.Stop();
+        }
+        finally
+        {
+            Wyrd.Ecs.Debug.DebugRendererRegistry.Unregister("DebugServerApiTests.Health");
+        }
     }
 
     [Fact]

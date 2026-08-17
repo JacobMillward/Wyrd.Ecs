@@ -24,4 +24,15 @@ public static class DebugRendererRegistry
     /// <summary>Looks up a registered renderer by debug name. False if the type has no <c>[DebugRenderer]</c>.</summary>
     public static bool TryGetRenderer(string debugName, out DebugRendererRegistration registration) =>
         _byName.TryGetValue(debugName, out registration!);
+
+    /// <summary>
+    /// Removes a registration added via <see cref="Register"/>, for test cleanup only.
+    /// This registry is process-lifetime static state with no per-test scoping, and
+    /// <see cref="Internal.SnapshotPublisher"/> now reads it implicitly on every tick a
+    /// client is connected, so a test that calls <see cref="Register"/> under a name
+    /// another test's own unrelated component also uses (e.g. "Health") must
+    /// <see cref="Unregister"/> it afterward or that other test can silently pick up the
+    /// wrong renderer.
+    /// </summary>
+    public static void Unregister(string debugName) => _byName.Remove(debugName);
 }
