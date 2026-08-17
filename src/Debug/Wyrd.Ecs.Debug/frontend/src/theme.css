@@ -1,4 +1,4 @@
-/* Wyrd.Ecs Debug UI theme tokens - values taken verbatim from the docs site's default
+/* Wyrd.Ecs Debug UI theme tokens: values taken verbatim from the docs site's default
    Starlight theme (confirmed via docs/dist build output, not guessed): blue accent hue
    234, a gray-1..gray-7 scale that inverts between dark/light. Dark is the default
    (bare :root, matching Starlight's own html { color-scheme: dark } default); light
@@ -7,7 +7,7 @@
 
    Chip fill/border is a deliberate split, not one color doing two jobs: fill+text is
    independently >=7:1 (AAA), and chip-border is a separate boundary cue against the
-   page, independently >=3:1 - a single mid-tone can't satisfy both at once. */
+   page, since a single mid-tone can't satisfy both at once. */
 
 :root {
     --wyrd-bg: #17181c;
@@ -22,6 +22,51 @@
     --wyrd-chip-bg: #353841;
     --wyrd-chip-text: #edeef3;
     --wyrd-chip-border: #888c96;
+
+    /* Per-component-name chip palette: componentColor.ts assigns a discriminator to one
+       of these 12 slots (hash preferred, then probed forward on collision), so
+       "Health" keeps one consistent color everywhere it appears, and stays distinct
+       from every other component name in the same session as long as there are 12 or
+       fewer distinct ones. Each slot's fill/text pair and border were verified
+       independently (>=7:1 AAA text, >=3:1 boundary against both the fill and the
+       page), same split as the plain chip tokens above, computed rather than
+       eyeballed, at 12 hues evenly spaced 30deg apart. */
+    --wyrd-component-0-bg: #853232;
+    --wyrd-component-0-text: #edeef3;
+    --wyrd-component-0-border: #cd8989;
+    --wyrd-component-1-bg: #684727;
+    --wyrd-component-1-text: #edeef3;
+    --wyrd-component-1-border: #bf9469;
+    --wyrd-component-2-bg: #51511f;
+    --wyrd-component-2-text: #edeef3;
+    --wyrd-component-2-border: #a1a145;
+    --wyrd-component-3-bg: #3b5520;
+    --wyrd-component-3-text: #edeef3;
+    --wyrd-component-3-border: #7aab49;
+    --wyrd-component-4-bg: #225922;
+    --wyrd-component-4-text: #edeef3;
+    --wyrd-component-4-border: #4db34d;
+    --wyrd-component-5-bg: #22593d;
+    --wyrd-component-5-text: #edeef3;
+    --wyrd-component-5-border: #4baf7d;
+    --wyrd-component-6-bg: #205555;
+    --wyrd-component-6-text: #edeef3;
+    --wyrd-component-6-border: #49abab;
+    --wyrd-component-7-bg: #2d5276;
+    --wyrd-component-7-text: #edeef3;
+    --wyrd-component-7-border: #7ba1c6;
+    --wyrd-component-8-bg: #383894;
+    --wyrd-component-8-text: #edeef3;
+    --wyrd-component-8-border: #8989cd;
+    --wyrd-component-9-bg: #663894;
+    --wyrd-component-9-text: #edeef3;
+    --wyrd-component-9-border: #b090d0;
+    --wyrd-component-10-bg: #7a2e7a;
+    --wyrd-component-10-text: #edeef3;
+    --wyrd-component-10-border: #c982c9;
+    --wyrd-component-11-bg: #813159;
+    --wyrd-component-11-text: #edeef3;
+    --wyrd-component-11-border: #cd89ab;
 }
 
 @media (prefers-color-scheme: light) {
@@ -38,6 +83,42 @@
         --wyrd-chip-bg: #c1c3c8;
         --wyrd-chip-text: #23262f;
         --wyrd-chip-border: #555962;
+        --wyrd-component-0-bg: #dca3a3;
+        --wyrd-component-0-text: #23262f;
+        --wyrd-component-0-border: #9a4242;
+        --wyrd-component-1-bg: #d1ab85;
+        --wyrd-component-1-text: #23262f;
+        --wyrd-component-1-border: #795734;
+        --wyrd-component-2-bg: #c7c76b;
+        --wyrd-component-2-text: #23262f;
+        --wyrd-component-2-border: #6b6b2e;
+        --wyrd-component-3-bg: #99c76b;
+        --wyrd-component-3-text: #23262f;
+        --wyrd-component-3-border: #4d6b2e;
+        --wyrd-component-4-bg: #6bc76b;
+        --wyrd-component-4-text: #23262f;
+        --wyrd-component-4-border: #2e6b2e;
+        --wyrd-component-5-bg: #6bc799;
+        --wyrd-component-5-text: #23262f;
+        --wyrd-component-5-border: #2e6b4d;
+        --wyrd-component-6-bg: #6bc7c7;
+        --wyrd-component-6-text: #23262f;
+        --wyrd-component-6-border: #2e6b6b;
+        --wyrd-component-7-bg: #94b5d6;
+        --wyrd-component-7-text: #23262f;
+        --wyrd-component-7-border: #3a6188;
+        --wyrd-component-8-bg: #aeaee0;
+        --wyrd-component-8-text: #23262f;
+        --wyrd-component-8-border: #5050b4;
+        --wyrd-component-9-bg: #c2a6dd;
+        --wyrd-component-9-text: #23262f;
+        --wyrd-component-9-border: #7546a4;
+        --wyrd-component-10-bg: #db9fdb;
+        --wyrd-component-10-text: #23262f;
+        --wyrd-component-10-border: #8f3d8f;
+        --wyrd-component-11-bg: #dca3bf;
+        --wyrd-component-11-text: #23262f;
+        --wyrd-component-11-border: #96406b;
     }
 }
 
@@ -54,6 +135,51 @@
     --wyrd-chip-bg: #c1c3c8;
     --wyrd-chip-text: #23262f;
     --wyrd-chip-border: #555962;
+    --wyrd-component-0-bg: #dca3a3;
+    --wyrd-component-0-text: #23262f;
+    --wyrd-component-0-border: #9a4242;
+    --wyrd-component-1-bg: #d1ab85;
+    --wyrd-component-1-text: #23262f;
+    --wyrd-component-1-border: #795734;
+    --wyrd-component-2-bg: #c7c76b;
+    --wyrd-component-2-text: #23262f;
+    --wyrd-component-2-border: #6b6b2e;
+    --wyrd-component-3-bg: #99c76b;
+    --wyrd-component-3-text: #23262f;
+    --wyrd-component-3-border: #4d6b2e;
+    --wyrd-component-4-bg: #6bc76b;
+    --wyrd-component-4-text: #23262f;
+    --wyrd-component-4-border: #2e6b2e;
+    --wyrd-component-5-bg: #6bc799;
+    --wyrd-component-5-text: #23262f;
+    --wyrd-component-5-border: #2e6b4d;
+    --wyrd-component-6-bg: #6bc7c7;
+    --wyrd-component-6-text: #23262f;
+    --wyrd-component-6-border: #2e6b6b;
+    --wyrd-component-7-bg: #94b5d6;
+    --wyrd-component-7-text: #23262f;
+    --wyrd-component-7-border: #3a6188;
+    --wyrd-component-8-bg: #aeaee0;
+    --wyrd-component-8-text: #23262f;
+    --wyrd-component-8-border: #5050b4;
+    --wyrd-component-9-bg: #c2a6dd;
+    --wyrd-component-9-text: #23262f;
+    --wyrd-component-9-border: #7546a4;
+    --wyrd-component-10-bg: #db9fdb;
+    --wyrd-component-10-text: #23262f;
+    --wyrd-component-10-border: #8f3d8f;
+    --wyrd-component-11-bg: #dca3bf;
+    --wyrd-component-11-text: #23262f;
+    --wyrd-component-11-border: #96406b;
+}
+
+/* Without this, every element defaults to content-box, so width: 100% plus
+   padding/border (e.g. the Inspector's nested Group wrapper) renders wider than its
+   own parent instead of fitting inside it. */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
 }
 
 html,

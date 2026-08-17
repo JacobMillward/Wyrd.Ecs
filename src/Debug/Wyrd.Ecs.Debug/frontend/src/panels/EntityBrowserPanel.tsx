@@ -6,7 +6,7 @@ import { formatEntity, entityEquals } from '../entityFormat';
 import { useDensity } from '../components/useDensity';
 import { PanelToolbar } from '../components/PanelToolbar';
 import { SortableHeader } from '../components/SortableHeader';
-import { Chip } from '../components/Chip';
+import { Chip, chipRow } from '../components/Chip';
 import { Popover } from '../components/Popover';
 import { Columns3, Filter } from '../icons';
 import type { InspectedEntity } from '../generated/inspected-entity';
@@ -177,16 +177,20 @@ export function EntityBrowserPanel() {
                                     <td class={td}>{formatEntity(entity.entity)}</td>
                                     {showComponents && (
                                         <td class={td}>
-                                            {entity.components.map((c) => (
-                                                <Chip key={c.component.discriminator} text={c.component.discriminator} />
-                                            ))}
+                                            <div class={chipRow}>
+                                                {entity.components.map((c) => (
+                                                    <Chip key={c.component.discriminator} text={c.component.discriminator} />
+                                                ))}
+                                            </div>
                                         </td>
                                     )}
                                     {showTags && density === 'comfortable' && (
                                         <td class={td}>
-                                            {entity.tags.map((tag) => (
-                                                <Chip key={tag} text={tag} isTag />
-                                            ))}
+                                            <div class={chipRow}>
+                                                {entity.tags.map((tag) => (
+                                                    <Chip key={tag} text={tag} isTag />
+                                                ))}
+                                            </div>
                                         </td>
                                     )}
                                 </tr>

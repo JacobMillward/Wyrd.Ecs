@@ -3,6 +3,7 @@ import { css } from '@linaria/core';
 import { changelog, selectedEntity, selectEntity } from '../store';
 import { formatEntity, entityEquals } from '../entityFormat';
 import { PanelToolbar } from '../components/PanelToolbar';
+import { Chip } from '../components/Chip';
 import { ChangeKind } from '../generated/change-kind';
 import type { ChangeLogEntry } from '../generated/change-log-entry';
 
@@ -84,6 +85,10 @@ function isAddition(kind: ChangeKind): boolean {
     return kind === ChangeKind.EntityCreated || kind === ChangeKind.ComponentAdded || kind === ChangeKind.TagAdded;
 }
 
+function isTagChange(kind: ChangeKind): boolean {
+    return kind === ChangeKind.TagAdded || kind === ChangeKind.TagRemoved;
+}
+
 function description(kind: ChangeKind): string {
     switch (kind) {
         case ChangeKind.EntityCreated:
@@ -150,7 +155,7 @@ export function ChangeLogPanel() {
                                     </td>
                                     <td class={td}>{entry.tick}</td>
                                     <td class={td}>{formatEntity(entry.entity)}</td>
-                                    <td class={td}>{entry.componentName}</td>
+                                    <td class={td}>{entry.componentName && <Chip text={entry.componentName} isTag={isTagChange(entry.kind)} />}</td>
                                 </tr>
                             ))}
                         </tbody>

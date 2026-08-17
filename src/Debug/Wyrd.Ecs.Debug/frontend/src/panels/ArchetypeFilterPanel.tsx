@@ -5,7 +5,7 @@ import { archetypeKey } from '../archetypeKey';
 import { useDensity } from '../components/useDensity';
 import { PanelToolbar } from '../components/PanelToolbar';
 import { SortableHeader } from '../components/SortableHeader';
-import { Chip } from '../components/Chip';
+import { Chip, chipRow } from '../components/Chip';
 import { Icon } from '../components/Icon';
 import { Filter } from '../icons';
 import type { ArchetypeSnapshot } from '../generated/archetype-snapshot';
@@ -51,7 +51,11 @@ const emptyState = css`
     font-size: 12px;
 `;
 
-function composition(archetype: ArchetypeSnapshot): string {
+const noComponents = css`
+    opacity: 0.6;
+`;
+
+function compositionTitle(archetype: ArchetypeSnapshot): string {
     return archetype.componentDiscriminators.length > 0 ? archetype.componentDiscriminators.join(', ') : '(no components)';
 }
 
@@ -90,9 +94,15 @@ export function ArchetypeFilterPanel() {
                                 const active = filteredArchetypeKeys.value.has(key);
                                 return (
                                     <tr key={key}>
-                                        <td class={td} title={composition(archetype)}>
-                                            <span>{composition(archetype)}</span>
-                                            {density === 'comfortable' && archetype.tagDiscriminators.map((tag) => <Chip key={tag} text={tag} isTag />)}
+                                        <td class={td} title={compositionTitle(archetype)}>
+                                            <div class={chipRow}>
+                                                {archetype.componentDiscriminators.length === 0 ? (
+                                                    <span class={noComponents}>(no components)</span>
+                                                ) : (
+                                                    archetype.componentDiscriminators.map((c) => <Chip key={c} text={c} />)
+                                                )}
+                                                {density === 'comfortable' && archetype.tagDiscriminators.map((tag) => <Chip key={tag} text={tag} isTag />)}
+                                            </div>
                                         </td>
                                         <td class={td}>{archetype.entityCount}</td>
                                         <td class={td}>

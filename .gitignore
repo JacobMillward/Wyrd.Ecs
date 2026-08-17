@@ -1,6 +1,9 @@
 # Superpowers specs/plans are working docs, not repo history
 /docs/superpowers/
 
+# Superpowers brainstorming visual-companion session files
+/.superpowers/
+
 # .NET
 bin/
 obj/
