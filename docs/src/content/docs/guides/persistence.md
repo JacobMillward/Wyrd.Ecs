@@ -52,7 +52,7 @@ world.Load("saves/other.bin");
 ```
 
 :::note
-Nothing stops a `World` from having both a binary and a JSON store configured at once, their codec registries stay independent if you do. Most worlds want one codec though, this is the unusual case, not the norm.
+`World.DefaultPersistenceStore` and `World.CodecRegistry` are each a single slot, not a list. Chaining `.AddBinaryPersistence(...)` and `.AddJsonPersistence(...)` on the same builder doesn't configure both, the second call's store and registry replace the first's. Pick one codec per `World`.
 :::
 
 ## Rename-safety
