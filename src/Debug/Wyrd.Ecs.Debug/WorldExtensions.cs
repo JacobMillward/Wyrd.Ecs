@@ -1,5 +1,6 @@
 namespace Wyrd.Ecs.Debug;
 
+/// <summary>Hand-written <see cref="World"/> extension methods for constructing a <see cref="DebugServer"/> with a caller-supplied <see cref="CodecRegistry"/>.</summary>
 public static class WorldExtensions
 {
     /// <summary>
