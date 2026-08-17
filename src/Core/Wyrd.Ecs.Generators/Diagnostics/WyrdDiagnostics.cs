@@ -81,4 +81,12 @@ internal static class WyrdDiagnostics
         category: "Wyrd.Ecs.QueryChain",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor StaleResourceSnapshot = new(
+        id: "WYRD008",
+        title: "Resource value stored where it will go stale",
+        messageFormat: "{0}",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }
