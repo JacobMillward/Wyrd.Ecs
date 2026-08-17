@@ -182,10 +182,38 @@
     box-sizing: border-box;
 }
 
+/* Styling ::-webkit-scrollbar switches Chromium out of auto-hiding overlay scrollbars
+   into always-visible classic ones, so overflow (e.g. a table wider than its panel)
+   has a visible cue instead of a scrollbar nobody notices until they scroll. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--wyrd-chip-border) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--wyrd-chip-border);
+    border-radius: 6px;
+    border: 2px solid var(--wyrd-bg);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--wyrd-accent);
+}
+
 html,
 body {
     margin: 0;
     height: 100%;
+    overflow: hidden;
     background: var(--wyrd-bg);
     color: var(--wyrd-text);
     font-family: system-ui, sans-serif;
