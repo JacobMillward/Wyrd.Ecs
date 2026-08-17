@@ -73,4 +73,36 @@ public class ResourcePropertyGeneratorTests
 
         result.Should().Be(3, "starts at 1, WriterSystem increments it once per Update() call, two calls");
     }
+
+    private const string AccessHarness = """
+        using System.Linq;
+        using Wyrd.Ecs;
+        using Wyrd.Ecs.Generated;
+
+        public struct Score : IResource { public int Value; }
+
+        public sealed partial class ReaderSystem : QuerySystem
+        {
+            [Resource] public Score Score { get; private set; }
+            protected override IQuery DefineQuery(Query query) => query;
+            public void Update(Time time) { }
+        }
+
+        public static class Harness
+        {
+            public static bool ResourceIsInReads() =>
+                SystemRegistry.Access.TryGetValue(typeof(ReaderSystem), out var access)
+                && access.Reads.Contains(typeof(Score));
+        }
+        """;
+
+    [Fact]
+    public void ResourceProperty_AppearsInSystemRegistryAccessReads()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(AccessHarness));
+
+        var result = (bool)assembly.GetType("Harness")!.GetMethod("ResourceIsInReads")!.Invoke(null, null)!;
+
+        result.Should().BeTrue();
+    }
 }

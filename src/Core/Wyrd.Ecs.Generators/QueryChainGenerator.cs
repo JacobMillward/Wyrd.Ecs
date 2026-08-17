@@ -339,12 +339,31 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var accessFromQuerySystems = querySystems
             .Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape));
 
+        // Every QuerySystemCandidate already contributes exactly one entry above, even one
+        // whose shape has zero data elements (an empty query with only [Resource]
+        // properties), so every QuerySystem lands in the GroupBy below with at least an
+        // empty Reads/Writes pair - resource access only needs a lookup merged into the
+        // existing Select, not a second pass for systems the grouping might otherwise miss.
+        var resourceAccessFromQuerySystems = querySystems
+            .SelectMany(s => s.ResourceProperties.Select(r => (
+                SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName,
+                r.ResourceTypeName,
+                r.IsWrite)))
+            .ToLookup(r => r.SystemTypeName);
+
         var bySystemType = accessFromChains.Concat(accessFromQuerySystems)
             .GroupBy(c => c.SystemTypeName)
-            .Select(g => (
-                SystemTypeName: g.Key,
-                Reads: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
-                Writes: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList()))
+            .Select(g =>
+            {
+                var resourceEntries = resourceAccessFromQuerySystems[g.Key];
+                var reads = g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName))
+                    .Concat(resourceEntries.Where(r => !r.IsWrite).Select(r => r.ResourceTypeName))
+                    .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
+                var writes = g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName))
+                    .Concat(resourceEntries.Where(r => r.IsWrite).Select(r => r.ResourceTypeName))
+                    .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
+                return (SystemTypeName: g.Key, Reads: reads, Writes: writes);
+            })
             .ToList();
 
         var byEdgeSystemType = edges
