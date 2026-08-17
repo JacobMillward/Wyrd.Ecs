@@ -301,4 +301,52 @@ public class DebugServerApiTests
 
         server.Stop();
     }
+
+    [Fact]
+    public async Task GetPlayback_ReturnsTheCurrentState()
+    {
+        var world = new World();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
+
+        using var client = new HttpClient();
+        await client.PostAsync($"http://127.0.0.1:{port}/api/playback/pause", null);
+        var response = await client.GetAsync($"http://127.0.0.1:{port}/api/playback");
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.GetProperty("isPaused").GetBoolean().Should().BeTrue();
+
+        server.Stop();
+    }
+
+    [Fact]
+    public async Task GetEvents_AfterATimescaleChange_PushesAPlaybackEvent()
+    {
+        var world = new World();
+        var (server, port) = DebugServerTestHost.Start(world, new CodecRegistry(), p => new DebugServerOptions(Port: p));
+        using var _ = server;
+
+        using var client = new HttpClient();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        string? eventLine;
+        string? dataLine;
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{port}/api/events");
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            using var stream = await response.Content.ReadAsStreamAsync(cts.Token);
+            using var reader = new StreamReader(stream);
+
+            await client.PostAsJsonAsync($"http://127.0.0.1:{port}/api/playback/timescale", new { value = 2.0 }, cts.Token);
+
+            eventLine = await reader.ReadLineAsync(cts.Token);
+            dataLine = await reader.ReadLineAsync(cts.Token);
+        }
+
+        eventLine.Should().Be("event: playback");
+        dataLine.Should().Be("data: {\"isPaused\":false,\"timeScale\":2}");
+
+        server.Stop();
+    }
 }

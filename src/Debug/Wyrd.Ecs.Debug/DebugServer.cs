@@ -72,6 +72,7 @@ public sealed class DebugServer : IDisposable
             return Results.Json(snapshot, statusCode: snapshot is null ? 404 : 200);
         });
         _app.MapGet("/api/changelog", () => Results.Json(_changeLog.Entries));
+        _app.MapGet("/api/playback", () => Results.Json(new PlaybackSnapshot(_playback.IsPaused, _playback.TimeScale)));
 
         _app.MapGet("/api/events", async (HttpContext context, CancellationToken cancellationToken) =>
         {
@@ -90,9 +91,11 @@ public sealed class DebugServer : IDisposable
 
             void OnSnapshotChanged() => channel.Writer.TryWrite(FormatSseEvent("snapshot", _snapshots.Latest, jsonOptions));
             void OnChangeLogChanged() => channel.Writer.TryWrite(FormatSseEvent("changelog", _changeLog.Entries, jsonOptions));
+            void OnPlaybackChanged() => channel.Writer.TryWrite(FormatSseEvent("playback", new PlaybackSnapshot(_playback.IsPaused, _playback.TimeScale), jsonOptions));
 
             _snapshots.Changed += OnSnapshotChanged;
             _changeLog.Changed += OnChangeLogChanged;
+            _playback.Changed += OnPlaybackChanged;
 
             try
             {
@@ -106,6 +109,7 @@ public sealed class DebugServer : IDisposable
             {
                 _snapshots.Changed -= OnSnapshotChanged;
                 _changeLog.Changed -= OnChangeLogChanged;
+                _playback.Changed -= OnPlaybackChanged;
             }
         });
 

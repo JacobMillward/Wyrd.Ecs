@@ -13,5 +13,6 @@ internal sealed class TypeScriptGenerationSpec : GenerationSpec
         AddInterface<ChangeLogEntry>();
         AddEnum<ChangeKind>();
         AddInterface<WorldSnapshot>();
+        AddInterface<PlaybackSnapshot>();
     }
 }
