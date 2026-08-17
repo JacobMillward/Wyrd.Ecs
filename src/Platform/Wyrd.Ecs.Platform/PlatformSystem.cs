@@ -11,8 +11,13 @@ namespace Wyrd.Ecs.Platform;
 /// </summary>
 public sealed class PlatformSystem : EcsSystem
 {
+    private readonly List<SDL.Event> _events = [];
+
     /// <summary>The native SDL window handle, for consumers that need direct SDL3-CS access.</summary>
     public IntPtr Window { get; }
+
+    /// <summary>Every SDL event pumped this tick. Cleared and refilled once per <see cref="Execute"/>.</summary>
+    public IReadOnlyList<SDL.Event> Events => _events;
 
     /// <summary>
     /// Calls <c>SDL_Init(Video)</c> and creates the window. Throws
@@ -35,6 +40,12 @@ public sealed class PlatformSystem : EcsSystem
     /// <inheritdoc/>
     protected override void Execute(World world, Time time)
     {
+        _events.Clear();
+        SDL.PumpEvents();
+        while (SDL.PollEvent(out var ev))
+        {
+            _events.Add(ev);
+        }
     }
 
     /// <inheritdoc/>

@@ -28,4 +28,19 @@ public class PlatformSystemTests
 
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Update_DrainsPendingEventsIntoEventsBuffer()
+    {
+        var world = new WorldBuilder()
+            .AddSystem<PlatformSystem>(w => new PlatformSystem(w, "Test Window", 320, 240, SDL.WindowFlags.Hidden))
+            .Build();
+        var pushed = new SDL.Event { Type = (uint)SDL.EventType.Quit };
+        SDL.PushEvent(ref pushed);
+
+        world.Update(TimeSpan.Zero);
+
+        var platform = world.GetSystem<PlatformSystem>();
+        platform.Events.Should().Contain(e => e.Type == (uint)SDL.EventType.Quit);
+    }
 }
