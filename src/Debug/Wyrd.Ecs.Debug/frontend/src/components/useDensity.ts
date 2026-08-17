@@ -1,25 +1,26 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { RefObject } from 'preact';
 
 export type Density = 'compact' | 'comfortable';
 
-// Reports "compact"/"comfortable" whenever ref's own rendered width (or height, if
-// dimension: "height") crosses threshold. A plain ResizeObserver-backed hook: unlike
-// the old Blazor UI's version, there's no JS-interop boundary to bridge here.
-export function useDensity(ref: RefObject<HTMLElement>, threshold: number, dimension: 'width' | 'height' = 'width'): Density {
+// Returns the observed node as state, not a useRef object: a ref's identity never
+// changes even once .current attaches, so an effect keyed on the ref alone never
+// re-runs if the ref-bearing element wasn't there yet on the effect's first run (e.g.
+// an early-return render before data has loaded). Keying on the node itself makes the
+// effect re-run the moment it actually attaches.
+export function useDensity(threshold: number, dimension: 'width' | 'height' = 'width'): [Density, (node: HTMLElement | null) => void] {
     const [density, setDensity] = useState<Density>('comfortable');
+    const [node, setNode] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
-        const element = ref.current;
-        if (!element) return;
+        if (!node) return;
 
         const observer = new ResizeObserver((entries) => {
             const size = dimension === 'height' ? entries[0].contentRect.height : entries[0].contentRect.width;
             setDensity(size < threshold ? 'compact' : 'comfortable');
         });
-        observer.observe(element);
+        observer.observe(node);
         return () => observer.disconnect();
-    }, [ref, threshold, dimension]);
+    }, [node, threshold, dimension]);
 
-    return density;
+    return [density, setNode];
 }

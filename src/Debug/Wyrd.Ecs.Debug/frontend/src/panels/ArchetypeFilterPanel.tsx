@@ -1,4 +1,4 @@
-import { useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { css } from '@linaria/core';
 import { snapshot, filteredArchetypeKeys, toggleArchetypeFilter } from '../store';
 import { archetypeKey } from '../archetypeKey';
@@ -65,8 +65,7 @@ function compositionTitle(archetype: ArchetypeSnapshot): string {
 
 export function ArchetypeFilterPanel() {
     const [sortDescending, setSortDescending] = useState(true);
-    const rootRef = useRef<HTMLDivElement>(null);
-    const density = useDensity(rootRef, 260);
+    const [density, densityRef] = useDensity(260);
 
     const archetypes = snapshot.value?.archetypes ?? null;
 
@@ -80,7 +79,7 @@ export function ArchetypeFilterPanel() {
     return (
         <>
             <PanelToolbar countText={`${archetypes.length} archetype${archetypes.length === 1 ? '' : 's'} · ${totalEntities} entities`} />
-            <div class={content} ref={rootRef}>
+            <div class={content} ref={densityRef}>
                 {archetypes.length === 0 ? (
                     <p class={emptyState}>No archetypes.</p>
                 ) : (
