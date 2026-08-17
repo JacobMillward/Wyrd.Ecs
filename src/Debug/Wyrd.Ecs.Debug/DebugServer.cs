@@ -61,7 +61,7 @@ public sealed class DebugServer : IDisposable
         });
         _app = builder.Build();
 
-        var staticFiles = new ManifestEmbeddedFileProvider(typeof(DebugServer).Assembly, "wwwroot");
+        var staticFiles = new PhysicalFileProvider(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
         _app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = staticFiles });
         _app.UseStaticFiles(new StaticFileOptions { FileProvider = staticFiles });
 

@@ -10,7 +10,6 @@
     <Version>0.1.0-alpha</Version>
     <Description>In-process debug/inspection server for Wyrd.Ecs.</Description>
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
-    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.0" />
     <PackageReference Include="TypeGen" Version="7.0.0" />
   </ItemGroup>
 
@@ -41,15 +39,27 @@
     <None Include="build\Wyrd.Ecs.Debug.targets" Pack="true" PackagePath="buildTransitive\Wyrd.Ecs.Debug.targets" Visible="false" />
   </ItemGroup>
 
+  <!-- Literal (non-wildcard) paths, so MSBuild records them as known Content items at
+       project-evaluation time even though js/app.js and css/app.css don't exist on disk
+       yet then - only a wildcard/glob Include needs matching files to exist at evaluation
+       time. That's what makes these visible to both this project's own CopyToOutputDirectory
+       pass and a downstream ProjectReference/PackageReference consumer's transitive content
+       query, neither of which re-runs _WyrdBuildFrontend to discover items declared inside
+       a target body (confirmed hands-on: that's the form that silently failed to propagate). -->
   <ItemGroup>
-    <EmbeddedResource Include="wwwroot\index.html" Link="wwwroot/index.html" />
+    <Content Include="wwwroot\index.html" Link="wwwroot/index.html" CopyToOutputDirectory="PreserveNewest"
+      Pack="true" PackagePath="contentFiles/any/any/wwwroot/index.html" PackageCopyToOutput="true" />
+    <Content Include="wwwroot\js\app.js" Link="wwwroot/js/app.js" CopyToOutputDirectory="PreserveNewest"
+      Pack="true" PackagePath="contentFiles/any/any/wwwroot/js/app.js" PackageCopyToOutput="true" />
+    <Content Include="wwwroot\css\app.css" Link="wwwroot/css/app.css" CopyToOutputDirectory="PreserveNewest"
+      Pack="true" PackagePath="contentFiles/any/any/wwwroot/css/app.css" PackageCopyToOutput="true" />
   </ItemGroup>
 
   <Target Name="_WyrdGenerateTypeScriptTypes" AfterTargets="CoreCompile">
     <!-- TypeGen loads the compiled assembly via reflection and needs its dependencies
          resolvable alongside it. CoreCompile only produces the intermediate obj/ output,
          not the bin/ copy (which also holds copied ProjectReference outputs and only exists
-         after the full Build target chain finishes, too late for the embedding steps this
+         after the full Build target chain finishes, too late for the frontend build this
          must precede) - so the primary assembly and its ProjectReference outputs are staged
          into a fixed, config-independent folder tgconfig.json's "assemblies" can reference
          by a literal path. -->
@@ -61,13 +71,14 @@
     <Exec Command="dotnet typegen generate -p ." />
   </Target>
 
-  <Target Name="_WyrdBuildFrontend" AfterTargets="_WyrdGenerateTypeScriptTypes" BeforeTargets="_CalculateEmbeddedFilesManifestInputs;PrepareResourceNames">
+  <!-- wwwroot/js/app.js and wwwroot/css/app.css are served from disk (Content, copied
+       alongside the assembly), not embedded as resources. Embedding would need these files
+       to exist before CoreCompile runs (resources are compiled into the assembly), but they
+       can only exist after CoreCompile (TypeGen, which produces the .ts they're built from,
+       needs the compiled assembly to reflect over) - a real cycle, not an ordering typo. -->
+  <Target Name="_WyrdBuildFrontend" AfterTargets="_WyrdGenerateTypeScriptTypes">
     <Exec Command="npm ci" WorkingDirectory="frontend" Condition="!Exists('frontend/node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="frontend" />
-    <ItemGroup>
-      <EmbeddedResource Include="wwwroot/js/app.js" Link="wwwroot/js/app.js" />
-      <EmbeddedResource Include="wwwroot/css/app.css" Link="wwwroot/css/app.css" />
-    </ItemGroup>
   </Target>
 
   <Target Name="_WyrdEmbedDebugGeneratorAnalyzer" BeforeTargets="_GetPackageFiles">
