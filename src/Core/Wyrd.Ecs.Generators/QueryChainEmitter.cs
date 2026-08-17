@@ -247,6 +247,10 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs.Generated;");
         sb.AppendLine();
+        // Generated members are never hand-authored, so a consumer project with
+        // GenerateDocumentationFile enabled would otherwise see CS1591 (missing XML doc)
+        // for every member below.
+        sb.AppendLine("#pragma warning disable CS1591");
         sb.AppendLine("public static class SystemRegistry");
         sb.AppendLine("{");
         sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemAccess> Access = new Dictionary<Type, SystemAccess>");
@@ -284,6 +288,7 @@ internal static class QueryChainEmitter
         }
         sb.AppendLine("    };");
         sb.AppendLine("}");
+        sb.AppendLine("#pragma warning restore CS1591");
         return sb.ToString();
     }
 
@@ -318,6 +323,9 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
+        // Same rationale as RenderSystemAccessRegistry's pragma above: this is generated,
+        // never hand-authored, so it shouldn't trigger a consumer's CS1591.
+        sb.AppendLine("#pragma warning disable CS1591");
         sb.AppendLine("public static class GeneratedSystemRegistrationExtensions");
         sb.AppendLine("{");
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder) where T : EcsSystem =>");
@@ -347,6 +355,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("    private static SystemCadence CadenceOrDefault(Type systemType) =>");
         sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Cadence.TryGetValue(systemType, out var cadence) ? cadence : SystemCadence.Variable;");
         sb.AppendLine("}");
+        sb.AppendLine("#pragma warning restore CS1591");
         return sb.ToString();
     }
 
