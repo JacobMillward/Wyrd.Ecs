@@ -89,4 +89,12 @@ internal static class WyrdDiagnostics
         category: "Wyrd.Ecs.QueryChain",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor UnusedResourceWriteAccess = new(
+        id: "WYRD009",
+        title: "[Resource] property declares write access but is never assigned",
+        messageFormat: "Property '{0}' has a public setter, declaring write access to the scheduler, but no method on '{1}' ever assigns to it. Remove the public setter (read-only) unless a write is intended.",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

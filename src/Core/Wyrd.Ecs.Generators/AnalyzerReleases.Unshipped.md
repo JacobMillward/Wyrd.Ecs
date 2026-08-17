@@ -10,3 +10,4 @@ WYRD005 | Wyrd.Ecs.QueryChain | Error | QueryChainGenerator
 WYRD006 | Wyrd.Ecs.QueryChain | Error | ResourceShapeAnalyzer
 WYRD007 | Wyrd.Ecs.QueryChain | Error | ResourceShapeAnalyzer
 WYRD008 | Wyrd.Ecs.QueryChain | Warning | StaleResourceSnapshotAnalyzer
+WYRD009 | Wyrd.Ecs.QueryChain | Warning | UnusedResourceWriteAnalyzer
