@@ -40,6 +40,7 @@
   </Folder>
   <Folder Name="/src/Platform/">
     <Project Path="src/Platform/Wyrd.Ecs.Platform/Wyrd.Ecs.Platform.csproj" />
+    <Project Path="src/Platform/Wyrd.Ecs.Platform.Tests/Wyrd.Ecs.Platform.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
