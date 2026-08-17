@@ -4,7 +4,7 @@
 export {
     Play,
     Pause,
-    RefreshCw,
+    RotateCcw,
     Filter,
     Columns3,
     ChevronUp,

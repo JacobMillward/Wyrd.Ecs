@@ -8,7 +8,7 @@ import { wyrdTheme } from './dockviewTheme';
 import { playback } from './store';
 import { Icon } from './components/Icon';
 import { Slider } from './components/Slider';
-import { Play, Pause, RefreshCw, Sun, Moon } from './icons';
+import { Play, Pause, RotateCcw, Sun, Moon } from './icons';
 import { ArchetypeFilterPanel } from './panels/ArchetypeFilterPanel';
 import { EntityBrowserPanel } from './panels/EntityBrowserPanel';
 import { EntityInspectorPanel } from './panels/EntityInspectorPanel';
@@ -220,7 +220,7 @@ export function DockviewHost() {
                     <Slider value={playback.value.timeScale} min={0} max={4} step={0.1} decimals={1} onCommit={postPlaybackTimescale} />
                 </label>
                 <button type="button" class={iconButton} title="Reset Layout" onClick={resetLayout}>
-                    <Icon svg={RefreshCw} />
+                    <Icon svg={RotateCcw} />
                 </button>
                 <button type="button" class={iconButton} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={toggleTheme}>
                     <Icon svg={theme === 'dark' ? Sun : Moon} />
