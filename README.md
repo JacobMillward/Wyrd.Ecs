@@ -158,6 +158,14 @@ benchmarks/       BenchmarkDotNet suites, including head-to-head comparisons aga
 
 Each package under `src/` has a matching `.Tests` project alongside it.
 
+## Benchmarks
+
+```
+dotnet run -c Release --project benchmarks/Wyrd.Ecs.Benchmarks
+```
+
+Runs BenchmarkDotNet's interactive picker over every benchmark in the project. Pass `--filter` to run a subset without the picker, e.g. `--filter *TrackedQueryIteration*` or `--filter Comparison.*` for the head-to-head suites against Friflo.Engine.ECS and fennecs. BenchmarkDotNet refuses to run outside a `Release` build, so `-c Release` is required.
+
 ## Requirements
 
 .NET 10 SDK. Uses current C# language features throughout, including extension members and `allows ref struct`.
