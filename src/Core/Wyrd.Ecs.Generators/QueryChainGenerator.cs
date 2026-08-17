@@ -94,27 +94,37 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             // a clear runtime error there instead.
             var constructors = constructorResults
                 .Where(c => c!.Value.Shape != ConstructorShape.Unsupported)
-                .Select(c => (c!.Value.SystemTypeName, TakesWorld: c.Value.Shape == ConstructorShape.WorldParameter))
+                .Select(c => (c!.Value.SystemTypeName, c.Value.TakesWorld, c.Value.Resources))
                 .ToList();
 
             EmitSystemAccessRegistry(spc, chains, querySystems, edgeResults, constructors);
         });
     }
 
-    private enum ConstructorShape { Parameterless, WorldParameter, Unsupported }
+    private enum ConstructorShape { Parameterless, WorldParameter, WithResources, Unsupported }
+
+    // internal, not private: QueryChainEmitter (a separate class) needs to reference this
+    // when it builds the Construct factory expression.
+    internal readonly record struct ResourceParameter(string ResourceTypeName, bool IsWrite);
 
     /// <summary>One <c>EcsSystem</c>-derived class's constructor classification for <c>AddSystem&lt;T&gt;()</c>: which factory shape the generator can emit, or <see cref="ConstructorShape.Unsupported"/> if none applies (no <c>Construct</c> entry emitted for it; see the caller in <see cref="Initialize"/> for why this stays silent here rather than reporting <see cref="WyrdDiagnostics.UnconstructableSystem"/> unconditionally).</summary>
-    private readonly record struct ConstructorCandidate(string SystemTypeName, ConstructorShape Shape, Location DiagnosticLocation);
+    private readonly record struct ConstructorCandidate(
+        string SystemTypeName, ConstructorShape Shape, bool TakesWorld,
+        ImmutableArray<ResourceParameter> Resources, Location DiagnosticLocation);
 
     /// <summary>
     /// Classifies <paramref name="classDecl"/>'s constructor shape for the generator's
-    /// per-type <c>SystemRegistry.Construct</c> factory: an explicit <c>ctor(World)</c> is
-    /// preferred; no explicit constructor at all (the compiler synthesizes a public
-    /// parameterless one) or an explicit public parameterless constructor both fall back
-    /// to it; anything else (private-only, extra required parameters, more than one
-    /// public constructor) is <see cref="ConstructorShape.Unsupported"/>. Only classes
-    /// actually deriving from <c>Wyrd.Ecs.EcsSystem</c> are classified — everything else
-    /// returns <c>null</c>, filtered out by the caller's <c>.Where</c>.
+    /// per-type <c>SystemRegistry.Construct</c> factory: no explicit constructor at all
+    /// (the compiler synthesizes a public parameterless one) or an explicit public
+    /// parameterless constructor are <see cref="ConstructorShape.Parameterless"/>; an
+    /// optional leading <c>ctor(World)</c> parameter followed by zero or more
+    /// <c>struct, IResource</c> parameters (<c>ref</c> for write access, <c>in</c> or bare
+    /// for read) is <see cref="ConstructorShape.WorldParameter"/> (zero resources) or
+    /// <see cref="ConstructorShape.WithResources"/>; anything else (private-only, extra
+    /// non-resource parameters, more than one public constructor) is
+    /// <see cref="ConstructorShape.Unsupported"/>. Only classes actually deriving from
+    /// <c>Wyrd.Ecs.EcsSystem</c> are classified — everything else returns <c>null</c>,
+    /// filtered out by the caller's <c>.Where</c>.
     /// </summary>
     private static ConstructorCandidate? ExtractConstructorShape(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
     {
@@ -124,28 +134,51 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         if (classSymbol.ContainingType is not null) return null; // nested classes not supported, same restriction and reason as QuerySystemCandidate: a private/protected nested type is inaccessible from the separate generated file Construct lives in
         if (!InheritsFromEcsSystem(classSymbol)) return null;
 
-        var publicCtors = classSymbol.Constructors
-            .Where(c => c.DeclaredAccessibility == Accessibility.Public && !c.IsStatic)
-            .ToList();
+        var location = classDecl.Identifier.GetLocation();
+        var systemTypeName = classSymbol.ToDisplayString();
+        var noResources = ImmutableArray<ResourceParameter>.Empty;
 
         // No explicit constructor at all: the compiler synthesizes a public parameterless one.
         if (classSymbol.Constructors.Length == 0)
-            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Parameterless, classDecl.Identifier.GetLocation());
+            return new ConstructorCandidate(systemTypeName, ConstructorShape.Parameterless, false, noResources, location);
 
+        var publicCtors = classSymbol.Constructors
+            .Where(c => c.DeclaredAccessibility == Accessibility.Public && !c.IsStatic)
+            .ToList();
         if (publicCtors.Count != 1)
-            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Unsupported, classDecl.Identifier.GetLocation());
+            return new ConstructorCandidate(systemTypeName, ConstructorShape.Unsupported, false, noResources, location);
 
-        var ctor = publicCtors[0];
-        if (ctor.Parameters.Length == 0)
-            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Parameterless, classDecl.Identifier.GetLocation());
+        var parameters = publicCtors[0].Parameters;
+        if (parameters.Length == 0)
+            return new ConstructorCandidate(systemTypeName, ConstructorShape.Parameterless, false, noResources, location);
 
-        if (ctor.Parameters.Length == 1
-            && ctor.Parameters[0].Type is INamedTypeSymbol { Name: "World" } worldType
-            && worldType.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
-            return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.WorldParameter, classDecl.Identifier.GetLocation());
+        var takesWorld = parameters[0].Type is INamedTypeSymbol { Name: "World" } worldType
+            && worldType.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs";
+        var remaining = takesWorld ? parameters.RemoveAt(0) : parameters;
 
-        return new ConstructorCandidate(classSymbol.ToDisplayString(), ConstructorShape.Unsupported, classDecl.Identifier.GetLocation());
+        // remaining.Length == 0 here only when takesWorld is true: parameters.Length == 0
+        // already returned above, so !takesWorld (remaining == parameters unchanged) means
+        // remaining.Length is at least 1.
+        if (remaining.Length == 0)
+            return new ConstructorCandidate(systemTypeName, ConstructorShape.WorldParameter, true, noResources, location);
+
+        var resources = ImmutableArray.CreateBuilder<ResourceParameter>(remaining.Length);
+        foreach (var parameter in remaining)
+        {
+            if (parameter.RefKind is not (RefKind.None or RefKind.In or RefKind.Ref))
+                return new ConstructorCandidate(systemTypeName, ConstructorShape.Unsupported, false, noResources, location);
+            if (!ImplementsIResource(parameter.Type))
+                return new ConstructorCandidate(systemTypeName, ConstructorShape.Unsupported, false, noResources, location);
+            resources.Add(new ResourceParameter(parameter.Type.ToDisplayString(), parameter.RefKind == RefKind.Ref));
+        }
+
+        return new ConstructorCandidate(systemTypeName, ConstructorShape.WithResources, takesWorld, resources.MoveToImmutable(), location);
     }
+
+    /// <summary>True if <paramref name="type"/> is a struct implementing <c>Wyrd.Ecs.IResource</c>.</summary>
+    private static bool ImplementsIResource(ITypeSymbol type) =>
+        type.TypeKind == TypeKind.Struct
+        && type.AllInterfaces.Any(i => i is { Name: "IResource", ContainingNamespace.Name: "Ecs" } && i.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");
 
     /// <summary>True if <paramref name="type"/> derives (directly or transitively) from <c>Wyrd.Ecs.EcsSystem</c>.</summary>
     private static bool InheritsFromEcsSystem(INamedTypeSymbol type)
@@ -299,7 +332,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
         ImmutableArray<QuerySystemCandidate> querySystems,
         ImmutableArray<EdgeResult> edges,
-        IReadOnlyList<(string SystemTypeName, bool TakesWorld)> constructors)
+        IReadOnlyList<(string SystemTypeName, bool TakesWorld, ImmutableArray<ResourceParameter> Resources)> constructors)
     {
         var accessFromChains = chains
             .Where(c => c.SystemTypeName is not null)
@@ -307,12 +340,31 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var accessFromQuerySystems = querySystems
             .Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape));
 
+        // Every QuerySystemCandidate already contributes exactly one entry above, even one
+        // whose shape has zero data elements (an empty query with only [Resource]
+        // properties), so every QuerySystem lands in the GroupBy below with at least an
+        // empty Reads/Writes pair - resource access only needs a lookup merged into the
+        // existing Select, not a second pass for systems the grouping might otherwise miss.
+        var resourceAccessFromQuerySystems = querySystems
+            .SelectMany(s => s.ResourceProperties.Select(r => (
+                SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName,
+                r.ResourceTypeName,
+                r.IsWrite)))
+            .ToLookup(r => r.SystemTypeName);
+
         var bySystemType = accessFromChains.Concat(accessFromQuerySystems)
             .GroupBy(c => c.SystemTypeName)
-            .Select(g => (
-                SystemTypeName: g.Key,
-                Reads: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
-                Writes: g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList()))
+            .Select(g =>
+            {
+                var resourceEntries = resourceAccessFromQuerySystems[g.Key];
+                var reads = g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName))
+                    .Concat(resourceEntries.Where(r => !r.IsWrite).Select(r => r.ResourceTypeName))
+                    .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
+                var writes = g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName))
+                    .Concat(resourceEntries.Where(r => r.IsWrite).Select(r => r.ResourceTypeName))
+                    .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
+                return (SystemTypeName: g.Key, Reads: reads, Writes: writes);
+            })
             .ToList();
 
         var byEdgeSystemType = edges
@@ -370,6 +422,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         if (shape is null) return default;
 
         var namespaceName = classSymbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
+        var resourceProperties = ExtractResourceProperties(classSymbol);
 
         // Update is name-convention-recognized, not a real override: its parameter list
         // depends on unpacking an arbitrary TShape tuple, which isn't expressible as a
@@ -397,6 +450,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 Shape = shape,
                 HasWorldParameter = classification.HasWorld,
                 HasEntityViewParameter = classification.HasEntityView,
+                ResourceProperties = resourceProperties,
             }, null);
         }
 
@@ -414,6 +468,23 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             Shape = resolvedShape,
             HasWorldParameter = classification.HasWorld,
             HasEntityViewParameter = classification.HasEntityView,
+            ResourceProperties = resourceProperties,
         }, null);
+    }
+
+    /// <summary>Collects every `[Resource]`-tagged property on <paramref name="classSymbol"/>, its read/write mode taken from whether its setter is public.</summary>
+    private static ImmutableArray<ResourcePropertyInfo> ExtractResourceProperties(INamedTypeSymbol classSymbol)
+    {
+        var result = ImmutableArray.CreateBuilder<ResourcePropertyInfo>();
+        foreach (var property in classSymbol.GetMembers().OfType<IPropertySymbol>())
+        {
+            var hasResourceAttribute = property.GetAttributes()
+                .Any(a => a.AttributeClass is { Name: "ResourceAttribute", ContainingNamespace.Name: "Ecs" } ac && ac.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");
+            if (!hasResourceAttribute) continue;
+
+            var isWrite = property.SetMethod is { DeclaredAccessibility: Accessibility.Public };
+            result.Add(new ResourcePropertyInfo(property.Name, property.Type.ToDisplayString(), isWrite));
+        }
+        return result.ToImmutable();
     }
 }

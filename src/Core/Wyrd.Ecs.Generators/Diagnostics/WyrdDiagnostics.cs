@@ -65,4 +65,36 @@ internal static class WyrdDiagnostics
         category: "Wyrd.Ecs.QueryChain",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor ResourcePropertyWrongType = new(
+        id: "WYRD006",
+        title: "[Resource] property type must implement IResource",
+        messageFormat: "Property '{0}' is marked [Resource] but its type '{1}' does not implement IResource",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor ResourceOnNonQuerySystem = new(
+        id: "WYRD007",
+        title: "[Resource] is only supported on QuerySystem",
+        messageFormat: "Property '{0}' is marked [Resource], but its containing type '{1}' does not derive from QuerySystem. Use World.GetResource<T>()/GetResourceRef<T>() inside Execute instead.",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor StaleResourceSnapshot = new(
+        id: "WYRD008",
+        title: "Resource value stored where it will go stale",
+        messageFormat: "{0}",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor UnusedResourceWriteAccess = new(
+        id: "WYRD009",
+        title: "[Resource] property declares write access but is never assigned",
+        messageFormat: "Property '{0}' has a public setter, declaring write access to the scheduler, but no method on '{1}' ever assigns to it. Remove the public setter (read-only) unless a write is intended.",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

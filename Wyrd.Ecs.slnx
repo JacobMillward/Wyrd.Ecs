@@ -38,6 +38,24 @@
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Abstractions/Wyrd.Ecs.Debug.Abstractions.csproj" />
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Abstractions.Tests/Wyrd.Ecs.Debug.Abstractions.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Platform/">
+    <Project Path="src/Platform/Wyrd.Ecs.Platform/Wyrd.Ecs.Platform.csproj" />
+    <Project Path="src/Platform/Wyrd.Ecs.Platform.Tests/Wyrd.Ecs.Platform.Tests.csproj" />
+    <Project Path="src/Platform/Wyrd.Ecs.Platform.AotSmokeTest/Wyrd.Ecs.Platform.AotSmokeTest.csproj" />
+    <Project Path="src/Platform/Wyrd.Ecs.Engine/Wyrd.Ecs.Engine.csproj" />
+  </Folder>
+  <Folder Name="/src/Platform/Renderer/">
+    <Project Path="src/Platform/Renderer/Wyrd.Ecs.Renderer/Wyrd.Ecs.Renderer.csproj" />
+  </Folder>
+  <Folder Name="/src/Platform/Input/">
+    <Project Path="src/Platform/Input/Wyrd.Ecs.Input/Wyrd.Ecs.Input.csproj" />
+  </Folder>
+  <Folder Name="/src/Platform/Audio/">
+    <Project Path="src/Platform/Audio/Wyrd.Ecs.Audio/Wyrd.Ecs.Audio.csproj" />
+  </Folder>
+  <Folder Name="/src/Platform/Assets/">
+    <Project Path="src/Platform/Assets/Wyrd.Ecs.Assets/Wyrd.Ecs.Assets.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
   </Folder>

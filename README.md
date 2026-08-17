@@ -152,6 +152,8 @@ Serves a browser panel at `http://127.0.0.1:5299` showing every archetype, every
 src/Core/         World, entities, archetype storage, the query chain, command buffer, the scheduler, and the source generators behind them
 src/Debug/        Wyrd.Ecs.Debug, the live browser debug UI and the programmatic inspection API it's built on
 src/Persistence/  Snapshot persistence core, and the Binary, Json, and Continuous packages built on it
+src/Platform/     Wyrd.Ecs.Platform (SDL3 window/lifecycle/event pump), plus empty package
+                  skeletons for Renderer/Input/Audio/Assets and the Wyrd.Ecs.Engine meta-package
 docs/             The Starlight docs site published at wyrd.millward.dev
 benchmarks/       BenchmarkDotNet suites, including head-to-head comparisons against Friflo.Engine.ECS and fennecs
 ```
@@ -172,8 +174,11 @@ Runs BenchmarkDotNet's interactive picker over every benchmark in the project. P
 
 ## Known gaps
 
-- No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Debug`, `Wyrd.Ecs.Debug.Abstractions`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, and `Wyrd.Ecs.Persistence.Continuous`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
-- No renderer, audio, or asset pipeline yet.
+- No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Debug`, `Wyrd.Ecs.Debug.Abstractions`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, `Wyrd.Ecs.Persistence.Continuous`, `Wyrd.Ecs.Platform`, `Wyrd.Ecs.Renderer`, `Wyrd.Ecs.Input`, `Wyrd.Ecs.Audio`, `Wyrd.Ecs.Assets`, and `Wyrd.Ecs.Engine`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
+- No renderer, audio, or asset pipeline yet — `Wyrd.Ecs.Platform` (SDL3 window/lifecycle/event
+  pump) works, but `Wyrd.Ecs.Renderer`/`.Input`/`.Audio`/`.Assets` are package skeletons with no
+  functional code, and `Wyrd.Ecs.Input` is additionally blocked on a not-yet-built `World`
+  resource store. See `docs/superpowers/specs/2026-08-17-platform-layer-foundation-design.md`.
 
 ## License
 

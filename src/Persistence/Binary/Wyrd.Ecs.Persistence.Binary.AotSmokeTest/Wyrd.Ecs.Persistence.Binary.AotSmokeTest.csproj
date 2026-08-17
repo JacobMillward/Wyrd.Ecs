@@ -9,6 +9,9 @@
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IsPackable>false</IsPackable>
+    <!-- MemoryPack.Core isn't annotated IsTrimmable (github.com/Cysharp/MemoryPack/issues/251),
+         so ILC can't verify it statically. This smoke test verifies it at runtime instead. -->
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

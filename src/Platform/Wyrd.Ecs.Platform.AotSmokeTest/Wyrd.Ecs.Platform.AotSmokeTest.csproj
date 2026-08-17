@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wyrd.Ecs.Platform.AotSmokeTest</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\Wyrd.Ecs.Platform\Wyrd.Ecs.Platform.csproj" />
+  </ItemGroup>
+
+</Project>

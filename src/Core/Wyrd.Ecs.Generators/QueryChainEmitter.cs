@@ -238,7 +238,7 @@ internal static class QueryChainEmitter
         IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems,
         IReadOnlyList<(string SystemTypeName, List<string> Before, List<string> After)> edges,
         IReadOnlyList<string> fixedTimestepSystemTypeNames,
-        IReadOnlyList<(string SystemTypeName, bool TakesWorld)> constructors)
+        IReadOnlyList<(string SystemTypeName, bool TakesWorld, ImmutableArray<QueryChainGenerator.ResourceParameter> Resources)> constructors)
     {
         var sb = new StringBuilder();
         sb.AppendLine("using System;");
@@ -247,6 +247,10 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs.Generated;");
         sb.AppendLine();
+        // Generated members are never hand-authored, so a consumer project with
+        // GenerateDocumentationFile enabled would otherwise see CS1591 (missing XML doc)
+        // for every member below.
+        sb.AppendLine("#pragma warning disable CS1591");
         sb.AppendLine("public static class SystemRegistry");
         sb.AppendLine("{");
         sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemAccess> Access = new Dictionary<Type, SystemAccess>");
@@ -279,11 +283,16 @@ internal static class QueryChainEmitter
         sb.AppendLine("    {");
         foreach (var ctor in constructors)
         {
-            var factory = ctor.TakesWorld ? $"world => new global::{ctor.SystemTypeName}(world)" : $"world => new global::{ctor.SystemTypeName}()";
+            var args = new List<string>();
+            if (ctor.TakesWorld) args.Add("world");
+            foreach (var resource in ctor.Resources)
+                args.Add(resource.IsWrite ? $"ref world.GetResourceRef<{resource.ResourceTypeName}>()" : $"world.GetResource<{resource.ResourceTypeName}>()");
+            var factory = $"world => new global::{ctor.SystemTypeName}({string.Join(", ", args)})";
             sb.AppendLine($"        [typeof(global::{ctor.SystemTypeName})] = {factory},");
         }
         sb.AppendLine("    };");
         sb.AppendLine("}");
+        sb.AppendLine("#pragma warning restore CS1591");
         return sb.ToString();
     }
 
@@ -318,6 +327,9 @@ internal static class QueryChainEmitter
         sb.AppendLine();
         sb.AppendLine("namespace Wyrd.Ecs;");
         sb.AppendLine();
+        // Same rationale as RenderSystemAccessRegistry's pragma above: this is generated,
+        // never hand-authored, so it shouldn't trigger a consumer's CS1591.
+        sb.AppendLine("#pragma warning disable CS1591");
         sb.AppendLine("public static class GeneratedSystemRegistrationExtensions");
         sb.AppendLine("{");
         sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder) where T : EcsSystem =>");
@@ -347,6 +359,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("    private static SystemCadence CadenceOrDefault(Type systemType) =>");
         sb.AppendLine("        Wyrd.Ecs.Generated.SystemRegistry.Cadence.TryGetValue(systemType, out var cadence) ? cadence : SystemCadence.Variable;");
         sb.AppendLine("}");
+        sb.AppendLine("#pragma warning restore CS1591");
         return sb.ToString();
     }
 
@@ -399,20 +412,45 @@ internal static class QueryChainEmitter
         // (RefKind(e), not a bare ParamName(e)). The state parameter is prepended before
         // joining, not appended by string concatenation, since that would leave a
         // trailing comma when dataElements is empty (a filter-only shape).
-        sb.AppendLine("    protected override void Execute(World world, Time time) =>");
-
+        string dispatchExpr;
         if (candidate.HasWorldParameter)
         {
             var lambdaParams = string.Join(", ", new[] { "in (Time Time, World World) s" }.Concat(dataElements.Select(ParamDecl)));
             var updateCallArgs = string.Join(", ", new[] { "s.Time", "s.World" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}));");
+            dispatchExpr = $"(({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}))";
         }
         else
         {
             var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
             var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
+            dispatchExpr = $"(({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}))";
         }
+
+        if (candidate.ResourceProperties.IsEmpty)
+        {
+            sb.AppendLine("    protected override void Execute(World world, Time time) =>");
+            sb.AppendLine($"        {dispatchExpr};");
+            return;
+        }
+
+        sb.AppendLine("    protected override void Execute(World world, Time time)");
+        sb.AppendLine("    {");
+        AppendResourceFetch(sb, candidate.ResourceProperties);
+        sb.AppendLine($"        {dispatchExpr};");
+        AppendResourceWriteback(sb, candidate.ResourceProperties);
+        sb.AppendLine("    }");
+    }
+
+    private static void AppendResourceFetch(StringBuilder sb, ImmutableArray<ResourcePropertyInfo> resources)
+    {
+        foreach (var r in resources)
+            sb.AppendLine($"        {r.PropertyName} = world.GetResource<{r.ResourceTypeName}>();");
+    }
+
+    private static void AppendResourceWriteback(StringBuilder sb, ImmutableArray<ResourcePropertyInfo> resources)
+    {
+        foreach (var r in resources.Where(r => r.IsWrite))
+            sb.AppendLine($"        world.GetResourceRef<{r.ResourceTypeName}>() = {r.PropertyName};");
     }
 
     /// <summary>
@@ -434,6 +472,7 @@ internal static class QueryChainEmitter
 
         sb.AppendLine("    protected override void Execute(World world, Time time)");
         sb.AppendLine("    {");
+        AppendResourceFetch(sb, candidate.ResourceProperties);
         sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query());");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(world))");
         sb.AppendLine("        {");
@@ -443,6 +482,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("            for (var i = 0; i < chunk.Count; i++)");
         sb.AppendLine($"                Update({string.Join(", ", updateArgs)});");
         sb.AppendLine("        }");
+        AppendResourceWriteback(sb, candidate.ResourceProperties);
         sb.AppendLine("    }");
     }
 

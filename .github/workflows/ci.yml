@@ -18,6 +18,8 @@ jobs:
     name: Build & test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SDL_VIDEODRIVER: dummy
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,3 +52,9 @@ jobs:
 
       - name: Run NativeAOT smoke test
         run: ./artifacts/aot-smoke-test/Wyrd.Ecs.Persistence.Binary.AotSmokeTest
+
+      - name: Publish Wyrd.Ecs.Platform NativeAOT smoke test
+        run: dotnet publish src/Platform/Wyrd.Ecs.Platform.AotSmokeTest -c Release -r linux-x64 --self-contained -o artifacts/platform-aot-smoke-test
+
+      - name: Run Wyrd.Ecs.Platform NativeAOT smoke test
+        run: ./artifacts/platform-aot-smoke-test/Wyrd.Ecs.Platform.AotSmokeTest

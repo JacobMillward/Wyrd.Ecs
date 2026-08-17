@@ -11,6 +11,7 @@ public sealed class WorldBuilder
 {
     private int _archetypeCapacity = World.DefaultArchetypeCapacity;
     private readonly List<SystemEntry> _pending = [];
+    private readonly List<(Type ResourceType, Action<World> Apply)> _pendingResources = [];
     private int _parallelThreshold = 1000;
     private ISystemScheduler? _scheduler;
     private bool _built;
@@ -55,10 +56,40 @@ public sealed class WorldBuilder
 
         var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
         var world = new World(_archetypeCapacity, scheduler, _fixedStep, _maxSubstepsPerUpdate);
+        foreach (var (_, apply) in _pendingResources) apply(world);
         scheduler.InitialRegister(_pending, world);
 
         OnBuilt?.Invoke(world);
         return world;
+    }
+
+    /// <summary>
+    /// Registers <paramref name="instance"/> as the <typeparamref name="T"/> resource on the
+    /// <see cref="World"/> this builder produces. Throws immediately if <typeparamref name="T"/>
+    /// is already registered on this builder, the same way a duplicate <c>AddSystem&lt;T&gt;()</c>
+    /// does.
+    /// </summary>
+    public WorldBuilder AddResource<T>(T instance) where T : struct, IResource
+    {
+        ThrowIfAlreadyBuilt();
+        RegisterResource(typeof(T), world => world.AddResource(instance));
+        return this;
+    }
+
+    /// <summary>Same as <see cref="AddResource{T}(T)"/>, but builds the value from a factory that receives the new <see cref="World"/>.</summary>
+    public WorldBuilder AddResource<T>(Func<World, T> factory) where T : struct, IResource
+    {
+        ThrowIfAlreadyBuilt();
+        RegisterResource(typeof(T), world => world.AddResource(factory));
+        return this;
+    }
+
+    private void RegisterResource(Type resourceType, Action<World> apply)
+    {
+        if (_pendingResources.Exists(r => r.ResourceType == resourceType))
+            throw new InvalidOperationException(
+                $"A resource of type '{resourceType}' is already registered on this WorldBuilder. At most one instance per resource Type is supported.");
+        _pendingResources.Add((resourceType, apply));
     }
 
     /// <summary>

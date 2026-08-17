@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wyrd.Ecs.Renderer</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsPackable>true</IsPackable>
+    <Version>0.1.0-alpha</Version>
+    <Description>SDL_GPU-based renderer for Wyrd.Ecs. Not yet implemented, package skeleton only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\..\Wyrd.Ecs.Platform\Wyrd.Ecs.Platform.csproj" />
+  </ItemGroup>
+
+</Project>
