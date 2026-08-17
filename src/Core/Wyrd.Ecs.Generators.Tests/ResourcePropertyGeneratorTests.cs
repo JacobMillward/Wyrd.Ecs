@@ -36,4 +36,41 @@ public class ResourcePropertyGeneratorTests
 
         result.Should().Be(7);
     }
+
+    private const string WriteHarness = """
+        using System;
+        using Wyrd.Ecs;
+
+        public struct Score : IResource { public int Value; }
+
+        public sealed partial class WriterSystem : QuerySystem
+        {
+            [Resource] public Score Score { get; set; }
+            protected override IQuery DefineQuery(Query query) => query;
+            public void Update(Time time) => Score = new Score { Value = Score.Value + 1 };
+        }
+
+        public static class Harness
+        {
+            public static int Run()
+            {
+                var world = new WorldBuilder().AddResource(new Score { Value = 1 }).AddSystem<WriterSystem>().Build();
+                world.Commands.CreateEntity();
+                world.ApplyCommands();
+                world.Update(TimeSpan.Zero);
+                world.Update(TimeSpan.Zero);
+                return world.GetResource<Score>().Value;
+            }
+        }
+        """;
+
+    [Fact]
+    public void WritableResourceProperty_WritesBackAfterUpdateReturns()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(WriteHarness));
+
+        var result = (int)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
+
+        result.Should().Be(3, "starts at 1, WriterSystem increments it once per Update() call, two calls");
+    }
 }

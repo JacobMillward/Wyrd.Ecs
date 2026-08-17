@@ -412,20 +412,45 @@ internal static class QueryChainEmitter
         // (RefKind(e), not a bare ParamName(e)). The state parameter is prepended before
         // joining, not appended by string concatenation, since that would leave a
         // trailing comma when dataElements is empty (a filter-only shape).
-        sb.AppendLine("    protected override void Execute(World world, Time time) =>");
-
+        string dispatchExpr;
         if (candidate.HasWorldParameter)
         {
             var lambdaParams = string.Join(", ", new[] { "in (Time Time, World World) s" }.Concat(dataElements.Select(ParamDecl)));
             var updateCallArgs = string.Join(", ", new[] { "s.Time", "s.World" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}));");
+            dispatchExpr = $"(({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}))";
         }
         else
         {
             var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
             var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            sb.AppendLine($"        (({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}));");
+            dispatchExpr = $"(({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}))";
         }
+
+        if (candidate.ResourceProperties.IsEmpty)
+        {
+            sb.AppendLine("    protected override void Execute(World world, Time time) =>");
+            sb.AppendLine($"        {dispatchExpr};");
+            return;
+        }
+
+        sb.AppendLine("    protected override void Execute(World world, Time time)");
+        sb.AppendLine("    {");
+        AppendResourceFetch(sb, candidate.ResourceProperties);
+        sb.AppendLine($"        {dispatchExpr};");
+        AppendResourceWriteback(sb, candidate.ResourceProperties);
+        sb.AppendLine("    }");
+    }
+
+    private static void AppendResourceFetch(StringBuilder sb, ImmutableArray<ResourcePropertyInfo> resources)
+    {
+        foreach (var r in resources)
+            sb.AppendLine($"        {r.PropertyName} = world.GetResource<{r.ResourceTypeName}>();");
+    }
+
+    private static void AppendResourceWriteback(StringBuilder sb, ImmutableArray<ResourcePropertyInfo> resources)
+    {
+        foreach (var r in resources.Where(r => r.IsWrite))
+            sb.AppendLine($"        world.GetResourceRef<{r.ResourceTypeName}>() = {r.PropertyName};");
     }
 
     /// <summary>
@@ -447,6 +472,7 @@ internal static class QueryChainEmitter
 
         sb.AppendLine("    protected override void Execute(World world, Time time)");
         sb.AppendLine("    {");
+        AppendResourceFetch(sb, candidate.ResourceProperties);
         sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query());");
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(world))");
         sb.AppendLine("        {");
@@ -456,6 +482,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("            for (var i = 0; i < chunk.Count; i++)");
         sb.AppendLine($"                Update({string.Join(", ", updateArgs)});");
         sb.AppendLine("        }");
+        AppendResourceWriteback(sb, candidate.ResourceProperties);
         sb.AppendLine("    }");
     }
 
