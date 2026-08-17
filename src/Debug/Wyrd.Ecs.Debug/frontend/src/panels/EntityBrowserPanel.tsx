@@ -1,9 +1,8 @@
-import { useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { css } from '@linaria/core';
 import { snapshot, filteredArchetypeKeys, selectedEntity, selectEntity, toggleArchetypeFilter, clearArchetypeFilters } from '../store';
 import { archetypeKey } from '../archetypeKey';
 import { formatEntity, entityEquals } from '../entityFormat';
-import { useDensity } from '../components/useDensity';
 import { PanelToolbar } from '../components/PanelToolbar';
 import { SortableHeader } from '../components/SortableHeader';
 import { Chip, chipRow } from '../components/Chip';
@@ -18,8 +17,12 @@ const content = css`
     overflow: auto;
 `;
 
+// min-width instead of letting columns shrink to illegibility: below this, the panel
+// (overflow: auto, see content below) scrolls horizontally rather than squeezing chips
+// into unreadable slivers.
 const table = css`
     width: 100%;
+    min-width: 480px;
     border-collapse: collapse;
     font-size: 12px;
 `;
@@ -102,8 +105,6 @@ export function EntityBrowserPanel() {
     const [showTags, setShowTags] = useState(true);
     const [sortColumn, setSortColumn] = useState<SortColumn>('entity');
     const [sortDescending, setSortDescending] = useState(false);
-    const rootRef = useRef<HTMLDivElement>(null);
-    const density = useDensity(rootRef, 640);
 
     const worldSnapshot = snapshot.value;
     if (worldSnapshot === null) {
@@ -150,7 +151,20 @@ export function EntityBrowserPanel() {
                             const key = archetypeKey(a);
                             return (
                                 <div key={key} class={popoverRow}>
-                                    <span>{a.componentDiscriminators.join(', ') || '(no components)'}</span>
+                                    <div class={chipRow}>
+                                        {a.componentDiscriminators.length === 0 && a.tagDiscriminators.length === 0 ? (
+                                            <span>(no components)</span>
+                                        ) : (
+                                            <>
+                                                {a.componentDiscriminators.map((c) => (
+                                                    <Chip key={c} text={c} />
+                                                ))}
+                                                {a.tagDiscriminators.map((tag) => (
+                                                    <Chip key={tag} text={tag} isTag />
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
                                     <button type="button" class={linkButton} onClick={() => toggleArchetypeFilter(key)}>
                                         remove
                                     </button>
@@ -163,7 +177,7 @@ export function EntityBrowserPanel() {
                     </Popover>
                 )}
             </PanelToolbar>
-            <div class={content} ref={rootRef}>
+            <div class={content}>
                 {visible.length === 0 ? (
                     <p class={emptyState}>No entities match the current filter/search.</p>
                 ) : (
@@ -172,7 +186,7 @@ export function EntityBrowserPanel() {
                             <tr>
                                 <SortableHeader label="Entity" active={sortColumn === 'entity'} descending={sortDescending} onClick={() => sortBy('entity')} />
                                 {showComponents && <SortableHeader label="Components" active={sortColumn === 'components'} descending={sortDescending} onClick={() => sortBy('components')} />}
-                                {showTags && density === 'comfortable' && <SortableHeader label="Tags" active={sortColumn === 'tags'} descending={sortDescending} onClick={() => sortBy('tags')} />}
+                                {showTags && <SortableHeader label="Tags" active={sortColumn === 'tags'} descending={sortDescending} onClick={() => sortBy('tags')} />}
                             </tr>
                         </thead>
                         <tbody>
@@ -188,7 +202,7 @@ export function EntityBrowserPanel() {
                                             </div>
                                         </td>
                                     )}
-                                    {showTags && density === 'comfortable' && (
+                                    {showTags && (
                                         <td class={td}>
                                             <div class={chipRow}>
                                                 {entity.tags.map((tag) => (
