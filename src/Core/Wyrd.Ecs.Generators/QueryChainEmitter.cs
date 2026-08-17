@@ -238,7 +238,7 @@ internal static class QueryChainEmitter
         IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems,
         IReadOnlyList<(string SystemTypeName, List<string> Before, List<string> After)> edges,
         IReadOnlyList<string> fixedTimestepSystemTypeNames,
-        IReadOnlyList<(string SystemTypeName, bool TakesWorld)> constructors)
+        IReadOnlyList<(string SystemTypeName, bool TakesWorld, ImmutableArray<QueryChainGenerator.ResourceParameter> Resources)> constructors)
     {
         var sb = new StringBuilder();
         sb.AppendLine("using System;");
@@ -283,7 +283,11 @@ internal static class QueryChainEmitter
         sb.AppendLine("    {");
         foreach (var ctor in constructors)
         {
-            var factory = ctor.TakesWorld ? $"world => new global::{ctor.SystemTypeName}(world)" : $"world => new global::{ctor.SystemTypeName}()";
+            var args = new List<string>();
+            if (ctor.TakesWorld) args.Add("world");
+            foreach (var resource in ctor.Resources)
+                args.Add(resource.IsWrite ? $"ref world.GetResourceRef<{resource.ResourceTypeName}>()" : $"world.GetResource<{resource.ResourceTypeName}>()");
+            var factory = $"world => new global::{ctor.SystemTypeName}({string.Join(", ", args)})";
             sb.AppendLine($"        [typeof(global::{ctor.SystemTypeName})] = {factory},");
         }
         sb.AppendLine("    };");
