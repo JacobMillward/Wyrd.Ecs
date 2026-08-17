@@ -1,0 +1,53 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro:assets';
+
+interface Props {
+	light: ImageMetadata;
+	dark: ImageMetadata;
+	alt: string;
+}
+
+const { light, dark, alt } = Astro.props;
+---
+
+<span class="themed-image">
+	<Image src={dark} alt={alt} class="dark-shot" />
+	<Image src={light} alt={alt} class="light-shot" />
+</span>
+
+<style>
+	/* Every selector here is :global(): the two <Image>-rendered <img> tags are
+	   outside this component's own template, so Astro's scope-hash attribute
+	   isn't reliably attached to them, plain global class/attribute matching
+	   avoids depending on that. */
+	@layer starlight.components {
+		:global(.themed-image) {
+			display: block;
+		}
+
+		:global(.themed-image img) {
+			display: block;
+			max-width: 100%;
+			height: auto;
+			border-radius: 6px;
+			border: 1px solid var(--sl-color-hairline);
+		}
+
+		:global(.themed-image .dark-shot) {
+			display: block;
+		}
+
+		:global(.themed-image .light-shot) {
+			display: none;
+		}
+
+		:global([data-theme='light']:root .themed-image .dark-shot) {
+			display: none;
+		}
+
+		:global([data-theme='light']:root .themed-image .light-shot) {
+			display: block;
+		}
+	}
+</style>
