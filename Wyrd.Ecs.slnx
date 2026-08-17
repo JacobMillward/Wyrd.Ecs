@@ -38,6 +38,9 @@
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Abstractions/Wyrd.Ecs.Debug.Abstractions.csproj" />
     <Project Path="src/Debug/Wyrd.Ecs.Debug.Abstractions.Tests/Wyrd.Ecs.Debug.Abstractions.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Platform/">
+    <Project Path="src/Platform/Wyrd.Ecs.Platform/Wyrd.Ecs.Platform.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
   </Folder>
