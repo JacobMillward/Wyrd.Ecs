@@ -42,6 +42,7 @@
     <Project Path="src/Platform/Wyrd.Ecs.Platform/Wyrd.Ecs.Platform.csproj" />
     <Project Path="src/Platform/Wyrd.Ecs.Platform.Tests/Wyrd.Ecs.Platform.Tests.csproj" />
     <Project Path="src/Platform/Wyrd.Ecs.Platform.AotSmokeTest/Wyrd.Ecs.Platform.AotSmokeTest.csproj" />
+    <Project Path="src/Platform/Wyrd.Ecs.Engine/Wyrd.Ecs.Engine.csproj" />
   </Folder>
   <Folder Name="/src/Platform/Renderer/">
     <Project Path="src/Platform/Renderer/Wyrd.Ecs.Renderer/Wyrd.Ecs.Renderer.csproj" />
