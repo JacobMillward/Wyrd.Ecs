@@ -23,7 +23,7 @@ public class DebugNameGeneratorTests
     }
 
     [Fact]
-    public void TwoTypesSharingASimpleNameInDifferentNamespaces_BothRegister_NoThrow()
+    public void TwoTypesSharingASimpleNameInDifferentNamespaces_BothGetNamespaceQualified()
     {
         const string source = """
             using Wyrd.Ecs;
@@ -35,8 +35,41 @@ public class DebugNameGeneratorTests
 
         result.Diagnostics.Should().BeEmpty();
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
-        generated.Should().Contain("global::A.Enemy>(\"Enemy\");");
-        generated.Should().Contain("global::B.Enemy>(\"Enemy\");");
+        generated.Should().Contain("global::A.Enemy>(\"A.Enemy\");");
+        generated.Should().Contain("global::B.Enemy>(\"B.Enemy\");");
+    }
+
+    [Fact]
+    public void TwoNestedTypesSharingASimpleName_BothGetContainingTypeQualified()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            namespace Test;
+            public class Outer1 { public struct Health : IComponent { public int Current; } }
+            public class Outer2 { public struct Health : IComponent { public int Current; } }
+            """;
+
+        var result = GeneratorTestHost.Run(new DebugNameGenerator(), GeneratorTestHost.Compile(source));
+
+        result.Diagnostics.Should().BeEmpty();
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("global::Test.Outer1.Health>(\"Outer1.Health\");");
+        generated.Should().Contain("global::Test.Outer2.Health>(\"Outer2.Health\");");
+    }
+
+    [Fact]
+    public void AUniquelyNamedType_RegistersUnderItsBareName()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            namespace Test;
+            public struct OnlyOne : ITag { }
+            """;
+
+        var result = GeneratorTestHost.Run(new DebugNameGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("global::Test.OnlyOne>(\"OnlyOne\");");
     }
 
     [Fact]

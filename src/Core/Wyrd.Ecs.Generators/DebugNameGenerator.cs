@@ -9,8 +9,10 @@ namespace Wyrd.Ecs.Generators;
 /// <summary>
 /// Scans for every struct implementing Wyrd.Ecs.IComponent, ITag, or IRelation and emits
 /// a module initializer that registers each with Internal.DebugNameRegistry under its bare
-/// type name. Runs at assembly load, no caller-invoked RegisterAll: a debug display name
-/// needs no setup, unlike a persisted discriminator.
+/// type name. When another type in the same compilation shares that bare name, both get
+/// prefixed with their immediate container's name instead (e.g. two unrelated "Health"
+/// structs both become "OuterType.Health"). Runs at assembly load, no caller-invoked
+/// RegisterAll: a debug display name needs no setup, unlike a persisted discriminator.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class DebugNameGenerator : IIncrementalGenerator
@@ -42,7 +44,15 @@ public sealed class DebugNameGenerator : IIncrementalGenerator
         if (symbol.IsFileLocal) return null;
         if (!semanticModel.Compilation.IsSymbolAccessibleWithin(symbol, semanticModel.Compilation.Assembly)) return null;
 
-        return new RegisteredDebugNameInfo(symbol.ToDisplayString(), symbol.Name);
+        // The immediate container (containing type, or containing namespace for a
+        // top-level type) is always enough to disambiguate a bare-name collision: C#
+        // itself guarantees no two sibling declarations share both the same name and the
+        // same container, so a single prefix level never needs recursive escalation.
+        var containingName = symbol.ContainingType is { } containingType
+            ? containingType.Name
+            : symbol.ContainingNamespace.ToDisplayString();
+
+        return new RegisteredDebugNameInfo(symbol.ToDisplayString(), symbol.Name, containingName);
     }
 
     private static string Render(ImmutableArray<RegisteredDebugNameInfo> infos)
@@ -56,13 +66,17 @@ public sealed class DebugNameGenerator : IIncrementalGenerator
         sb.AppendLine("    internal static void Init()");
         sb.AppendLine("    {");
 
+        var collisionCounts = infos.GroupBy(i => i.SimpleName).ToDictionary(g => g.Key, g => g.Count());
         foreach (var info in infos)
-            sb.AppendLine($"        Wyrd.Ecs.Internal.DebugNameRegistry.Register<global::{info.FullyQualifiedName}>(\"{info.SimpleName}\");");
+        {
+            var name = collisionCounts[info.SimpleName] > 1 ? $"{info.ContainingName}.{info.SimpleName}" : info.SimpleName;
+            sb.AppendLine($"        Wyrd.Ecs.Internal.DebugNameRegistry.Register<global::{info.FullyQualifiedName}>(\"{name}\");");
+        }
 
         sb.AppendLine("    }");
         sb.AppendLine("}");
         return sb.ToString();
     }
 
-    private record struct RegisteredDebugNameInfo(string FullyQualifiedName, string SimpleName);
+    private record struct RegisteredDebugNameInfo(string FullyQualifiedName, string SimpleName, string ContainingName);
 }
