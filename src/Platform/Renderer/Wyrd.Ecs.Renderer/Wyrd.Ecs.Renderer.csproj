@@ -9,7 +9,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <Version>0.1.0-alpha</Version>
-    <Description>SDL_GPU-based renderer for Wyrd.Ecs. Not yet implemented, package skeleton only.</Description>
+    <Description>SDL_GPU-based renderer for Wyrd.Ecs. Foundational device/swapchain/command-buffer lifecycle only; sprite/mesh rendering not yet implemented.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,8 +17,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="SDL3-CS" Version="3.4.14.1" />
+    <PackageReference Include="SDL3-CS.Windows" Version="3.4.14.1" />
+    <PackageReference Include="SDL3-CS.Linux" Version="3.4.14.1" />
+    <PackageReference Include="SDL3-CS.MacOS" Version="3.4.14.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\Wyrd.Ecs.Platform\Wyrd.Ecs.Platform.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Wyrd.Ecs.Generators\Wyrd.Ecs.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

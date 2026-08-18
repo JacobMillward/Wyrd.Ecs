@@ -251,9 +251,9 @@ internal static class QueryChainEmitter
         // GenerateDocumentationFile enabled would otherwise see CS1591 (missing XML doc)
         // for every member below.
         sb.AppendLine("#pragma warning disable CS1591");
-        sb.AppendLine("public static class SystemRegistry");
+        sb.AppendLine("internal static class SystemRegistry");
         sb.AppendLine("{");
-        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemAccess> Access = new Dictionary<Type, SystemAccess>");
+        sb.AppendLine("    internal static readonly IReadOnlyDictionary<Type, SystemAccess> Access = new Dictionary<Type, SystemAccess>");
         sb.AppendLine("    {");
         foreach (var system in systems)
         {
@@ -263,7 +263,7 @@ internal static class QueryChainEmitter
         }
         sb.AppendLine("    };");
         sb.AppendLine();
-        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> Edges = new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>");
+        sb.AppendLine("    internal static readonly IReadOnlyDictionary<Type, (IReadOnlyList<Type> Before, IReadOnlyList<Type> After)> Edges = new Dictionary<Type, (IReadOnlyList<Type>, IReadOnlyList<Type>)>");
         sb.AppendLine("    {");
         foreach (var edge in edges)
         {
@@ -273,13 +273,13 @@ internal static class QueryChainEmitter
         }
         sb.AppendLine("    };");
         sb.AppendLine();
-        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, SystemCadence> Cadence = new Dictionary<Type, SystemCadence>");
+        sb.AppendLine("    internal static readonly IReadOnlyDictionary<Type, SystemCadence> Cadence = new Dictionary<Type, SystemCadence>");
         sb.AppendLine("    {");
         foreach (var systemTypeName in fixedTimestepSystemTypeNames)
             sb.AppendLine($"        [typeof(global::{systemTypeName})] = SystemCadence.Fixed,");
         sb.AppendLine("    };");
         sb.AppendLine();
-        sb.AppendLine("    public static readonly IReadOnlyDictionary<Type, Func<World, EcsSystem>> Construct = new Dictionary<Type, Func<World, EcsSystem>>");
+        sb.AppendLine("    internal static readonly IReadOnlyDictionary<Type, Func<World, EcsSystem>> Construct = new Dictionary<Type, Func<World, EcsSystem>>");
         sb.AppendLine("    {");
         foreach (var ctor in constructors)
         {

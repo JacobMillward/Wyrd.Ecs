@@ -57,6 +57,10 @@
       "wyrd.ecs.renderer": {
         "type": "Project",
         "dependencies": {
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
           "Wyrd.Ecs": "[0.1.0-alpha, )",
           "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
         }

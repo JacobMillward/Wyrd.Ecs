@@ -46,6 +46,7 @@
   </Folder>
   <Folder Name="/src/Platform/Renderer/">
     <Project Path="src/Platform/Renderer/Wyrd.Ecs.Renderer/Wyrd.Ecs.Renderer.csproj" />
+    <Project Path="src/Platform/Renderer/Wyrd.Ecs.Renderer.Tests/Wyrd.Ecs.Renderer.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Platform/Input/">
     <Project Path="src/Platform/Input/Wyrd.Ecs.Input/Wyrd.Ecs.Input.csproj" />
