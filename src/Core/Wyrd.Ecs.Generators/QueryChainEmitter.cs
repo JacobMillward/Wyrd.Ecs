@@ -330,24 +330,24 @@ internal static class QueryChainEmitter
         // Same rationale as RenderSystemAccessRegistry's pragma above: this is generated,
         // never hand-authored, so it shouldn't trigger a consumer's CS1591.
         sb.AppendLine("#pragma warning disable CS1591");
-        sb.AppendLine("public static class GeneratedSystemRegistrationExtensions");
+        sb.AppendLine("internal static class GeneratedSystemRegistrationExtensions");
         sb.AppendLine("{");
-        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder) where T : EcsSystem =>");
+        sb.AppendLine("    internal static SystemRegistration AddSystem<T>(this WorldBuilder builder) where T : EcsSystem =>");
         sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
-        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this WorldBuilder builder, Func<World, T> configure) where T : EcsSystem =>");
+        sb.AppendLine("    internal static SystemRegistration AddSystem<T>(this WorldBuilder builder, Func<World, T> configure) where T : EcsSystem =>");
         sb.AppendLine("        builder.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
-        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration) where T : EcsSystem =>");
+        sb.AppendLine("    internal static SystemRegistration AddSystem<T>(this SystemRegistration registration) where T : EcsSystem =>");
         sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
-        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this SystemRegistration registration, Func<World, T> configure) where T : EcsSystem =>");
+        sb.AppendLine("    internal static SystemRegistration AddSystem<T>(this SystemRegistration registration, Func<World, T> configure) where T : EcsSystem =>");
         sb.AppendLine("        registration.RegisterNext(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
-        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this World world) where T : EcsSystem =>");
+        sb.AppendLine("    internal static SystemRegistration AddSystem<T>(this World world) where T : EcsSystem =>");
         sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), Wyrd.Ecs.Generated.SystemRegistry.Construct[typeof(T)], EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
-        sb.AppendLine("    public static SystemRegistration AddSystem<T>(this World world, Func<World, T> configure) where T : EcsSystem =>");
+        sb.AppendLine("    internal static SystemRegistration AddSystem<T>(this World world, Func<World, T> configure) where T : EcsSystem =>");
         sb.AppendLine("        world.AddSystemCore(typeof(T), AccessOrNull(typeof(T)), w => configure(w), EdgesOrEmpty(typeof(T)).Before, EdgesOrEmpty(typeof(T)).After, CadenceOrDefault(typeof(T)));");
         sb.AppendLine();
         sb.AppendLine("    private static SystemAccess? AccessOrNull(Type systemType) =>");
