@@ -49,6 +49,20 @@ public readonly ref struct EntityView
         return this;
     }
 
+    /// <summary>
+    /// Queues both <see cref="Transform"/> and a matching <see cref="PreviousTransform"/>
+    /// (equal to <paramref name="value"/>) in one call. Adding only <see cref="Transform"/>
+    /// by itself would leave this entity unmatched by <see cref="TransformSnapshotSystem"/>'s
+    /// query (it requires both) and would make the first interpolated read snap from a
+    /// stale/default <see cref="PreviousTransform"/> instead of holding steady.
+    /// </summary>
+    public EntityView AddTransform(Transform value)
+    {
+        AddComponent(value);
+        AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
+        return this;
+    }
+
     /// <summary>Queues removing <typeparamref name="T"/> from this entity. See <see cref="CommandBuffer.RemoveComponent{T}(Entity)"/>.</summary>
     public EntityView RemoveComponent<T>() where T : struct, IComponent
     {
