@@ -86,7 +86,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             // Unsupported is silently skipped here, not diagnosed: unlike a bare AddSystem<T>()
             // call site (which doesn't exist as a concept until the AddSystem<T>() extension
             // itself is introduced), a class declaration alone doesn't say anything about
-            // whether anyone ever tries to construct it that way — plenty of systems are
+            // whether anyone ever tries to construct it that way. Plenty of systems are
             // legitimately always hand-constructed and passed as an instance, never through a
             // parameterless/World-only factory. Diagnosing every such declaration would flag
             // valid code. AddSystemCore (see WorldBuilder/World) is the actual point that knows
@@ -174,7 +174,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// <see cref="ConstructorShape.WithResources"/>; anything else (private-only, extra
     /// non-resource parameters, more than one public constructor) is
     /// <see cref="ConstructorShape.Unsupported"/>. Only classes actually deriving from
-    /// <c>Wyrd.Ecs.EcsSystem</c> are classified — everything else returns <c>null</c>,
+    /// <c>Wyrd.Ecs.EcsSystem</c> are classified; everything else returns <c>null</c>,
     /// filtered out by the caller's <c>.Where</c>.
     /// </summary>
     private static ConstructorCandidate? ExtractConstructorShape(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
@@ -245,22 +245,20 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
     /// <summary>
     /// Reads <c>[RunBefore(typeof(X))]</c>/<c>[RunAfter(typeof(X))]</c> off a class
-    /// declaration via the semantic model, at compile time — the compile-time
-    /// counterpart of what <see cref="Internal.SystemOrderGraph"/> used to discover via
-    /// <c>GetCustomAttributes&lt;T&gt;()</c> at runtime. Not limited to <c>EcsSystem</c>
-    /// subclasses: a <c>MarkerSystem</c> can't declare these itself (nothing points
-    /// "before/after" a marker from the marker's own side), but nothing here needs to
-    /// assume the base type either — any class carrying the attributes is a real edge to
-    /// capture, and non-<c>EcsSystem</c>/<c>MarkerSystem</c> targets are already rejected
-    /// downstream at graph-resolution time.
+    /// declaration via the semantic model, at compile time. Not limited to
+    /// <c>EcsSystem</c> subclasses: a <c>MarkerSystem</c> can't declare these itself
+    /// (nothing points "before/after" a marker from the marker's own side), but nothing
+    /// here needs to assume the base type either; any class carrying the attributes is a
+    /// real edge to capture, and non-<c>EcsSystem</c>/<c>MarkerSystem</c> targets are
+    /// already rejected downstream at graph-resolution time.
     /// </summary>
     /// <remarks>
     /// A <c>file</c>-scoped class (or a <c>file</c>-scoped edge target) can never work
     /// here, same underlying reason as <see cref="WyrdDiagnostics.FileLocalComponentType"/>:
     /// the emitted <c>SystemRegistry.Edges</c> entry lives in a separate generated file,
     /// which can never reference a type scoped to a different file. Silently skipped
-    /// (whole class if it's file-local itself, one edge at a time if only a target is) —
-    /// matches every other unrecognized-shape path in this generator, which stays silent
+    /// (whole class if it's file-local itself, one edge at a time if only a target is),
+    /// matching every other unrecognized-shape path in this generator, which stays silent
     /// rather than diagnosing every possible reason a shape doesn't resolve.
     /// </remarks>
     private static EdgeResult ExtractEdges(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)

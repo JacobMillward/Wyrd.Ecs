@@ -302,19 +302,19 @@ internal static class QueryChainEmitter
     /// never spells out `Wyrd.Ecs.Generated.SystemRegistry` by hand, and a fluent chain
     /// (`builder.AddSystem&lt;A&gt;().AddSystem&lt;B&gt;()`) keeps working regardless of
     /// which one the previous call returned. `Access` degrades gracefully via
-    /// `AccessOrNull` — a system whose `Execute` never calls `.ForEach`/isn't a
+    /// `AccessOrNull`: a system whose `Execute` never calls `.ForEach`/isn't a
     /// `QuerySystem` (e.g. a purely structural system) legitimately has no generated
     /// footprint, and `StagePlanner` already treats that as "give it its own exclusive
     /// stage," not an error. `Construct`, by contrast, uses the plain indexer: a type the
     /// generator gave no entry to (see `QueryChainGenerator.ExtractConstructorShape`)
-    /// throws `KeyNotFoundException` at this call — a real gap (no way to make this a
+    /// throws `KeyNotFoundException` at this call, a real gap (no way to make this a
     /// compile-time failure without a call-site-aware analyzer, deferred rather than
-    /// built here) — the caller should use the `Func&lt;World, T&gt;` overload for that
+    /// built here); the caller should use the `Func&lt;World, T&gt;` overload for that
     /// type instead. `Edges` folds into the call via `EdgesOrEmpty`, seeding the entry
     /// before whatever `.Before&lt;T&gt;()`/`.After&lt;T&gt;()` gets chained afterward
     /// unions in more. `Cadence` degrades the same way as `Access`, via `CadenceOrDefault`:
     /// a type with no `[FixedTimestep]` attribute has no entry at all, defaulting to
-    /// `SystemCadence.Variable`. Unconditional, fixed-shape emission — no iteration over
+    /// `SystemCadence.Variable`. Unconditional, fixed-shape emission: no iteration over
     /// discovered candidates required, since these methods are generic over any
     /// `T : EcsSystem` and work for every system type the same way.
     /// </summary>
