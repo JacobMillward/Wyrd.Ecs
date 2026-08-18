@@ -97,14 +97,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 .Select(c => (c!.Value.SystemTypeName, c.Value.TakesWorld, c.Value.Resources))
                 .ToList();
 
-            var writesBySystemType = chains
-                .Where(c => c.SystemTypeName is not null)
-                .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape))
-                .Concat(querySystems.Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape)))
-                .GroupBy(c => c.SystemTypeName)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).ToList());
+            var bySystemType = ComputeSystemAccess(chains, querySystems);
+            var writesBySystemType = bySystemType.ToDictionary(s => s.SystemTypeName, s => s.Writes);
 
             // Symbol-based, not syntax-based: [RequiresSnapshotBefore] is baked into
             // compiled metadata like any other attribute, so this resolves it identically
@@ -154,7 +148,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 return after.Count == e.After.Count ? e : e with { After = after };
             }).ToImmutableArray();
 
-            EmitSystemAccessRegistry(spc, chains, querySystems, mergedEdges, constructors);
+            EmitSystemAccessRegistry(spc, bySystemType, mergedEdges, constructors);
         });
     }
 
@@ -384,12 +378,17 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             spc.AddSource($"QuerySystem.{system.Namespace}.{system.ClassName}.g.cs", QueryChainEmitter.RenderQuerySystemGlue(system));
     }
 
-    private static void EmitSystemAccessRegistry(
-        SourceProductionContext spc,
+    /// <summary>
+    /// Every declared system's Reads/Writes footprint: query-chain/<c>QuerySystem</c> data
+    /// elements plus <c>[Resource]</c> property access, merged per system type. Computed
+    /// once and shared by <see cref="Initialize"/> (which only needs the Writes side, to
+    /// match a system's access against <c>[RequiresSnapshotBefore]</c>-tagged components)
+    /// and <see cref="EmitSystemAccessRegistry"/> (which needs the full Reads/Writes pair
+    /// for the emitted registry), rather than each recomputing its own copy.
+    /// </summary>
+    private static List<(string SystemTypeName, List<string> Reads, List<string> Writes)> ComputeSystemAccess(
         ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
-        ImmutableArray<QuerySystemCandidate> querySystems,
-        ImmutableArray<EdgeResult> edges,
-        IReadOnlyList<(string SystemTypeName, bool TakesWorld, ImmutableArray<ResourceParameter> Resources)> constructors)
+        ImmutableArray<QuerySystemCandidate> querySystems)
     {
         var accessFromChains = chains
             .Where(c => c.SystemTypeName is not null)
@@ -409,7 +408,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 r.IsWrite)))
             .ToLookup(r => r.SystemTypeName);
 
-        var bySystemType = accessFromChains.Concat(accessFromQuerySystems)
+        return accessFromChains.Concat(accessFromQuerySystems)
             .GroupBy(c => c.SystemTypeName)
             .Select(g =>
             {
@@ -423,7 +422,14 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 return (SystemTypeName: g.Key, Reads: reads, Writes: writes);
             })
             .ToList();
+    }
 
+    private static void EmitSystemAccessRegistry(
+        SourceProductionContext spc,
+        List<(string SystemTypeName, List<string> Reads, List<string> Writes)> bySystemType,
+        ImmutableArray<EdgeResult> edges,
+        IReadOnlyList<(string SystemTypeName, bool TakesWorld, ImmutableArray<ResourceParameter> Resources)> constructors)
+    {
         var byEdgeSystemType = edges
             .Select(e => (SystemTypeName: e.SystemTypeName!, e.Before, e.After))
             .ToList();

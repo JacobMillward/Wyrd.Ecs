@@ -54,4 +54,20 @@ public class TransformSnapshotOrderingTests
         world.GetComponent<Transform>(entity.Entity).Position.Should().Be(new Vector3(1, 0, 0));
         world.GetComponent<PreviousTransform>(entity.Entity).Position.Should().Be(Vector3.Zero);
     }
+
+    [Fact]
+    public void RegisteringAFixedTimestepTransformWriter_WithoutTransformSnapshotSystem_ThrowsAClearErrorAtBuild()
+    {
+        // TransformSnapshotSystem is the only RequiresSnapshotBefore target Transform
+        // declares, and it's deliberately never registered here. The auto-injected edge
+        // is unioned into the same EdgeResult.After list a hand-declared [RunAfter] would
+        // use, so it flows through SystemOrderGraph.ResolveTarget's existing "no instance
+        // of that type is currently registered" check, not a separate, unverified path.
+        var act = () => new WorldBuilder()
+            .WithFixedTimestep(TimeSpan.FromSeconds(1))
+            .AddSystem<MovesTransformEachFixedStep>()
+            .Build();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*no instance of that type is currently registered*");
+    }
 }
