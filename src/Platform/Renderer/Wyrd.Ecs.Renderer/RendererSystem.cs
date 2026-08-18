@@ -55,7 +55,41 @@ public sealed class RendererSystem : EcsSystem
     /// <inheritdoc/>
     protected override void Execute(World world, Time time)
     {
-        // Per-frame flow lands in Task 5.
+        var commandBuffer = SDL.AcquireGPUCommandBuffer(Device);
+        if (commandBuffer == IntPtr.Zero)
+            throw new InvalidOperationException($"SDL_AcquireGPUCommandBuffer failed: {SDL.GetError()}");
+
+        // Uploads always run, even if the swapchain acquire below is skipped this tick,
+        // since async asset loads (later phases) must keep making progress regardless of
+        // swapchain/present state.
+        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
+        _pendingUploads.DrainInto(copyPass);
+        SDL.EndGPUCopyPass(copyPass);
+
+        _deferredDestroy.DrainReady(FrameInFlight.CurrentFrame, FrameInFlightTracker.FramesInFlight);
+
+        if (!SDL.AcquireGPUSwapchainTexture(commandBuffer, _platform.Window, out var swapchainTexture, out _, out _))
+            throw new InvalidOperationException($"SDL_AcquireGPUSwapchainTexture failed: {SDL.GetError()}");
+
+        // A null swapchain texture here is a real, non-error SDL_GPU state (minimized window,
+        // too many frames in flight, mid-resize); skip presenting this tick and retry next.
+        if (swapchainTexture != IntPtr.Zero)
+        {
+            var colorTarget = new SDL.GPUColorTargetInfo
+            {
+                Texture = swapchainTexture,
+                ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
+                LoadOp = SDL.GPULoadOp.Clear,
+                StoreOp = SDL.GPUStoreOp.Store,
+            };
+            var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
+            SDL.EndGPURenderPass(renderPass);
+        }
+
+        if (!SDL.SubmitGPUCommandBuffer(commandBuffer))
+            throw new InvalidOperationException($"SDL_SubmitGPUCommandBuffer failed: {SDL.GetError()}");
+
+        FrameInFlight.Advance();
     }
 
     /// <inheritdoc/>
