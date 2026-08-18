@@ -2,7 +2,7 @@ namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
 /// Tracks which of <see cref="FramesInFlight"/> rotating slots the current frame owns.
-/// Shared by the per-frame instance buffer (later phases) and the deferred-destroy queue,
+/// Shared by the per-frame instance buffer (later phases) and <see cref="DeferredDestroyQueue"/>,
 /// since both need the same counter to stay in sync.
 /// </summary>
 public sealed class FrameInFlightTracker
