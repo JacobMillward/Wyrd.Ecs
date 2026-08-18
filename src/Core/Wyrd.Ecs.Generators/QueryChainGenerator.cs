@@ -53,22 +53,15 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Where(static c => c is not null)
             .WithTrackingName("ConstructorShape");
 
-        var snapshotOrderingCandidates = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is StructDeclarationSyntax { AttributeLists.Count: > 0 },
-                transform: static (ctx, ct) => ExtractSnapshotOrdering((StructDeclarationSyntax)ctx.Node, ctx.SemanticModel, ct))
-            .Where(static s => s.ComponentTypeName is not null)
-            .WithTrackingName("SnapshotOrdering");
-
         var collectedChains = chainCandidates.Collect();
         var collectedQuerySystems = querySystemCandidates.Collect();
         var collectedEdges = edgeCandidates.Collect();
         var collectedConstructors = constructorCandidates.Collect();
-        var collectedSnapshotOrdering = snapshotOrderingCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedSnapshotOrdering);
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(context.CompilationProvider);
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var ((((chainResults, querySystemResults), edgeResults), constructorResults), snapshotOrderingResults) = input;
+            var ((((chainResults, querySystemResults), edgeResults), constructorResults), compilation) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -113,9 +106,31 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                     g => g.Key,
                     g => g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName)).ToList());
 
-            var snapshotTargetsByComponent = snapshotOrderingResults
-                .Where(s => s.ComponentTypeName is not null)
-                .ToDictionary(s => s.ComponentTypeName!, s => s.TargetTypeName!);
+            // Symbol-based, not syntax-based: [RequiresSnapshotBefore] is baked into
+            // compiled metadata like any other attribute, so this resolves it identically
+            // whether the tagged component is declared in the current compilation or a
+            // referenced assembly (e.g. Transform, declared in Wyrd.Ecs core, tagged for
+            // any consumer project's own Fixed-cadence writer to discover). A syntax-only
+            // scan of the current compilation's own source, tried first, silently found
+            // nothing for exactly this cross-assembly case.
+            var snapshotTargetCache = new Dictionary<string, string?>();
+            string? FindSnapshotTarget(string componentTypeName)
+            {
+                if (snapshotTargetCache.TryGetValue(componentTypeName, out var cached)) return cached;
+
+                string? target = null;
+                if (compilation.GetTypeByMetadataName(componentTypeName) is { } componentSymbol)
+                    foreach (var attribute in componentSymbol.GetAttributes())
+                    {
+                        if (attribute.AttributeClass?.ToDisplayString() != "Wyrd.Ecs.RequiresSnapshotBeforeAttribute") continue;
+                        if (attribute.ConstructorArguments is not [{ Value: ITypeSymbol targetType }]) continue;
+                        target = targetType.ToDisplayString();
+                        break;
+                    }
+
+                snapshotTargetCache[componentTypeName] = target;
+                return target;
+            }
 
             var mergedEdges = edgeResults.Select(e =>
             {
@@ -131,8 +146,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 // tagged component would get a self-referential After edge, which
                 // StagePlanner has no defined behavior for.
                 var inferredTargets = writes
-                    .Where(snapshotTargetsByComponent.ContainsKey)
-                    .Select(w => snapshotTargetsByComponent[w])
+                    .Select(FindSnapshotTarget)
+                    .Where(t => t is not null)
+                    .Select(t => t!)
                     .Where(t => !e.After.Contains(t) && t != e.SystemTypeName);
                 var after = e.After.Concat(inferredTargets).ToList();
                 return after.Count == e.After.Count ? e : e with { After = after };
@@ -285,34 +301,6 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
         if (before.Count == 0 && after.Count == 0 && !isFixedTimestep) return default;
         return new EdgeResult(classSymbol.ToDisplayString(), before, after, isFixedTimestep);
-    }
-
-    /// <summary>One struct declaration's <c>[RequiresSnapshotBefore(typeof(X))]</c>, or <c>default</c> if it declares none.</summary>
-    private readonly record struct SnapshotOrderingResult(string? ComponentTypeName, string? TargetTypeName);
-
-    /// <summary>
-    /// Reads <c>[RequiresSnapshotBefore(typeof(X))]</c> off a component struct
-    /// declaration, the same compile-time-only, semantic-model-based approach as
-    /// <see cref="ExtractEdges"/> uses for <c>[RunBefore]</c>/<c>[RunAfter]</c> on
-    /// systems, applied to a component instead of a system.
-    /// </summary>
-    private static SnapshotOrderingResult ExtractSnapshotOrdering(StructDeclarationSyntax structDecl, SemanticModel semanticModel, CancellationToken ct)
-    {
-        if (semanticModel.GetDeclaredSymbol(structDecl, ct) is not INamedTypeSymbol structSymbol) return default;
-        if (structSymbol.IsFileLocal) return default;
-
-        foreach (var attributeList in structDecl.AttributeLists)
-            foreach (var attribute in attributeList.Attributes)
-            {
-                if (semanticModel.GetTypeInfo(attribute, ct).Type is not { } attributeType) continue;
-                if (attributeType.ToDisplayString() != "Wyrd.Ecs.RequiresSnapshotBeforeAttribute") continue;
-                if (attribute.ArgumentList is not { Arguments: [{ Expression: TypeOfExpressionSyntax { Type: var targetTypeSyntax } }] }) continue;
-                if (semanticModel.GetTypeInfo(targetTypeSyntax, ct).Type is not INamedTypeSymbol { IsFileLocal: false } targetType) continue;
-
-                return new SnapshotOrderingResult(structSymbol.ToDisplayString(), targetType.ToDisplayString());
-            }
-
-        return default;
     }
 
     /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
