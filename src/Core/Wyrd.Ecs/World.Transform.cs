@@ -34,4 +34,32 @@ public sealed partial class World
             parent.Position + Vector3.Transform(localPosition * parent.Scale, parent.Rotation),
             parent.Rotation * localRotation,
             parent.Scale * localScale);
+
+    /// <inheritdoc cref="GetWorldTransform"/>
+    public WorldTransform GetInterpolatedWorldTransform(Entity entity)
+    {
+        var (current, previous) = ComposeInterpolated(entity);
+        var alpha = (float)FixedStepAlpha;
+        return new WorldTransform(
+            Vector3.Lerp(previous.Position, current.Position, alpha),
+            Quaternion.Slerp(previous.Rotation, current.Rotation, alpha),
+            Vector3.Lerp(previous.Scale, current.Scale, alpha));
+    }
+
+    /// <summary>Composes both the current and the previous world transform in one walk of the <see cref="Parent"/> chain.</summary>
+    private (WorldTransform Current, WorldTransform Previous) ComposeInterpolated(Entity entity)
+    {
+        var current = GetComponent<Transform>(entity);
+        var previous = GetComponent<PreviousTransform>(entity);
+
+        if (!TryGetParent(entity, out var parent))
+            return (
+                new WorldTransform(current.Position, current.Rotation, current.Scale),
+                new WorldTransform(previous.Position, previous.Rotation, previous.Scale));
+
+        var (parentCurrent, parentPrevious) = ComposeInterpolated(parent);
+        return (
+            Compose(parentCurrent, current.Position, current.Rotation, current.Scale),
+            Compose(parentPrevious, previous.Position, previous.Rotation, previous.Scale));
+    }
 }

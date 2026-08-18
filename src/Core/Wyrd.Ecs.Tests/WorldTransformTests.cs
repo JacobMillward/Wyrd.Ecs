@@ -47,4 +47,33 @@ public class WorldTransformTests
         worldTransform.Position.Should().Be(new Vector3(2, 0, 0));
         worldTransform.Scale.Should().Be(new Vector3(2, 2, 2));
     }
+
+    [Fact]
+    public void GetInterpolatedWorldTransform_BlendsBetweenPreviousAndCurrent()
+    {
+        // Same registration order as TransformSnapshotOrderingTests: the writer registered
+        // before AddTransformSystem, so correct results here also depend on the
+        // auto-injected edge, not a lucky tie-break. AddSystem<T>() returns
+        // SystemRegistration, not WorldBuilder, so it can't chain directly into
+        // AddTransformSystem(); registering as two statements instead.
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        builder.AddSystem<MovesTransformEachFixedStep>();
+        var world = builder.AddTransformSystem().Build();
+        var entity = world.Commands.CreateEntity().AddTransform(Transform.Identity);
+        world.ApplyCommands();
+
+        // One Update call with 2.5s of accumulated time drives the 1s fixed-step
+        // accumulator through exactly two fixed steps, then stops with 0.5s left over.
+        // Step 1: snapshot captures Previous=(0,0,0), then the move writes Transform=(1,0,0).
+        // Step 2: snapshot captures Previous=(1,0,0) (this step's starting value, not the
+        // original), then the move writes Transform=(2,0,0). Accumulator: 2.5 - 1 - 1 = 0.5,
+        // so FixedStepAlpha == 0.5 with no third step firing.
+        world.Update(TimeSpan.FromSeconds(2.5));
+
+        var interpolated = world.GetInterpolatedWorldTransform(entity.Entity);
+
+        // Blending Previous=(1,0,0) and Transform=(2,0,0) at alpha 0.5:
+        // (1,0,0) + 0.5 * ((2,0,0) - (1,0,0)) = (1.5, 0, 0).
+        interpolated.Position.Should().Be(new Vector3(1.5f, 0, 0));
+    }
 }
