@@ -17,7 +17,9 @@ public sealed partial class World
     /// deliberately not the right choice to call many times per frame without a caller-side
     /// cache; revisit if profiling shows that matters. An entity with no
     /// <see cref="Transform"/> throws the same way <see cref="GetComponent{T}(Entity)"/> already
-    /// does for a missing component.
+    /// does for a missing component. Does not guard against a <see cref="Parent"/> cycle: one
+    /// recursive call per ancestor, same caller-error scenario <see cref="Ancestors"/> already
+    /// documents.
     /// </summary>
     public WorldTransform GetWorldTransform(Entity entity)
     {
