@@ -50,6 +50,8 @@ public sealed partial class RendererSystem : EcsSystem
             SDL.DestroyGPUDevice(Device);
             throw new InvalidOperationException($"SDL_ClaimWindowForGPUDevice failed: {error}");
         }
+
+        PlaceholderTexture = CreatePlaceholderTexture();
     }
 
     /// <inheritdoc/>

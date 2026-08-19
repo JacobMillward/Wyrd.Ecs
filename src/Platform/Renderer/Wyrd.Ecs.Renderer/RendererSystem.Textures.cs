@@ -97,4 +97,50 @@ public sealed partial class RendererSystem
         var device = Device;
         DeferredDestroy.Enqueue(FrameInFlight.CurrentFrame, () => SDL.ReleaseGPUTexture(device, gpuTexture));
     }
+
+    /// <summary>
+    /// A 2x2 magenta/black checkerboard, uploaded synchronously at construction (not through
+    /// the async path — it must exist before the first tick, and it's tiny/local, not a file
+    /// load). Drawn in place of any <see cref="Handle{T}"/> still <see cref="LoadState.Loading"/>
+    /// or gone <see cref="LoadState.Failed"/>, so a broken asset reference looks wrong on
+    /// screen instead of silently disappearing.
+    /// </summary>
+    internal Texture PlaceholderTexture { get; }
+
+    private Texture CreatePlaceholderTexture()
+    {
+        var textureCreateInfo = new SDL.GPUTextureCreateInfo
+        {
+            Type = SDL.GPUTextureType.TextureType2D,
+            Format = SDL.GPUTextureFormat.R8G8B8A8Unorm,
+            Usage = SDL.GPUTextureUsageFlags.Sampler,
+            Width = 2,
+            Height = 2,
+            LayerCountOrDepth = 1,
+            NumLevels = 1,
+            SampleCount = SDL.GPUSampleCount.SampleCount1,
+        };
+        var gpuTexture = SDL.CreateGPUTexture(Device, in textureCreateInfo);
+        if (gpuTexture == IntPtr.Zero)
+            throw new InvalidOperationException($"SDL_CreateGPUTexture (placeholder) failed: {SDL.GetError()}");
+
+        byte[] pixels = [255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255]; // magenta, black, black, magenta
+
+        var transferCreateInfo = new SDL.GPUTransferBufferCreateInfo { Usage = SDL.GPUTransferBufferUsage.Upload, Size = (uint)pixels.Length };
+        var transferBuffer = SDL.CreateGPUTransferBuffer(Device, in transferCreateInfo);
+        var mapped = SDL.MapGPUTransferBuffer(Device, transferBuffer, false);
+        Marshal.Copy(pixels, 0, mapped, pixels.Length);
+        SDL.UnmapGPUTransferBuffer(Device, transferBuffer);
+
+        var commandBuffer = SDL.AcquireGPUCommandBuffer(Device);
+        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
+        var source = new SDL.GPUTextureTransferInfo { TransferBuffer = transferBuffer, Offset = 0, PixelsPerRow = 2, RowsPerLayer = 2 };
+        var destination = new SDL.GPUTextureRegion { Texture = gpuTexture, MipLevel = 0, Layer = 0, X = 0, Y = 0, Z = 0, W = 2, H = 2, D = 1 };
+        SDL.UploadToGPUTexture(copyPass, in source, in destination, false);
+        SDL.EndGPUCopyPass(copyPass);
+        SDL.SubmitGPUCommandBuffer(commandBuffer);
+        SDL.ReleaseGPUTransferBuffer(Device, transferBuffer);
+
+        return new Texture(gpuTexture, 2, 2);
+    }
 }
