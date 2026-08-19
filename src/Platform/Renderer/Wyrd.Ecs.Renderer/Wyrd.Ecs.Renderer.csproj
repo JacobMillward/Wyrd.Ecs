@@ -38,4 +38,25 @@
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs.Generators\Wyrd.Ecs.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ShaderSource Include="Shaders/*.hlsl" />
+  </ItemGroup>
+
+  <!--
+    BeforeTargets="AssignTargetPaths", not "CoreCompile" (unlike JsonContextEmitTask's
+    precedent): the new EmbeddedResource items below need to exist before MSBuild assigns
+    embedded-resource target paths, which happens earlier in the build than CoreCompile — this
+    emits compiled shader bytes as data, not C# source consumed by CoreCompile itself, so the
+    timing constraint that shaped JsonContextEmitTask doesn't apply here.
+  -->
+  <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"
+          Inputs="@(ShaderSource)"
+          Outputs="$(IntermediateOutputPath)Shaders/UnlitSprite.vert.spirv">
+    <Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)../Wyrd.Ecs.Renderer.ShaderCompiler/Wyrd.Ecs.Renderer.ShaderCompiler.csproj&quot; -c $(Configuration) -- &quot;$(MSBuildThisFileDirectory)Shaders&quot; &quot;$(IntermediateOutputPath)Shaders&quot;" />
+    <ItemGroup>
+      <CompiledShaderFile Include="$(IntermediateOutputPath)Shaders/*" />
+      <EmbeddedResource Include="@(CompiledShaderFile)" LogicalName="Wyrd.Ecs.Renderer.Shaders.%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
 </Project>
