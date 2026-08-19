@@ -10,7 +10,7 @@ public class RendererSystemDrawTests
     public void Update_WithCameraAndSprite_DoesNotThrow()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Draw Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Renderer Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -37,7 +37,7 @@ public class RendererSystemDrawTests
     public void Update_NoCameras_StillRunsWithoutThrowing()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Draw No Camera Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Renderer Draw No Camera Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -55,7 +55,7 @@ public class RendererSystemDrawTests
         // layer is the real check here, since debugMode:true is set on the device). It does
         // not verify pixel output.
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Draw Multi-Camera Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Renderer Draw Multi-Camera Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 

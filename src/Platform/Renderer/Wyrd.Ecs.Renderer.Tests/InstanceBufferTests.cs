@@ -10,7 +10,7 @@ public class InstanceBufferTests
     public void Write_WithinInitialCapacity_ReturnsNonNullBuffer_AndDoesNotGrow()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Instance Buffer Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Instance Buffer Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
         var renderer = world.GetSystem<RendererSystem>();
@@ -30,7 +30,7 @@ public class InstanceBufferTests
     public void Write_ExceedingCapacity_DoublesAndStillReturnsValidBuffer()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Instance Buffer Growth Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Instance Buffer Growth Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
         var renderer = world.GetSystem<RendererSystem>();

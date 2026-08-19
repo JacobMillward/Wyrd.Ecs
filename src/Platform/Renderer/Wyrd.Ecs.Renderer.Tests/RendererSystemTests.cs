@@ -8,7 +8,7 @@ public class RendererSystemTests
 {
     private static World BuildWorldWithPlatform() =>
         new WorldBuilder()
-            .AddPlatform("Renderer Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Renderer Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 

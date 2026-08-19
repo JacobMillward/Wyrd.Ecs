@@ -10,7 +10,7 @@ public class WorldBuilderRendererExtensionsTests
     public void AddRenderer_RegistersARendererSystemBoundToThePlatformSystem()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Renderer Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 

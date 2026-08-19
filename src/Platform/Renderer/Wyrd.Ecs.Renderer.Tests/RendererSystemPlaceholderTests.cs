@@ -10,7 +10,7 @@ public class RendererSystemPlaceholderTests
     public void PlaceholderTexture_IsCreatedEagerly()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Placeholder Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddPlatform("Renderer Placeholder Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
         var renderer = world.GetSystem<RendererSystem>();
