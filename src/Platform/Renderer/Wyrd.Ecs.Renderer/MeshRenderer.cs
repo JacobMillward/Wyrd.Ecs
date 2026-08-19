@@ -1,12 +1,12 @@
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// A 3D drawable, paired with a <see cref="Material"/> on the same entity, mirroring
-/// <see cref="Sprite"/>'s role. Unlike a sprite (an implicit quad generated in the vertex
-/// shader), a mesh entity must name its own geometry: <see cref="Mesh"/> isn't
-/// pipeline-selecting state (two different meshes can share one <see cref="Material"/>), so it
-/// lives here, not on <see cref="Material"/>. <see cref="Tint"/> is the same per-instance
-/// concept as <see cref="Sprite.Tint"/>, for the same reason (see <see cref="Material"/>'s doc
-/// comment).
+/// A 3D drawable, paired with a <see cref="Material"/> on the same entity. Unlike a sprite (an
+/// implicit quad generated in the vertex shader), a mesh entity must name its own geometry:
+/// <see cref="Mesh"/> isn't pipeline-selecting state (two different meshes can share one
+/// <see cref="Material"/>), so it lives here, not on <see cref="Material"/>. <see cref="Tint"/>
+/// lives here for the same reason: it's allowed to vary between entities sharing one
+/// <see cref="Material"/>, and anything in the batch key that varies per-entity would fragment
+/// every batch back down to one draw call per distinct value.
 /// </summary>
 public readonly record struct MeshRenderer(Handle<Mesh> Mesh, Color Tint) : IComponent;

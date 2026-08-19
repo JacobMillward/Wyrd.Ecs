@@ -5,14 +5,12 @@ using Silk.NET.Assimp;
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// Pure parsing: no SDL, no GPU device, unit-testable directly (matches this project's
-/// existing split between logic with no GPU dependency and logic that needs a real device, see
-/// the design spec's "Testing and CI"). Wraps Assimp via <see cref="Silk.NET.Assimp"/> rather
-/// than a hand-rolled OBJ parser: the pure-managed OBJ-parser ecosystem is stale and
-/// unmaintained, while Silk.NET.Assimp is actively maintained and its native package carries
-/// explicit NativeAOT fixes. Every format Assimp itself reports supporting
-/// (<see cref="IsExtensionSupported"/>) is usable, not just OBJ; there's no per-format registry,
-/// since one Assimp-backed loader already covers 71 formats.
+/// Pure parsing: no SDL, no GPU device, so it's unit-testable directly without a real device.
+/// Wraps Assimp via <see cref="Silk.NET.Assimp"/> rather than a hand-rolled OBJ parser: the
+/// pure-managed OBJ-parser ecosystem is stale and unmaintained, while Silk.NET.Assimp is
+/// actively maintained and its native package carries explicit NativeAOT fixes. Every format
+/// Assimp itself reports supporting (<see cref="IsExtensionSupported"/>) is usable, not just
+/// OBJ; there's no per-format registry, since one Assimp-backed loader already covers 71 formats.
 /// </summary>
 internal static class MeshLoader
 {
@@ -25,9 +23,8 @@ internal static class MeshLoader
     /// Parses <paramref name="path"/> synchronously; callers wanting this off the calling
     /// thread wrap it in their own <c>Task.Run</c> (see <see cref="RendererSystem.LoadModel"/>).
     /// One <see cref="ParsedSubMesh"/> per Assimp <c>aiMesh</c>: Assimp itself splits a
-    /// multi-material source file into one sub-mesh per <c>usemtl</c>/material group, confirmed
-    /// hands-on rather than assumed. That's the exact per-part unit
-    /// <see cref="RendererSystem.LoadModel"/> spawns one child entity for.
+    /// multi-material source file into one sub-mesh per <c>usemtl</c>/material group. That's the
+    /// exact per-part unit <see cref="RendererSystem.LoadModel"/> spawns one child entity for.
     /// </summary>
     public static unsafe IReadOnlyList<ParsedSubMesh> Load(string path)
     {
@@ -69,7 +66,7 @@ internal static class MeshLoader
                 {
                     var material = scene->MMaterials[mesh->MMaterialIndex];
                     AssimpString rawPath = default;
-                    if (Api.GetMaterialTexture(material, TextureType.Diffuse, 0, ref rawPath, null, null, null, null, null, null) == Return.ReturnSuccess)
+                    if (Api.GetMaterialTexture(material, TextureType.Diffuse, 0, ref rawPath, null, null, null, null, null, null) == Return.Success)
                     {
                         var relative = Encoding.UTF8.GetString(rawPath.Data, (int)rawPath.Length);
                         texturePath = Path.Combine(directory, relative);

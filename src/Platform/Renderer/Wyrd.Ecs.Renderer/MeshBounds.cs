@@ -3,13 +3,11 @@ using System.Numerics;
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// Mesh culling bounds, computed in two stages: <see cref="ComputeLocal"/> once at load time
-/// from real vertex extents (an axis-aligned box collapsed to a sphere, over-approximating a
-/// non-cubic mesh but never under-approximating it), <see cref="ComputeWorld"/> every frame per
-/// entity, combining that fixed local sphere with the entity's live <see cref="WorldTransform"/>.
-/// Mirrors how <see cref="SpriteBounds"/> combines a texture's fixed pixel size with a live
-/// transform, just split into two calls since a mesh's local bounds don't depend on any
-/// per-entity data the way a sprite's <see cref="Sprite.SourceRect"/> does.
+/// Mesh culling bounds, computed in two stages since a mesh's local bounds don't depend on any
+/// per-entity data: <see cref="ComputeLocal"/> once at load time from real vertex extents (an
+/// axis-aligned box collapsed to a sphere, over-approximating a non-cubic mesh but never
+/// under-approximating it), <see cref="ComputeWorld"/> every frame per entity, combining that
+/// fixed local sphere with the entity's live <see cref="WorldTransform"/>.
 /// </summary>
 internal static class MeshBounds
 {

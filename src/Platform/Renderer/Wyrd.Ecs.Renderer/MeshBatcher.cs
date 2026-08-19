@@ -14,8 +14,7 @@ internal readonly record struct MeshBatch(Material Material, Handle<Mesh> Mesh, 
 /// <summary>
 /// Groups culling survivors by <see cref="MeshBatchKey"/>, preserving each group's original
 /// relative order. Reuses its grouping dictionary and each group's <see cref="List{T}"/>
-/// across calls, mirroring <see cref="SpriteBatcher"/>'s own reuse discipline (see that type's
-/// doc comment for why).
+/// across calls instead of allocating fresh ones every camera every frame.
 /// </summary>
 internal sealed class MeshBatcher
 {
