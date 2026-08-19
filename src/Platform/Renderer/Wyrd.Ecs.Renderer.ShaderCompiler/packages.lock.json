@@ -19,6 +19,30 @@
         "requested": "[3.0.0.9, )",
         "resolved": "3.0.0.9",
         "contentHash": "260zZ4PRvlDCaUoX9G394nB3361VNrqPr1MvznpK35RflMZwytT4tnqDi2VGhJsdtjuJG/+DVSonzZ/AysNVfw=="
+      },
+      "SDL3-CS.MacOS": {
+        "type": "Direct",
+        "requested": "[3.4.14.1, )",
+        "resolved": "3.4.14.1",
+        "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
+      },
+      "SDL3-CS.MacOS.Shadercross": {
+        "type": "Direct",
+        "requested": "[3.0.0.9, )",
+        "resolved": "3.0.0.9",
+        "contentHash": "sdm6roKNkGhZ823AZhGmYWiDZbOoLsNwA7HSBgEcyurspbKbWqMXPbfbMn0y2OWTlZPRB1Cd2v9qN+F/2ULGKQ=="
+      },
+      "SDL3-CS.Windows": {
+        "type": "Direct",
+        "requested": "[3.4.14.1, )",
+        "resolved": "3.4.14.1",
+        "contentHash": "Be2vHp02n5wWJgX3CGicmohg5+QjleULdbJgQtCKis+2r53VaIwTdt0OYx8wCARYCuS17OSHXj8AMhoCo41qyA=="
+      },
+      "SDL3-CS.Windows.Shadercross": {
+        "type": "Direct",
+        "requested": "[3.0.0.9, )",
+        "resolved": "3.0.0.9",
+        "contentHash": "wqBg8Ua3OvKcEoxqFgoMtCHg617PjttQPN2u0D8Xfw9DlK+fUxIfLRhQv5aavmrYfT3dDloyTgOnc6yNuIFGOw=="
       }
     }
   }
