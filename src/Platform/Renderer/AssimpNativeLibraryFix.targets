@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Silk.NET.Assimp's own path resolver doesn't probe nested runtimes/<rid>/native/ output (the
+    layout a plain `dotnet build`/`dotnet test`/`dotnet run` produces with no -r) and doesn't
+    try version-suffixed names (libassimp.so.6, not libassimp.so) either way. It only works
+    unmodified after a self-contained `dotnet publish -r <rid>`, which flattens native assets
+    into the app root. Verified hands-on: copying the real asset to an unversioned name directly
+    in $(OutDir) fixes both dotnet test and dotnet run, with zero effect on publish (harmless
+    no-op there since the flattened file already resolves).
+    Linux/macOS only: Windows's Assimp64.dll/Assimp32.dll carry no version suffix and are
+    expected to resolve on their own, unverified against a real Windows machine.
+  -->
+  <Target Name="FixAssimpNativeLibraryName" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <_AssimpLinuxAsset Include="$(OutDir)runtimes/linux-x64/native/libassimp.so.6" Condition="Exists('$(OutDir)runtimes/linux-x64/native/libassimp.so.6')" />
+      <_AssimpMacAsset Include="$(OutDir)runtimes/osx-x64/native/libassimp.6.dylib" Condition="Exists('$(OutDir)runtimes/osx-x64/native/libassimp.6.dylib')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AssimpLinuxAsset)" DestinationFiles="$(OutDir)libassimp.so" Condition="'@(_AssimpLinuxAsset)' != ''" />
+    <Copy SourceFiles="@(_AssimpMacAsset)" DestinationFiles="$(OutDir)libassimp.dylib" Condition="'@(_AssimpMacAsset)' != ''" />
+  </Target>
+</Project>
