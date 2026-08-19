@@ -14,7 +14,7 @@ public class InstanceBufferTests
             .AddRenderer()
             .Build();
         var renderer = world.GetSystem<RendererSystem>();
-        var buffer = new InstanceBuffer(renderer.Device, renderer.DeferredDestroy, initialCapacity: 4);
+        var buffer = new InstanceBuffer<SpriteInstanceData>(renderer.Device, renderer.DeferredDestroy, initialCapacity: 4);
 
         var commandBuffer = SDL.AcquireGPUCommandBuffer(renderer.Device);
         var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
@@ -34,7 +34,7 @@ public class InstanceBufferTests
             .AddRenderer()
             .Build();
         var renderer = world.GetSystem<RendererSystem>();
-        var buffer = new InstanceBuffer(renderer.Device, renderer.DeferredDestroy, initialCapacity: 2);
+        var buffer = new InstanceBuffer<SpriteInstanceData>(renderer.Device, renderer.DeferredDestroy, initialCapacity: 2);
 
         var commandBuffer = SDL.AcquireGPUCommandBuffer(renderer.Device);
         var copyPass = SDL.BeginGPUCopyPass(commandBuffer);

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// Exact per-instance layout written into <see cref="InstanceBuffer"/> and read by
+/// Exact per-instance layout written into <see cref="InstanceBuffer{T}"/> and read by
 /// <c>UnlitSprite.vert.hlsl</c> via <c>SV_InstanceID</c>. <see cref="SourceRectPixels"/> packs
 /// <c>(X, Y, Width, Height)</c> as a <c>Vector4</c>, not <see cref="Rect"/>, since this struct's
 /// layout must match the shader's structured-buffer element exactly, and <see cref="Rect"/> is

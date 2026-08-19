@@ -3,22 +3,20 @@ using SDL3;
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// One frame-in-flight slot's per-instance storage buffer. Starts at
+/// One frame-in-flight slot's per-instance storage buffer for instance type <typeparamref name="T"/>
+/// (<see cref="SpriteInstanceData"/> or <see cref="MeshInstanceData"/>). Starts at
 /// <c>initialCapacity</c> instances, doubles on overflow: allocates a new, larger GPU buffer,
-/// writes into it, and retires the old one through <see cref="DeferredDestroyQueue"/> (the
-/// same "release once FramesInFlight frames have passed" mechanism already used for
-/// texture/mesh unload) so growth never stalls a still-in-flight GPU read of the old buffer.
-/// Never shrinks: this is the ceiling <c>SDL_GPU</c> allows (no sparse/reserved resources,
-/// see the spec's "Instance buffer growth" and "Decision: staying on SDL_GPU"), not a
-/// placeholder for something better later.
+/// writes into it, and retires the old one through <see cref="DeferredDestroyQueue"/> so growth
+/// never stalls a still-in-flight GPU read of the old buffer. Never shrinks: see the design
+/// spec's "Instance buffer growth" and "Decision: staying on SDL_GPU".
 /// </summary>
-internal sealed unsafe class InstanceBuffer(IntPtr device, DeferredDestroyQueue deferredDestroy, int initialCapacity = 1024)
+internal sealed unsafe class InstanceBuffer<T>(IntPtr device, DeferredDestroyQueue deferredDestroy, int initialCapacity = 1024) where T : unmanaged
 {
     private int _capacity = initialCapacity;
     private IntPtr _buffer = Allocate(device, initialCapacity);
 
     /// <summary>Writes <paramref name="instances"/> into this slot's buffer (growing first if needed) and returns the live GPU buffer handle to bind for this frame's draw calls.</summary>
-    public IntPtr Write(ReadOnlySpan<SpriteInstanceData> instances, long currentFrame, IntPtr copyPass)
+    public IntPtr Write(ReadOnlySpan<T> instances, long currentFrame, IntPtr copyPass)
     {
         if (instances.Length > _capacity)
         {
@@ -34,13 +32,13 @@ internal sealed unsafe class InstanceBuffer(IntPtr device, DeferredDestroyQueue 
 
         if (instances.IsEmpty) return _buffer;
 
-        var elementSize = sizeof(SpriteInstanceData);
+        var elementSize = sizeof(T);
         var byteSize = (uint)(instances.Length * elementSize);
 
         var transferCreateInfo = new SDL.GPUTransferBufferCreateInfo { Usage = SDL.GPUTransferBufferUsage.Upload, Size = byteSize };
         var transferBuffer = SDL.CreateGPUTransferBuffer(device, in transferCreateInfo);
         var mapped = SDL.MapGPUTransferBuffer(device, transferBuffer, false);
-        fixed (SpriteInstanceData* source = instances)
+        fixed (T* source = instances)
         {
             Buffer.MemoryCopy(source, (void*)mapped, byteSize, byteSize);
         }
@@ -56,7 +54,7 @@ internal sealed unsafe class InstanceBuffer(IntPtr device, DeferredDestroyQueue 
 
     private static IntPtr Allocate(IntPtr device, int capacity)
     {
-        var createInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.GraphicsStorageRead, Size = (uint)(capacity * sizeof(SpriteInstanceData)) };
+        var createInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.GraphicsStorageRead, Size = (uint)(capacity * sizeof(T)) };
         var buffer = SDL.CreateGPUBuffer(device, in createInfo);
         if (buffer == IntPtr.Zero)
             throw new InvalidOperationException($"SDL_CreateGPUBuffer failed: {SDL.GetError()}");

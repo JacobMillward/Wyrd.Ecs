@@ -24,7 +24,7 @@ public class SpriteBoundsTests
         var viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(1f);
         var bounds = new BoundingSphere(Vector3.Zero, 0.5f);
 
-        SpriteBounds.IsInsideFrustum(bounds, viewProjection).Should().BeTrue();
+        FrustumCulling.IsInsideFrustum(bounds, viewProjection).Should().BeTrue();
     }
 
     [Fact]
@@ -35,6 +35,6 @@ public class SpriteBoundsTests
         var viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(1f);
         var bounds = new BoundingSphere(new Vector3(10_000, 0, 0), 0.5f);
 
-        SpriteBounds.IsInsideFrustum(bounds, viewProjection).Should().BeFalse();
+        FrustumCulling.IsInsideFrustum(bounds, viewProjection).Should().BeFalse();
     }
 }

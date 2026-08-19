@@ -16,14 +16,11 @@ public sealed partial class RendererSystem
     // emitted) never exposes Entity either. Both ruled out since GetWorldTransform needs it.
     private static readonly ArchetypeQuery SpriteArchetypeQuery = ArchetypeQuery.Empty
         .Access<Ref<Transform>>().Access<Ref<Sprite>>().Access<Ref<Material>>();
-    private static readonly ArchetypeQuery CameraArchetypeQuery = ArchetypeQuery.Empty
-        .Access<Ref<Transform>>().Access<Ref<Camera>>();
 
-    private readonly InstanceBuffer?[] _instanceBuffersBySlot = new InstanceBuffer?[FrameInFlightTracker.FramesInFlight];
+    private readonly InstanceBuffer<SpriteInstanceData>?[] _instanceBuffersBySlot = new InstanceBuffer<SpriteInstanceData>?[FrameInFlightTracker.FramesInFlight];
     private readonly SpriteBatcher _spriteBatcher = new();
     private readonly List<(Entity Entity, WorldTransform Transform, Sprite Sprite, Material Material, BoundingSphere Bounds)> _spriteScratch = [];
     private readonly Dictionary<Entity, int> _spriteScratchIndex = new();
-    private readonly List<(Entity CameraEntity, Camera Camera)> _cameraScratch = [];
     private readonly List<(Entity Entity, Material Material)> _survivorScratch = [];
     private readonly List<SpriteInstanceData> _instanceScratch = [];
     private readonly List<int> _batchInstanceBases = [];
@@ -34,19 +31,8 @@ public sealed partial class RendererSystem
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct BatchUniforms(Vector2 TextureSizePixels, uint InstanceBase, uint Padding = 0);
 
-    /// <summary>
-    /// Renders every active <c>(Transform, Camera)</c> into <paramref name="swapchainTexture"/>,
-    /// in <see cref="Camera.Order"/> sequence, each in its own copy-pass-then-render-pass pair:
-    /// <see cref="Camera.ClearOnBegin"/> needs a per-camera render-pass <c>LoadOp</c> (fixed for
-    /// a render pass's whole lifetime in SDL_GPU, so one shared render pass for the frame
-    /// can't honor it per camera), and <see cref="SpriteBatcher"/>'s reused storage needs one
-    /// camera's batch result fully consumed (bound and drawn) before the next camera's
-    /// <c>Batch</c> call reuses the same backing lists. Falls back to a single
-    /// clear-and-present pass if there are no active cameras, matching the Foundational
-    /// phase's original behavior for that case. Called from <see cref="Execute"/>, only when
-    /// the swapchain acquire actually succeeded.
-    /// </summary>
-    private void DrawFrame(World world, IntPtr commandBuffer, IntPtr swapchainTexture, int viewportWidth, int viewportHeight)
+    /// <summary>Resolves every active <c>(Transform, Sprite, Material)</c> entity's world transform and bounds once per frame, into <see cref="_spriteScratch"/>, so <see cref="DrawSprites"/> never repeats <see cref="World.GetWorldTransform"/> per camera. Called once from <see cref="DrawFrame"/>, before the per-camera loop.</summary>
+    private void ResolveSprites(World world)
     {
         _spriteScratch.Clear();
         _spriteScratchIndex.Clear();
@@ -68,94 +54,79 @@ public sealed partial class RendererSystem
                 _spriteScratch.Add((entity, worldTransform, sprite, material, bounds));
             }
         }
+    }
 
-        _cameraScratch.Clear();
-        foreach (var chunk in CameraArchetypeQuery.Resolve(world))
+    /// <summary>
+    /// Culls, batches, and draws every <see cref="_spriteScratch"/> entry surviving
+    /// <paramref name="camera"/>'s frustum, in its own copy-pass-then-render-pass pair (see
+    /// <see cref="DrawFrame"/>'s doc comment for why each camera gets its own pass). Called
+    /// once per <see cref="ProjectionMode.Orthographic"/> camera.
+    /// </summary>
+    private void DrawSprites(World world, IntPtr commandBuffer, IntPtr swapchainTexture, Camera camera, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight)
+    {
+        _survivorScratch.Clear();
+        foreach (var candidate in _spriteScratch)
         {
-            var entities = chunk.Entities;
-            var cameras = chunk.Access<Ref<Camera>>();
-            for (var i = 0; i < chunk.Count; i++)
-                _cameraScratch.Add((entities[i], cameras[i]));
-        }
-        _cameraScratch.Sort(static (a, b) => a.Camera.Order.CompareTo(b.Camera.Order));
-
-        if (_cameraScratch.Count == 0)
-        {
-            var colorTarget = new SDL.GPUColorTargetInfo { Texture = swapchainTexture, ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f }, LoadOp = SDL.GPULoadOp.Clear, StoreOp = SDL.GPUStoreOp.Store };
-            var emptyRenderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
-            SDL.EndGPURenderPass(emptyRenderPass);
-            return;
+            if (FrustumCulling.IsInsideFrustum(candidate.Bounds, viewProjection))
+                _survivorScratch.Add((candidate.Entity, candidate.Material));
         }
 
-        foreach (var (cameraEntity, camera) in _cameraScratch)
+        var batches = _spriteBatcher.Batch(_survivorScratch);
+
+        _instanceScratch.Clear();
+        _batchInstanceBases.Clear();
+        foreach (var batch in batches)
         {
-            var cameraWorldTransform = world.GetWorldTransform(cameraEntity);
-            var viewProjection = camera.GetViewMatrix(cameraWorldTransform) * camera.GetProjectionMatrix((float)viewportWidth / viewportHeight);
-
-            _survivorScratch.Clear();
-            foreach (var candidate in _spriteScratch)
+            _batchInstanceBases.Add(_instanceScratch.Count);
+            foreach (var batchEntity in batch.Entities)
             {
-                if (SpriteBounds.IsInsideFrustum(candidate.Bounds, viewProjection))
-                    _survivorScratch.Add((candidate.Entity, candidate.Material));
+                var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above, no second GetWorldTransform walk
+                var sourceRect = resolved.Sprite.SourceRect is { } r ? new Vector4(r.X, r.Y, r.Width, r.Height) : Vector4.Zero;
+                _instanceScratch.Add(new SpriteInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.Sprite.Tint, sourceRect));
             }
-
-            var batches = _spriteBatcher.Batch(_survivorScratch);
-
-            _instanceScratch.Clear();
-            _batchInstanceBases.Clear();
-            foreach (var batch in batches)
-            {
-                _batchInstanceBases.Add(_instanceScratch.Count);
-                foreach (var batchEntity in batch.Entities)
-                {
-                    var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above, no second GetWorldTransform walk
-                    var sourceRect = resolved.Sprite.SourceRect is { } r ? new Vector4(r.X, r.Y, r.Width, r.Height) : Vector4.Zero;
-                    _instanceScratch.Add(new SpriteInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.Sprite.Tint, sourceRect));
-                }
-            }
-
-            var slot = FrameInFlight.SlotIndex;
-            var instanceBuffer = _instanceBuffersBySlot[slot] ??= new InstanceBuffer(Device, DeferredDestroy, initialCapacity: 1024);
-
-            var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
-            var gpuInstanceBuffer = instanceBuffer.Write(CollectionsMarshal.AsSpan(_instanceScratch), FrameInFlight.CurrentFrame, copyPass);
-            SDL.EndGPUCopyPass(copyPass);
-
-            var colorTarget = new SDL.GPUColorTargetInfo
-            {
-                Texture = swapchainTexture,
-                ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
-                LoadOp = camera.ClearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
-                StoreOp = SDL.GPUStoreOp.Store,
-            };
-            var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
-
-            SDL.BindGPUGraphicsPipeline(renderPass, SpritePipeline);
-            var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
-            SDL.SetGPUViewport(renderPass, in viewport);
-            SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1); // once per camera, same buffer for every batch under it
-
-            var cameraUniforms = new CameraUniforms(viewProjection);
-            var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
-            SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length); // once per camera, unchanging across its batches
-
-            for (var i = 0; i < batches.Count; i++)
-            {
-                var batch = batches[i];
-                var texture = ResolveTexture(batch.Material);
-
-                var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = SpriteSampler };
-                SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
-
-                var batchUniforms = new BatchUniforms(new Vector2(texture.PixelWidth, texture.PixelHeight), (uint)_batchInstanceBases[i]);
-                var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<BatchUniforms>(in batchUniforms));
-                SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
-
-                SDL.DrawGPUPrimitives(renderPass, 4, (uint)batch.Entities.Count, 0, 0); // firstInstance always 0. BatchUniforms.InstanceBase carries the real offset (see UnlitSprite.vert.hlsl)
-            }
-
-            SDL.EndGPURenderPass(renderPass);
         }
+
+        var slot = FrameInFlight.SlotIndex;
+        var instanceBuffer = _instanceBuffersBySlot[slot] ??= new InstanceBuffer<SpriteInstanceData>(Device, DeferredDestroy, initialCapacity: 1024);
+
+        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
+        var gpuInstanceBuffer = instanceBuffer.Write(CollectionsMarshal.AsSpan(_instanceScratch), FrameInFlight.CurrentFrame, copyPass);
+        SDL.EndGPUCopyPass(copyPass);
+
+        var colorTarget = new SDL.GPUColorTargetInfo
+        {
+            Texture = swapchainTexture,
+            ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
+            LoadOp = camera.ClearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
+            StoreOp = SDL.GPUStoreOp.Store,
+        };
+        var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
+
+        SDL.BindGPUGraphicsPipeline(renderPass, SpritePipeline);
+        var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
+        SDL.SetGPUViewport(renderPass, in viewport);
+        SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1); // once per camera, same buffer for every batch under it
+
+        var cameraUniforms = new CameraUniforms(viewProjection);
+        var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
+        SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length); // once per camera, unchanging across its batches
+
+        for (var i = 0; i < batches.Count; i++)
+        {
+            var batch = batches[i];
+            var texture = ResolveTexture(batch.Material);
+
+            var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = SpriteSampler };
+            SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
+
+            var batchUniforms = new BatchUniforms(new Vector2(texture.PixelWidth, texture.PixelHeight), (uint)_batchInstanceBases[i]);
+            var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<BatchUniforms>(in batchUniforms));
+            SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
+
+            SDL.DrawGPUPrimitives(renderPass, 4, (uint)batch.Entities.Count, 0, 0); // firstInstance always 0. BatchUniforms.InstanceBase carries the real offset (see UnlitSprite.vert.hlsl)
+        }
+
+        SDL.EndGPURenderPass(renderPass);
     }
 
     private Texture ResolveTexture(Material material) =>
