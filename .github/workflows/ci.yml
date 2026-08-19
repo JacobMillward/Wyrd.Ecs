@@ -58,3 +58,40 @@ jobs:
 
       - name: Run Wyrd.Ecs.Platform NativeAOT smoke test
         run: ./artifacts/platform-aot-smoke-test/Wyrd.Ecs.Platform.AotSmokeTest
+
+      - name: Publish Wyrd.Ecs.Renderer NativeAOT smoke test
+        run: dotnet publish src/Platform/Renderer/Wyrd.Ecs.Renderer.AotSmokeTest -c Release -r linux-x64 --self-contained -o artifacts/renderer-aot-smoke-test
+
+      - name: Run Wyrd.Ecs.Renderer NativeAOT smoke test
+        run: ./artifacts/renderer-aot-smoke-test/Wyrd.Ecs.Renderer.AotSmokeTest
+
+  gpu-tests:
+    name: GPU tests (lavapipe)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      SDL_HINT_GPU_DRIVER: vulkan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+
+      - name: Install lavapipe
+        uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
+        with:
+          install_lavapipe: true
+
+      - name: Restore (locked mode)
+        run: dotnet restore --locked-mode
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run GPU-requiring tests
+        run: dotnet test --no-build --configuration Release --filter "Category=RequiresGpu"
