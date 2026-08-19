@@ -52,6 +52,7 @@ public sealed partial class RendererSystem : EcsSystem
         }
 
         PlaceholderTexture = CreatePlaceholderTexture();
+        CreateSpritePipeline();
     }
 
     /// <inheritdoc/>
@@ -97,6 +98,8 @@ public sealed partial class RendererSystem : EcsSystem
     /// <inheritdoc/>
     protected override void OnDestroy()
     {
+        SDL.ReleaseGPUGraphicsPipeline(Device, SpritePipeline);
+        SDL.ReleaseGPUSampler(Device, SpriteSampler);
         SDL.ReleaseWindowFromGPUDevice(Device, _platform.Window);
         SDL.DestroyGPUDevice(Device);
     }
