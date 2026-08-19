@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <None Include="smoke-test-sprite.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="smoke-test-cube.obj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="smoke-test-cube.mtl" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

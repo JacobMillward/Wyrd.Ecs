@@ -1,3 +1,4 @@
+using System.Numerics;
 using SDL3;
 using Wyrd.Ecs;
 using Wyrd.Ecs.Platform;
@@ -41,17 +42,47 @@ if (!loadTask.IsCompletedSuccessfully)
     return 1;
 }
 
+var objPath = Path.Combine(AppContext.BaseDirectory, "smoke-test-cube.obj");
+var modelTask = renderer.LoadModel(objPath);
+for (var i = 0; i < 50 && !modelTask.IsCompleted; i++)
+{
+    world.Update(TimeSpan.FromMilliseconds(16));
+    Thread.Sleep(10);
+}
+
+if (!modelTask.IsCompletedSuccessfully)
+{
+    Console.Error.WriteLine($"FAIL: model load did not complete successfully: {modelTask.Exception}");
+    return 1;
+}
+
+var parts = modelTask.Result;
+if (parts.Count != 2)
+{
+    Console.Error.WriteLine($"FAIL: expected 2 model parts (multi-material cube), got {parts.Count}");
+    return 1;
+}
+
+var perspectiveCameraEntity = world.Commands.CreateEntity();
+world.Commands.AddComponent(perspectiveCameraEntity, new Transform { Position = new Vector3(0, 0, -5), Rotation = Quaternion.Identity, Scale = Vector3.One });
+world.Commands.AddComponent(perspectiveCameraEntity, new Camera(Order: 1, ProjectionMode.Perspective, ClearOnBegin: false, MathF.PI / 4f, 0.1f, 100f));
+world.ApplyCommands();
+
+renderer.SpawnModel(world, parts, Transform.Identity);
+world.ApplyCommands();
+
+var framesBeforeFinalDraws = renderer.FrameInFlight.CurrentFrame;
 for (var i = 0; i < 5; i++)
     world.Update(TimeSpan.FromMilliseconds(16));
 
-if (renderer.FrameInFlight.CurrentFrame < 5)
+if (renderer.FrameInFlight.CurrentFrame - framesBeforeFinalDraws < 5)
 {
-    Console.Error.WriteLine($"FAIL: expected at least 5 frames submitted, got {renderer.FrameInFlight.CurrentFrame}");
+    Console.Error.WriteLine($"FAIL: expected 5 more frames submitted after spawning the model, got {renderer.FrameInFlight.CurrentFrame - framesBeforeFinalDraws}");
     return 1;
 }
 
 world.RemoveSystem(renderer);
 world.RemoveSystem(world.GetSystem<PlatformSystem>());
 
-Console.WriteLine("OK: NativeAOT SDL_GPU sprite draw (device/swapchain/shader/texture/instance buffer) succeeded");
+Console.WriteLine("OK: NativeAOT SDL_GPU sprite + multi-material mesh draw (device/swapchain/shaders/texture/mesh/instance buffers, Assimp) succeeded");
 return 0;
