@@ -141,6 +141,14 @@ jobs:
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq mesa-vulkan-drivers
 
+      - name: Start a virtual X display
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # ubuntu-latest has no display server at all, so SDL/Vulkan have no window to
+          # create a presentable VK_KHR_xcb_surface against without a real X11 display.
+          Xvfb :99 -screen 0 1280x1024x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+
       - name: Restore (locked mode)
         run: dotnet restore --locked-mode
 
