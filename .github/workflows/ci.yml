@@ -60,7 +60,7 @@ jobs:
         run: ./artifacts/platform-aot-smoke-test/Wyrd.Ecs.Platform.AotSmokeTest
 
   gpu-tests:
-    name: GPU tests (lavapipe)
+    name: ${{ matrix.os == 'macos-latest' && 'Build (no GPU tests)' || 'GPU tests (lavapipe)' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
