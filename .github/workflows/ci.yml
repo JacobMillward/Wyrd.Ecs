@@ -76,6 +76,8 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
+      # macOS GitHub runners have no WindowServer session, so SDL_Init(Video) fails outright.
+      # The offscreen driver has Vulkan support and works with lavapipe for headless GPU testing.
       - name: Use the offscreen video driver on macOS
         if: matrix.os == 'macos-latest'
         run: echo "SDL_VIDEODRIVER=offscreen" >> "$GITHUB_ENV"
@@ -83,6 +85,8 @@ jobs:
       - name: Wait for the dpkg lock
         if: matrix.os == 'ubuntu-latest'
         run: |
+          # apt-daily/unattended-upgrades can hold the dpkg lock on a freshly booted runner,
+          # which hangs the next step's apt-get install silently until the job times out.
           for i in $(seq 1 60); do
             sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break
             sleep 5
