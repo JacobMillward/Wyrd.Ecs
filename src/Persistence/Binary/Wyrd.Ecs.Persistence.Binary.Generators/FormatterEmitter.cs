@@ -7,14 +7,13 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// Renders a <see cref="PlannedFormatter"/> set into standalone
 /// <c>MemoryPackFormatter&lt;T&gt;</c> classes plus a <c>[ModuleInitializer]</c> method
 /// registering each with <c>MemoryPackFormatterProvider</c>. Classes never touch the
-/// component's own declaration - no <c>partial</c> requirement, verified during design (see
-/// the design doc's Design B).
+/// component's own declaration: no <c>partial</c> requirement.
 ///
 /// A <c>string</c> member uses <c>WriteString</c>/<c>ReadString</c> directly rather than
 /// the generic <c>WriteValue</c>/<c>ReadValue&lt;T&gt;</c> every other member type uses:
-/// benchmarked (see <c>BinaryPersistenceFormatterBenchmarks</c>) at roughly 30% faster for
-/// serialize, since it skips the runtime <c>MemoryPackFormatterProvider</c> lookup
-/// <c>WriteValue&lt;string&gt;</c> pays on every call - <c>string</c> is common enough in
+/// roughly 30% faster for serialize (see <c>BinaryPersistenceFormatterBenchmarks</c>), since
+/// it skips the runtime <c>MemoryPackFormatterProvider</c> lookup
+/// <c>WriteValue&lt;string&gt;</c> pays on every call. <c>string</c> is common enough in
 /// component shapes to be worth the one special case.
 /// </summary>
 internal static class FormatterEmitter

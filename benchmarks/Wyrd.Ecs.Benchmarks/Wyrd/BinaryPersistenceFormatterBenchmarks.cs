@@ -4,14 +4,12 @@ using MemoryPack;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Compares the generated-formatter path the binary-persistence-opt-out design introduces
-/// against today's hand-written <c>[MemoryPackable]</c> path, for two shapes: a blittable
-/// component (unmanaged fast path either way) and a component with a managed
-/// <c>string</c> field (the case that now goes through a generated
+/// Compares the generated-formatter path against the hand-written <c>[MemoryPackable]</c>
+/// path, for two shapes: a blittable component (unmanaged fast path either way) and a
+/// component with a managed <c>string</c> field (routed through a generated
 /// <c>MemoryPackFormatter&lt;T&gt;</c> instead of MemoryPack's own generator). Both pairs
-/// should land within noise of each other - they resolve to the same low-level
-/// <c>WriteValue</c>/<c>ReadValue</c> calls either way, verified during design, but that's
-/// worth measuring rather than assuming.
+/// should land within noise of each other, since they resolve to the same low-level
+/// <c>WriteValue</c>/<c>ReadValue</c> calls either way; worth measuring rather than assuming.
 /// </summary>
 [MemoryDiagnoser]
 public partial class BinaryPersistenceFormatterBenchmarks

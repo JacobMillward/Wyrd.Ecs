@@ -10,17 +10,16 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// Walks a component's public fields and auto-implemented properties, recursively, to
 /// determine which types need a hand-generated <c>MemoryPackFormatter&lt;T&gt;</c> (see
 /// <see cref="FormatterEmitter"/>) versus which are already handled by MemoryPack itself
-/// (unmanaged types, <c>string</c>, arrays/<c>List&lt;T&gt;</c>/<c>Nullable&lt;T&gt;</c>,
-/// or a type already marked <c>[MemoryPackable]</c>). A field whose type this can't safely
-/// handle - an interface, an abstract class, or an unresolved open generic parameter -
-/// produces a <see cref="BinaryPersistenceDiagnostics.UnsupportedFieldShape"/> diagnostic
-/// instead of a formatter.
+/// (unmanaged types, <c>string</c>, arrays/<c>List&lt;T&gt;</c>/<c>Nullable&lt;T&gt;</c>, or
+/// a type already marked <c>[MemoryPackable]</c>). A field whose type this can't safely
+/// handle, such as an interface, an abstract class, or an unresolved open generic
+/// parameter, produces a <see cref="BinaryPersistenceDiagnostics.UnsupportedFieldShape"/>
+/// diagnostic instead of a formatter.
 ///
-/// Operates on Roslyn symbols throughout, unlike
-/// <see cref="MemoryPackRegistrationGenerator"/>'s own <c>RegisteredComponentInfo</c>: safe
-/// here because a <see cref="Plan"/> call is entirely local to one
-/// <c>MemoryPackRegistrationGenerator.TryExtract</c> invocation and never carried across the
-/// incremental pipeline's own caching boundary. <see cref="PlannedFormatter"/>/
+/// Operates on Roslyn symbols throughout, unlike <c>RegisteredComponentInfo</c>: safe here
+/// because a <see cref="Plan"/> call is entirely local to one
+/// <c>MemoryPackRegistrationGenerator.TryExtract</c> invocation, never carried across the
+/// incremental pipeline's caching boundary. <see cref="PlannedFormatter"/>/
 /// <see cref="PlannedMember"/>, which the caller does carry through <c>Collect()</c>, store
 /// only strings.
 /// </summary>

@@ -83,17 +83,15 @@ public static class WorldPersistenceExtensions
         /// Reads a full checkpoint from <paramref name="store"/> (defaults to
         /// <c>World.DefaultPersistenceStore</c>) and reconstructs it into
         /// <paramref name="world"/>, decoding with the resolved registry
-        /// (<paramref name="store"/>'s paired registry from
-        /// <c>WorldBuilder.SetPersistence</c> if it has one, else
-        /// <c>World.CodecRegistry</c>). Each <see cref="EntityId"/> seen, as a component or
-        /// as either side of a relation edge, gets one fresh <see cref="Entity"/> the
-        /// first time it appears; an entity referenced only as a relation target is
-        /// valid, not a corruption signal. A record for a discriminator absent from the
-        /// resolved registry is silently skipped, same as on save. A file truncated or
-        /// corrupted mid-record stops replay cleanly at the last complete record. A
-        /// record whose schema hash doesn't match the currently-registered type is
-        /// migrated via <see cref="CodecRegistry.Migrate"/> first. A foreign or corrupt
-        /// header throws immediately, before any record is read.
+        /// (<paramref name="store"/>'s paired registry from <c>WorldBuilder.SetPersistence</c>
+        /// if it has one, else <c>World.CodecRegistry</c>). Each <see cref="EntityId"/> seen,
+        /// as a component or as either side of a relation edge, gets one fresh
+        /// <see cref="Entity"/> the first time it appears; an entity referenced only as a
+        /// relation target is valid, not a corruption signal. A record for an unregistered
+        /// discriminator is silently skipped, same as on save. A file truncated mid-record
+        /// stops replay cleanly at the last complete record. A record whose schema hash
+        /// doesn't match the registered type is migrated via <see cref="CodecRegistry.Migrate"/>
+        /// first. A foreign or corrupt header throws immediately, before any record is read.
         /// </summary>
         public void Load(IPersistenceStore? store = null)
         {

@@ -1,31 +1,27 @@
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Per-<see cref="World"/> hub behind <see cref="World.Subscribe{T}"/> and its siblings
-/// (<see cref="World.SubscribeTag{T}"/>, <see cref="World.SubscribeRelation{T}"/>,
-/// <see cref="World.SubscribeEntityLifecycle"/>, <see cref="World.Subscribe(IComponentCodec)"/>):
+/// Per-<see cref="World"/> hub behind <see cref="World.Subscribe{T}"/> and its siblings:
 /// scans each distinct component type at most once per tick no matter how many
-/// subscribers are watching it, fanning each result out to every interested subscriber's
-/// own private buffer. See <see cref="ChangeSubscription"/>'s own doc for why there's no
-/// shared retained log.
+/// subscribers are watching it, fanning each result out to every subscriber's own private
+/// buffer. See <see cref="ChangeSubscription"/>'s own doc for why there's no shared
+/// retained log.
 ///
 /// <para>
-/// Each subscription is scoped to exactly one type index and one fixed set of
-/// <see cref="ChangeKind"/>s, set by whichever <c>Subscribe*</c> entry point created it.
-/// The one exception is <see cref="World.SubscribeEntityLifecycle"/>, whose
-/// <c>TypeIndex</c> is <c>null</c>, since entity creation/destruction isn't associated
-/// with any one type. Every event, structural or value, is matched and fanned out
-/// through one path (<see cref="Subscriber.Matches"/>/<see cref="Publish"/>).
+/// Each subscription is scoped to one type index and one fixed set of
+/// <see cref="ChangeKind"/>s. The exception is <see cref="World.SubscribeEntityLifecycle"/>,
+/// whose <c>TypeIndex</c> is <c>null</c>, since creation/destruction isn't tied to a type.
+/// Every event is matched and fanned out through one path
+/// (<see cref="Subscriber.Matches"/>/<see cref="Publish"/>).
 /// </para>
 ///
 /// <para>
-/// <see cref="ChangeSubscription.Drain"/> is callable from any thread, so
-/// <see cref="Subscribe{T}"/>/<see cref="Unsubscribe"/> and the tick-driven scan/fan-out
-/// path must be safe against running concurrently with it. <see cref="_lock"/> guards
-/// the hub's own bookkeeping; each <see cref="Subscriber"/>'s own <see cref="Subscriber.Lock"/>
-/// is a narrower lock guarding only that subscriber's double-buffer, always acquired
-/// while <see cref="_lock"/> is already held or (in <see cref="Drain"/>) after releasing
-/// it, never the other way around, so the two never deadlock.
+/// <see cref="ChangeSubscription.Drain"/> is callable from any thread, so it must be safe
+/// against running concurrently with <see cref="Subscribe{T}"/>/<see cref="Unsubscribe"/> and
+/// the tick-driven scan. <see cref="_lock"/> guards the hub's own bookkeeping; each
+/// <see cref="Subscriber.Lock"/> guards only that subscriber's double-buffer, always acquired
+/// while <see cref="_lock"/> is held or, in <see cref="Drain"/>, after releasing it, never
+/// the reverse, so the two never deadlock.
 /// </para>
 /// </summary>
 internal sealed class ChangeFeedHub

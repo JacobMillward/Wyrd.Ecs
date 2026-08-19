@@ -297,26 +297,18 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `AddSystem&lt;T&gt;()` overloads on `WorldBuilder`, `World` (the runtime,
-    /// already-built-and-running counterpart), and `SystemRegistration` so a consumer
-    /// never spells out `Wyrd.Ecs.Generated.SystemRegistry` by hand, and a fluent chain
-    /// (`builder.AddSystem&lt;A&gt;().AddSystem&lt;B&gt;()`) keeps working regardless of
-    /// which one the previous call returned. `Access` degrades gracefully via
-    /// `AccessOrNull`: a system whose `Execute` never calls `.ForEach`/isn't a
-    /// `QuerySystem` (e.g. a purely structural system) legitimately has no generated
-    /// footprint, and `StagePlanner` already treats that as "give it its own exclusive
-    /// stage," not an error. `Construct`, by contrast, uses the plain indexer: a type the
-    /// generator gave no entry to (see `QueryChainGenerator.ExtractConstructorShape`)
-    /// throws `KeyNotFoundException` at this call, a real gap (no way to make this a
-    /// compile-time failure without a call-site-aware analyzer, deferred rather than
-    /// built here); the caller should use the `Func&lt;World, T&gt;` overload for that
-    /// type instead. `Edges` folds into the call via `EdgesOrEmpty`, seeding the entry
-    /// before whatever `.Before&lt;T&gt;()`/`.After&lt;T&gt;()` gets chained afterward
-    /// unions in more. `Cadence` degrades the same way as `Access`, via `CadenceOrDefault`:
-    /// a type with no `[FixedTimestep]` attribute has no entry at all, defaulting to
-    /// `SystemCadence.Variable`. Unconditional, fixed-shape emission: no iteration over
-    /// discovered candidates required, since these methods are generic over any
-    /// `T : EcsSystem` and work for every system type the same way.
+    /// Emits `AddSystem&lt;T&gt;()` overloads on `WorldBuilder`, `World`, and
+    /// `SystemRegistration` so a consumer never spells out `Wyrd.Ecs.Generated.SystemRegistry`
+    /// by hand, and a fluent chain keeps working regardless of which one the previous call
+    /// returned. `Access`/`Cadence` degrade gracefully to `null`/`SystemCadence.Variable` via
+    /// `AccessOrNull`/`CadenceOrDefault` for a system with no generated footprint or no
+    /// `[FixedTimestep]` attribute. `Edges` seeds the entry via `EdgesOrEmpty` before any
+    /// `.Before&lt;T&gt;()`/`.After&lt;T&gt;()` chained afterward unions in more. `Construct`
+    /// uses the plain indexer instead: a type with no generator entry (see
+    /// `QueryChainGenerator.ExtractConstructorShape`) throws `KeyNotFoundException` here; use
+    /// the `Func&lt;World, T&gt;` overload for that type instead. Unconditional, fixed-shape
+    /// emission: these methods are generic over any `T : EcsSystem`, so no iteration over
+    /// discovered candidates is needed.
     /// </summary>
     internal static string RenderAddSystemExtensions()
     {

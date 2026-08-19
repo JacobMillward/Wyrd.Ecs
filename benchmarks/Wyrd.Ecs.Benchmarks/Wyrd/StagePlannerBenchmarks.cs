@@ -6,13 +6,11 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
 /// Benchmarks <see cref="StagePlanner.BuildStages"/> at increasing system counts. This is
-/// the recompute the system-management redesign now triggers on every runtime
-/// <c>AddSystem</c>/<c>RemoveSystem</c> (deferred, coalesced to at most once per
-/// <see cref="World.Update"/> call — see <see cref="ParallelSystemScheduler"/>), not just
-/// once at <see cref="WorldBuilder.Build"/> time as before. Every entry here shares one
-/// component-access footprint pattern (no ordering edges) — the conflict-packing path is
-/// the dominant cost at scale; edge-heavy graphs are a candidate follow-up dimension, not
-/// covered here.
+/// the recompute now triggered on every runtime <c>AddSystem</c>/<c>RemoveSystem</c>
+/// (deferred, coalesced to at most once per <see cref="World.Update"/> call, see
+/// <see cref="ParallelSystemScheduler"/>), not just once at <see cref="WorldBuilder.Build"/>
+/// time. Every entry here shares one component-access footprint pattern with no ordering
+/// edges, since the conflict-packing path is the dominant cost at scale.
 /// </summary>
 [MemoryDiagnoser]
 public class StagePlannerBenchmarks

@@ -10,39 +10,19 @@ namespace Wyrd.Ecs.Persistence.Binary.Generators;
 /// <summary>
 /// Scans for every <c>struct</c> implementing <c>Wyrd.Ecs.IComponent</c>, not marked
 /// <c>[PersistenceIgnore]</c>, not <c>file</c>-scoped, and accessible from
-/// <c>MemoryPackAutoRegistration</c> (a top-level class in a different namespace - skips a
-/// component nested inside a <c>private</c> containing type), the same
-/// <c>IsFileLocal</c>/<c>Compilation.IsSymbolAccessibleWithin</c> check
-/// <c>TagPersistenceAutoRegistrationGenerator</c> already uses, and emits two things into
-/// the referencing project's own compilation:
-/// <list type="bullet">
-/// <item><c>MemoryPackAutoRegistration.RegisterAll</c>: one
-/// <c>CodecRegistry.Register&lt;T&gt;</c> call per match, using
-/// <c>MemoryPackSerializer.Serialize</c>/<c>Deserialize&lt;T&gt;</c>.</item>
-/// <item>A one-argument <c>WorldBuilder.AddBinaryPersistence(IPersistenceStore)</c>/
-/// <c>AddBinaryPersistence(string)</c> pair that builds a registry, calls
-/// <c>RegisterAll</c>, and delegates to the two-argument
-/// <c>AddBinaryPersistence(store, registry)</c>.</item>
-/// </list>
-/// A matched component needs no other annotation if it's unmanaged (MemoryPack's own
-/// built-in fast path handles it directly) or already marked <c>[MemoryPackable]</c>
-/// (MemoryPack's own generator handles it). A
-/// component that is neither gets a hand-generated <c>MemoryPackFormatter&lt;T&gt;</c>
-/// instead (see <see cref="FormatterPlanner"/>/<see cref="FormatterEmitter"/>), registered
-/// via a <c>[ModuleInitializer]</c> so it's live before any <c>RegisterAll</c> call runs. A
-/// field shape that can't be safely auto-handled reports <c>WYRDBIN001</c> instead of silently
-/// excluding the component.
+/// <c>MemoryPackAutoRegistration</c>. Emits <c>MemoryPackAutoRegistration.RegisterAll</c>
+/// (one <c>CodecRegistry.Register&lt;T&gt;</c> call per match) and a one-argument
+/// <c>WorldBuilder.AddBinaryPersistence(IPersistenceStore)</c>/<c>(string)</c> pair that
+/// builds a registry, calls <c>RegisterAll</c>, and delegates to the two-argument overload.
 ///
-/// Discriminators default to each type's fully qualified name, so two same-named components
-/// in different namespaces don't collide - overridden by <c>[StableName]</c>. Each
-/// <c>[RenamedFrom]</c> on a type emits a matching <c>RegisterAlias</c> call.
+/// An unmanaged or already-<c>[MemoryPackable]</c> component needs no other annotation.
+/// Everything else gets a hand-generated <c>MemoryPackFormatter&lt;T&gt;</c> (see
+/// <see cref="FormatterPlanner"/>/<see cref="FormatterEmitter"/>), registered via a
+/// <c>[ModuleInitializer]</c> so it's live before <c>RegisterAll</c> runs. An unsupported
+/// field shape reports <c>WYRDBIN001</c> instead of silently excluding the component.
 ///
-/// <see cref="TryExtract"/> pulls only the fully-qualified type name out of the semantic
-/// model immediately, rather than carrying <see cref="INamedTypeSymbol"/> through
-/// <c>Collect()</c>: symbols don't compare structurally equal across compilations, so
-/// keeping one in the pipeline defeats incremental caching for the whole file.
-/// <see cref="FormatterPlanner"/> operates on symbols too, but entirely within one
-/// <see cref="TryExtract"/> call, never carried across that same caching boundary.
+/// Discriminators default to each type's fully qualified name, overridden via
+/// <c>[StableName]</c>. Each <c>[RenamedFrom]</c> emits a matching <c>RegisterAlias</c> call.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
@@ -66,6 +46,14 @@ public sealed class MemoryPackRegistrationGenerator : IIncrementalGenerator
         });
     }
 
+    /// <summary>
+    /// Extracts one component's registration info, or none if it fails a scan filter. Pulls
+    /// only the fully-qualified type name out of the semantic model immediately rather than
+    /// carrying <see cref="INamedTypeSymbol"/> through <c>Collect()</c>: symbols don't
+    /// compare structurally equal across compilations, so keeping one in the pipeline would
+    /// defeat incremental caching for the whole file. <see cref="FormatterPlanner"/> operates
+    /// on symbols too, but entirely within this call, never carried across that boundary.
+    /// </summary>
     private static ExtractResult TryExtract(StructDeclarationSyntax declaration, SemanticModel semanticModel)
     {
         var none = new ExtractResult(null, ImmutableArray<Diagnostic>.Empty);

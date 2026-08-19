@@ -7,12 +7,11 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 /// <summary>
 /// The <see cref="Tracked"/> dimension and one-at-a-time component-add variants, both
 /// Wyrd.Ecs-only with no Friflo/fennecs equivalent, so they don't belong on the shared
-/// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/> comparison class.
-/// Same <c>[GlobalSetup]</c>/batching/<c>[SimpleJob(invocationCount: 1)]</c> reasoning as
-/// that class. The <c>Create*</c> methods additionally need <see cref="ResetWorld"/> every
-/// iteration, not just once via <c>[GlobalSetup]</c>, so later iterations don't measure
-/// creation into an already-grown world; <see cref="DisposeEntity"/> is excluded since it
-/// destroys everything it creates each invocation.
+/// <see cref="Comparison.EntityLifecycle.EntityLifecycleBenchmarks"/> comparison class. Same
+/// <c>[GlobalSetup]</c>/batching/<c>[SimpleJob(invocationCount: 1)]</c> reasoning as that
+/// class. The <c>Create*</c> methods additionally reset via <see cref="ResetWorld"/> every
+/// iteration so later iterations don't measure into an already-grown world;
+/// <see cref="DisposeEntity"/> is excluded since it destroys everything it creates.
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob(invocationCount: 1)]

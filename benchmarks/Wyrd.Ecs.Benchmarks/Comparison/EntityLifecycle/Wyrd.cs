@@ -20,10 +20,9 @@ public partial class EntityLifecycleBenchmarks
     /// Rebuilds <see cref="_wyrd"/> fresh every iteration, scoped to only the four
     /// <c>Wyrd_Create*</c> methods. Without this, the same context keeps growing across
     /// every iteration, so later iterations measure creation into a much bigger,
-    /// previously-grown world than earlier ones: a non-stationary measurement (confirmed
-    /// by an actual run showing <c>Wyrd_CreateFourComponentEntity</c> reporting as cheaper
-    /// than <c>Wyrd_CreateOneComponentEntity</c>). <see cref="Wyrd_DisposeEntity"/> needs
-    /// no reset since it destroys everything it creates each invocation.
+    /// previously-grown world than earlier ones: a non-stationary measurement.
+    /// <see cref="Wyrd_DisposeEntity"/> needs no reset since it destroys everything it
+    /// creates each invocation.
     /// </summary>
     [IterationSetup(Targets = [
         nameof(Wyrd_CreateBareEntity), nameof(Wyrd_CreateOneComponentEntity),
@@ -74,12 +73,11 @@ public partial class EntityLifecycleBenchmarks
     }
 
     /// <summary>
-    /// Create-then-destroy, one batch of <see cref="EntityCount"/> pairs per invocation.
-    /// Not a single pre-seeded entity destroyed once, because <see cref="EntityLifecycleBenchmarks"/>
-    /// builds <see cref="WyrdContext"/> once via <c>[GlobalSetup]</c> and reuses it across
-    /// every invocation (see that class's docs): a single fixed target would only be alive
-    /// for the first call, then destroy every call after that as a no-op. Pairing keeps
-    /// every invocation self-resetting without needing a per-iteration reset.
+    /// Create-then-destroy, one batch of <see cref="EntityCount"/> pairs per invocation, not
+    /// a single pre-seeded entity destroyed once: <see cref="WyrdContext"/> is built once via
+    /// <c>[GlobalSetup]</c> and reused across every invocation, so a single fixed target
+    /// would only be alive for the first call and destroy as a no-op after that. Pairing
+    /// keeps every invocation self-resetting without a per-iteration reset.
     /// </summary>
     [Benchmark(OperationsPerInvoke = EntityCount)]
     public void Wyrd_DisposeEntity()

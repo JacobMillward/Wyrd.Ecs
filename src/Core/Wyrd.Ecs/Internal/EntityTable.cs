@@ -4,20 +4,18 @@ namespace Wyrd.Ecs.Internal;
 
 /// <summary>
 /// The world's entity identity table: generation-checked ids for liveness, permanent
-/// opaque ids (see <see cref="EntityId"/>), and each live entity's current archetype
-/// and row. Owns id allocation and recycling. A mutable struct, embedded directly in
+/// opaque ids (see <see cref="EntityId"/>), and each live entity's current archetype and
+/// row. Owns id allocation and recycling. A mutable struct, embedded directly in
 /// <see cref="World"/> rather than a class, so hot-path location lookups avoid an extra
 /// heap indirection.
 ///
 /// <para>
-/// <see cref="Reserve"/> is the only method safe to call concurrently from several
-/// threads at once (e.g. several systems in the same stage, via
-/// <see cref="CommandBuffer.CreateEntity()"/>). It mirrors Bevy's
-/// <c>Entities::reserve_entity</c>: an atomic cursor (<see cref="_freeCursor"/>) into
-/// the recycled-id list (<see cref="_pending"/>), falling back to minting a new id once
-/// the cursor goes negative, with no lock and no two callers ever handed the same id.
-/// Every other method assumes single-threaded access, running only at the join point
-/// after a stage's systems have all returned.
+/// <see cref="Reserve"/> is the only method safe to call concurrently from several threads
+/// at once. It mirrors Bevy's <c>Entities::reserve_entity</c>: an atomic cursor
+/// (<see cref="_freeCursor"/>) into the recycled-id list (<see cref="_pending"/>), falling
+/// back to minting a new id once the cursor goes negative, lock-free, with no two callers
+/// ever handed the same id. Every other method assumes single-threaded access, at the join
+/// point after a stage's systems have all returned.
 /// </para>
 /// </summary>
 internal struct EntityTable

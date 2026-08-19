@@ -95,27 +95,22 @@ public sealed class WorldBuilder
     /// <summary>
     /// Registers one system, deferring its construction until <see cref="Build"/> (so a
     /// <c>ctor(World)</c> can receive the <see cref="World"/> being built). Not called
-    /// directly by consumer code — the generator emits a strongly-typed
+    /// directly by consumer code: the generator emits a strongly-typed
     /// <c>AddSystem&lt;T&gt;()</c> overload closing over this, resolving
     /// <paramref name="access"/>/<paramref name="construct"/>/<paramref name="generatedBeforeTargets"/>/
     /// <paramref name="generatedAfterTargets"/> from <c>Wyrd.Ecs.Generated.SystemRegistry</c>
     /// so none of them are ever spelled out by hand. <paramref name="generatedBeforeTargets"/>/
     /// <paramref name="generatedAfterTargets"/> seed the entry's edges (from
-    /// <c>[RunBefore]</c>/<c>[RunAfter]</c>) before any <see cref="SystemRegistration.Before{T}"/>/
-    /// <see cref="SystemRegistration.After{T}"/> chained afterward adds more — both sets
-    /// union into the same list. This has to happen inside the core assembly (here),
-    /// not in the generated extension method that calls it: <see cref="SystemRegistration"/>
-    /// exposes its underlying <see cref="SystemEntry"/> only as `internal` (test-only
-    /// introspection), unreachable from a consumer assembly generated code lives in
-    /// (which gets no <c>InternalsVisibleTo</c> grant), so seeding can't happen by
-    /// reaching into <see cref="SystemRegistration"/> from outside — it has to happen
-    /// here, where the entry is directly available. Returns a chainable
-    /// <see cref="SystemRegistration"/> for declaring further ordering edges or starting
-    /// the system disabled. Throws if a system of <paramref name="systemType"/> is
-    /// already registered on this builder (at most one instance per Type is supported —
-    /// same rule <see cref="ParallelSystemScheduler.Register"/> enforces at runtime,
-    /// checked here too so a duplicate at <c>Build()</c> time is diagnosed at the exact
-    /// <c>AddSystem&lt;T&gt;()</c> call site that caused it, not later).
+    /// <c>[RunBefore]</c>/<c>[RunAfter]</c>); further <see cref="SystemRegistration.Before{T}"/>/
+    /// <see cref="SystemRegistration.After{T}"/> calls union in on top. Seeding happens here,
+    /// not in the generated extension method, because <see cref="SystemRegistration"/> exposes
+    /// its underlying <see cref="SystemEntry"/> only as `internal`, unreachable from the
+    /// consumer assembly generated code lives in. Returns a chainable
+    /// <see cref="SystemRegistration"/> for declaring further ordering edges or starting the
+    /// system disabled. Throws if a system of <paramref name="systemType"/> is already
+    /// registered on this builder (same at-most-one-instance rule
+    /// <see cref="ParallelSystemScheduler.Register"/> enforces at runtime, checked here too so
+    /// a duplicate is diagnosed at the <c>AddSystem&lt;T&gt;()</c> call site, not later).
     /// </summary>
     public SystemRegistration AddSystemCore(
         Type systemType,

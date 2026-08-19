@@ -11,17 +11,16 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// MSBuild task, wired to run <c>BeforeTargets="CoreCompile"</c> by
 /// <c>build/Wyrd.Ecs.Persistence.Json.Generators.targets</c>. Builds an ad hoc
 /// <see cref="CSharpCompilation"/> from the consuming project's own <c>@(Compile)</c>
-/// items, scans it for every <c>Wyrd.Ecs.IComponent</c> implementer, including types
-/// marked <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/> (whether a type can
-/// be serialized and whether it's wired into a given CodecRegistry are different questions;
-/// only <see cref="JsonRegistrationGenerator"/> enforces the ignore semantics), and
-/// materializes a <c>[JsonSerializable]</c>-decorated <c>JsonSerializerContext</c>
-/// partial class to disk before <c>CoreCompile</c> runs, so System.Text.Json's own source
-/// generator processes it like any hand-written source. This materialize-then-let-STJ-run
-/// step exists because one Roslyn generator cannot see another generator's output within
-/// the same compilation (dotnet/roslyn#77560): an ordinary <c>IIncrementalGenerator</c>
-/// can't populate <c>[JsonSerializable]</c> on STJ's own context class the way
-/// <see cref="JsonRegistrationGenerator"/> populates <c>CodecRegistry</c>.
+/// items, scans it for every <c>Wyrd.Ecs.IComponent</c> implementer (including types
+/// marked <see cref="Wyrd.Ecs.Persistence.PersistenceIgnoreAttribute"/>; only
+/// <see cref="JsonRegistrationGenerator"/> enforces the ignore semantics), and materializes
+/// a <c>[JsonSerializable]</c>-decorated <c>JsonSerializerContext</c> partial class to disk
+/// before <c>CoreCompile</c> runs, so System.Text.Json's own source generator processes it
+/// like hand-written source. This exists because one Roslyn generator cannot see another's
+/// output within the same compilation (dotnet/roslyn#77560): an ordinary
+/// <c>IIncrementalGenerator</c> can't populate <c>[JsonSerializable]</c> on STJ's own
+/// context class the way <see cref="JsonRegistrationGenerator"/> populates
+/// <c>CodecRegistry</c>.
 /// </summary>
 // RS1035 bans file IO for analyzer assemblies. This class is an MSBuild Task, not an
 // analyzer, and file IO is its entire job: the ban doesn't apply, it just can't tell

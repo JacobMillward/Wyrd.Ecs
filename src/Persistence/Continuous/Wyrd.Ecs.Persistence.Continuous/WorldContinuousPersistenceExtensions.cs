@@ -14,17 +14,17 @@ public static class WorldContinuousPersistenceExtensions
         /// <summary>
         /// Enables continuous persistence: writes an initial bootstrap checkpoint, then
         /// starts the WAL-writer and checkpoint-merge background threads. Requires
-        /// <c>World.CodecRegistry</c> and <c>World.DefaultPersistenceStore</c>
-        /// to already be configured earlier in the builder chain. Applied via
+        /// <c>World.CodecRegistry</c> and <c>World.DefaultPersistenceStore</c> already
+        /// configured earlier in the builder chain. Applied via
         /// <see cref="WorldBuilder.OnBuilt"/> once <see cref="WorldBuilder.Build"/> runs.
         /// Throws if continuous persistence is already enabled for this World.
         /// <paramref name="walStore"/> defaults to a <see cref="FileWalStore"/> colocated
-        /// with the default persistence store when that's a <see cref="FileStore"/>;
-        /// otherwise supply it explicitly.
-        /// <paramref name="registerProcessExitSafetyNet"/> (default true) force-stops and
-        /// merges this session if the process exits without <c>StopContinuousPersistence</c>
-        /// being called first; it does not help a World abandoned mid-process while the
-        /// game keeps running. Pass false to require <c>Stop</c> be called explicitly.
+        /// with the default store when that's a <see cref="FileStore"/>, otherwise supply it
+        /// explicitly. <paramref name="registerProcessExitSafetyNet"/> (default true)
+        /// force-stops and merges this session if the process exits without
+        /// <c>StopContinuousPersistence</c> being called; it doesn't help a World abandoned
+        /// mid-process while the game keeps running. Pass false to require <c>Stop</c> be
+        /// called explicitly.
         /// </summary>
         public WorldBuilder EnableContinuousPersistence(
             IWalStore? walStore = null,

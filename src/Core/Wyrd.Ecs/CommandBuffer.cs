@@ -4,16 +4,16 @@ namespace Wyrd.Ecs;
 /// The only way to perform structural mutation: creating or destroying an entity, adding
 /// or removing a component or tag. Queued operations are not visible until
 /// <see cref="World.ApplyCommands()"/> runs. Deferred rather than immediate since mutating
-/// an archetype's backing arrays while a query is mid-walk over it has no guard against
-/// corruption, and structural mutation touches world-level shared state a per-component
-/// parallel scheduler can't reason about. Reading and mutating an already-placed entity's
-/// existing values (<see cref="World.GetComponent{T}(Entity)"/> and friends) never touches
-/// archetype row layout, so it stays direct on <see cref="World"/> instead.
+/// an archetype's backing arrays while a query is mid-walk has no guard against corruption,
+/// and structural mutation touches world-level shared state a per-component parallel
+/// scheduler can't reason about. Reading and mutating an already-placed entity's existing
+/// values never touches archetype row layout, so that stays direct on <see cref="World"/>
+/// instead.
 ///
 /// <para>
-/// Every public method is safe to call concurrently from several threads at once
-/// (guarded by an internal lock); several sources can queue against the same buffer, or
-/// each hold their own via <see cref="World.CreateCommands"/>, then apply them all via
+/// Every public method is safe to call concurrently from several threads at once, guarded
+/// by an internal lock: several sources can queue against the same buffer, or each hold
+/// their own via <see cref="World.CreateCommands"/>, then apply them all via
 /// <see cref="World.ApplyCommands(CommandBuffer)"/>.
 /// </para>
 /// </summary>

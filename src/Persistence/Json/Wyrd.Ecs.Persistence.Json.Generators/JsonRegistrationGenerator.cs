@@ -15,18 +15,16 @@ namespace Wyrd.Ecs.Persistence.Json.Generators;
 /// <c>JsonSerializer.SerializeToUtf8Bytes</c>/<c>Deserialize</c> against the
 /// <c>JsonTypeInfo&lt;T&gt;</c> <see cref="JsonContextEmitTask"/> materializes onto
 /// <c>&lt;ConsumerName&gt;JsonPersistenceContext.Default</c>.</item>
-/// <item>When the <c>WyrdJsonRegisterIgnoredTypes</c> MSBuild property is set:
+/// <item>When <c>WyrdJsonRegisterIgnoredTypes</c> is set:
 /// <c>JsonAutoRegistration.RegisterAllIncludingIgnored</c>, covering every match
-/// <c>RegisterAll</c> skips too, plus <c>PersistenceIgnoredTypes.Discriminators</c>, for a
-/// caller that wants full visibility regardless of persistence opt-out, not real
-/// persistence. Off by default; <c>RegisterAll</c>'s own behavior never changes.</item>
+/// <c>RegisterAll</c> skips plus <c>PersistenceIgnoredTypes.Discriminators</c>, for full
+/// visibility regardless of persistence opt-out. Off by default.</item>
 /// <item>A one-argument <c>WorldBuilder.AddJsonPersistence(IPersistenceStore)</c>/
-/// <c>AddJsonPersistence(string)</c> pair delegating to the two-argument
-/// <c>AddJsonPersistence(store, registry)</c>.</item>
+/// <c>AddJsonPersistence(string)</c> pair delegating to the two-argument overload.</item>
 /// </list>
-/// References the context class only by the <see cref="ConsumerContextNaming"/>
-/// convention <see cref="JsonContextEmitTask"/> uses, never its generated syntax, so
-/// there's no cross-generator ordering dependency despite both targeting the same file.
+/// References the context class only by the <see cref="ConsumerContextNaming"/> convention
+/// <see cref="JsonContextEmitTask"/> uses, never its generated syntax: no cross-generator
+/// ordering dependency despite both targeting the same file.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class JsonRegistrationGenerator : IIncrementalGenerator

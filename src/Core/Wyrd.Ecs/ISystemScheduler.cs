@@ -3,20 +3,19 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// Runs whatever's registered against a <see cref="World"/> for one tick, and owns the
 /// live registration list that produces that schedule. The extensibility seam
-/// <see cref="WorldBuilder.WithScheduler"/> swaps — a custom implementation (e.g.
-/// strictly sequential, for deterministic lockstep/replay netcode) drops in without
-/// needing any other change to <see cref="World"/>/<see cref="WorldBuilder"/>.
-/// <see cref="ParallelSystemScheduler"/> is the default. Registration/removal both mark
-/// the schedule dirty rather than recomputing immediately — see <see cref="RunStages"/>/
+/// <see cref="WorldBuilder.WithScheduler"/> swaps: a custom implementation (e.g. strictly
+/// sequential, for deterministic lockstep/replay netcode) drops in without needing any
+/// other change to <see cref="World"/>/<see cref="WorldBuilder"/>.
+/// <see cref="ParallelSystemScheduler"/> is the default. Registration/removal both mark the
+/// schedule dirty rather than recomputing immediately; see <see cref="RunStages"/>/
 /// <see cref="Flush"/>.
 /// </summary>
 /// <remarks>
 /// A custom implementation must be safe to call <see cref="Register"/>/<see cref="Remove"/>/
-/// <see cref="Find"/> from within a system's own <see cref="EcsSystem.Execute"/> — including
-/// concurrently, from more than one system in the same parallel stage. This is the whole
-/// reason <see cref="ParallelSystemScheduler"/> guards its registration state with a lock
-/// rather than a plain collection: a system adding/removing another system mid-tick is a
-/// supported, expected use, not an edge case to leave undefined.
+/// <see cref="Find"/> from within a system's own <see cref="EcsSystem.Execute"/>, including
+/// concurrently from more than one system in the same parallel stage: a system
+/// adding/removing another system mid-tick is a supported, expected use, not an edge case
+/// to leave undefined.
 /// </remarks>
 public interface ISystemScheduler
 {

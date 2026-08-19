@@ -5,24 +5,21 @@ namespace Wyrd.Ecs;
 /// dispatches inline or to the thread pool based on <see cref="World.TotalEntityCount"/>
 /// versus <see cref="WorldBuilder.WithParallelThreshold"/>, then flushes
 /// <see cref="World.Commands"/> once every system in the stage has returned. The default
-/// <see cref="ISystemScheduler"/> — <see cref="WorldBuilder.WithScheduler"/> swaps in a
+/// <see cref="ISystemScheduler"/>; <see cref="WorldBuilder.WithScheduler"/> swaps in a
 /// different one. Owns the live registration list directly: <see cref="Register"/>/
-/// <see cref="Remove"/> mutate it and mark the schedule dirty; <see cref="RunStages"/>
-/// recomputes at most once per call, no matter how many structural changes happened
+/// <see cref="Remove"/> mutate it and mark the schedule dirty, and <see cref="RunStages"/>
+/// recomputes at most once per call regardless of how many structural changes happened
 /// since the previous one.
 /// </summary>
 /// <remarks>
-/// Registration state (<c>_entriesByType</c>/<c>_entries</c>/<c>_dirty</c>) is guarded by
-/// <c>_lock</c> because <see cref="RunStages"/> can invoke more than one system's
-/// <see cref="EcsSystem.Execute"/> concurrently (the <c>Parallel.ForEach</c> branch below)
-/// — if two of those systems both call <c>World.AddSystem</c>/<c>RemoveSystem</c> from
-/// within their own <c>Execute</c>, that's a real, supported scenario, not a hypothetical
-/// one. The lock is never held across the actual system-execution loop: <see cref="RunStages"/>
-/// only takes it briefly, once, to check <c>_dirty</c> and snapshot the current
-/// <c>_stages</c> reference into a local variable before releasing it, so a
-/// <see cref="Register"/>/<see cref="Remove"/> call made *during* this tick's execution
-/// (from any thread) can proceed immediately without contending with — or being able to
-/// affect — the stage list this tick is already committed to running.
+/// Registration state is guarded by <c>_lock</c> because <see cref="RunStages"/> can invoke
+/// more than one system's <see cref="EcsSystem.Execute"/> concurrently, and a system calling
+/// <c>World.AddSystem</c>/<c>RemoveSystem</c> from within its own <c>Execute</c> is a
+/// supported scenario. The lock is never held across the execution loop itself:
+/// <see cref="RunStages"/> takes it only briefly, to check <c>_dirty</c> and snapshot the
+/// current <c>_stages</c> reference before releasing it, so a concurrent
+/// <see cref="Register"/>/<see cref="Remove"/> call can proceed without affecting the stage
+/// list this tick already committed to running.
 /// </remarks>
 public sealed class ParallelSystemScheduler : ISystemScheduler
 {

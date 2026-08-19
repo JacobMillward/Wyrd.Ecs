@@ -246,20 +246,16 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// <summary>
     /// Reads <c>[RunBefore(typeof(X))]</c>/<c>[RunAfter(typeof(X))]</c> off a class
     /// declaration via the semantic model, at compile time. Not limited to
-    /// <c>EcsSystem</c> subclasses: a <c>MarkerSystem</c> can't declare these itself
-    /// (nothing points "before/after" a marker from the marker's own side), but nothing
-    /// here needs to assume the base type either; any class carrying the attributes is a
-    /// real edge to capture, and non-<c>EcsSystem</c>/<c>MarkerSystem</c> targets are
-    /// already rejected downstream at graph-resolution time.
+    /// <c>EcsSystem</c> subclasses: any class carrying the attributes is a real edge to
+    /// capture, and non-<c>EcsSystem</c>/<c>MarkerSystem</c> targets are already rejected
+    /// downstream at graph-resolution time.
     /// </summary>
     /// <remarks>
-    /// A <c>file</c>-scoped class (or a <c>file</c>-scoped edge target) can never work
-    /// here, same underlying reason as <see cref="WyrdDiagnostics.FileLocalComponentType"/>:
-    /// the emitted <c>SystemRegistry.Edges</c> entry lives in a separate generated file,
-    /// which can never reference a type scoped to a different file. Silently skipped
-    /// (whole class if it's file-local itself, one edge at a time if only a target is),
-    /// matching every other unrecognized-shape path in this generator, which stays silent
-    /// rather than diagnosing every possible reason a shape doesn't resolve.
+    /// A <c>file</c>-scoped class (or edge target) can never work here, same reason as
+    /// <see cref="WyrdDiagnostics.FileLocalComponentType"/>: the emitted
+    /// <c>SystemRegistry.Edges</c> entry lives in a separate generated file, which can
+    /// never reference a type scoped elsewhere. Silently skipped, matching every other
+    /// unrecognized-shape path in this generator.
     /// </remarks>
     private static EdgeResult ExtractEdges(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
     {

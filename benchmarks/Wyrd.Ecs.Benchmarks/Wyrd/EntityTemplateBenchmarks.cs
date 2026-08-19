@@ -8,9 +8,9 @@ namespace Wyrd.Ecs.Benchmarks.Wyrd;
 /// Whether a reused <see cref="EntityTemplate"/> costs meaningfully more per instantiate
 /// than the equivalent generated <c>CreateEntity&lt;T0..Tn&gt;</c> call, same four-component
 /// shape as <see cref="TrackedEntityLifecycleBenchmarks.CreateFourComponentEntity"/>.
-/// <c>warmupCount: 50</c> is deliberate: BenchmarkDotNet's adaptive warmup sometimes caught
-/// the arity-generated path mid-JIT-tier-up instead of fully optimized, producing noisy
-/// runs. A fixed, generous warmup measures steady-state performance instead.
+/// <c>warmupCount: 50</c> is deliberate: BenchmarkDotNet's adaptive warmup can end before
+/// the JIT finishes tiering up, so a fixed, generous warmup measures steady-state
+/// performance instead.
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob(invocationCount: 1, warmupCount: 50)]
