@@ -33,7 +33,6 @@ jobs:
 
   build:
     name: Build
-    needs: format
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -63,7 +62,6 @@ jobs:
 
   test:
     name: Test
-    needs: format
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -106,7 +104,6 @@ jobs:
 
   gpu-tests:
     name: GPU tests
-    needs: format
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
