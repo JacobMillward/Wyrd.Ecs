@@ -47,12 +47,23 @@ public readonly record struct Camera(
         return translationInverse * rotationInverse;
     }
 
-    /// <summary>View-space to clip-space matrix for this camera's <see cref="ProjectionMode"/>.</summary>
+    /// <summary>
+    /// View-space to clip-space matrix for this camera's <see cref="ProjectionMode"/>. Uses
+    /// the <c>LeftHanded</c> constructors deliberately — <see cref="System.Numerics"/>'s
+    /// unsuffixed <c>CreateOrthographic</c>/<c>CreatePerspectiveFieldOfView</c> are
+    /// right-handed (forward = -Z), but <see cref="GetViewMatrix"/>'s plain "invert the
+    /// camera's world transform" arithmetic is handedness-neutral and naturally produces
+    /// left-handed view space (forward = +Z for an identity-rotated camera) — matching
+    /// Unity's convention, which this type's <see cref="ScreenToWorld"/> already aligns with.
+    /// Mixing the two (confirmed empirically, not just reasoned) silently culls everything a
+    /// camera looks at: a target placed in front of the camera along +Z comes out at negative
+    /// view-space Z under the right-handed projection, landing outside the near/far planes.
+    /// </summary>
     public Matrix4x4 GetProjectionMatrix(float aspectRatio) => ProjectionMode switch
     {
-        ProjectionMode.Orthographic => Matrix4x4.CreateOrthographic(
+        ProjectionMode.Orthographic => Matrix4x4.CreateOrthographicLeftHanded(
             FieldOfViewOrOrthographicSize * 2f * aspectRatio, FieldOfViewOrOrthographicSize * 2f, Near, Far),
-        ProjectionMode.Perspective => Matrix4x4.CreatePerspectiveFieldOfView(
+        ProjectionMode.Perspective => Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(
             FieldOfViewOrOrthographicSize, aspectRatio, Near, Far),
         _ => throw new ArgumentOutOfRangeException(nameof(ProjectionMode)),
     };
