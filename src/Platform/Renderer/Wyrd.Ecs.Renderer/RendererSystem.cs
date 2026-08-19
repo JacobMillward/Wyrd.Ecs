@@ -54,6 +54,7 @@ public sealed partial class RendererSystem : EcsSystem
         PlaceholderTexture = CreatePlaceholderTexture();
         PlaceholderMesh = CreatePlaceholderMesh();
         CreateSpritePipeline();
+        CreateMeshPipeline();
     }
 
     /// <inheritdoc/>
@@ -94,6 +95,8 @@ public sealed partial class RendererSystem : EcsSystem
     {
         SDL.ReleaseGPUGraphicsPipeline(Device, SpritePipeline);
         SDL.ReleaseGPUSampler(Device, SpriteSampler);
+        SDL.ReleaseGPUGraphicsPipeline(Device, MeshPipeline);
+        SDL.ReleaseGPUSampler(Device, MeshSampler);
         SDL.ReleaseWindowFromGPUDevice(Device, _platform.Window);
         SDL.DestroyGPUDevice(Device);
     }

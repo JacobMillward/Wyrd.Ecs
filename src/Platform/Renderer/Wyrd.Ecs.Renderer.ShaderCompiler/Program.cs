@@ -19,6 +19,8 @@ try
     {
         ("UnlitSprite.vert", ShaderCross.ShaderStage.Vertex),
         ("UnlitSprite.frag", ShaderCross.ShaderStage.Fragment),
+        ("UnlitMesh.vert", ShaderCross.ShaderStage.Vertex),
+        ("UnlitMesh.frag", ShaderCross.ShaderStage.Fragment),
     };
 
     foreach (var (name, stage) in shaders)

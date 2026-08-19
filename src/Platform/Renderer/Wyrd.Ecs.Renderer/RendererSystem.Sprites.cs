@@ -134,15 +134,17 @@ public sealed partial class RendererSystem
             ? _textureArena.TryGetTexture(handle)!
             : PlaceholderTexture;
 
+    private (SDL.GPUShaderFormat Format, string Extension) ResolveShaderFormat() => SDL.GetGPUShaderFormats(Device) switch
+    {
+        var f when (f & SDL.GPUShaderFormat.SPIRV) != 0 => (SDL.GPUShaderFormat.SPIRV, "spirv"),
+        var f when (f & SDL.GPUShaderFormat.MSL) != 0 => (SDL.GPUShaderFormat.MSL, "msl"),
+        var f when (f & SDL.GPUShaderFormat.DXIL) != 0 => (SDL.GPUShaderFormat.DXIL, "dxil"),
+        _ => throw new InvalidOperationException("No supported GPU shader format available for this device."),
+    };
+
     private void CreateSpritePipeline()
     {
-        var (format, extension) = SDL.GetGPUShaderFormats(Device) switch
-        {
-            var f when (f & SDL.GPUShaderFormat.SPIRV) != 0 => (SDL.GPUShaderFormat.SPIRV, "spirv"),
-            var f when (f & SDL.GPUShaderFormat.MSL) != 0 => (SDL.GPUShaderFormat.MSL, "msl"),
-            var f when (f & SDL.GPUShaderFormat.DXIL) != 0 => (SDL.GPUShaderFormat.DXIL, "dxil"),
-            _ => throw new InvalidOperationException("No supported GPU shader format available for this device."),
-        };
+        var (format, extension) = ResolveShaderFormat();
 
         var vertexShader = CreateShaderFromEmbeddedResource($"Wyrd.Ecs.Renderer.Shaders.UnlitSprite.vert.{extension}", format, SDL.GPUShaderStage.Vertex, numStorageBuffers: 1, numUniformBuffers: 2); // CameraBuffer (slot 0) + BatchBuffer (slot 1), see UnlitSprite.vert.hlsl
         var fragmentShader = CreateShaderFromEmbeddedResource($"Wyrd.Ecs.Renderer.Shaders.UnlitSprite.frag.{extension}", format, SDL.GPUShaderStage.Fragment, numSamplers: 1);
