@@ -76,6 +76,18 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
+      - name: Use the offscreen video driver on macOS (no WindowServer session in CI)
+        if: matrix.os == 'macos-latest'
+        run: echo "SDL_VIDEODRIVER=offscreen" >> "$GITHUB_ENV"
+
+      - name: Wait for the dpkg lock (apt-daily/unattended-upgrades can hold it on a fresh runner)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          for i in $(seq 1 60); do
+            sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break
+            sleep 5
+          done
+
       - name: Install lavapipe
         uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
         with:
