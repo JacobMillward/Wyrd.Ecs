@@ -46,7 +46,7 @@
   <!--
     BeforeTargets="AssignTargetPaths", not "CoreCompile" (unlike JsonContextEmitTask's
     precedent): the new EmbeddedResource items below need to exist before MSBuild assigns
-    embedded-resource target paths, which happens earlier in the build than CoreCompile — this
+    embedded-resource target paths, which happens earlier in the build than CoreCompile. This
     emits compiled shader bytes as data, not C# source consumed by CoreCompile itself, so the
     timing constraint that shaped JsonContextEmitTask doesn't apply here.
   -->

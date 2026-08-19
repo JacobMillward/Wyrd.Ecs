@@ -13,7 +13,7 @@ public sealed partial class RendererSystem
     /// Allocates a <see cref="Handle{T}"/> immediately (state <see cref="LoadState.Loading"/>)
     /// and starts a background decode. The GPU upload itself happens later, inside this
     /// system's existing copy pass (see <see cref="Execute"/>), since SDL_GPU device calls can
-    /// only run on the thread that owns the device — this method never touches the device.
+    /// only run on the thread that owns the device, so this method never touches the device.
     /// </summary>
     public Handle<Texture> LoadTexture(string path)
     {
@@ -42,7 +42,7 @@ public sealed partial class RendererSystem
         return handle;
     }
 
-    /// <summary>Runs on the render thread, inside the copy pass — creates the GPU texture and uploads decoded pixels via the transfer-buffer/staging pattern.</summary>
+    /// <summary>Runs on the render thread, inside the copy pass. Creates the GPU texture and uploads decoded pixels via the transfer-buffer/staging pattern.</summary>
     private void UploadDecoded(Handle<Texture> handle, ImageResult image, IntPtr copyPass, TaskCompletionSource completion)
     {
         var textureCreateInfo = new SDL.GPUTextureCreateInfo
@@ -88,7 +88,7 @@ public sealed partial class RendererSystem
 
     internal LoadState GetTextureLoadState(Handle<Texture> handle) => _textureArena.GetState(handle);
 
-    /// <summary>Decrements the handle's use-count; once it reaches zero, the GPU texture is queued on <see cref="DeferredDestroy"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames — never while a command buffer that could still reference it might be in flight.</summary>
+    /// <summary>Decrements the handle's use-count; once it reaches zero, the GPU texture is queued on <see cref="DeferredDestroy"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames, never while a command buffer that could still reference it might be in flight.</summary>
     public void Unload(Handle<Texture> handle)
     {
         if (!_textureArena.Unload(handle, out var texture) || texture is null) return;
@@ -100,8 +100,8 @@ public sealed partial class RendererSystem
 
     /// <summary>
     /// A 2x2 magenta/black checkerboard, uploaded synchronously at construction (not through
-    /// the async path — it must exist before the first tick, and it's tiny/local, not a file
-    /// load). Drawn in place of any <see cref="Handle{T}"/> still <see cref="LoadState.Loading"/>
+    /// the async path, since it must exist before the first tick, and it's tiny/local, not a
+    /// file load). Drawn in place of any <see cref="Handle{T}"/> still <see cref="LoadState.Loading"/>
     /// or gone <see cref="LoadState.Failed"/>, so a broken asset reference looks wrong on
     /// screen instead of silently disappearing.
     /// </summary>

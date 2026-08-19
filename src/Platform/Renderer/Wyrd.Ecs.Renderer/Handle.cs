@@ -1,7 +1,7 @@
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// A cheap-to-copy reference into an internal asset arena — never the resource itself.
+/// A cheap-to-copy reference into an internal asset arena, not the resource itself.
 /// <typeparamref name="T"/> only distinguishes handle types at compile time (a
 /// <c>Handle&lt;Texture&gt;</c> can't be passed where a <c>Handle&lt;Mesh&gt;</c> is expected);
 /// it's never inspected at runtime. <see cref="Generation"/> catches use-after-unload: a slot

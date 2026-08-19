@@ -8,7 +8,7 @@ namespace Wyrd.Ecs.Renderer;
 /// writes into it, and retires the old one through <see cref="DeferredDestroyQueue"/> (the
 /// same "release once FramesInFlight frames have passed" mechanism already used for
 /// texture/mesh unload) so growth never stalls a still-in-flight GPU read of the old buffer.
-/// Never shrinks — this is the ceiling <c>SDL_GPU</c> allows (no sparse/reserved resources;
+/// Never shrinks: this is the ceiling <c>SDL_GPU</c> allows (no sparse/reserved resources,
 /// see the spec's "Instance buffer growth" and "Decision: staying on SDL_GPU"), not a
 /// placeholder for something better later.
 /// </summary>

@@ -9,11 +9,11 @@ public sealed partial class RendererSystem
     internal IntPtr SpritePipeline { get; private set; }
     internal IntPtr SpriteSampler { get; private set; }
 
-    // ArchetypeQuery/ArchetypeChunk (ArchetypeQuery.cs) is the lowest-level query primitive —
+    // ArchetypeQuery/ArchetypeChunk (ArchetypeQuery.cs) is the lowest-level query primitive,
     // the only one giving entity-row-aligned Access<TAccessor>() at 3+ component arity without
-    // generator setup; World.Query<T0,T1>'s hand-written ChunkAction overloads cap at arity 2
+    // generator setup. World.Query<T0,T1>'s hand-written ChunkAction overloads cap at arity 2
     // and never expose Entity, and the fluent Query<TShape>.ForEach() terminal (generator-
-    // emitted) never exposes Entity either — both ruled out since GetWorldTransform needs it.
+    // emitted) never exposes Entity either. Both ruled out since GetWorldTransform needs it.
     private static readonly ArchetypeQuery SpriteArchetypeQuery = ArchetypeQuery.Empty
         .Access<Ref<Transform>>().Access<Ref<Sprite>>().Access<Ref<Material>>();
     private static readonly ArchetypeQuery CameraArchetypeQuery = ArchetypeQuery.Empty
@@ -108,7 +108,7 @@ public sealed partial class RendererSystem
                 _batchInstanceBases.Add(_instanceScratch.Count);
                 foreach (var batchEntity in batch.Entities)
                 {
-                    var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above — no second GetWorldTransform walk
+                    var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above, no second GetWorldTransform walk
                     var sourceRect = resolved.Sprite.SourceRect is { } r ? new Vector4(r.X, r.Y, r.Width, r.Height) : Vector4.Zero;
                     _instanceScratch.Add(new SpriteInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.Sprite.Tint, sourceRect));
                 }
@@ -133,11 +133,11 @@ public sealed partial class RendererSystem
             SDL.BindGPUGraphicsPipeline(renderPass, SpritePipeline);
             var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
             SDL.SetGPUViewport(renderPass, in viewport);
-            SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1); // once per camera — same buffer for every batch under it
+            SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1); // once per camera, same buffer for every batch under it
 
             var cameraUniforms = new CameraUniforms { ViewProjection = viewProjection };
             var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
-            SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length); // once per camera — unchanging across its batches
+            SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length); // once per camera, unchanging across its batches
 
             for (var i = 0; i < batches.Count; i++)
             {
@@ -151,7 +151,7 @@ public sealed partial class RendererSystem
                 var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<BatchUniforms>(in batchUniforms));
                 SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
 
-                SDL.DrawGPUPrimitives(renderPass, 4, (uint)batch.Entities.Count, 0, 0); // firstInstance always 0 — BatchUniforms.InstanceBase carries the real offset (see UnlitSprite.vert.hlsl)
+                SDL.DrawGPUPrimitives(renderPass, 4, (uint)batch.Entities.Count, 0, 0); // firstInstance always 0. BatchUniforms.InstanceBase carries the real offset (see UnlitSprite.vert.hlsl)
             }
 
             SDL.EndGPURenderPass(renderPass);
@@ -173,7 +173,7 @@ public sealed partial class RendererSystem
             _ => throw new InvalidOperationException("No supported GPU shader format available for this device."),
         };
 
-        var vertexShader = CreateShaderFromEmbeddedResource($"Wyrd.Ecs.Renderer.Shaders.UnlitSprite.vert.{extension}", format, SDL.GPUShaderStage.Vertex, numStorageBuffers: 1, numUniformBuffers: 2); // CameraBuffer (slot 0) + BatchBuffer (slot 1) — see UnlitSprite.vert.hlsl
+        var vertexShader = CreateShaderFromEmbeddedResource($"Wyrd.Ecs.Renderer.Shaders.UnlitSprite.vert.{extension}", format, SDL.GPUShaderStage.Vertex, numStorageBuffers: 1, numUniformBuffers: 2); // CameraBuffer (slot 0) + BatchBuffer (slot 1), see UnlitSprite.vert.hlsl
         var fragmentShader = CreateShaderFromEmbeddedResource($"Wyrd.Ecs.Renderer.Shaders.UnlitSprite.frag.{extension}", format, SDL.GPUShaderStage.Fragment, numSamplers: 1);
 
         var colorTarget = new SDL.GPUColorTargetDescription { Format = SDL.GetGPUSwapchainTextureFormat(Device, _platform.Window) };

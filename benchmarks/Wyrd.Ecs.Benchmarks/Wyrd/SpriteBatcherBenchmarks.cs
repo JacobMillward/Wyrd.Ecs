@@ -4,14 +4,13 @@ using Wyrd.Ecs.Renderer;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Measures <see cref="SpriteBatcher.Batch"/>'s steady-state cost — the design review that
-/// shaped this plan specifically rewrote <see cref="SpriteBatcher"/> from a static,
-/// fresh-collections-every-call method to a reusable instance class to avoid per-frame
-/// allocation; <see cref="MemoryDiagnoserAttribute"/> here is what actually confirms that
-/// claim rather than leaving it asserted only in a doc comment. <see cref="GlobalSetup"/>
-/// below runs several warmup calls before BenchmarkDotNet's own measured iterations start, so
-/// the reported numbers reflect steady state (once <c>_batcher</c>'s internal dictionary has
-/// discovered every distinct <see cref="Material"/> key), not first-call cost.
+/// Measures <see cref="SpriteBatcher.Batch"/>'s steady-state cost. <see cref="SpriteBatcher"/>
+/// reuses its internal grouping storage across calls specifically to stay allocation-free per
+/// frame; <see cref="MemoryDiagnoserAttribute"/> here confirms that rather than leaving it
+/// asserted only in a doc comment. <see cref="GlobalSetup"/> below runs several warmup calls
+/// before BenchmarkDotNet's own measured iterations start, so the reported numbers reflect
+/// steady state (once <c>_batcher</c>'s internal dictionary has discovered every distinct
+/// <see cref="Material"/> key), not first-call cost.
 /// </summary>
 [MemoryDiagnoser]
 public class SpriteBatcherBenchmarks

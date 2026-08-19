@@ -3,25 +3,25 @@ namespace Wyrd.Ecs.Renderer;
 /// <summary>A <see cref="Handle{T}"/>'s current resolution state.</summary>
 internal enum LoadState
 {
-    /// <summary>Decode/upload not yet complete — draw the placeholder.</summary>
+    /// <summary>Decode/upload not yet complete. Draw the placeholder.</summary>
     Loading,
 
     /// <summary>Resolved to a real GPU texture.</summary>
     Loaded,
 
-    /// <summary>Decode or upload failed — draw the placeholder.</summary>
+    /// <summary>Decode or upload failed. Draw the placeholder.</summary>
     Failed,
 }
 
 /// <summary>
 /// Path-keyed dedup + use-count arena for <see cref="Handle{T}"/>-based texture loading. Owns
-/// no GPU resources itself — <see cref="RendererSystem"/> owns the actual
+/// no GPU resources itself: <see cref="RendererSystem"/> owns the actual
 /// <c>SDL_ReleaseGPUTexture</c> call, via the <see cref="Texture"/> handed back by
 /// <see cref="Unload"/>'s <c>readyForRelease</c> out-param once use-count hits zero, so the
 /// caller can route it through <c>DeferredDestroyQueue</c> rather than this class needing to
 /// know about frame-in-flight timing. A slot's generation is tracked separately from the slot
 /// object itself (in <see cref="_generations"/>, indexed by slot index, never cleared) so a
-/// freed-and-reused slot keeps counting up rather than resetting — a stale <see cref="Handle{T}"/>
+/// freed-and-reused slot keeps counting up rather than resetting. A stale <see cref="Handle{T}"/>
 /// from before the reuse must compare unequal to the new one at the same index.
 /// </summary>
 internal sealed class TextureArena

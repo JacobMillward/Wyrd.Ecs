@@ -52,7 +52,7 @@ public class RendererSystemDrawTests
         // Exercises the spec's headline multi-camera scenario (3D world + 2D HUD overlay):
         // Order=0 clears, Order=1 layers on top without clearing. This only checks the
         // per-camera render-pass sequencing doesn't throw/assert (SDL_GPU's debug validation
-        // layer is the real check here, since debugMode:true is set on the device) — it does
+        // layer is the real check here, since debugMode:true is set on the device). It does
         // not verify pixel output.
         var world = new WorldBuilder()
             .AddPlatform("Renderer Draw Multi-Camera Test Window", 320, 240, SDL.WindowFlags.Hidden)

@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace Wyrd.Ecs.Renderer;
 
-/// <summary>World-space culling volume for one sprite this frame. Computed fresh each call — texture pixel dimensions are cheap to read from the already-resolved <see cref="Texture"/>, no separate cache needed on top of what <see cref="TextureArena"/> already holds.</summary>
+/// <summary>World-space culling volume for one sprite this frame. Computed fresh each call: texture pixel dimensions are cheap to read from the already-resolved <see cref="Texture"/>, no separate cache needed on top of what <see cref="TextureArena"/> already holds.</summary>
 internal readonly record struct BoundingSphere(Vector3 Center, float Radius);
 
 /// <summary>

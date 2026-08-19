@@ -5,7 +5,7 @@ namespace Wyrd.Ecs.Renderer;
 /// <summary>How a <see cref="Camera"/> projects view space to clip space.</summary>
 public enum ProjectionMode
 {
-    /// <summary>Parallel projection — no perspective foreshortening. The 2D sprite path's camera.</summary>
+    /// <summary>Parallel projection, no perspective foreshortening. The 2D sprite path's camera.</summary>
     Orthographic,
 
     /// <summary>Perspective projection. Phase 4's 3D mesh path.</summary>
@@ -13,11 +13,11 @@ public enum ProjectionMode
 }
 
 /// <summary>
-/// Queried as <c>(Transform, Camera)</c> — a <see cref="Camera"/> entity with no
+/// Queried as <c>(Transform, Camera)</c>. A <see cref="Camera"/> entity with no
 /// <see cref="Transform"/> simply never matches and is never rendered (structural, not a
 /// runtime check). Active cameras render in <see cref="Order"/> sequence into the same
 /// swapchain target; a 3D-scene-plus-2D-HUD frame is two camera entities with different
-/// <see cref="Order"/>/<see cref="ProjectionMode"/>/<see cref="ClearOnBegin"/> — no separate
+/// <see cref="Order"/>/<see cref="ProjectionMode"/>/<see cref="ClearOnBegin"/>, no separate
 /// compositing step. <see cref="FieldOfViewOrOrthographicSize"/> is vertical FOV in radians
 /// for <see cref="ProjectionMode.Perspective"/>, or half the vertical world-space extent for
 /// <see cref="ProjectionMode.Orthographic"/>.
@@ -32,13 +32,13 @@ public readonly record struct Camera(
 {
     /// <summary>
     /// The matrix that moves world-space points into view space, built from position and
-    /// rotation only — deliberately ignores <see cref="WorldTransform.Scale"/> (a scaled
+    /// rotation only. Deliberately ignores <see cref="WorldTransform.Scale"/> (a scaled
     /// camera isn't a meaningful concept in any engine's camera math) and never calls
     /// <see cref="Matrix4x4.Invert(Matrix4x4, out Matrix4x4)"/>: composing the inverse
     /// translation and inverse (conjugate) rotation directly is both cheaper than a general
     /// 4x4 invert and, unlike inverting a matrix that could carry a degenerate scale (a
     /// default-constructed, non-<see cref="Wyrd.Ecs.Transform.Identity"/> <c>Transform</c> has
-    /// <c>Scale</c> zeroed — see that type's doc comment), never singular.
+    /// <c>Scale</c> zeroed, see that type's doc comment), never singular.
     /// </summary>
     public Matrix4x4 GetViewMatrix(WorldTransform transform)
     {
@@ -49,15 +49,15 @@ public readonly record struct Camera(
 
     /// <summary>
     /// View-space to clip-space matrix for this camera's <see cref="ProjectionMode"/>. Uses
-    /// the <c>LeftHanded</c> constructors deliberately — <see cref="System.Numerics"/>'s
+    /// the <c>LeftHanded</c> constructors deliberately: <see cref="System.Numerics"/>'s
     /// unsuffixed <c>CreateOrthographic</c>/<c>CreatePerspectiveFieldOfView</c> are
     /// right-handed (forward = -Z), but <see cref="GetViewMatrix"/>'s plain "invert the
     /// camera's world transform" arithmetic is handedness-neutral and naturally produces
-    /// left-handed view space (forward = +Z for an identity-rotated camera) — matching
+    /// left-handed view space (forward = +Z for an identity-rotated camera), matching
     /// Unity's convention, which this type's <see cref="ScreenToWorld"/> already aligns with.
-    /// Mixing the two (confirmed empirically, not just reasoned) silently culls everything a
-    /// camera looks at: a target placed in front of the camera along +Z comes out at negative
-    /// view-space Z under the right-handed projection, landing outside the near/far planes.
+    /// Mixing the two silently culls everything a camera looks at: a target placed in front of
+    /// the camera along +Z comes out at negative view-space Z under the right-handed
+    /// projection, landing outside the near/far planes.
     /// </summary>
     public Matrix4x4 GetProjectionMatrix(float aspectRatio) => ProjectionMode switch
     {

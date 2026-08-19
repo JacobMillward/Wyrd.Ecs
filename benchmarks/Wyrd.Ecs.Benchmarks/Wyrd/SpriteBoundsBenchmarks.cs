@@ -5,8 +5,8 @@ using Wyrd.Ecs.Renderer;
 namespace Wyrd.Ecs.Benchmarks.Wyrd;
 
 /// <summary>
-/// Measures the per-frame, per-camera cost of culling — <see cref="SpriteBounds.Compute"/> once
-/// per sprite, <see cref="SpriteBounds.IsInsideFrustum"/> once per sprite per camera — at the
+/// Measures the per-frame, per-camera cost of culling: <see cref="SpriteBounds.Compute"/> once
+/// per sprite, <see cref="SpriteBounds.IsInsideFrustum"/> once per sprite per camera, at the
 /// engine's ~20,000-entity target scale, matching <c>CheckpointBuildBenchmarks</c>'s own
 /// <see cref="EntityCount"/> params.
 /// </summary>
@@ -37,7 +37,7 @@ public class SpriteBoundsBenchmarks
         _viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(aspectRatio: 16f / 9f);
     }
 
-    /// <summary>The exact per-sprite, per-frame cost this plan's real hot path pays once per sprite (not per camera) — see <c>RendererSystem.DrawFrame</c>'s <c>_spriteScratch</c> pass.</summary>
+    /// <summary>The exact per-sprite, per-frame cost <c>RendererSystem.DrawFrame</c> pays once per sprite, not per camera. See its <c>_spriteScratch</c> pass.</summary>
     [Benchmark]
     public void ComputeBoundsForAllSprites()
     {
@@ -45,7 +45,7 @@ public class SpriteBoundsBenchmarks
             SpriteBounds.Compute(_transforms[i], _sprites[i], texturePixelWidth: 32, texturePixelHeight: 32);
     }
 
-    /// <summary>The exact per-sprite, per-camera cost — run once per active camera against every sprite's already-computed bounds.</summary>
+    /// <summary>The exact per-sprite, per-camera cost. Runs once per active camera against every sprite's already-computed bounds.</summary>
     [Benchmark]
     public void CullAllSpritesAgainstOneCamera()
     {

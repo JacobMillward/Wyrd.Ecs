@@ -6,7 +6,7 @@ namespace Wyrd.Ecs.Renderer;
 /// <summary>
 /// Exact per-instance layout written into <see cref="InstanceBuffer"/> and read by
 /// <c>UnlitSprite.vert.hlsl</c> via <c>SV_InstanceID</c>. <see cref="SourceRectPixels"/> packs
-/// <c>(X, Y, Width, Height)</c> — <c>Vector4</c>, not <see cref="Rect"/>, since this struct's
+/// <c>(X, Y, Width, Height)</c> as a <c>Vector4</c>, not <see cref="Rect"/>, since this struct's
 /// layout must match the shader's structured-buffer element exactly, and <see cref="Rect"/> is
 /// this package's public, nullable-friendly surface, not the wire format.
 /// </summary>

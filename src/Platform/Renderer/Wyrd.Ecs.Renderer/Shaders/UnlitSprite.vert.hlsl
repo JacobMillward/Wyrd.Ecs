@@ -17,8 +17,8 @@ StructuredBuffer<SpriteInstance> Instances : register(t0, space0);
 // row_major is required here, not stylistic: HLSL's default cbuffer matrix packing is
 // column-major, but System.Numerics.Matrix4x4 (what the C# side uploads byte-for-byte) is
 // row-major with row-vector convention (v' = v * M, see Camera.GetViewMatrix). Without this
-// annotation the shader would silently read a transposed matrix — no error, just wrong
-// geometry — and mul()'s argument order below (vector, matrix) matches that same convention.
+// annotation the shader would silently read a transposed matrix, no error, just wrong
+// geometry. mul()'s argument order below (vector, matrix) matches that same convention.
 cbuffer CameraBuffer : register(b0, space1)
 {
     row_major float4x4 ViewProjection;
@@ -27,7 +27,7 @@ cbuffer CameraBuffer : register(b0, space1)
 cbuffer BatchBuffer : register(b1, space1)
 {
     float2 TextureSizePixels;
-    uint InstanceBase;  // this batch's starting index into Instances — see note below on why
+    uint InstanceBase;  // this batch's starting index into Instances, see note below on why
     uint _Padding;      // this is passed explicitly rather than relied on implicitly.
 };
 
@@ -52,7 +52,7 @@ float3 RotateByQuaternion(float3 v, float4 q)
 // includes it per spec, but Direct3D's SV_InstanceID always starts at 0 per draw call
 // regardless of the draw's StartInstanceLocation. Since this HLSL cross-compiles to both
 // DXIL (Windows/D3D12) and SPIR-V (Linux/Vulkan) from the same source, relying on the
-// implicit offset would silently read the wrong instance data on Windows only — every draw
+// implicit offset would silently read the wrong instance data on Windows only. Every draw
 // call therefore always passes firstInstance=0, and BatchBuffer.InstanceBase carries the real
 // offset explicitly instead, so behavior is identical on every backend.
 VertexOutput main(uint vertexId : SV_VertexID, uint instanceId : SV_InstanceID)
@@ -68,7 +68,7 @@ VertexOutput main(uint vertexId : SV_VertexID, uint instanceId : SV_InstanceID)
     float3 worldPosition = instance.Position + RotateByQuaternion(scaled, instance.Rotation);
 
     VertexOutput output;
-    output.Position = mul(float4(worldPosition, 1.0), ViewProjection); // vector * matrix — row-vector convention, matches row_major above
+    output.Position = mul(float4(worldPosition, 1.0), ViewProjection); // vector * matrix, row-vector convention, matches row_major above
     output.UV = QuadUVs[vertexId];
     output.Tint = instance.Tint;
     return output;
