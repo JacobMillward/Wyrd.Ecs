@@ -78,15 +78,8 @@ public sealed partial class RendererSystem : EcsSystem
         // too many frames in flight, mid-resize); skip presenting this tick and retry next.
         if (swapchainTexture != IntPtr.Zero)
         {
-            var colorTarget = new SDL.GPUColorTargetInfo
-            {
-                Texture = swapchainTexture,
-                ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
-                LoadOp = SDL.GPULoadOp.Clear,
-                StoreOp = SDL.GPUStoreOp.Store,
-            };
-            var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
-            SDL.EndGPURenderPass(renderPass);
+            SDL.GetWindowSizeInPixels(_platform.Window, out var viewportWidth, out var viewportHeight);
+            DrawFrame(world, commandBuffer, swapchainTexture, viewportWidth, viewportHeight);
         }
 
         if (!SDL.SubmitGPUCommandBuffer(commandBuffer))
