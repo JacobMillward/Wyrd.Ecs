@@ -14,8 +14,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
-    name: Build & test
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+
+      - name: Restore (locked mode)
+        run: dotnet restore --locked-mode
+
+      - name: Verify formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+  build:
+    name: Build
+    needs: format
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Restore (locked mode)
+        run: dotnet restore --locked-mode
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+  test:
+    name: Test
+    needs: format
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -38,19 +86,16 @@ jobs:
       - name: Restore local tools
         run: dotnet tool restore
 
-      - name: Verify formatting
-        run: dotnet format --verify-no-changes --no-restore
-
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
         run: dotnet test --no-build --configuration Release --filter "Category!=RequiresGpu"
 
-      - name: Publish NativeAOT smoke test
+      - name: Publish Wyrd.Ecs.Persistence.Binary NativeAOT smoke test
         run: dotnet publish src/Persistence/Binary/Wyrd.Ecs.Persistence.Binary.AotSmokeTest -c Release -r linux-x64 --self-contained -o artifacts/aot-smoke-test
 
-      - name: Run NativeAOT smoke test
+      - name: Run Wyrd.Ecs.Persistence.Binary NativeAOT smoke test
         run: ./artifacts/aot-smoke-test/Wyrd.Ecs.Persistence.Binary.AotSmokeTest
 
       - name: Publish Wyrd.Ecs.Platform NativeAOT smoke test
@@ -60,13 +105,14 @@ jobs:
         run: ./artifacts/platform-aot-smoke-test/Wyrd.Ecs.Platform.AotSmokeTest
 
   gpu-tests:
-    name: ${{ matrix.os == 'macos-latest' && 'Build (no GPU tests)' || 'GPU tests (lavapipe)' }}
+    name: GPU tests
+    needs: format
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     env:
       SDL_HINT_GPU_DRIVER: vulkan
     steps:
@@ -76,26 +122,24 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
-      - name: Wait for the dpkg lock
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # apt-daily/unattended-upgrades can hold the dpkg lock on a freshly booted runner,
-          # which hangs the next step's apt-get install silently until the job times out.
-          for i in $(seq 1 60); do
-            sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break
-            sleep 5
-          done
-
-      # macOS runners have no WindowServer session and the offscreen driver's Vulkan support
-      # doesn't implement VK_KHR_surface, so a presentable window/swapchain is never possible.
-      - name: Install lavapipe
-        if: matrix.os != 'macos-latest'
+      - name: Install Vulkan SDK
         uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
         with:
-          install_lavapipe: true
+          # Windows lavapipe is a prebuilt download from this action. Ubuntu installs it via
+          # apt instead (next step) since the action can't pass flags into the apt call it
+          # makes internally, and that call needs non-default flags to avoid hanging.
+          install_lavapipe: ${{ matrix.os == 'windows-latest' }}
           # Without a token, the action's GitHub API lookup for the latest SDK version shares
           # the runner IP's unauthenticated rate limit with every other workflow on the host.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install lavapipe (mesa-vulkan-drivers)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # -y alone doesn't suppress needrestart's own interactive service-restart prompt,
+          # which can hang this indefinitely on a non-interactive runner (runner-images#122).
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq mesa-vulkan-drivers
 
       - name: Restore (locked mode)
         run: dotnet restore --locked-mode
@@ -107,7 +151,6 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run GPU-requiring tests
-        if: matrix.os != 'macos-latest'
         run: dotnet test --no-build --configuration Release --filter "Category=RequiresGpu"
 
       - name: Publish Wyrd.Ecs.Renderer NativeAOT smoke test
