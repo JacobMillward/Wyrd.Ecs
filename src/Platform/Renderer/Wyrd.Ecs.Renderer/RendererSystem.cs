@@ -52,6 +52,7 @@ public sealed partial class RendererSystem : EcsSystem
         }
 
         PlaceholderTexture = CreatePlaceholderTexture();
+        PlaceholderMesh = CreatePlaceholderMesh();
         CreateSpritePipeline();
     }
 

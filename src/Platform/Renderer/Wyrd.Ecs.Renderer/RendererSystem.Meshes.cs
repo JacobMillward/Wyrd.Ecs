@@ -1,0 +1,231 @@
+using System.Numerics;
+using SDL3;
+
+namespace Wyrd.Ecs.Renderer;
+
+public sealed partial class RendererSystem
+{
+    private readonly MeshArena _meshArena = new();
+
+    private static readonly ArchetypeQuery MeshArchetypeQuery = ArchetypeQuery.Empty
+        .Access<Ref<Transform>>().Access<Ref<MeshRenderer>>().Access<Ref<Material>>();
+
+    private readonly List<(Entity Entity, WorldTransform Transform, MeshRenderer MeshRenderer, Material Material, BoundingSphere Bounds)> _meshScratch = [];
+    private readonly Dictionary<Entity, int> _meshScratchIndex = new();
+
+    /// <summary>Handle plus optional texture for one Assimp sub-mesh of a loaded model.</summary>
+    public readonly record struct ModelPart(Handle<Mesh> Mesh, Handle<Texture>? Texture);
+
+    /// <summary>
+    /// Parses <paramref name="path"/> off-thread via <see cref="MeshLoader"/>, reserving one
+    /// <see cref="Handle{Mesh}"/> per sub-mesh and starting a background upload for each, the
+    /// same way <see cref="LoadTexture"/> works. Unlike <see cref="LoadTexture"/> this returns a
+    /// <see cref="Task{TResult}"/> rather than a handle immediately: the part count isn't known
+    /// until parsing completes. Each part's texture, if its source material references one, is
+    /// loaded through the same <see cref="LoadTexture"/> path; the returned task only waits on
+    /// mesh upload, not texture load, matching how a <see cref="Sprite"/>'s texture is allowed
+    /// to still be <see cref="LoadState.Loading"/> when the entity is first drawn.
+    /// </summary>
+    public Task<IReadOnlyList<ModelPart>> LoadModel(string path)
+    {
+        var completion = new TaskCompletionSource<IReadOnlyList<ModelPart>>();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                var parsed = MeshLoader.Load(path);
+                if (parsed.Count == 0)
+                {
+                    completion.TrySetResult(Array.Empty<ModelPart>());
+                    return;
+                }
+
+                var parts = new ModelPart[parsed.Count];
+                var remaining = parsed.Count;
+
+                for (var i = 0; i < parsed.Count; i++)
+                {
+                    var index = i;
+                    var subMesh = parsed[i];
+                    var meshHandle = _meshArena.Reserve(new MeshKey(path, index));
+                    var textureHandle = subMesh.TexturePath is { } texturePath ? LoadTexture(texturePath) : (Handle<Texture>?)null;
+                    parts[index] = new ModelPart(meshHandle, textureHandle);
+
+                    PendingUploads.Enqueue(copyPass =>
+                    {
+                        UploadMesh(meshHandle, subMesh.Vertices, subMesh.Indices, copyPass);
+                        if (--remaining == 0)
+                            completion.TrySetResult(parts);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                PendingUploads.Enqueue(_ => completion.TrySetException(ex));
+            }
+        });
+
+        return completion.Task;
+    }
+
+    /// <summary>Runs on the render thread, inside the copy pass. Creates the GPU vertex/index buffers and uploads via the transfer-buffer/staging pattern, matching <see cref="UploadDecoded"/>'s texture equivalent.</summary>
+    private unsafe void UploadMesh(Handle<Mesh> handle, MeshVertex[] vertices, uint[] indices, IntPtr copyPass)
+    {
+        var vertexByteSize = (uint)(vertices.Length * sizeof(MeshVertex));
+        var vertexBufferCreateInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.Vertex, Size = vertexByteSize };
+        var gpuVertexBuffer = SDL.CreateGPUBuffer(Device, in vertexBufferCreateInfo);
+        if (gpuVertexBuffer == IntPtr.Zero)
+        {
+            _meshArena.MarkFailed(handle);
+            return;
+        }
+
+        var vertexTransferCreateInfo = new SDL.GPUTransferBufferCreateInfo { Usage = SDL.GPUTransferBufferUsage.Upload, Size = vertexByteSize };
+        var vertexTransferBuffer = SDL.CreateGPUTransferBuffer(Device, in vertexTransferCreateInfo);
+        var mappedVertices = SDL.MapGPUTransferBuffer(Device, vertexTransferBuffer, false);
+        fixed (MeshVertex* source = vertices)
+            Buffer.MemoryCopy(source, (void*)mappedVertices, vertexByteSize, vertexByteSize);
+        SDL.UnmapGPUTransferBuffer(Device, vertexTransferBuffer);
+        var vertexSource = new SDL.GPUTransferBufferLocation { TransferBuffer = vertexTransferBuffer, Offset = 0 };
+        var vertexDestination = new SDL.GPUBufferRegion { Buffer = gpuVertexBuffer, Offset = 0, Size = vertexByteSize };
+        SDL.UploadToGPUBuffer(copyPass, in vertexSource, in vertexDestination, false);
+        SDL.ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
+
+        var indexByteSize = (uint)(indices.Length * sizeof(uint));
+        var indexBufferCreateInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.Index, Size = indexByteSize };
+        var gpuIndexBuffer = SDL.CreateGPUBuffer(Device, in indexBufferCreateInfo);
+        if (gpuIndexBuffer == IntPtr.Zero)
+        {
+            SDL.ReleaseGPUBuffer(Device, gpuVertexBuffer);
+            _meshArena.MarkFailed(handle);
+            return;
+        }
+
+        var indexTransferCreateInfo = new SDL.GPUTransferBufferCreateInfo { Usage = SDL.GPUTransferBufferUsage.Upload, Size = indexByteSize };
+        var indexTransferBuffer = SDL.CreateGPUTransferBuffer(Device, in indexTransferCreateInfo);
+        var mappedIndices = SDL.MapGPUTransferBuffer(Device, indexTransferBuffer, false);
+        fixed (uint* source = indices)
+            Buffer.MemoryCopy(source, (void*)mappedIndices, indexByteSize, indexByteSize);
+        SDL.UnmapGPUTransferBuffer(Device, indexTransferBuffer);
+        var indexSource = new SDL.GPUTransferBufferLocation { TransferBuffer = indexTransferBuffer, Offset = 0 };
+        var indexDestination = new SDL.GPUBufferRegion { Buffer = gpuIndexBuffer, Offset = 0, Size = indexByteSize };
+        SDL.UploadToGPUBuffer(copyPass, in indexSource, in indexDestination, false);
+        SDL.ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
+
+        var bounds = MeshBounds.ComputeLocal(vertices);
+        _meshArena.MarkLoaded(handle, new Mesh(gpuVertexBuffer, gpuIndexBuffer, (uint)indices.Length, bounds));
+    }
+
+    internal LoadState GetMeshLoadState(Handle<Mesh> handle) => _meshArena.GetState(handle);
+
+    /// <summary>Decrements the handle's use-count; once it reaches zero, both GPU buffers are queued on <see cref="DeferredDestroy"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames, same as <see cref="Unload(Handle{Texture})"/>.</summary>
+    public void Unload(Handle<Mesh> handle)
+    {
+        if (!_meshArena.Unload(handle, out var mesh) || mesh is null) return;
+
+        var gpuVertexBuffer = mesh.GpuVertexBuffer;
+        var gpuIndexBuffer = mesh.GpuIndexBuffer;
+        var device = Device;
+        DeferredDestroy.Enqueue(FrameInFlight.CurrentFrame, () =>
+        {
+            SDL.ReleaseGPUBuffer(device, gpuVertexBuffer);
+            SDL.ReleaseGPUBuffer(device, gpuIndexBuffer);
+        });
+    }
+
+    /// <summary>A unit cube, uploaded synchronously at construction. Drawn in place of any <see cref="Handle{T}"/> still <see cref="LoadState.Loading"/> or gone <see cref="LoadState.Failed"/>, mirroring <see cref="PlaceholderTexture"/>.</summary>
+    internal Mesh PlaceholderMesh { get; }
+
+    private unsafe Mesh CreatePlaceholderMesh()
+    {
+        MeshVertex[] vertices =
+        [
+            new(new Vector3(-0.5f, -0.5f, -0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(0.5f, -0.5f, -0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(0.5f, 0.5f, -0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(-0.5f, 0.5f, -0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(-0.5f, -0.5f, 0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(0.5f, -0.5f, 0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(0.5f, 0.5f, 0.5f), Vector3.UnitZ, Vector2.Zero),
+            new(new Vector3(-0.5f, 0.5f, 0.5f), Vector3.UnitZ, Vector2.Zero),
+        ];
+        uint[] indices =
+        [
+            0, 1, 2, 0, 2, 3, // back
+            5, 4, 7, 5, 7, 6, // front
+            4, 0, 3, 4, 3, 7, // left
+            1, 5, 6, 1, 6, 2, // right
+            3, 2, 6, 3, 6, 7, // top
+            4, 5, 1, 4, 1, 0, // bottom
+        ];
+
+        var vertexByteSize = (uint)(vertices.Length * sizeof(MeshVertex));
+        var vertexBufferCreateInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.Vertex, Size = vertexByteSize };
+        var gpuVertexBuffer = SDL.CreateGPUBuffer(Device, in vertexBufferCreateInfo);
+        if (gpuVertexBuffer == IntPtr.Zero)
+            throw new InvalidOperationException($"SDL_CreateGPUBuffer (placeholder mesh vertices) failed: {SDL.GetError()}");
+
+        var indexByteSize = (uint)(indices.Length * sizeof(uint));
+        var indexBufferCreateInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.Index, Size = indexByteSize };
+        var gpuIndexBuffer = SDL.CreateGPUBuffer(Device, in indexBufferCreateInfo);
+        if (gpuIndexBuffer == IntPtr.Zero)
+            throw new InvalidOperationException($"SDL_CreateGPUBuffer (placeholder mesh indices) failed: {SDL.GetError()}");
+
+        var vertexTransferCreateInfo = new SDL.GPUTransferBufferCreateInfo { Usage = SDL.GPUTransferBufferUsage.Upload, Size = vertexByteSize };
+        var vertexTransferBuffer = SDL.CreateGPUTransferBuffer(Device, in vertexTransferCreateInfo);
+        var mappedVertices = SDL.MapGPUTransferBuffer(Device, vertexTransferBuffer, false);
+        fixed (MeshVertex* source = vertices)
+            Buffer.MemoryCopy(source, (void*)mappedVertices, vertexByteSize, vertexByteSize);
+        SDL.UnmapGPUTransferBuffer(Device, vertexTransferBuffer);
+
+        var indexTransferCreateInfo = new SDL.GPUTransferBufferCreateInfo { Usage = SDL.GPUTransferBufferUsage.Upload, Size = indexByteSize };
+        var indexTransferBuffer = SDL.CreateGPUTransferBuffer(Device, in indexTransferCreateInfo);
+        var mappedIndices = SDL.MapGPUTransferBuffer(Device, indexTransferBuffer, false);
+        fixed (uint* source = indices)
+            Buffer.MemoryCopy(source, (void*)mappedIndices, indexByteSize, indexByteSize);
+        SDL.UnmapGPUTransferBuffer(Device, indexTransferBuffer);
+
+        var commandBuffer = SDL.AcquireGPUCommandBuffer(Device);
+        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
+        var vertexSource = new SDL.GPUTransferBufferLocation { TransferBuffer = vertexTransferBuffer, Offset = 0 };
+        var vertexDestination = new SDL.GPUBufferRegion { Buffer = gpuVertexBuffer, Offset = 0, Size = vertexByteSize };
+        SDL.UploadToGPUBuffer(copyPass, in vertexSource, in vertexDestination, false);
+        var indexSource = new SDL.GPUTransferBufferLocation { TransferBuffer = indexTransferBuffer, Offset = 0 };
+        var indexDestination = new SDL.GPUBufferRegion { Buffer = gpuIndexBuffer, Offset = 0, Size = indexByteSize };
+        SDL.UploadToGPUBuffer(copyPass, in indexSource, in indexDestination, false);
+        SDL.EndGPUCopyPass(copyPass);
+        SDL.SubmitGPUCommandBuffer(commandBuffer);
+        SDL.ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
+        SDL.ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
+
+        return new Mesh(gpuVertexBuffer, gpuIndexBuffer, (uint)indices.Length, MeshBounds.ComputeLocal(vertices));
+    }
+
+    private Mesh ResolveMesh(Handle<Mesh> handle) =>
+        GetMeshLoadState(handle) == LoadState.Loaded ? _meshArena.TryGetMesh(handle)! : PlaceholderMesh;
+
+    private void ResolveMeshes(World world)
+    {
+        _meshScratch.Clear();
+        _meshScratchIndex.Clear();
+        foreach (var chunk in MeshArchetypeQuery.Resolve(world))
+        {
+            var entities = chunk.Entities;
+            var transforms = chunk.Access<Ref<Transform>>();
+            var meshRenderers = chunk.Access<Ref<MeshRenderer>>();
+            var materials = chunk.Access<Ref<Material>>();
+            for (var i = 0; i < chunk.Count; i++)
+            {
+                var entity = entities[i];
+                var meshRenderer = meshRenderers[i];
+                var material = materials[i];
+                var worldTransform = world.GetWorldTransform(entity);
+                var mesh = ResolveMesh(meshRenderer.Mesh);
+                var bounds = MeshBounds.ComputeWorld(worldTransform, mesh.LocalBounds);
+                _meshScratchIndex[entity] = _meshScratch.Count;
+                _meshScratch.Add((entity, worldTransform, meshRenderer, material, bounds));
+            }
+        }
+    }
+}

@@ -57,7 +57,6 @@ public sealed partial class RendererSystem
         }
     }
 
-    // Stubs, replaced once mesh loading and mesh drawing land; keeps the build green until then.
-    private void ResolveMeshes(World world) { }
+    // Stub, replaced once mesh drawing lands; keeps the build green until then.
     private void DrawMeshes(World world, IntPtr commandBuffer, IntPtr swapchainTexture, Camera camera, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight) { }
 }
