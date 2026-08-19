@@ -10,4 +10,7 @@ public readonly record struct ShaderKind(string Name)
 {
     /// <summary>The v1 2D sprite pipeline: unlit, textured, tinted.</summary>
     public static readonly ShaderKind UnlitSprite = new(nameof(UnlitSprite));
+
+    /// <summary>The 3D unlit mesh pipeline: textured, tinted, no lighting.</summary>
+    public static readonly ShaderKind UnlitMesh = new(nameof(UnlitMesh));
 }
