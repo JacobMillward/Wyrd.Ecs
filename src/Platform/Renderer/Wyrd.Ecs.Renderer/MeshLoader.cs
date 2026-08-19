@@ -5,12 +5,11 @@ using Silk.NET.Assimp;
 namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
-/// Pure parsing: no SDL, no GPU device, so it's unit-testable directly without a real device.
-/// Wraps Assimp via <see cref="Silk.NET.Assimp"/> rather than a hand-rolled OBJ parser: the
-/// pure-managed OBJ-parser ecosystem is stale and unmaintained, while Silk.NET.Assimp is
-/// actively maintained and its native package carries explicit NativeAOT fixes. Every format
-/// Assimp itself reports supporting (<see cref="IsExtensionSupported"/>) is usable, not just
-/// OBJ; there's no per-format registry, since one Assimp-backed loader already covers 71 formats.
+/// Pure parsing: no SDL, no GPU device, so it's unit-testable directly. Wraps Assimp via
+/// <see cref="Silk.NET.Assimp"/> rather than a hand-rolled OBJ parser: the pure-managed
+/// OBJ-parser ecosystem is stale and unmaintained, while Silk.NET.Assimp is actively maintained.
+/// Every format Assimp itself reports supporting (<see cref="IsExtensionSupported"/>) is usable,
+/// not just OBJ, so there's no per-format registry to maintain.
 /// </summary>
 internal static class MeshLoader
 {
