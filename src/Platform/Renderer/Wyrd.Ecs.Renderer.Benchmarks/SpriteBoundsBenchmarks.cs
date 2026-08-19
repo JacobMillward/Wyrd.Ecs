@@ -1,8 +1,7 @@
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
-using Wyrd.Ecs.Renderer;
 
-namespace Wyrd.Ecs.Benchmarks.Wyrd;
+namespace Wyrd.Ecs.Renderer.Benchmarks;
 
 /// <summary>
 /// Measures the per-frame, per-camera cost of culling: <see cref="SpriteBounds.Compute"/> once

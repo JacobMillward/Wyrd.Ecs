@@ -20,21 +20,6 @@
           "System.Management": "5.0.0"
         }
       },
-      "fennecs": {
-        "type": "Direct",
-        "requested": "[0.6.12, )",
-        "resolved": "0.6.12",
-        "contentHash": "rKl3bk0bJjbnBqixBplImmaiuECknR/fg7fNErVO3P1uKlH7pm/1Aiauw35RgR6oot/rbHKOEMiOnn1pTwtonw=="
-      },
-      "Friflo.Engine.ECS": {
-        "type": "Direct",
-        "requested": "[3.6.0, )",
-        "resolved": "3.6.0",
-        "contentHash": "Fj1ZExQzUuNLILSMviZE7B7r8U/0KBbXmTWr9+2Qut3yjyv2EVEky6Tzt40PbjTkc9/perkVBFn7uKr1sbt6Ag==",
-        "dependencies": {
-          "Friflo.Json.Fliox": "1.0.4"
-        }
-      },
       "BenchmarkDotNet.Annotations": {
         "type": "Transitive",
         "resolved": "0.14.0",
@@ -45,25 +30,6 @@
         "resolved": "2.9.1",
         "contentHash": "OE0sl1/sQ37bjVsPKKtwQlWDgqaxWgtme3xZz7JssWUzg5JpMIyHgCTY9MVMxOg48fJ1AgGT3tgdH5m/kQ5xhA=="
       },
-      "Friflo.Json.Burst": {
-        "type": "Transitive",
-        "resolved": "1.0.4",
-        "contentHash": "fMZ76Dx2W0rk9mpVqU8onl/fTydnJDks5wc9Dy19pReG4yv/joFvqvUWKVLl39y9O58yCt08o/w4DICrQbAZQg=="
-      },
-      "Friflo.Json.Fliox": {
-        "type": "Transitive",
-        "resolved": "1.0.4",
-        "contentHash": "yjhgryueSU/ZinDyJcFLx6Cd7FVz7M6ZJEHiQHQpG6FxGmGvYOvxRKVfrrz9kr7d2eXRk9oYfVUCI4vViS9CCA==",
-        "dependencies": {
-          "Friflo.Json.Burst": "1.0.4",
-          "Friflo.Json.Fliox.Annotation": "1.0.4"
-        }
-      },
-      "Friflo.Json.Fliox.Annotation": {
-        "type": "Transitive",
-        "resolved": "1.0.4",
-        "contentHash": "0ZNQ1fFYQSkDYCPBX9oxUfMJMSnp8sBnDYT4Q8kFSnOt3UM27eOKbuINm5Qak1qLEMlHD7GrS83yhRfN2Az2Cw=="
-      },
       "Gee.External.Capstone": {
         "type": "Transitive",
         "resolved": "2.3.0",
@@ -73,25 +39,6 @@
         "type": "Transitive",
         "resolved": "1.17.0",
         "contentHash": "8x+HCVTl/HHTGpscH3vMBhV8sknN/muZFw9s3TsI8SA6+c43cOTCi2+jE4KsU8pNLbJ++iF2ZFcpcXHXtDglnw=="
-      },
-      "MemoryPack": {
-        "type": "Transitive",
-        "resolved": "1.21.4",
-        "contentHash": "wy3JTBNBsO8LfQcBvvYsWr3lm2Oakolrfu0UQ3oSJSEiD+7ye0GUhYTaXuYYBowqsXBXWD9gf2218ae0JRiYVQ==",
-        "dependencies": {
-          "MemoryPack.Core": "1.21.4",
-          "MemoryPack.Generator": "1.21.4"
-        }
-      },
-      "MemoryPack.Core": {
-        "type": "Transitive",
-        "resolved": "1.21.4",
-        "contentHash": "6RszGorZ0ejNmp37ZcboPBMvvPCuNW2jlrdQfcs/lMzE5b3pmPF6hsm/laDc34hRlbAST1ZxaX/DvYu2DF5sBQ=="
-      },
-      "MemoryPack.Generator": {
-        "type": "Transitive",
-        "resolved": "1.21.4",
-        "contentHash": "g14EsSS85yn0lHTi0J9ivqlZMf09A2iI51fmI+0KkzIzyCbWOBWPi5mdaY7YWmXprk12aYh9u/qfWHQUYthlwg=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
@@ -215,15 +162,35 @@
         "resolved": "0.3.17",
         "contentHash": "FQgtCoF2HFwvzKWulAwBS5BGLlh8pgbrJtOp47jyBwh2CW16juVtacN1azOA2BqdrJXkXTNLNRMo7ZlHHiuAnA=="
       },
+      "SDL3-CS": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "o3X50ZpVw20wtCQZO/To9b5aesE22ZcYE9fL/2IOd4KCuT9q1DBsa8PHJJIcxt9sW4uHvjj8gP6n5KPMzzxeKA=="
+      },
+      "SDL3-CS.Linux": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "8nrQnkKPm0t48u659QEbYEpoJQ0puP1WlPX//NhbF48uZ2+ofOteKgZiXVS2iRLUEub15wWcyRs3QJDt+Hp0TQ=="
+      },
+      "SDL3-CS.MacOS": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
+      },
+      "SDL3-CS.Windows": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "Be2vHp02n5wWJgX3CGicmohg5+QjleULdbJgQtCKis+2r53VaIwTdt0OYx8wCARYCuS17OSHXj8AMhoCo41qyA=="
+      },
+      "StbImageSharp": {
+        "type": "Transitive",
+        "resolved": "2.30.15",
+        "contentHash": "7QqbupVhz2kcFUPTgMw4iHR9rYDHGundzzee19Mwmd1typ2Lnv8EVJcLJxlkeBM2+4ex0NwsMtdbGSJctp1XCQ=="
+      },
       "System.CodeDom": {
         "type": "Transitive",
         "resolved": "5.0.0",
         "contentHash": "JPJArwA1kdj8qDAkY2XGjSWoYnqiM7q/3yRNkt6n28Mnn95MuEGkZXUbPBf7qc3IjwrGY5ttQon7yqHZyQJmOQ=="
-      },
-      "System.IO.Hashing": {
-        "type": "Transitive",
-        "resolved": "9.0.0",
-        "contentHash": "seeO8icDfED/Qwl9PDFUx2Gf/7xv7dPsMnw5PnRwNZuz4EWMpy0wIVohC4MfCcTIoJgp+KUrWG4WH3NPSusQOA=="
       },
       "System.Management": {
         "type": "Transitive",
@@ -237,26 +204,26 @@
       "wyrd.ecs": {
         "type": "Project"
       },
-      "wyrd.ecs.persistence": {
+      "wyrd.ecs.platform": {
         "type": "Project",
         "dependencies": {
-          "System.IO.Hashing": "[9.0.0, )",
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
           "Wyrd.Ecs": "[0.1.0-alpha, )"
         }
       },
-      "wyrd.ecs.persistence.binary": {
+      "wyrd.ecs.renderer": {
         "type": "Project",
         "dependencies": {
-          "MemoryPack": "[1.21.4, )",
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
+          "StbImageSharp": "[2.30.15, )",
           "Wyrd.Ecs": "[0.1.0-alpha, )",
-          "Wyrd.Ecs.Persistence": "[0.1.0-alpha, )"
-        }
-      },
-      "wyrd.ecs.persistence.continuous": {
-        "type": "Project",
-        "dependencies": {
-          "Wyrd.Ecs": "[0.1.0-alpha, )",
-          "Wyrd.Ecs.Persistence": "[0.1.0-alpha, )"
+          "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
         }
       }
     }

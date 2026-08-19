@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
-using Wyrd.Ecs.Renderer;
 
-namespace Wyrd.Ecs.Benchmarks.Wyrd;
+namespace Wyrd.Ecs.Renderer.Benchmarks;
 
 /// <summary>
 /// Measures <see cref="SpriteBatcher.Batch"/>'s steady-state cost. <see cref="SpriteBatcher"/>
