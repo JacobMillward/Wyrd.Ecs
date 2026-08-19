@@ -26,12 +26,12 @@ internal enum LoadState
 /// </summary>
 internal sealed class TextureArena
 {
-    private sealed class Slot
+    private sealed class Slot(string path)
     {
-        public required string Path;
+        public string Path = path;
         public LoadState State = LoadState.Loading;
         public Texture? Texture;
-        public int UseCount;
+        public int UseCount = 1;
     }
 
     private readonly List<Slot?> _slots = [];
@@ -47,7 +47,7 @@ internal sealed class TextureArena
         }
 
         var freeIndex = _slots.FindIndex(s => s is null);
-        var slot = new Slot { Path = path, UseCount = 1 };
+        var slot = new Slot(path);
         if (freeIndex >= 0)
         {
             _slots[freeIndex] = slot;

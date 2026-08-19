@@ -29,10 +29,10 @@ public sealed partial class RendererSystem
     private readonly List<int> _batchInstanceBases = [];
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct CameraUniforms { public Matrix4x4 ViewProjection; }
+    private readonly record struct CameraUniforms(Matrix4x4 ViewProjection);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct BatchUniforms { public Vector2 TextureSizePixels; public uint InstanceBase; public uint Padding; }
+    private readonly record struct BatchUniforms(Vector2 TextureSizePixels, uint InstanceBase, uint Padding = 0);
 
     /// <summary>
     /// Renders every active <c>(Transform, Camera)</c> into <paramref name="swapchainTexture"/>,
@@ -135,7 +135,7 @@ public sealed partial class RendererSystem
             SDL.SetGPUViewport(renderPass, in viewport);
             SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1); // once per camera, same buffer for every batch under it
 
-            var cameraUniforms = new CameraUniforms { ViewProjection = viewProjection };
+            var cameraUniforms = new CameraUniforms(viewProjection);
             var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
             SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length); // once per camera, unchanging across its batches
 
@@ -147,7 +147,7 @@ public sealed partial class RendererSystem
                 var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = SpriteSampler };
                 SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
 
-                var batchUniforms = new BatchUniforms { TextureSizePixels = new Vector2(texture.PixelWidth, texture.PixelHeight), InstanceBase = (uint)_batchInstanceBases[i] };
+                var batchUniforms = new BatchUniforms(new Vector2(texture.PixelWidth, texture.PixelHeight), (uint)_batchInstanceBases[i]);
                 var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<BatchUniforms>(in batchUniforms));
                 SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
 
