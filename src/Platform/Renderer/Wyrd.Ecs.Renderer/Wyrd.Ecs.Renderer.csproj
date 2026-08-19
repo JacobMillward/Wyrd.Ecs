@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Wyrd.Ecs.Renderer.Tests" />
+    <InternalsVisibleTo Include="Wyrd.Ecs.Benchmarks" />
   </ItemGroup>
 
   <ItemGroup>

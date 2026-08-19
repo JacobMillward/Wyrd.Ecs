@@ -22,6 +22,26 @@
     <ProjectReference Include="..\..\src\Persistence\Binary\Wyrd.Ecs.Persistence.Binary.Generators\Wyrd.Ecs.Persistence.Binary.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\Persistence\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.Generators\Wyrd.Ecs.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\Platform\Renderer\Wyrd.Ecs.Renderer\Wyrd.Ecs.Renderer.csproj" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <!--
+      CS0436: this project's own Wyrd.Ecs.Generators analyzer run (needed for the existing
+      query-chain benchmarks elsewhere in this project) unconditionally emits an internal
+      Wyrd.Ecs.Generated.SystemRegistry type, which collides by name with Wyrd.Ecs.Renderer's
+      own already-compiled, internal SystemRegistry (from its own, separate analyzer run) -
+      made visible here specifically by the InternalsVisibleTo grant Wyrd.Ecs.Renderer.csproj
+      gives this project so SpriteBoundsBenchmarks/SpriteBatcherBenchmarks can call its
+      internal SpriteBounds/SpriteBatcher. No project in this solution previously combined
+      "uses the generator itself" with "references another project that also uses it," so
+      this exact collision is new, not a sign of a design flaw in either project. C# resolves
+      it deterministically (this project's own generated type wins) and neither this project's
+      hand-written benchmark code nor the generator's own emitted glue ever references
+      SystemRegistry by name directly - purely a code-generation naming artifact, not a real
+      ambiguity. Keep this suppression scoped to this one project, not global.
+    -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
 
 </Project>
