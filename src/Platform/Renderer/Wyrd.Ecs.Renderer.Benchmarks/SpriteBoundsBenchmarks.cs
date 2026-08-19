@@ -51,7 +51,7 @@ public class SpriteBoundsBenchmarks
         for (var i = 0; i < EntityCount; i++)
         {
             var bounds = SpriteBounds.Compute(_transforms[i], _sprites[i], texturePixelWidth: 32, texturePixelHeight: 32);
-            SpriteBounds.IsInsideFrustum(bounds, _viewProjection);
+            FrustumCulling.IsInsideFrustum(bounds, _viewProjection);
         }
     }
 }
