@@ -15,4 +15,8 @@
     <ProjectReference Include="..\Wyrd.Ecs.Renderer\Wyrd.Ecs.Renderer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="smoke-test-sprite.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
