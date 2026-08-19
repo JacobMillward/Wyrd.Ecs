@@ -76,12 +76,6 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
-      # macOS GitHub runners have no WindowServer session, so SDL_Init(Video) fails outright.
-      # The offscreen driver has Vulkan support and works with lavapipe for headless GPU testing.
-      - name: Use the offscreen video driver on macOS
-        if: matrix.os == 'macos-latest'
-        run: echo "SDL_VIDEODRIVER=offscreen" >> "$GITHUB_ENV"
-
       - name: Wait for the dpkg lock
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -92,10 +86,16 @@ jobs:
             sleep 5
           done
 
+      # macOS runners have no WindowServer session and the offscreen driver's Vulkan support
+      # doesn't implement VK_KHR_surface, so a presentable window/swapchain is never possible.
       - name: Install lavapipe
+        if: matrix.os != 'macos-latest'
         uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
         with:
           install_lavapipe: true
+          # Without a token, the action's GitHub API lookup for the latest SDK version shares
+          # the runner IP's unauthenticated rate limit with every other workflow on the host.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore (locked mode)
         run: dotnet restore --locked-mode
@@ -107,6 +107,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run GPU-requiring tests
+        if: matrix.os != 'macos-latest'
         run: dotnet test --no-build --configuration Release --filter "Category=RequiresGpu"
 
       - name: Publish Wyrd.Ecs.Renderer NativeAOT smoke test
