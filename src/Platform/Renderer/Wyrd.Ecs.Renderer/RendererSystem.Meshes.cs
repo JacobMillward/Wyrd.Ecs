@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using SDL3;
 
 namespace Wyrd.Ecs.Renderer;
@@ -12,6 +13,14 @@ public sealed partial class RendererSystem
 
     private readonly List<(Entity Entity, WorldTransform Transform, MeshRenderer MeshRenderer, Material Material, BoundingSphere Bounds)> _meshScratch = [];
     private readonly Dictionary<Entity, int> _meshScratchIndex = new();
+    private readonly InstanceBuffer<MeshInstanceData>?[] _meshInstanceBuffersBySlot = new InstanceBuffer<MeshInstanceData>?[FrameInFlightTracker.FramesInFlight];
+    private readonly MeshBatcher _meshBatcher = new();
+    private readonly List<(Entity Entity, Material Material, Handle<Mesh> Mesh)> _meshSurvivorScratch = [];
+    private readonly List<MeshInstanceData> _meshInstanceScratch = [];
+    private readonly List<int> _meshBatchInstanceBases = [];
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct MeshBatchUniforms(uint InstanceBase, uint Padding = 0);
 
     /// <summary>Handle plus optional texture for one Assimp sub-mesh of a loaded model.</summary>
     public readonly record struct ModelPart(Handle<Mesh> Mesh, Handle<Texture>? Texture);
@@ -227,5 +236,78 @@ public sealed partial class RendererSystem
                 _meshScratch.Add((entity, worldTransform, meshRenderer, material, bounds));
             }
         }
+    }
+
+    /// <summary>Culls, batches, and draws every <see cref="_meshScratch"/> entry surviving <paramref name="camera"/>'s frustum. Called once per <see cref="ProjectionMode.Perspective"/> camera.</summary>
+    private void DrawMeshes(World world, IntPtr commandBuffer, IntPtr swapchainTexture, Camera camera, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight)
+    {
+        _meshSurvivorScratch.Clear();
+        foreach (var candidate in _meshScratch)
+        {
+            if (FrustumCulling.IsInsideFrustum(candidate.Bounds, viewProjection))
+                _meshSurvivorScratch.Add((candidate.Entity, candidate.Material, candidate.MeshRenderer.Mesh));
+        }
+
+        var batches = _meshBatcher.Batch(_meshSurvivorScratch);
+
+        _meshInstanceScratch.Clear();
+        _meshBatchInstanceBases.Clear();
+        foreach (var batch in batches)
+        {
+            _meshBatchInstanceBases.Add(_meshInstanceScratch.Count);
+            foreach (var batchEntity in batch.Entities)
+            {
+                var resolved = _meshScratch[_meshScratchIndex[batchEntity]];
+                _meshInstanceScratch.Add(new MeshInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.MeshRenderer.Tint));
+            }
+        }
+
+        var slot = FrameInFlight.SlotIndex;
+        var instanceBuffer = _meshInstanceBuffersBySlot[slot] ??= new InstanceBuffer<MeshInstanceData>(Device, DeferredDestroy, initialCapacity: 256);
+
+        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
+        var gpuInstanceBuffer = instanceBuffer.Write(CollectionsMarshal.AsSpan(_meshInstanceScratch), FrameInFlight.CurrentFrame, copyPass);
+        SDL.EndGPUCopyPass(copyPass);
+
+        var colorTarget = new SDL.GPUColorTargetInfo
+        {
+            Texture = swapchainTexture,
+            ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
+            LoadOp = camera.ClearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
+            StoreOp = SDL.GPUStoreOp.Store,
+        };
+        var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
+
+        SDL.BindGPUGraphicsPipeline(renderPass, MeshPipeline);
+        var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
+        SDL.SetGPUViewport(renderPass, in viewport);
+        SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1);
+
+        var cameraUniforms = new CameraUniforms(viewProjection);
+        var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
+        SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length);
+
+        for (var i = 0; i < batches.Count; i++)
+        {
+            var batch = batches[i];
+            var mesh = ResolveMesh(batch.Mesh);
+            var texture = ResolveTexture(batch.Material);
+
+            var vertexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuVertexBuffer, Offset = 0 };
+            SDL.BindGPUVertexBuffers(renderPass, 0, [vertexBinding], 1);
+            var indexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuIndexBuffer, Offset = 0 };
+            SDL.BindGPUIndexBuffer(renderPass, in indexBinding, SDL.GPUIndexElementSize.IndexElementSize32Bit);
+
+            var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = MeshSampler };
+            SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
+
+            var batchUniforms = new MeshBatchUniforms((uint)_meshBatchInstanceBases[i]);
+            var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<MeshBatchUniforms>(in batchUniforms));
+            SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
+
+            SDL.DrawGPUIndexedPrimitives(renderPass, mesh.IndexCount, (uint)batch.Entities.Count, 0, 0, 0); // firstInstance always 0, see MeshBatchUniforms.InstanceBase
+        }
+
+        SDL.EndGPURenderPass(renderPass);
     }
 }

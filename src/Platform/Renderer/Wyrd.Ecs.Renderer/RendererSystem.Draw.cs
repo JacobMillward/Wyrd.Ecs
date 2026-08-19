@@ -56,7 +56,4 @@ public sealed partial class RendererSystem
                 DrawMeshes(world, commandBuffer, swapchainTexture, camera, viewProjection, viewportWidth, viewportHeight);
         }
     }
-
-    // Stub, replaced once mesh drawing lands; keeps the build green until then.
-    private void DrawMeshes(World world, IntPtr commandBuffer, IntPtr swapchainTexture, Camera camera, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight) { }
 }
