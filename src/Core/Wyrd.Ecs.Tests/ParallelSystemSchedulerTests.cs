@@ -9,7 +9,7 @@ sealed class MoveSystem : EcsSystem
         world.Query().With<ScheduledPosition>().ForEach(0, (in int _, ref ScheduledPosition p) => p.X += 1f);
 }
 
-/// <summary>A second, distinct type also writing ScheduledPosition — used to keep testing "two conflicting systems still both run, in separate stages" now that registering the same Type twice is rejected.</summary>
+/// <summary>A second, distinct type also writing ScheduledPosition - used to keep testing "two conflicting systems still both run, in separate stages" now that registering the same Type twice is rejected.</summary>
 sealed class MoveSystemDuplicateWriter : EcsSystem
 {
     protected override void Execute(World world, Time time) =>

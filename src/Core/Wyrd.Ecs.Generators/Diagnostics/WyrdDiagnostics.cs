@@ -55,7 +55,7 @@ internal static class WyrdDiagnostics
     /// public <c>ctor(World)</c> nor a public parameterless constructor, or more than one
     /// public constructor (ambiguous which to prefer). No <c>SystemRegistry.Construct</c>
     /// entry is emitted for it, so <c>AddSystem&lt;T&gt;()</c> for it is a compile error at
-    /// the call site, not a runtime one — use <c>AddSystem&lt;T&gt;(Func&lt;World, T&gt;)</c>
+    /// the call site, not a runtime one - use <c>AddSystem&lt;T&gt;(Func&lt;World, T&gt;)</c>
     /// instead.
     /// </summary>
     internal static readonly DiagnosticDescriptor UnconstructableSystem = new(

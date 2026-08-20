@@ -10,7 +10,7 @@ namespace Wyrd.Ecs.Internal;
 /// other; this type only ever holds bits, and it's each caller's job to keep its own
 /// index space self-consistent. The first 256 bits (<see cref="InlineWordCount"/> x 64)
 /// live directly in this struct's own fields; an index at or beyond 256 falls back to a
-/// heap <c>ulong[]</c> sized to fit only the overflow words needed — for the realistic
+/// heap <c>ulong[]</c> sized to fit only the overflow words needed - for the realistic
 /// case (well under 256 distinct indices), every operation here is allocation-free.
 /// Words beyond either operand's length are treated as zero, so
 /// <see cref="Equals(TypeBitSet)"/>/<see cref="GetHashCode"/> ignore trailing zero words

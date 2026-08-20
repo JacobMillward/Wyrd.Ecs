@@ -39,7 +39,7 @@ internal sealed class EventChannel<T> : IEventChannel where T : struct
     /// Appends every event written since <paramref name="cursor"/> into
     /// <paramref name="destination"/> (cleared first), and returns the cursor to store for
     /// next time. Anything before this channel's oldest retained event is silently dropped by
-    /// clamping <paramref name="cursor"/> up first — a caller that goes more than one tick
+    /// clamping <paramref name="cursor"/> up first - a caller that goes more than one tick
     /// between calls can lose events this way; see <see cref="EventReader{T}"/>'s own doc.
     /// </summary>
     internal long Read(long cursor, List<T> destination)
@@ -63,10 +63,10 @@ internal sealed class EventChannel<T> : IEventChannel where T : struct
 
     /// <summary>
     /// Retires <c>_older</c>, promotes <c>_newer</c> in its place, and ping-pongs the
-    /// discarded backing array back in as the next tick's write target — no per-tick
+    /// discarded backing array back in as the next tick's write target - no per-tick
     /// allocation in steady state. Takes no lock: only ever called from
     /// <see cref="World.AdvanceTick"/>, before that tick's systems have started, so nothing
-    /// else can be touching this channel concurrently — same reasoning
+    /// else can be touching this channel concurrently - same reasoning
     /// <see cref="CommandBuffer.Apply"/>'s own doc gives for skipping its lock.
     /// </summary>
     public void Swap()

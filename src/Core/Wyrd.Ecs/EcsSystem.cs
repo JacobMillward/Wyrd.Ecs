@@ -41,6 +41,6 @@ public abstract class EcsSystem : SchedulableSystem
     /// </summary>
     protected virtual void OnDestroy() { }
 
-    /// <summary>The only way <see cref="World.RemoveSystem(EcsSystem)"/> reaches <see cref="OnDestroy"/> — same rationale as <see cref="InvokeExecute"/>.</summary>
+    /// <summary>The only way <see cref="World.RemoveSystem(EcsSystem)"/> reaches <see cref="OnDestroy"/> - same rationale as <see cref="InvokeExecute"/>.</summary>
     internal void InvokeOnDestroy() => OnDestroy();
 }

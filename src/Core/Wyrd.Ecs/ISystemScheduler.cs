@@ -34,11 +34,11 @@ public interface ISystemScheduler
 
     /// <summary>
     /// Constructs and registers one system immediately (so <see cref="World.GetSystem{T}"/>
-    /// reflects it right away), marking the schedule dirty — actual stage placement is
+    /// reflects it right away), marking the schedule dirty - actual stage placement is
     /// deferred to the next <see cref="RunStages"/>/<see cref="Flush"/> call. Returns a
     /// chainable <see cref="SystemRegistration"/> for the just-added entry. Throws
     /// <see cref="InvalidOperationException"/> if a system of <see cref="SystemEntry.SystemType"/>
-    /// is already registered — at most one instance per system Type is supported, since
+    /// is already registered - at most one instance per system Type is supported, since
     /// <see cref="Find"/>/<see cref="World.GetSystem{T}"/>/<see cref="World.RemoveSystem{T}"/>
     /// and Type-targeted ordering edges all assume it.
     /// </summary>
@@ -46,7 +46,7 @@ public interface ISystemScheduler
 
     /// <summary>
     /// Bulk registration path used once by <see cref="WorldBuilder.Build"/>: constructs
-    /// every entry's instance, adds them all, then recomputes stages exactly once — not
+    /// every entry's instance, adds them all, then recomputes stages exactly once - not
     /// once per entry. Same duplicate-Type rejection as <see cref="Register"/>.
     /// </summary>
     void InitialRegister(IReadOnlyList<SystemEntry> entries, World world);
@@ -59,13 +59,13 @@ public interface ISystemScheduler
 
     /// <summary>
     /// The live instance registered for <paramref name="systemType"/>, or null. Reflects
-    /// the current registration list immediately — independent of whether a recompute is
+    /// the current registration list immediately - independent of whether a recompute is
     /// pending.
     /// </summary>
     EcsSystem? Find(Type systemType);
 
     /// <summary>
-    /// Forces an immediate recompute if the schedule is currently dirty — otherwise a
+    /// Forces an immediate recompute if the schedule is currently dirty - otherwise a
     /// no-op. <see cref="RunStages"/> already does this automatically at the start of
     /// every tick; call this directly only when you want validation errors (an ordering
     /// edge naming a type that never registered, a cycle, an ambiguous target) to surface

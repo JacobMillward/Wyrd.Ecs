@@ -32,7 +32,7 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     private bool _fixedDirty;
     private bool _variableDirty;
 
-    /// <summary>Starts with an empty schedule — the first <see cref="InitialRegister"/>/<see cref="Register"/> call populates it. <paramref name="parallelThreshold"/> is the minimum <see cref="World.TotalEntityCount"/> a stage needs before <see cref="RunStages"/> dispatches it to the thread pool instead of running it inline.</summary>
+    /// <summary>Starts with an empty schedule - the first <see cref="InitialRegister"/>/<see cref="Register"/> call populates it. <paramref name="parallelThreshold"/> is the minimum <see cref="World.TotalEntityCount"/> a stage needs before <see cref="RunStages"/> dispatches it to the thread pool instead of running it inline.</summary>
     public ParallelSystemScheduler(int parallelThreshold) => _parallelThreshold = parallelThreshold;
 
     /// <inheritdoc/>
@@ -126,7 +126,7 @@ public sealed class ParallelSystemScheduler : ISystemScheduler
     {
         if (_entriesByType.ContainsKey(entry.SystemType))
             throw new InvalidOperationException(
-                $"A system of type '{entry.SystemType}' is already registered. At most one instance per system Type is supported — GetSystem<T>()/RemoveSystem<T>() and Type-targeted Before<T>()/After<T>() edges all assume it.");
+                $"A system of type '{entry.SystemType}' is already registered. At most one instance per system Type is supported - GetSystem<T>()/RemoveSystem<T>() and Type-targeted Before<T>()/After<T>() edges all assume it.");
 
         entry.Instance = entry.Construct(world);
         entry.Instance.Enabled = entry.StartEnabled;

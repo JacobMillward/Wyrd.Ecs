@@ -1,14 +1,14 @@
 namespace Wyrd.Ecs.Internal;
 
 /// <summary>
-/// Resolves every Before/After edge declared across a system list — both fluent
+/// Resolves every Before/After edge declared across a system list - both fluent
 /// <see cref="SystemRegistration"/> edges and generator-seeded
 /// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> edges (which
 /// <see cref="PhaseAttribute"/>/<see cref="SystemRegistration.Phase"/> also produce,
 /// targeting <see cref="StartOfUpdatePhase"/>/<see cref="EndOfUpdatePhase"/>), already
-/// unioned into each <see cref="SystemEntry"/>'s own lists by the time this runs — plus
+/// unioned into each <see cref="SystemEntry"/>'s own lists by the time this runs - plus
 /// the synthetic Phase-bracketing edges this method adds itself for every system that
-/// doesn't reference either marker — into a graph over <see cref="OrderNode"/>s: every
+/// doesn't reference either marker - into a graph over <see cref="OrderNode"/>s: every
 /// registered system instance, plus one node per distinct <see cref="MarkerSystem"/> type
 /// an edge actually references (never an instance of it). Consumed by
 /// <see cref="StagePlanner.BuildStages"/>.
@@ -67,12 +67,12 @@ internal static class SystemOrderGraph
                 throw new InvalidOperationException(
                     $"A system-ordering edge targets '{target}', but no instance of that type is currently registered. " +
                     "This check runs whenever the schedule is recomputed (the next World.Update() call, or an explicit " +
-                    "World.FlushSystemChanges()), not at the moment the edge was declared — if this system was meant to " +
+                    "World.FlushSystemChanges()), not at the moment the edge was declared - if this system was meant to " +
                     "register later, make sure it actually does before the next recompute; if it never will, the edge itself is the mistake.");
             }
             if (matches.Count > 1)
                 throw new InvalidOperationException(
-                    $"A system-ordering edge targets '{target}', but {matches.Count} instances of that type are registered — which one is meant is ambiguous.");
+                    $"A system-ordering edge targets '{target}', but {matches.Count} instances of that type are registered - which one is meant is ambiguous.");
 
             return OrderNode.ForSystem(matches[0]);
         }

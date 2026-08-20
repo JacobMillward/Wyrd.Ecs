@@ -3,7 +3,7 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// One system's full registration state: how to construct it, its access footprint, its
 /// declared ordering edges (both attribute- and fluent-declared union into the same
-/// lists once both have had a chance to run — see the generator-emitted
+/// lists once both have had a chance to run - see the generator-emitted
 /// <c>GeneratedSystemRegistrationExtensions.EdgesOrEmpty</c>), and whether it starts
 /// enabled. Mutable so <see cref="SystemRegistration"/>'s
 /// <c>Before</c>/<c>After</c>/<c>StartDisabled</c> chain can keep editing the same entry
@@ -12,7 +12,7 @@ namespace Wyrd.Ecs;
 /// </summary>
 public sealed class SystemEntry
 {
-    /// <summary>The system's concrete type — the key every Type-keyed lookup (<see cref="World.GetSystem{T}"/>, ordering edges) resolves against.</summary>
+    /// <summary>The system's concrete type - the key every Type-keyed lookup (<see cref="World.GetSystem{T}"/>, ordering edges) resolves against.</summary>
     public required Type SystemType;
 
     /// <summary>Builds the instance, given the <see cref="World"/> it's being registered against (needed for a <c>ctor(World)</c> system). Called exactly once, whenever this entry is actually registered.</summary>
@@ -21,7 +21,7 @@ public sealed class SystemEntry
     /// <summary>
     /// This system's generated read/write footprint, or <c>null</c> if the generator
     /// never produced one for it (a system whose <c>Execute</c> never calls
-    /// <c>.ForEach</c>/isn't a <c>QuerySystem</c> — e.g. one that only issues structural
+    /// <c>.ForEach</c>/isn't a <c>QuerySystem</c> - e.g. one that only issues structural
     /// commands). <c>null</c> is not the same as an explicit empty
     /// <see cref="SystemAccess"/>: <see cref="Internal.StagePlanner"/> falls back to
     /// <see cref="IQueryAccessDescriptor"/> and then the conservative exclusive-stage

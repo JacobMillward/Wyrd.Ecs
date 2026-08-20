@@ -3,7 +3,7 @@ namespace Wyrd.Ecs;
 /// <summary>
 /// Configures and constructs a <see cref="World"/>: archetype capacity, the parallel
 /// dispatch threshold, and the systems it runs. Single-use: call <see cref="Build"/>
-/// exactly once. Building twice (or configuring further afterward) throws — see
+/// exactly once. Building twice (or configuring further afterward) throws - see
 /// <see cref="ThrowIfAlreadyBuilt"/>'s doc comment for why silently allowing it would be
 /// worse than rejecting it.
 /// </summary>
@@ -47,7 +47,7 @@ public sealed class WorldBuilder
     /// <c>AddSystem&lt;T&gt;()</c> registered. The returned <see cref="World"/> already
     /// owns a static parallel schedule (empty if no systems were registered) and drives
     /// it itself via <see cref="World.Update"/>. Throws if called more than once on the
-    /// same builder — see <see cref="ThrowIfAlreadyBuilt"/>.
+    /// same builder - see <see cref="ThrowIfAlreadyBuilt"/>.
     /// </summary>
     public World Build()
     {
@@ -160,7 +160,7 @@ public sealed class WorldBuilder
     }
 
     /// <summary>
-    /// Overrides the default <see cref="ParallelSystemScheduler"/> — the extensibility
+    /// Overrides the default <see cref="ParallelSystemScheduler"/> - the extensibility
     /// hook for a custom <see cref="ISystemScheduler"/> (e.g. a deterministic,
     /// non-parallel implementation for lockstep/replay netcode).
     /// </summary>
@@ -202,7 +202,7 @@ public sealed class WorldBuilder
     /// (or any further configuration after one) would mean re-running
     /// <see cref="SystemEntry.Construct"/> against those same shared objects for a new
     /// <see cref="World"/>, silently overwriting <see cref="SystemEntry.Instance"/> out
-    /// from under the *first* World's scheduler — no exception, just a system quietly
+    /// from under the *first* World's scheduler - no exception, just a system quietly
     /// pointing at the wrong World from then on. Throwing here instead makes a
     /// <see cref="WorldBuilder"/> strictly single-use: construct one, configure it, call
     /// <see cref="Build"/> once, discard it.
@@ -210,6 +210,6 @@ public sealed class WorldBuilder
     private void ThrowIfAlreadyBuilt()
     {
         if (_built)
-            throw new InvalidOperationException("This WorldBuilder has already built a World. Each WorldBuilder is single-use — create a new one for another World.");
+            throw new InvalidOperationException("This WorldBuilder has already built a World. Each WorldBuilder is single-use - create a new one for another World.");
     }
 }

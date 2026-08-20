@@ -9,9 +9,9 @@ sealed class CustomSchedulerRecordingSystem : EcsSystem
 }
 
 /// <summary>
-/// A minimal, strictly sequential <see cref="ISystemScheduler"/> — no parallel dispatch,
+/// A minimal, strictly sequential <see cref="ISystemScheduler"/> - no parallel dispatch,
 /// no per-stage thread pool decision, and (unlike <see cref="ParallelSystemScheduler"/>)
-/// no dirty-flag deferral — recomputes immediately on every structural change, since
+/// no dirty-flag deferral - recomputes immediately on every structural change, since
 /// simplicity matters more than that particular optimization for this fixture. Proves
 /// <see cref="ParallelSystemScheduler"/> isn't hardcoded anywhere in
 /// <see cref="World"/>/<see cref="WorldBuilder"/>.

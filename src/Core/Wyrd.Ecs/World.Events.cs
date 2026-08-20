@@ -8,7 +8,7 @@ public sealed partial class World
 
     /// <summary>
     /// Appends <paramref name="value"/> to <typeparamref name="T"/>'s event channel,
-    /// creating it on first use. Immediate — no <see cref="CommandBuffer"/> involved, since
+    /// creating it on first use. Immediate - no <see cref="CommandBuffer"/> involved, since
     /// nothing about appending to an independent buffer can corrupt an in-progress
     /// archetype/query walk. Safe to call concurrently from several threads at once,
     /// including several systems in the same parallel stage emitting at once.

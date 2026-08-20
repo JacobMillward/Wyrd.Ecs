@@ -238,13 +238,13 @@ public sealed partial class World
     /// <summary>
     /// Registers one system against this already-running <see cref="World"/>, constructing
     /// it immediately (so <see cref="GetSystem{T}"/> reflects it right away) but deferring
-    /// its stage placement to the next <see cref="Update"/> call — see
-    /// <see cref="ISystemScheduler"/>. Not called directly by consumer code — the generator
+    /// its stage placement to the next <see cref="Update"/> call - see
+    /// <see cref="ISystemScheduler"/>. Not called directly by consumer code - the generator
     /// emits a strongly-typed <c>AddSystem&lt;T&gt;()</c> overload closing over this, the
     /// same way <see cref="WorldBuilder.AddSystemCore"/> does for the build-time path.
     /// Returns a chainable <see cref="SystemRegistration"/> for declaring ordering edges;
     /// <see cref="SystemRegistration.Build"/> is unavailable on the result (there's nothing
-    /// to build — this <see cref="World"/> already exists and is already running).
+    /// to build - this <see cref="World"/> already exists and is already running).
     /// </summary>
     public SystemRegistration AddSystemCore(
         Type systemType,
@@ -262,7 +262,7 @@ public sealed partial class World
 
     /// <summary>
     /// Forces an immediate recompute if the schedule is currently dirty from a runtime
-    /// <see cref="AddSystemCore"/>/<see cref="RemoveSystem(EcsSystem)"/> call — otherwise a
+    /// <see cref="AddSystemCore"/>/<see cref="RemoveSystem(EcsSystem)"/> call - otherwise a
     /// no-op. <see cref="Update"/> already does this automatically at the start of every
     /// tick; call this directly right after a batch of runtime registrations if you want
     /// a bad edge (naming a type that never registered), a cycle, or an ambiguous target
@@ -270,7 +270,7 @@ public sealed partial class World
     /// </summary>
     public void FlushSystemChanges() => _executor.Flush();
 
-    /// <summary>The live instance registered for <typeparamref name="T"/>. Throws if none is registered — use <see cref="TryGetSystem{T}"/> if that's expected.</summary>
+    /// <summary>The live instance registered for <typeparamref name="T"/>. Throws if none is registered - use <see cref="TryGetSystem{T}"/> if that's expected.</summary>
     public T GetSystem<T>() where T : EcsSystem =>
         _executor.Find(typeof(T)) as T ?? throw new InvalidOperationException($"No system of type {typeof(T)} is registered.");
 

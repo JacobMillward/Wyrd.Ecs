@@ -27,7 +27,7 @@ file sealed class SpawnedSystem<TSlot> : EcsSystem
 /// Registers a distinct <see cref="SpawnedSystem{TSlot}"/> from within its own Execute.
 /// Every instance of this generic (one per distinct TSlot) declares a disjoint access
 /// footprint (Writes: [typeof(TSlot)]), so with WithParallelThreshold(0) they all pack
-/// into one stage and run concurrently via Parallel.ForEach — the exact scenario where
+/// into one stage and run concurrently via Parallel.ForEach - the exact scenario where
 /// ParallelSystemScheduler's registration state needs to be safe against concurrent
 /// AddSystemCore calls from multiple threads at once.
 /// </summary>
@@ -60,7 +60,7 @@ public class WorldSystemRuntimeTests
         world.AddSystem<DestroyRecordingSystem>();
         world.Update(TimeSpan.FromSeconds(1));
 
-        var system = world.GetSystem<DestroyRecordingSystem>(); // capture before removal — GetSystem throws once it's gone
+        var system = world.GetSystem<DestroyRecordingSystem>(); // capture before removal - GetSystem throws once it's gone
         var removed = world.RemoveSystem<DestroyRecordingSystem>();
         world.Update(TimeSpan.FromSeconds(1));
 
@@ -91,7 +91,7 @@ public class WorldSystemRuntimeTests
         var log = new List<string>();
         var world = new WorldBuilder().Build();
 
-        // B is registered first, declaring [RunAfter(typeof(A))] — A doesn't exist yet at
+        // B is registered first, declaring [RunAfter(typeof(A))] - A doesn't exist yet at
         // this point. The next Update()'s deferred recompute sees the full live set (both
         // A and B) and places them correctly regardless of registration order.
         world.AddSystem<LoggingSystemB>(w => new LoggingSystemB(log));
@@ -117,7 +117,7 @@ public class WorldSystemRuntimeTests
     public void FlushSystemChanges_SurfacesAValidationErrorImmediately_NotOnlyOnNextUpdate()
     {
         var world = new WorldBuilder().Build();
-        // After<RecordingSystem>() targets a type that is never registered — the call
+        // After<RecordingSystem>() targets a type that is never registered - the call
         // itself succeeds (only marks the schedule dirty); FlushSystemChanges forces the
         // recompute (and its validation) to happen right here instead of on the next
         // Update().

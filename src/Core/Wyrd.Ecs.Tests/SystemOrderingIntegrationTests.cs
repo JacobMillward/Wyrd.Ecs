@@ -37,7 +37,7 @@ public class SystemOrderingIntegrationTests
         // RunAfter(EndOfPhysics) edge, never a data conflict, can force them into separate,
         // ordered stages. Network shares the anchor with neither and stays unconstrained.
         // IntegrationRenderPrepSystem's [RunAfter(typeof(EndOfPhysics))] is real, generator-seeded
-        // data (Wyrd.Ecs.Generated.SystemRegistry.Edges), not a hand-built stand-in — this is the
+        // data (Wyrd.Ecs.Generated.SystemRegistry.Edges), not a hand-built stand-in - this is the
         // one integration point in the suite proving that path end-to-end.
         Wyrd.Ecs.Generated.SystemRegistry.Edges.TryGetValue(typeof(IntegrationRenderPrepSystem), out var renderPrepEdges);
 

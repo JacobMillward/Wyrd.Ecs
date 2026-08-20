@@ -174,7 +174,7 @@ public class QueryChainGeneratorSystemAccessTests
 
         var result = (bool)assembly.GetType("Harness")!.GetMethod("UnconstructableSystem_GetsNoConstructEntry")!.Invoke(null, null)!;
 
-        result.Should().BeTrue("a ctor(int) is neither ctor(World) nor parameterless, so no factory can be emitted for it — silently skipped, not diagnosed, since nothing here says whether it's ever used via bare AddSystem<T>()");
+        result.Should().BeTrue("a ctor(int) is neither ctor(World) nor parameterless, so no factory can be emitted for it - silently skipped, not diagnosed, since nothing here says whether it's ever used via bare AddSystem<T>()");
     }
 
     [Fact]

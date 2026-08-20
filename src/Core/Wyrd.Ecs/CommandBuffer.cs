@@ -441,7 +441,7 @@ public sealed partial class CommandBuffer
     public Entity[] CreateEntity(EntityTemplate template, int count)
     {
         if (template.Children.Count > 0)
-            throw new InvalidOperationException("Batch instantiation is not supported for a template with children — each child is a distinct set of entities per instance. Call CreateEntity(EntityTemplate) once per instance instead.");
+            throw new InvalidOperationException("Batch instantiation is not supported for a template with children - each child is a distinct set of entities per instance. Call CreateEntity(EntityTemplate) once per instance instead.");
 
         if (count == 0) return Array.Empty<Entity>();
         if (count < 0) throw new ArgumentOutOfRangeException(nameof(count), count, "count must be non-negative.");

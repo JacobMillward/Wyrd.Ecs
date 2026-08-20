@@ -5,7 +5,7 @@ namespace Wyrd.Ecs.Internal;
 /// stages honoring two constraints: the conflict rule (no two systems in the same
 /// stage share a component type where at least one side writes it) and any Before/After
 /// edges declared via <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/>/
-/// <see cref="SystemRegistration"/>. Computed once per call — a caller that needs a
+/// <see cref="SystemRegistration"/>. Computed once per call - a caller that needs a
 /// fresh schedule after a structural change (see <see cref="ParallelSystemScheduler"/>)
 /// simply calls this again over the current full entry list, rather than patching a
 /// previous result.
@@ -43,7 +43,7 @@ internal static class StagePlanner
         // practice this dictionary never sees two different Access values for one Type.
         // The one place a duplicate Type can still legitimately reach here is a test
         // exercising this algorithm directly against hand-built SystemEntry arrays
-        // (StagePlannerTests) — for that case, indexer assignment (last one wins) is a
+        // (StagePlannerTests) - for that case, indexer assignment (last one wins) is a
         // deliberately permissive default rather than a defensive check this pure
         // function has no way to act on anyway (it can't reject anything; it can only
         // return a schedule).
@@ -52,14 +52,14 @@ internal static class StagePlanner
             if (entry.Access is not null)
                 accessByType[entry.SystemType] = entry.Access;
 
-        // Every Reads/Writes Type gets a bit index, scoped to this one BuildStages call —
+        // Every Reads/Writes Type gets a bit index, scoped to this one BuildStages call -
         // never shared across calls or with the *component* TypeIndex<T> space archetypes
         // use elsewhere in this assembly, deliberately: a system's declared access can
         // legitimately include tag types or (in tests) arbitrary marker types with no
         // archetype meaning at all, and a call-scoped mapping needs no invalidation story.
-        // This turns the conflict check's previous dominant cost — a fresh HashSet<Type>
+        // This turns the conflict check's previous dominant cost - a fresh HashSet<Type>
         // allocated per node (via `[.. access.Reads]`) plus up to three HashSet.Overlaps
-        // calls per (node, candidate-stage) pair — into a handful of bitwise ANDs over
+        // calls per (node, candidate-stage) pair - into a handful of bitwise ANDs over
         // TypeBitSet's inline ulong words, with no allocation at all for the realistic
         // case (a schedule touching under 256 distinct Reads/Writes types).
         var typeIndices = new Dictionary<Type, int>();

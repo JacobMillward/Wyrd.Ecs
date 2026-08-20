@@ -50,7 +50,7 @@ public class AddSystemExtensionsTests
     public void AddSystemWithConfigure_RegistersAConstructorArgSystemWithoutTheGeneratedDictionary()
     {
         // SugarConstructedSystem's ctor(float) is neither ctor(World) nor parameterless,
-        // so the generator emits no Construct entry for it — the Func<World, T> overload
+        // so the generator emits no Construct entry for it - the Func<World, T> overload
         // is the only way to register it via AddSystem<T>().
         var world = new WorldBuilder().AddSystem<SugarConstructedSystem>(_ => new SugarConstructedSystem(5f)).Build();
         Entity entity = world.Commands.CreateEntity(new SugarPosition { X = 0f });
@@ -65,7 +65,7 @@ public class AddSystemExtensionsTests
     public void AddSystemCore_RegistersAPreBuiltInstanceViaTheManualEscapeHatch()
     {
         // AddSystemCore is the non-generic, manual entry point AddSystem<T>() itself
-        // closes over — exercised directly here for a type the generator never
+        // closes over - exercised directly here for a type the generator never
         // discovered access for (an explicit access dictionary supplied by hand,
         // mirroring what a runtime-loaded system with no compile-time generator pass
         // would need).

@@ -19,7 +19,7 @@ public sealed class SystemRegistration
     private readonly Func<World>? _build;
     private readonly SystemEntry _entry;
 
-    /// <summary>Test-only introspection (reachable within the core solution via <c>InternalsVisibleTo</c>) — never referenced by generated code, which lives in an arbitrary consumer assembly with no such grant.</summary>
+    /// <summary>Test-only introspection (reachable within the core solution via <c>InternalsVisibleTo</c>) - never referenced by generated code, which lives in an arbitrary consumer assembly with no such grant.</summary>
     internal SystemEntry Entry => _entry;
 
     internal SystemRegistration(
@@ -53,7 +53,7 @@ public sealed class SystemRegistration
     /// class declaration) to declare which <see cref="Wyrd.Ecs.Phase"/> this system runs
     /// in. <see cref="Phase.Update"/> is a genuine no-op (adds no edge), the same as
     /// omitting this call entirely. This is the only way a generic <c>EcsSystem</c> can
-    /// participate in <c>Phase.PreUpdate</c>/<c>Phase.PostUpdate</c> — see
+    /// participate in <c>Phase.PreUpdate</c>/<c>Phase.PostUpdate</c> - see
     /// <see cref="PhaseAttribute"/>'s own doc comment for why the attribute can't.
     /// </summary>
     public SystemRegistration Phase(Phase phase) => phase switch
@@ -72,7 +72,7 @@ public sealed class SystemRegistration
     }
 
     /// <summary>
-    /// Registers another system via the same registrar this registration came from —
+    /// Registers another system via the same registrar this registration came from -
     /// what every generator-emitted <c>AddSystem&lt;T&gt;()</c> overload on
     /// <see cref="SystemRegistration"/> itself calls, so a fluent chain like
     /// <c>builder.AddSystem&lt;A&gt;().AddSystem&lt;B&gt;()</c> keeps registering onto the
@@ -92,13 +92,13 @@ public sealed class SystemRegistration
         new(_register, _build, _register(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets, cadence));
 
     /// <summary>
-    /// Finishes a <see cref="WorldBuilder"/>-originated chain — equivalent to calling
+    /// Finishes a <see cref="WorldBuilder"/>-originated chain - equivalent to calling
     /// <see cref="WorldBuilder.Build"/> directly on the builder this registration (and
     /// every one before it in the chain) came from. Throws if this registration
-    /// originated from a live <see cref="World"/> instead (nothing to build — the
+    /// originated from a live <see cref="World"/> instead (nothing to build - the
     /// system is already registered and running).
     /// </summary>
     public World Build() =>
         _build?.Invoke() ?? throw new InvalidOperationException(
-            "This SystemRegistration came from a live World, not a WorldBuilder — there is nothing to Build(). The system is already registered.");
+            "This SystemRegistration came from a live World, not a WorldBuilder - there is nothing to Build(). The system is already registered.");
 }

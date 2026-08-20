@@ -21,7 +21,7 @@ public class SystemOrderGraphTests
 {
     /// <summary>
     /// A resolved <see cref="SystemEntry"/> for an already-constructed instance, with
-    /// whatever Before/After edges the test wants — <see cref="SystemOrderGraph.Resolve"/>
+    /// whatever Before/After edges the test wants - <see cref="SystemOrderGraph.Resolve"/>
     /// now reads edges directly off each entry (already unioned from fluent
     /// <see cref="SystemRegistration"/> calls and generator-seeded
     /// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> declarations by
