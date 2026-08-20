@@ -14,7 +14,7 @@ namespace Wyrd.Ecs;
 /// Not the right tool for a hot per-entity loop: use <see cref="World"/>/
 /// <see cref="CommandBuffer"/> directly, or a <see cref="ChunkAction{TAccess0}"/> accessor.
 /// </summary>
-public readonly ref struct EntityView
+public readonly ref struct EntityView : IComponentSink
 {
     private readonly World _world;
     private readonly CommandBuffer _commands;
@@ -60,6 +60,16 @@ public readonly ref struct EntityView
     {
         AddComponent(value);
         AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
+        return this;
+    }
+
+    /// <inheritdoc/>
+    void IComponentSink.AddComponent<T>(T value) => AddComponent(value);
+
+    /// <summary>Adds every component in <paramref name="bundle"/> to this entity. See <see cref="IComponentBundle"/>.</summary>
+    public EntityView Add<TBundle>(TBundle bundle) where TBundle : IComponentBundle
+    {
+        bundle.ApplyTo(this);
         return this;
     }
 

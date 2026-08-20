@@ -15,7 +15,7 @@ internal delegate void TemplateComponentSetter(World world, Internal.Archetype a
 /// subclass it for named, hand-authored prefabs. Frozen after first instantiation: mutating
 /// a shared or reused template afterward throws instead of silently corrupting it.
 /// </summary>
-public class EntityTemplate
+public class EntityTemplate : IComponentSink
 {
     private readonly Lock _gate = new();
     private Internal.TypeBitSet _signature = Internal.TypeBitSet.Empty;
@@ -69,6 +69,30 @@ public class EntityTemplate
             _settersByType[typeIndex] = MakeSetter(value);
             _cachedSetters = null;
         }
+        return this;
+    }
+
+    /// <summary>
+    /// Adds both <see cref="Transform"/> and a matching <see cref="PreviousTransform"/>
+    /// (equal to <paramref name="value"/>) in one call, mirroring
+    /// <see cref="EntityView.AddTransform"/>. A template built with bare
+    /// <c>AddComponent(Transform.Identity)</c> instead would produce entities
+    /// <see cref="TransformSnapshotSystem"/>'s query never matches, since it requires both.
+    /// </summary>
+    public EntityTemplate AddTransform(Transform value)
+    {
+        AddComponent(value);
+        AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
+        return this;
+    }
+
+    /// <inheritdoc/>
+    void IComponentSink.AddComponent<T>(T value) => AddComponent(value);
+
+    /// <summary>Adds every component in <paramref name="bundle"/> to this template. See <see cref="IComponentBundle"/>.</summary>
+    public EntityTemplate Add<TBundle>(TBundle bundle) where TBundle : IComponentBundle
+    {
+        bundle.ApplyTo(this);
         return this;
     }
 
