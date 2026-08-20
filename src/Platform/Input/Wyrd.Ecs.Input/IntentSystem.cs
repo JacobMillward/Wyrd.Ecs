@@ -75,40 +75,4 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
             if (MouseButtonIsDown(seat, button)) return true;
         return false;
     }
-
-    // Single merged device source (Task 8 scope): every seat reads the same global
-    // down-state, since no seat can be explicitly assigned to a device yet. Task 9
-    // replaces this block with a per-device version in IntentSystem.Devices.cs.
-    private readonly HashSet<SDL.Scancode> _keysDown = [];
-    private readonly HashSet<MouseButton> _mouseButtonsDown = [];
-
-    private void HandleEvent(SDL.Event ev, ref IntentState<TAction> state)
-    {
-        switch ((SDL.EventType)ev.Type)
-        {
-            case SDL.EventType.KeyDown:
-                _keysDown.Add(ev.Key.Scancode);
-                break;
-            case SDL.EventType.KeyUp:
-                _keysDown.Remove(ev.Key.Scancode);
-                break;
-            case SDL.EventType.MouseButtonDown:
-                if (MouseButtonExtensions.FromSdlButton(ev.Button.Button) is { } downButton) _mouseButtonsDown.Add(downButton);
-                break;
-            case SDL.EventType.MouseButtonUp:
-                if (MouseButtonExtensions.FromSdlButton(ev.Button.Button) is { } upButton) _mouseButtonsDown.Remove(upButton);
-                break;
-            case SDL.EventType.MouseMotion:
-                state.MousePosition = new Vector2(ev.Motion.X, ev.Motion.Y);
-                state.MouseDelta += new Vector2(ev.Motion.XRel, ev.Motion.YRel);
-                break;
-            case SDL.EventType.MouseWheel:
-                state.WheelDelta += new Vector2(ev.Wheel.X, ev.Wheel.Y);
-                break;
-        }
-    }
-
-    private bool KeyIsDown(int seat, SDL.Scancode key) => _keysDown.Contains(key);
-
-    private bool MouseButtonIsDown(int seat, MouseButton button) => _mouseButtonsDown.Contains(button);
 }

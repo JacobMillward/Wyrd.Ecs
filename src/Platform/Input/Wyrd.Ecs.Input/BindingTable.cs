@@ -117,10 +117,14 @@ public sealed partial class BindingTable<TAction> where TAction : struct, Enum
         return this;
     }
 
-    /// <summary>Removes <paramref name="deviceId"/> from whichever seat(s) it was assigned to, without affecting any other device assigned to those seats.</summary>
+    /// <summary>Removes <paramref name="deviceId"/> from whichever seat(s) it was assigned to, without affecting any other device assigned to those seats. A seat left with no assigned devices reverts to unassigned (merging every connected device), not an empty explicit assignment.</summary>
     internal void UnassignDeviceById(uint deviceId)
     {
-        foreach (var set in _assignedDevices.Values) set.Remove(deviceId);
+        foreach (var (seat, set) in _assignedDevices.ToList())
+        {
+            set.Remove(deviceId);
+            if (set.Count == 0) _assignedDevices.Remove(seat);
+        }
     }
 
     /// <summary>Every (seat, action) pair with a live binding, and which kind it is.</summary>
