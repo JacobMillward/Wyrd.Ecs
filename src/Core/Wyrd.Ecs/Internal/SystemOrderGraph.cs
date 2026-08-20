@@ -3,11 +3,15 @@ namespace Wyrd.Ecs.Internal;
 /// <summary>
 /// Resolves every Before/After edge declared across a system list — both fluent
 /// <see cref="SystemRegistration"/> edges and generator-seeded
-/// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> edges, already
-/// unioned into each <see cref="SystemEntry"/>'s own lists by the time this runs — into
-/// a graph over <see cref="OrderNode"/>s: every registered system instance, plus one
-/// node per distinct <see cref="MarkerSystem"/> type an edge actually references (never
-/// an instance of it). Consumed by <see cref="StagePlanner.BuildStages"/>.
+/// <see cref="RunBeforeAttribute"/>/<see cref="RunAfterAttribute"/> edges (which
+/// <see cref="PhaseAttribute"/>/<see cref="SystemRegistration.Phase"/> also produce,
+/// targeting <see cref="StartOfUpdatePhase"/>/<see cref="EndOfUpdatePhase"/>), already
+/// unioned into each <see cref="SystemEntry"/>'s own lists by the time this runs — plus
+/// the synthetic Phase-bracketing edges this method adds itself for every system that
+/// doesn't reference either marker — into a graph over <see cref="OrderNode"/>s: every
+/// registered system instance, plus one node per distinct <see cref="MarkerSystem"/> type
+/// an edge actually references (never an instance of it). Consumed by
+/// <see cref="StagePlanner.BuildStages"/>.
 /// </summary>
 internal static class SystemOrderGraph
 {
@@ -81,6 +85,35 @@ internal static class SystemOrderGraph
                 edges.Add(new Edge(self, ResolveTarget(beforeTarget)));
             foreach (var afterTarget in entry.AfterTargets)
                 edges.Add(new Edge(ResolveTarget(afterTarget), self));
+        }
+
+        // Phase.PreUpdate/Phase.PostUpdate (see Phase.cs/StartOfUpdatePhase.cs/EndOfUpdatePhase.cs):
+        // gated on whether the loop above already added either marker to markerNodes, i.e.
+        // whether any entry actually referenced one - keeps this a true no-op for a
+        // schedule that never touches the platform layer, rather than adding cost/nodes to
+        // every consumer.
+        var startOfUpdate = OrderNode.ForMarker(typeof(StartOfUpdatePhase));
+        var endOfUpdate = OrderNode.ForMarker(typeof(EndOfUpdatePhase));
+        if (markerNodes.Contains(startOfUpdate) || markerNodes.Contains(endOfUpdate))
+        {
+            // Only one of the two markers might have reached markerNodes above (e.g. a
+            // schedule using [Phase(Phase.PreUpdate)] but no PostUpdate system anywhere) -
+            // the fixed bridging edge below references both regardless, so both must be
+            // real nodes or StableTopologicalSort throws on a dangling edge target.
+            markerNodes.Add(startOfUpdate);
+            markerNodes.Add(endOfUpdate);
+            edges.Add(new Edge(startOfUpdate, endOfUpdate));
+            foreach (var entry in entries)
+            {
+                var referencesPhase =
+                    entry.BeforeTargets.Contains(typeof(StartOfUpdatePhase)) || entry.BeforeTargets.Contains(typeof(EndOfUpdatePhase)) ||
+                    entry.AfterTargets.Contains(typeof(StartOfUpdatePhase)) || entry.AfterTargets.Contains(typeof(EndOfUpdatePhase));
+                if (referencesPhase) continue;
+
+                var self = OrderNode.ForSystem(entry.Instance!);
+                edges.Add(new Edge(startOfUpdate, self));
+                edges.Add(new Edge(self, endOfUpdate));
+            }
         }
 
         IReadOnlyList<OrderNode> nodes =

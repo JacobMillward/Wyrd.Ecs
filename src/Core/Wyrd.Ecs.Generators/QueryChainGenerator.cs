@@ -240,12 +240,12 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         return false;
     }
 
-    /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c>/<c>[FixedTimestep]</c> edges/cadence, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
+    /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c>/<c>[Phase]</c>/<c>[FixedTimestep]</c> edges/cadence, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
     private readonly record struct EdgeResult(string? SystemTypeName, List<string> Before, List<string> After, bool IsFixedTimestep);
 
     /// <summary>
-    /// Reads <c>[RunBefore(typeof(X))]</c>/<c>[RunAfter(typeof(X))]</c> off a class
-    /// declaration via the semantic model, at compile time. Not limited to
+    /// Reads <c>[RunBefore(typeof(X))]</c>/<c>[RunAfter(typeof(X))]</c>/<c>[Phase(Phase.X)]</c>
+    /// off a class declaration via the semantic model, at compile time. Not limited to
     /// <c>EcsSystem</c> subclasses: any class carrying the attributes is a real edge to
     /// capture, and non-<c>EcsSystem</c>/<c>MarkerSystem</c> targets are already rejected
     /// downstream at graph-resolution time.
@@ -275,6 +275,26 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 if (attributeName == "Wyrd.Ecs.FixedTimestepAttribute")
                 {
                     isFixedTimestep = true;
+                    continue;
+                }
+
+                if (attributeName == "Wyrd.Ecs.PhaseAttribute")
+                {
+                    // Phase.Update (the default) is a genuine no-op: no member name match
+                    // below, nothing added to before/after, identical to the attribute
+                    // being absent entirely.
+                    if (attribute.ArgumentList is not { Arguments: [{ Expression: var phaseExpr }] }) continue;
+                    var constant = semanticModel.GetConstantValue(phaseExpr, ct);
+                    if (!constant.HasValue) continue;
+                    if (semanticModel.GetTypeInfo(phaseExpr, ct).Type is not { TypeKind: TypeKind.Enum } phaseType) continue;
+
+                    var memberName = phaseType.GetMembers()
+                        .OfType<IFieldSymbol>()
+                        .FirstOrDefault(f => f.HasConstantValue && Equals(f.ConstantValue, constant.Value))
+                        ?.Name;
+
+                    if (memberName == "PreUpdate") before.Add("Wyrd.Ecs.StartOfUpdatePhase");
+                    else if (memberName == "PostUpdate") after.Add("Wyrd.Ecs.EndOfUpdatePhase");
                     continue;
                 }
 

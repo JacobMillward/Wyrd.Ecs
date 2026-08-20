@@ -46,6 +46,24 @@ public sealed class SystemRegistration
         return this;
     }
 
+    /// <summary>
+    /// Sugar for <see cref="Before{T}"/>/<see cref="After{T}"/> targeting
+    /// <see cref="StartOfUpdatePhase"/>/<see cref="EndOfUpdatePhase"/> - the fluent
+    /// equivalent of <see cref="PhaseAttribute"/>, for a registration site (rather than a
+    /// class declaration) to declare which <see cref="Wyrd.Ecs.Phase"/> this system runs
+    /// in. <see cref="Phase.Update"/> is a genuine no-op (adds no edge), the same as
+    /// omitting this call entirely. This is the only way a generic <c>EcsSystem</c> can
+    /// participate in <c>Phase.PreUpdate</c>/<c>Phase.PostUpdate</c> — see
+    /// <see cref="PhaseAttribute"/>'s own doc comment for why the attribute can't.
+    /// </summary>
+    public SystemRegistration Phase(Phase phase) => phase switch
+    {
+        Wyrd.Ecs.Phase.PreUpdate => Before<StartOfUpdatePhase>(),
+        Wyrd.Ecs.Phase.PostUpdate => After<EndOfUpdatePhase>(),
+        Wyrd.Ecs.Phase.Update => this,
+        _ => throw new ArgumentOutOfRangeException(nameof(phase), phase, null),
+    };
+
     /// <summary>This system starts with <see cref="EcsSystem.Enabled"/> false.</summary>
     public SystemRegistration StartDisabled()
     {
