@@ -79,6 +79,40 @@ public class PlatformSystemTests
         // (empty, since this is tick 1), not contain this tick's freshly-pumped event.
         world.GetSystem<OrdinaryProbeSystem>()!.SawQuitEventOnFirstTick.Should().BeTrue();
     }
+
+    [Theory]
+    [InlineData(SDL.EventType.KeyboardAdded, DeviceKind.Keyboard, DeviceChangeKind.Connected)]
+    [InlineData(SDL.EventType.KeyboardRemoved, DeviceKind.Keyboard, DeviceChangeKind.Disconnected)]
+    [InlineData(SDL.EventType.MouseAdded, DeviceKind.Mouse, DeviceChangeKind.Connected)]
+    [InlineData(SDL.EventType.MouseRemoved, DeviceKind.Mouse, DeviceChangeKind.Disconnected)]
+    public void Update_EmitsADeviceChangeEventForHotPlugSdlEvents(SDL.EventType sdlEventType, DeviceKind expectedKind, DeviceChangeKind expectedChange)
+    {
+        var world = new WorldBuilder()
+            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var reader = world.CreateEventReader<DeviceChange>();
+        var pushed = expectedKind == DeviceKind.Keyboard
+            ? new SDL.Event { Type = (uint)sdlEventType, KDevice = new SDL.KeyboardDeviceEvent { Type = sdlEventType, Which = 77 } }
+            : new SDL.Event { Type = (uint)sdlEventType, MDevice = new SDL.MouseDeviceEvent { Type = sdlEventType, Which = 77 } };
+        SDL.PushEvent(ref pushed);
+
+        world.Update(TimeSpan.Zero);
+
+        reader.Read().Should().ContainSingle(c => c.DeviceId == 77 && c.DeviceKind == expectedKind && c.Change == expectedChange);
+    }
+
+    [Fact]
+    public void Update_WithNoHotPlugEvent_EmitsNoDeviceChange()
+    {
+        var world = new WorldBuilder()
+            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var reader = world.CreateEventReader<DeviceChange>();
+
+        world.Update(TimeSpan.Zero);
+
+        reader.Read().Should().BeEmpty();
+    }
 }
 
 file sealed class OrdinaryProbeSystem : EcsSystem

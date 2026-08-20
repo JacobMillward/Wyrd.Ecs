@@ -46,6 +46,21 @@ public sealed class PlatformSystem : EcsSystem
         while (SDL.PollEvent(out var ev))
         {
             _events.Add(ev);
+            switch ((SDL.EventType)ev.Type)
+            {
+                case SDL.EventType.KeyboardAdded:
+                    world.Emit(new DeviceChange(ev.KDevice.Which, DeviceKind.Keyboard, DeviceChangeKind.Connected));
+                    break;
+                case SDL.EventType.KeyboardRemoved:
+                    world.Emit(new DeviceChange(ev.KDevice.Which, DeviceKind.Keyboard, DeviceChangeKind.Disconnected));
+                    break;
+                case SDL.EventType.MouseAdded:
+                    world.Emit(new DeviceChange(ev.MDevice.Which, DeviceKind.Mouse, DeviceChangeKind.Connected));
+                    break;
+                case SDL.EventType.MouseRemoved:
+                    world.Emit(new DeviceChange(ev.MDevice.Which, DeviceKind.Mouse, DeviceChangeKind.Disconnected));
+                    break;
+            }
         }
     }
 

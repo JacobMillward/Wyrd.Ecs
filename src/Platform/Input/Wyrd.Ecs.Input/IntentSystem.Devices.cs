@@ -1,4 +1,5 @@
 using SDL3;
+using Wyrd.Ecs.Platform;
 
 namespace Wyrd.Ecs.Input;
 
@@ -11,20 +12,6 @@ public sealed partial class IntentSystem<TAction>
     {
         switch ((SDL.EventType)ev.Type)
         {
-            case SDL.EventType.KeyboardAdded:
-                _keysDownByDevice.TryAdd(ev.KDevice.Which, []);
-                state.ConnectedThisTickList.Add(ev.KDevice.Which);
-                break;
-            case SDL.EventType.KeyboardRemoved:
-                HandleDeviceRemoved(_keysDownByDevice, ev.KDevice.Which, ref state);
-                break;
-            case SDL.EventType.MouseAdded:
-                _mouseButtonsDownByDevice.TryAdd(ev.MDevice.Which, []);
-                state.ConnectedThisTickList.Add(ev.MDevice.Which);
-                break;
-            case SDL.EventType.MouseRemoved:
-                HandleDeviceRemoved(_mouseButtonsDownByDevice, ev.MDevice.Which, ref state);
-                break;
             case SDL.EventType.KeyDown:
                 DeviceSet(_keysDownByDevice, ev.Key.Which).Add(ev.Key.Scancode);
                 break;
@@ -52,11 +39,33 @@ public sealed partial class IntentSystem<TAction>
     private static HashSet<T> DeviceSet<T>(Dictionary<uint, HashSet<T>> byDevice, uint deviceId) =>
         byDevice.TryGetValue(deviceId, out var set) ? set : byDevice[deviceId] = [];
 
-    private void HandleDeviceRemoved<T>(Dictionary<uint, HashSet<T>> byDevice, uint deviceId, ref IntentState<TAction> state)
+    /// <summary>
+    /// Reacts to <see cref="DeviceChange"/> (sourced from <see cref="PlatformSystem"/>, the
+    /// single canonical emitter - see that type's own doc comment). Only disconnects need a
+    /// reaction: a connect needs no seeding, since <see cref="DeviceSet{T}"/> already lazily
+    /// creates a device's down-state entry on its first real key/button event. Runs after
+    /// this tick's raw key/button events are already applied (in <see cref="Execute"/>), so
+    /// a disconnect always wins over a same-tick key event for that device, regardless of
+    /// the order SDL happened to deliver them in - the mid-press "stuck held" safety net
+    /// this package guarantees.
+    /// </summary>
+    private void ApplyDeviceChanges()
     {
-        byDevice.Remove(deviceId); // clears this device's down-state immediately - a mid-press disconnect can never leave an action stuck held
-        Bindings.UnassignDeviceById(deviceId); // SDL device ids aren't stable across a reconnect, so a stale assignment serves no purpose
-        state.DisconnectedThisTickList.Add(deviceId);
+        foreach (var change in _deviceChanges.Read())
+        {
+            if (change.Change != DeviceChangeKind.Disconnected) continue;
+
+            switch (change.DeviceKind)
+            {
+                case DeviceKind.Keyboard:
+                    _keysDownByDevice.Remove(change.DeviceId);
+                    break;
+                case DeviceKind.Mouse:
+                    _mouseButtonsDownByDevice.Remove(change.DeviceId);
+                    break;
+            }
+            Bindings.UnassignDeviceById(change.DeviceId); // SDL device ids aren't stable across a reconnect, so a stale assignment serves no purpose
+        }
     }
 
     private bool KeyIsDown(int seat, SDL.Scancode key)

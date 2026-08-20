@@ -11,8 +11,7 @@ public class IntentStateTests
     {
         var state = new IntentState<TestAction>();
 
-        state.DevicesConnectedThisTick.Should().BeEmpty();
-        state.DevicesDisconnectedThisTick.Should().BeEmpty();
+        state.TryGet(TestAction.Jump, out _).Should().BeFalse("the backing States dictionary must be allocated, not null, for TryGet to work at all");
     }
 
     [Fact]

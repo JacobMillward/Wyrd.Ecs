@@ -20,6 +20,7 @@ namespace Wyrd.Ecs.Input;
 public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : struct, Enum
 {
     private readonly PlatformSystem _platform;
+    private readonly EventReader<DeviceChange> _deviceChanges;
     private readonly Dictionary<(TAction Action, int Seat), bool> _previousHeld = [];
 
     /// <summary>The live binding table this system resolves every tick - mutate it (or its overrides) and the change applies on the very next tick.</summary>
@@ -29,6 +30,7 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
     public IntentSystem(World world, PlatformSystem platform, BindingTable<TAction> bindings)
     {
         _platform = platform;
+        _deviceChanges = world.CreateEventReader<DeviceChange>();
         Bindings = bindings;
         world.AddResource(new IntentState<TAction>());
     }
@@ -39,11 +41,11 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
         ref var state = ref world.GetResourceRef<IntentState<TAction>>();
         state.MouseDelta = Vector2.Zero;
         state.WheelDelta = Vector2.Zero;
-        state.ConnectedThisTickList.Clear();
-        state.DisconnectedThisTickList.Clear();
 
         foreach (var ev in _platform.Events)
             HandleEvent(ev, ref state);
+
+        ApplyDeviceChanges();
 
         state.States.Clear();
         foreach (var (seat, action, kind) in Bindings.BoundActions())

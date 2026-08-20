@@ -31,28 +31,20 @@ public class IntentSystemMultiDeviceTests
         new() { Type = (uint)SDL.EventType.KeyDown, Key = new SDL.KeyboardEvent { Type = SDL.EventType.KeyDown, Scancode = key, Down = true, Which = deviceId } };
 
     [Fact]
-    public void KeyboardAddedEvent_AppearsInDevicesConnectedThisTick()
+    public void KeyboardAddedEvent_IsObservableViaTheSharedDeviceChangeEventChannel()
     {
+        // DeviceChange is emitted by PlatformSystem (the single canonical source, see its
+        // own doc comment) - IntentSystem only consumes it for its own down-state
+        // bookkeeping. This confirms that consumption doesn't somehow swallow the event
+        // for anyone else subscribed to the same channel.
         var (world, _) = BuildWorld();
+        var reader = world.CreateEventReader<DeviceChange>();
         var added = KeyboardAdded(42);
         SDL.PushEvent(ref added);
 
         world.Update(TimeSpan.Zero);
 
-        world.GetResource<IntentState<TestAction>>().DevicesConnectedThisTick.Should().Contain(42u);
-    }
-
-    [Fact]
-    public void DevicesConnectedThisTick_IsEmptyOnTheFollowingTick()
-    {
-        var (world, _) = BuildWorld();
-        var added = KeyboardAdded(42);
-        SDL.PushEvent(ref added);
-        world.Update(TimeSpan.Zero);
-
-        world.Update(TimeSpan.Zero);
-
-        world.GetResource<IntentState<TestAction>>().DevicesConnectedThisTick.Should().BeEmpty();
+        reader.Read().Should().ContainSingle(c => c.DeviceId == 42 && c.DeviceKind == DeviceKind.Keyboard && c.Change == DeviceChangeKind.Connected);
     }
 
     [Fact]
@@ -90,6 +82,7 @@ public class IntentSystemMultiDeviceTests
     public void DeviceRemovedMidPress_ForceClearsThatDevicesDownStateSameTick()
     {
         var (world, bindings) = BuildWorld();
+        var deviceChanges = world.CreateEventReader<DeviceChange>();
         bindings.Bind(TestAction.Jump, SDL.Scancode.Space);
         bindings.AssignDevice(0, 111u);
         var press = KeyDown(SDL.Scancode.Space, deviceId: 111u);
@@ -104,7 +97,7 @@ public class IntentSystemMultiDeviceTests
         var state = world.GetResource<IntentState<TestAction>>();
         state[TestAction.Jump].IsHeld.Should().BeFalse("a disconnect must never leave an action stuck held");
         state[TestAction.Jump].JustReleased.Should().BeTrue();
-        state.DevicesDisconnectedThisTick.Should().Contain(111u);
+        deviceChanges.Read().Should().Contain(c => c.DeviceId == 111u && c.DeviceKind == DeviceKind.Keyboard && c.Change == DeviceChangeKind.Disconnected);
     }
 
     [Fact]
