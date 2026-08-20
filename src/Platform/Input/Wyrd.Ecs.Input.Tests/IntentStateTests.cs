@@ -34,17 +34,17 @@ public class IntentStateTests
     }
 
     [Fact]
-    public void Indexer_ReturnsWhateverWasWrittenIntoStatesForThatActionAndSeat()
+    public void Indexer_ReturnsWhateverWasWrittenIntoStatesForThatActionAndProfile()
     {
         var state = new IntentState<TestAction>();
         var expected = new ActionState(true, true, false, Vector2.UnitX);
         state.States[(TestAction.Jump, 1)] = expected;
 
-        state[TestAction.Jump, seat: 1].Should().Be(expected);
+        state[TestAction.Jump, profile: 1].Should().Be(expected);
     }
 
     [Fact]
-    public void Indexer_DefaultsToSeatZero()
+    public void Indexer_DefaultsToProfileZero()
     {
         var state = new IntentState<TestAction>();
         var expected = new ActionState(true, false, false, Vector2.Zero);

@@ -21,7 +21,7 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
 {
     private readonly PlatformSystem _platform;
     private readonly EventReader<DeviceChange> _deviceChanges;
-    private readonly Dictionary<(TAction Action, int Seat), bool> _previousHeld = [];
+    private readonly Dictionary<(TAction Action, int Profile), bool> _previousHeld = [];
 
     /// <summary>The live binding table this system resolves every tick - mutate it (or its overrides) and the change applies on the very next tick.</summary>
     public BindingTable<TAction> Bindings { get; }
@@ -48,33 +48,33 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
         ApplyDeviceChanges();
 
         state.States.Clear();
-        foreach (var (seat, action, kind) in Bindings.BoundActions())
+        foreach (var (profile, action, kind) in Bindings.BoundActions())
         {
             var value = kind == BindingTable<TAction>.Kind.Axis2D
-                ? ResolveAxis(seat, action)
-                : (ResolveDigital(seat, action) ? Vector2.UnitX : Vector2.Zero);
+                ? ResolveAxis(profile, action)
+                : (ResolveDigital(profile, action) ? Vector2.UnitX : Vector2.Zero);
             var isHeld = value != Vector2.Zero;
-            var wasHeld = _previousHeld.GetValueOrDefault((action, seat));
-            state.States[(action, seat)] = new ActionState(isHeld, isHeld && !wasHeld, !isHeld && wasHeld, value);
-            _previousHeld[(action, seat)] = isHeld;
+            var wasHeld = _previousHeld.GetValueOrDefault((action, profile));
+            state.States[(action, profile)] = new ActionState(isHeld, isHeld && !wasHeld, !isHeld && wasHeld, value);
+            _previousHeld[(action, profile)] = isHeld;
         }
     }
 
-    private Vector2 ResolveAxis(int seat, TAction action)
+    private Vector2 ResolveAxis(int profile, TAction action)
     {
-        if (Bindings.AxisFor(seat, action) is not { } axis) return Vector2.Zero;
-        var x = (KeyIsDown(seat, axis.Right) ? 1f : 0f) - (KeyIsDown(seat, axis.Left) ? 1f : 0f);
-        var y = (KeyIsDown(seat, axis.Up) ? 1f : 0f) - (KeyIsDown(seat, axis.Down) ? 1f : 0f);
+        if (Bindings.AxisFor(profile, action) is not { } axis) return Vector2.Zero;
+        var x = (KeyIsDown(profile, axis.Right) ? 1f : 0f) - (KeyIsDown(profile, axis.Left) ? 1f : 0f);
+        var y = (KeyIsDown(profile, axis.Up) ? 1f : 0f) - (KeyIsDown(profile, axis.Down) ? 1f : 0f);
         var v = new Vector2(x, y);
         return v == Vector2.Zero ? v : Vector2.Normalize(v);
     }
 
-    private bool ResolveDigital(int seat, TAction action)
+    private bool ResolveDigital(int profile, TAction action)
     {
-        foreach (var key in Bindings.KeysFor(seat, action))
-            if (KeyIsDown(seat, key)) return true;
-        foreach (var button in Bindings.MouseButtonsFor(seat, action))
-            if (MouseButtonIsDown(seat, button)) return true;
+        foreach (var key in Bindings.KeysFor(profile, action))
+            if (KeyIsDown(profile, key)) return true;
+        foreach (var button in Bindings.MouseButtonsFor(profile, action))
+            if (MouseButtonIsDown(profile, button)) return true;
         return false;
     }
 }

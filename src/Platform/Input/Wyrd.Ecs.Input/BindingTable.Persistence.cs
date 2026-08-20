@@ -25,25 +25,25 @@ public sealed partial class BindingTable<TAction>
         {
             var dto = System.Text.Json.JsonSerializer.Deserialize(stream, InputJsonContext.Default.BindingFileDto)
                 ?? throw new InvalidOperationException("Remap file deserialized to null.");
-            foreach (var seatDto in dto.Seats)
+            foreach (var profileDto in dto.Profiles)
             {
-                foreach (var (actionName, keyNames) in seatDto.Keys)
+                foreach (var (actionName, keyNames) in profileDto.Keys)
                 {
                     var action = Enum.Parse<TAction>(actionName);
-                    Unbind(seatDto.Seat, action);
-                    Bind(seatDto.Seat, action, [.. keyNames.Select(Enum.Parse<SDL.Scancode>)]);
+                    Unbind(profileDto.Profile, action);
+                    Bind(profileDto.Profile, action, [.. keyNames.Select(Enum.Parse<SDL.Scancode>)]);
                 }
-                foreach (var (actionName, buttonNames) in seatDto.MouseButtons)
+                foreach (var (actionName, buttonNames) in profileDto.MouseButtons)
                 {
                     var action = Enum.Parse<TAction>(actionName);
-                    Unbind(seatDto.Seat, action);
-                    Bind(seatDto.Seat, action, [.. buttonNames.Select(Enum.Parse<MouseButton>)]);
+                    Unbind(profileDto.Profile, action);
+                    Bind(profileDto.Profile, action, [.. buttonNames.Select(Enum.Parse<MouseButton>)]);
                 }
-                foreach (var (actionName, axisNames) in seatDto.Axes)
+                foreach (var (actionName, axisNames) in profileDto.Axes)
                 {
                     var action = Enum.Parse<TAction>(actionName);
-                    Unbind(seatDto.Seat, action);
-                    BindAxis2D(seatDto.Seat, action,
+                    Unbind(profileDto.Profile, action);
+                    BindAxis2D(profileDto.Profile, action,
                         Enum.Parse<SDL.Scancode>(axisNames[0]), Enum.Parse<SDL.Scancode>(axisNames[1]),
                         Enum.Parse<SDL.Scancode>(axisNames[2]), Enum.Parse<SDL.Scancode>(axisNames[3]));
                 }
@@ -54,30 +54,30 @@ public sealed partial class BindingTable<TAction>
     /// <summary>Same as <see cref="SaveOverrides(IPersistenceStore)"/>, wrapping <paramref name="path"/> in a <c>new FileStore(path)</c>.</summary>
     public void SaveOverrides(string path) => SaveOverrides(new FileStore(path));
 
-    /// <summary>Saves every current binding to <paramref name="store"/> as human-editable JSON, keyed by seat and action name. Device assignments (<see cref="AssignDevice"/>) are deliberately not saved - SDL device ids aren't stable across a relaunch.</summary>
+    /// <summary>Saves every current binding to <paramref name="store"/> as human-editable JSON, keyed by profile and action name. Device assignments (<see cref="AssignDevice"/>) are deliberately not saved - SDL device ids aren't stable across a relaunch.</summary>
     public void SaveOverrides(IPersistenceStore store)
     {
-        var bySeat = BoundActions().Select(b => b.Seat).Distinct();
+        var byProfile = BoundActions().Select(b => b.Profile).Distinct();
         var dto = new BindingFileDto();
-        foreach (var seat in bySeat)
+        foreach (var profile in byProfile)
         {
-            var seatDto = new SeatBindingsDto { Seat = seat };
-            foreach (var (s, action, kind) in BoundActions().Where(b => b.Seat == seat))
+            var profileDto = new ProfileBindingsDto { Profile = profile };
+            foreach (var (p, action, kind) in BoundActions().Where(b => b.Profile == profile))
             {
                 var name = action.ToString();
                 if (kind == Kind.Digital)
                 {
-                    var keys = KeysFor(s, action);
-                    if (keys.Count > 0) seatDto.Keys[name] = [.. keys.Select(k => k.ToString())];
-                    var buttons = MouseButtonsFor(s, action);
-                    if (buttons.Count > 0) seatDto.MouseButtons[name] = [.. buttons.Select(b => b.ToString())];
+                    var keys = KeysFor(p, action);
+                    if (keys.Count > 0) profileDto.Keys[name] = [.. keys.Select(k => k.ToString())];
+                    var buttons = MouseButtonsFor(p, action);
+                    if (buttons.Count > 0) profileDto.MouseButtons[name] = [.. buttons.Select(b => b.ToString())];
                 }
-                else if (AxisFor(s, action) is { } axis)
+                else if (AxisFor(p, action) is { } axis)
                 {
-                    seatDto.Axes[name] = [axis.Up.ToString(), axis.Down.ToString(), axis.Left.ToString(), axis.Right.ToString()];
+                    profileDto.Axes[name] = [axis.Up.ToString(), axis.Down.ToString(), axis.Left.ToString(), axis.Right.ToString()];
                 }
             }
-            dto.Seats.Add(seatDto);
+            dto.Profiles.Add(profileDto);
         }
 
         using var stream = store.OpenCheckpointWrite();

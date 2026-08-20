@@ -68,9 +68,9 @@ public sealed partial class IntentSystem<TAction>
         }
     }
 
-    private bool KeyIsDown(int seat, SDL.Scancode key)
+    private bool KeyIsDown(int profile, SDL.Scancode key)
     {
-        var assigned = Bindings.AssignedDevicesFor(seat);
+        var assigned = Bindings.AssignedDevicesFor(profile);
         if (assigned is null)
         {
             foreach (var set in _keysDownByDevice.Values)
@@ -82,9 +82,9 @@ public sealed partial class IntentSystem<TAction>
         return false;
     }
 
-    private bool MouseButtonIsDown(int seat, MouseButton button)
+    private bool MouseButtonIsDown(int profile, MouseButton button)
     {
-        var assigned = Bindings.AssignedDevicesFor(seat);
+        var assigned = Bindings.AssignedDevicesFor(profile);
         if (assigned is null)
         {
             foreach (var set in _mouseButtonsDownByDevice.Values)

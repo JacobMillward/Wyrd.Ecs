@@ -26,7 +26,7 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void Bind_WithNoSeatArgument_TargetsSeatZero()
+    public void Bind_WithNoProfileArgument_TargetsProfileZero()
     {
         var table = new BindingTable<TestAction>();
         table.Bind(TestAction.Jump, SDL.Scancode.Space);
@@ -36,10 +36,10 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void Bind_WithAnExplicitSeat_DoesNotAffectSeatZero()
+    public void Bind_WithAnExplicitProfile_DoesNotAffectProfileZero()
     {
         var table = new BindingTable<TestAction>();
-        table.Bind(seat: 1, TestAction.Jump, SDL.Scancode.Space);
+        table.Bind(profile: 1, TestAction.Jump, SDL.Scancode.Space);
 
         table.KeysFor(1, TestAction.Jump).Should().Contain(SDL.Scancode.Space);
         table.KeysFor(0, TestAction.Jump).Should().BeEmpty();
@@ -68,7 +68,7 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void Unbind_ClearsEveryBindingKindForThatActionAndSeat()
+    public void Unbind_ClearsEveryBindingKindForThatActionAndProfile()
     {
         var table = new BindingTable<TestAction>();
         table.Bind(TestAction.Jump, SDL.Scancode.Space);
@@ -104,11 +104,11 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void BoundActions_ReflectsEveryBindAndBindAxis2DCallAcrossSeats()
+    public void BoundActions_ReflectsEveryBindAndBindAxis2DCallAcrossProfiles()
     {
         var table = new BindingTable<TestAction>();
         table.Bind(TestAction.Jump, SDL.Scancode.Space);
-        table.BindAxis2D(seat: 1, TestAction.Move, SDL.Scancode.W, SDL.Scancode.S, SDL.Scancode.A, SDL.Scancode.D);
+        table.BindAxis2D(profile: 1, TestAction.Move, SDL.Scancode.W, SDL.Scancode.S, SDL.Scancode.A, SDL.Scancode.D);
 
         table.BoundActions().Should().BeEquivalentTo(
         [
@@ -118,7 +118,7 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void AssignDevice_CalledTwiceForTheSameSeat_AccumulatesBothDevices()
+    public void AssignDevice_CalledTwiceForTheSameProfile_AccumulatesBothDevices()
     {
         var table = new BindingTable<TestAction>();
         table.AssignDevice(0, 111u);
@@ -128,7 +128,7 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void UnassignDevice_ClearsEveryDeviceForThatSeat()
+    public void UnassignDevice_ClearsEveryDeviceForThatProfile()
     {
         var table = new BindingTable<TestAction>();
         table.AssignDevice(0, 111u);
@@ -139,7 +139,7 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void UnassignDeviceById_RemovesOnlyThatDeviceFromWhicheverSeatHeldIt()
+    public void UnassignDeviceById_RemovesOnlyThatDeviceFromWhicheverProfileHeldIt()
     {
         var table = new BindingTable<TestAction>();
         table.AssignDevice(0, 111u);
@@ -151,6 +151,6 @@ public class BindingTableTests
     }
 
     [Fact]
-    public void UnassignedSeat_AssignedDevicesForReturnsNull_MeaningMergeEveryDevice() =>
+    public void UnassignedProfile_AssignedDevicesForReturnsNull_MeaningMergeEveryDevice() =>
         new BindingTable<TestAction>().AssignedDevicesFor(0).Should().BeNull();
 }

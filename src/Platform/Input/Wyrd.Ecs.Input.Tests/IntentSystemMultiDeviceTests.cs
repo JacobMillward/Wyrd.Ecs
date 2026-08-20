@@ -48,11 +48,11 @@ public class IntentSystemMultiDeviceTests
     }
 
     [Fact]
-    public void AssignedSeat_OnlyRespondsToItsOwnDevicesKeyPresses()
+    public void AssignedProfile_OnlyRespondsToItsOwnDevicesKeyPresses()
     {
         var (world, bindings) = BuildWorld();
-        bindings.Bind(seat: 0, TestAction.Jump, SDL.Scancode.Space);
-        bindings.Bind(seat: 1, TestAction.Jump, SDL.Scancode.Space);
+        bindings.Bind(profile: 0, TestAction.Jump, SDL.Scancode.Space);
+        bindings.Bind(profile: 1, TestAction.Jump, SDL.Scancode.Space);
         bindings.AssignDevice(0, 111u);
         bindings.AssignDevice(1, 222u);
         var press = KeyDown(SDL.Scancode.Space, deviceId: 111u);
@@ -61,15 +61,15 @@ public class IntentSystemMultiDeviceTests
         world.Update(TimeSpan.Zero);
 
         var state = world.GetResource<IntentState<TestAction>>();
-        state[TestAction.Jump, seat: 0].IsHeld.Should().BeTrue();
-        state[TestAction.Jump, seat: 1].IsHeld.Should().BeFalse();
+        state[TestAction.Jump, profile: 0].IsHeld.Should().BeTrue();
+        state[TestAction.Jump, profile: 1].IsHeld.Should().BeFalse();
     }
 
     [Fact]
-    public void UnassignedSeat_MergesEveryDevice()
+    public void UnassignedProfile_MergesEveryDevice()
     {
         var (world, bindings) = BuildWorld();
-        bindings.Bind(TestAction.Jump, SDL.Scancode.Space); // seat 0, never assigned a device
+        bindings.Bind(TestAction.Jump, SDL.Scancode.Space); // profile 0, never assigned a device
         var press = KeyDown(SDL.Scancode.Space, deviceId: 999u);
         SDL.PushEvent(ref press);
 
@@ -101,7 +101,7 @@ public class IntentSystemMultiDeviceTests
     }
 
     [Fact]
-    public void DeviceRemoved_AlsoClearsItsSeatAssignment()
+    public void DeviceRemoved_AlsoClearsItsProfileAssignment()
     {
         var (world, bindings) = BuildWorld();
         bindings.AssignDevice(0, 111u);
