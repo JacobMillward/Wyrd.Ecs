@@ -105,42 +105,6 @@
           "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
         }
       }
-    },
-    "net10.0/linux-x64": {
-      "Microsoft.DotNet.ILCompiler": {
-        "type": "Direct",
-        "requested": "[10.0.11, )",
-        "resolved": "10.0.11",
-        "contentHash": "yloFUsIQOzspIsn2cDHrbgikKaWHAZspzj0EWxnWJJpFC89IBW64OXgCECsrrnzGWQvy1iLX9r5/R4zBf7Am3g==",
-        "dependencies": {
-          "runtime.linux-x64.Microsoft.DotNet.ILCompiler": "10.0.11"
-        }
-      },
-      "runtime.linux-x64.Microsoft.DotNet.ILCompiler": {
-        "type": "Transitive",
-        "resolved": "10.0.11",
-        "contentHash": "0lJviBev2CvBdrLhMCJ1hmwOKgjbk1ccRy+brEewywtK4TMft1WaVXv112j6OuTQg8ZMbnN/i3KRD3S6o4NJDw=="
-      },
-      "SDL3-CS.Linux": {
-        "type": "Transitive",
-        "resolved": "3.4.14.1",
-        "contentHash": "8nrQnkKPm0t48u659QEbYEpoJQ0puP1WlPX//NhbF48uZ2+ofOteKgZiXVS2iRLUEub15wWcyRs3QJDt+Hp0TQ=="
-      },
-      "SDL3-CS.MacOS": {
-        "type": "Transitive",
-        "resolved": "3.4.14.1",
-        "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
-      },
-      "SDL3-CS.Windows": {
-        "type": "Transitive",
-        "resolved": "3.4.14.1",
-        "contentHash": "Be2vHp02n5wWJgX3CGicmohg5+QjleULdbJgQtCKis+2r53VaIwTdt0OYx8wCARYCuS17OSHXj8AMhoCo41qyA=="
-      },
-      "Ultz.Native.Assimp": {
-        "type": "Transitive",
-        "resolved": "6.0.2",
-        "contentHash": "sLlr+PPldAB8+7Nfq/By/hm4lW0yfLD3JZf7Cy7sEPjt9yG6kBX86oftD1EnYauq6bpDQxrmMj9fziFwyegbcQ=="
-      }
     }
   }
 }
