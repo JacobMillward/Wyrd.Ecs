@@ -10,14 +10,14 @@ A 3D drawable entity needs `Transform`, `MeshRenderer`, and `Material` together,
 ```csharp
 var renderer = world.GetSystem<RendererSystem>();
 var parts = await renderer.LoadModel("assets/ship.obj");
-var ship = renderer.SpawnModel(world, parts, Transform.Identity);
+var ship = world.Commands.CreateEntity(parts.ToEntityTemplate()).AddTransform(Transform.Identity);
 world.ApplyCommands();
 ```
 
-`LoadModel` parses the file off-thread via Assimp and reserves one `Handle<Mesh>` per sub-mesh, a multi-material model becomes multiple mesh assets from one file. `SpawnModel` turns the resolved parts into an entity hierarchy: one parent entity at `transform`, one child per part carrying `MeshRenderer` and `Material` (`ShaderKind.UnlitMesh`, `Color.White` tint). Destroying the parent destroys every child with it, the same [parent/child hierarchy](/guides/relations/parent-child/) used everywhere else.
+`LoadModel` parses the file off-thread via Assimp and reserves one `Handle<Mesh>` per sub-mesh, a multi-material model becomes multiple mesh assets from one file. `ToEntityTemplate()` turns the resolved parts into a reusable `EntityTemplate`: one parent, one child per part carrying `MeshRenderer` and `Material` (`ShaderKind.UnlitMesh`, `Color.White` tint). `CreateEntity(template).AddTransform(...)` instantiates and positions it in one chain. Destroying the parent destroys every child with it, the same [parent/child hierarchy](/guides/relations/parent-child/) used everywhere else.
 
 :::note
-Every part spawns with `Color.White`. A different tint per part means mutating the returned children's `MeshRenderer` afterward, `SpawnModel` doesn't take per-part tint as a parameter.
+Every part spawns with `Color.White`. A different tint per part means mutating the returned children's `MeshRenderer` afterward, `ToEntityTemplate()` doesn't take per-part tint as a parameter.
 :::
 
 ## A single drawable mesh directly
