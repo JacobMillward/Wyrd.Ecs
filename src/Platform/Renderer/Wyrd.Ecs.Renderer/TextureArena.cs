@@ -34,64 +34,83 @@ internal sealed class TextureArena
         public int UseCount = 1;
     }
 
+    private readonly Lock _gate = new();
     private readonly List<Slot?> _slots = [];
     private readonly List<int> _generations = [];
     private readonly Dictionary<string, int> _pathToIndex = new();
 
     public Handle<Texture> Reserve(string path)
     {
-        if (_pathToIndex.TryGetValue(path, out var existingIndex))
+        lock (_gate)
         {
-            _slots[existingIndex]!.UseCount++;
-            return new Handle<Texture>(existingIndex, _generations[existingIndex]);
-        }
+            if (_pathToIndex.TryGetValue(path, out var existingIndex))
+            {
+                _slots[existingIndex]!.UseCount++;
+                return new Handle<Texture>(existingIndex, _generations[existingIndex]);
+            }
 
-        var freeIndex = _slots.FindIndex(s => s is null);
-        var slot = new Slot(path);
-        if (freeIndex >= 0)
-        {
-            _slots[freeIndex] = slot;
-            _pathToIndex[path] = freeIndex;
-            return new Handle<Texture>(freeIndex, _generations[freeIndex]);
-        }
+            var freeIndex = _slots.FindIndex(s => s is null);
+            var slot = new Slot(path);
+            if (freeIndex >= 0)
+            {
+                _slots[freeIndex] = slot;
+                _pathToIndex[path] = freeIndex;
+                return new Handle<Texture>(freeIndex, _generations[freeIndex]);
+            }
 
-        _slots.Add(slot);
-        _generations.Add(0);
-        _pathToIndex[path] = _slots.Count - 1;
-        return new Handle<Texture>(_slots.Count - 1, 0);
+            _slots.Add(slot);
+            _generations.Add(0);
+            _pathToIndex[path] = _slots.Count - 1;
+            return new Handle<Texture>(_slots.Count - 1, 0);
+        }
     }
 
     public void MarkLoaded(Handle<Texture> handle, Texture texture)
     {
-        var slot = GetSlot(handle);
-        slot.Texture = texture;
-        slot.State = LoadState.Loaded;
+        lock (_gate)
+        {
+            var slot = GetSlotLocked(handle);
+            slot.Texture = texture;
+            slot.State = LoadState.Loaded;
+        }
     }
 
-    public void MarkFailed(Handle<Texture> handle) => GetSlot(handle).State = LoadState.Failed;
+    public void MarkFailed(Handle<Texture> handle)
+    {
+        lock (_gate) { GetSlotLocked(handle).State = LoadState.Failed; }
+    }
 
-    public LoadState GetState(Handle<Texture> handle) => GetSlot(handle).State;
+    public LoadState GetState(Handle<Texture> handle)
+    {
+        lock (_gate) { return GetSlotLocked(handle).State; }
+    }
 
-    public Texture? TryGetTexture(Handle<Texture> handle) => GetSlot(handle).Texture;
+    public Texture? TryGetTexture(Handle<Texture> handle)
+    {
+        lock (_gate) { return GetSlotLocked(handle).Texture; }
+    }
 
     public bool Unload(Handle<Texture> handle, out Texture? readyForRelease)
     {
-        var slot = GetSlot(handle);
-        slot.UseCount--;
-        if (slot.UseCount > 0)
+        lock (_gate)
         {
-            readyForRelease = null;
-            return false;
-        }
+            var slot = GetSlotLocked(handle);
+            slot.UseCount--;
+            if (slot.UseCount > 0)
+            {
+                readyForRelease = null;
+                return false;
+            }
 
-        readyForRelease = slot.Texture;
-        _pathToIndex.Remove(slot.Path);
-        _generations[handle.Index]++;
-        _slots[handle.Index] = null;
-        return true;
+            readyForRelease = slot.Texture;
+            _pathToIndex.Remove(slot.Path);
+            _generations[handle.Index]++;
+            _slots[handle.Index] = null;
+            return true;
+        }
     }
 
-    private Slot GetSlot(Handle<Texture> handle)
+    private Slot GetSlotLocked(Handle<Texture> handle)
     {
         if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } slot || _generations[handle.Index] != handle.Generation)
             throw new InvalidOperationException($"Handle {handle} does not refer to a live texture (stale or already unloaded).");

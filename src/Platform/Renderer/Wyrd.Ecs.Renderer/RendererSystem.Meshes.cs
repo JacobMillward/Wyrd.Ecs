@@ -37,6 +37,7 @@ public sealed partial class RendererSystem
     /// </summary>
     public Task<IReadOnlyList<ModelPart>> LoadModel(string path)
     {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
         var completion = new TaskCompletionSource<IReadOnlyList<ModelPart>>();
 
         Task.Run(() =>
@@ -131,6 +132,7 @@ public sealed partial class RendererSystem
     /// <summary>Decrements the handle's use-count; once it reaches zero, both GPU buffers are queued on <see cref="DeferredDestroy"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames, same as <see cref="Unload(Handle{Texture})"/>.</summary>
     public void Unload(Handle<Mesh> handle)
     {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
         if (!_meshArena.Unload(handle, out var mesh) || mesh is null) return;
 
         var gpuVertexBuffer = mesh.GpuVertexBuffer;

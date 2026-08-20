@@ -16,6 +16,7 @@ public sealed partial class RendererSystem : EcsSystem
     private readonly PlatformSystem _platform;
     private readonly PendingUploadQueue _pendingUploads = new();
     private readonly DeferredDestroyQueue _deferredDestroy = new();
+    private bool _destroyed;
 
     /// <summary>The native <c>SDL_GPUDevice*</c>, for consumers that need direct SDL3-CS access (the escape hatch).</summary>
     public IntPtr Device { get; }
@@ -56,6 +57,8 @@ public sealed partial class RendererSystem : EcsSystem
         PlaceholderMesh = CreatePlaceholderMesh();
         CreateSpritePipeline();
         CreateMeshPipeline();
+
+        world.AddResource(new AssetLoader(this));
     }
 
     /// <inheritdoc/>
@@ -94,6 +97,7 @@ public sealed partial class RendererSystem : EcsSystem
     /// <inheritdoc/>
     protected override void OnDestroy()
     {
+        _destroyed = true;
         SDL.ReleaseGPUGraphicsPipeline(Device, SpritePipeline);
         SDL.ReleaseGPUSampler(Device, SpriteSampler);
         SDL.ReleaseGPUGraphicsPipeline(Device, MeshPipeline);

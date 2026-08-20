@@ -20,64 +20,83 @@ internal sealed class MeshArena
         public int UseCount = 1;
     }
 
+    private readonly Lock _gate = new();
     private readonly List<Slot?> _slots = [];
     private readonly List<int> _generations = [];
     private readonly Dictionary<MeshKey, int> _keyToIndex = new();
 
     public Handle<Mesh> Reserve(MeshKey key)
     {
-        if (_keyToIndex.TryGetValue(key, out var existingIndex))
+        lock (_gate)
         {
-            _slots[existingIndex]!.UseCount++;
-            return new Handle<Mesh>(existingIndex, _generations[existingIndex]);
-        }
+            if (_keyToIndex.TryGetValue(key, out var existingIndex))
+            {
+                _slots[existingIndex]!.UseCount++;
+                return new Handle<Mesh>(existingIndex, _generations[existingIndex]);
+            }
 
-        var freeIndex = _slots.FindIndex(s => s is null);
-        var slot = new Slot(key);
-        if (freeIndex >= 0)
-        {
-            _slots[freeIndex] = slot;
-            _keyToIndex[key] = freeIndex;
-            return new Handle<Mesh>(freeIndex, _generations[freeIndex]);
-        }
+            var freeIndex = _slots.FindIndex(s => s is null);
+            var slot = new Slot(key);
+            if (freeIndex >= 0)
+            {
+                _slots[freeIndex] = slot;
+                _keyToIndex[key] = freeIndex;
+                return new Handle<Mesh>(freeIndex, _generations[freeIndex]);
+            }
 
-        _slots.Add(slot);
-        _generations.Add(0);
-        _keyToIndex[key] = _slots.Count - 1;
-        return new Handle<Mesh>(_slots.Count - 1, 0);
+            _slots.Add(slot);
+            _generations.Add(0);
+            _keyToIndex[key] = _slots.Count - 1;
+            return new Handle<Mesh>(_slots.Count - 1, 0);
+        }
     }
 
     public void MarkLoaded(Handle<Mesh> handle, Mesh mesh)
     {
-        var slot = GetSlot(handle);
-        slot.Mesh = mesh;
-        slot.State = LoadState.Loaded;
+        lock (_gate)
+        {
+            var slot = GetSlotLocked(handle);
+            slot.Mesh = mesh;
+            slot.State = LoadState.Loaded;
+        }
     }
 
-    public void MarkFailed(Handle<Mesh> handle) => GetSlot(handle).State = LoadState.Failed;
+    public void MarkFailed(Handle<Mesh> handle)
+    {
+        lock (_gate) { GetSlotLocked(handle).State = LoadState.Failed; }
+    }
 
-    public LoadState GetState(Handle<Mesh> handle) => GetSlot(handle).State;
+    public LoadState GetState(Handle<Mesh> handle)
+    {
+        lock (_gate) { return GetSlotLocked(handle).State; }
+    }
 
-    public Mesh? TryGetMesh(Handle<Mesh> handle) => GetSlot(handle).Mesh;
+    public Mesh? TryGetMesh(Handle<Mesh> handle)
+    {
+        lock (_gate) { return GetSlotLocked(handle).Mesh; }
+    }
 
     public bool Unload(Handle<Mesh> handle, out Mesh? readyForRelease)
     {
-        var slot = GetSlot(handle);
-        slot.UseCount--;
-        if (slot.UseCount > 0)
+        lock (_gate)
         {
-            readyForRelease = null;
-            return false;
-        }
+            var slot = GetSlotLocked(handle);
+            slot.UseCount--;
+            if (slot.UseCount > 0)
+            {
+                readyForRelease = null;
+                return false;
+            }
 
-        readyForRelease = slot.Mesh;
-        _keyToIndex.Remove(slot.Key);
-        _generations[handle.Index]++;
-        _slots[handle.Index] = null;
-        return true;
+            readyForRelease = slot.Mesh;
+            _keyToIndex.Remove(slot.Key);
+            _generations[handle.Index]++;
+            _slots[handle.Index] = null;
+            return true;
+        }
     }
 
-    private Slot GetSlot(Handle<Mesh> handle)
+    private Slot GetSlotLocked(Handle<Mesh> handle)
     {
         if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } slot || _generations[handle.Index] != handle.Generation)
             throw new InvalidOperationException($"Handle {handle} does not refer to a live mesh (stale or already unloaded).");

@@ -17,6 +17,7 @@ public sealed partial class RendererSystem
     /// </summary>
     public Handle<Texture> LoadTexture(string path)
     {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
         var handle = _textureArena.Reserve(path);
         var completion = new TaskCompletionSource();
         _textureLoadCompletions[handle.Index] = completion;
@@ -84,13 +85,18 @@ public sealed partial class RendererSystem
     }
 
     /// <summary>Task that completes (or faults with the captured decode/IO/GPU exception) once <paramref name="handle"/> resolves. Polling <see cref="GetTextureLoadState"/> instead avoids the throw for call sites that don't want to await.</summary>
-    public Task WaitForLoad(Handle<Texture> handle) => _textureLoadCompletions[handle.Index].Task;
+    public Task WaitForLoad(Handle<Texture> handle)
+    {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
+        return _textureLoadCompletions[handle.Index].Task;
+    }
 
     internal LoadState GetTextureLoadState(Handle<Texture> handle) => _textureArena.GetState(handle);
 
     /// <summary>Decrements the handle's use-count; once it reaches zero, the GPU texture is queued on <see cref="DeferredDestroy"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames, never while a command buffer that could still reference it might be in flight.</summary>
     public void Unload(Handle<Texture> handle)
     {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
         if (!_textureArena.Unload(handle, out var texture) || texture is null) return;
 
         var gpuTexture = texture.GpuTexture;
