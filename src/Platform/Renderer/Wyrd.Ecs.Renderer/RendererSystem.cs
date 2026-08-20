@@ -98,6 +98,17 @@ public sealed partial class RendererSystem : EcsSystem
     protected override void OnDestroy()
     {
         _destroyed = true;
+
+        // A load already in flight when teardown happens can never resolve on its own: the
+        // background Task.Run only ever completes it via a PendingUploads callback, drained
+        // from Execute, which never runs again once this system is removed. Without this, an
+        // awaiting caller hangs forever instead of seeing the teardown.
+        var teardownException = new ObjectDisposedException(nameof(RendererSystem), "The renderer was destroyed before this asset finished loading.");
+        foreach (var completion in new List<TaskCompletionSource>(_textureLoadCompletions.Values))
+            completion.TrySetException(teardownException);
+        foreach (var completion in _modelLoadCompletions)
+            completion.TrySetException(teardownException);
+
         SDL.ReleaseGPUGraphicsPipeline(Device, SpritePipeline);
         SDL.ReleaseGPUSampler(Device, SpriteSampler);
         SDL.ReleaseGPUGraphicsPipeline(Device, MeshPipeline);

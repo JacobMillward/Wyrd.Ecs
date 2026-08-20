@@ -24,4 +24,20 @@ public class RendererSystemLifetimeTests
 
         act.Should().Throw<ObjectDisposedException>();
     }
+
+    [Fact]
+    public async Task WaitForLoad_TornDownWhileLoadInFlight_FaultsInsteadOfHangingForever()
+    {
+        var world = BuildWorldWithPlatform();
+        var renderer = world.GetSystem<RendererSystem>();
+        var handle = renderer.LoadTexture("does-not-matter.png");
+        var waitTask = renderer.WaitForLoad(handle);
+
+        // No await/yield between LoadTexture and RemoveSystem, the background Task.Run decode
+        // gets no opportunity to run first, so the load is still genuinely in flight here.
+        world.RemoveSystem(renderer);
+
+        var act = async () => await waitTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await act.Should().ThrowAsync<ObjectDisposedException>();
+    }
 }

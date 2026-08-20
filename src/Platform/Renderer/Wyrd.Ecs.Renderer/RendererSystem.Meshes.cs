@@ -18,6 +18,7 @@ public sealed partial class RendererSystem
     private readonly List<(Entity Entity, Material Material, Handle<Mesh> Mesh)> _meshSurvivorScratch = [];
     private readonly List<MeshInstanceData> _meshInstanceScratch = [];
     private readonly List<int> _meshBatchInstanceBases = [];
+    private readonly List<TaskCompletionSource<IReadOnlyList<ModelPart>>> _modelLoadCompletions = [];
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct MeshBatchUniforms(uint InstanceBase, uint Padding = 0);
@@ -39,6 +40,7 @@ public sealed partial class RendererSystem
     {
         ObjectDisposedException.ThrowIf(_destroyed, this);
         var completion = new TaskCompletionSource<IReadOnlyList<ModelPart>>();
+        _modelLoadCompletions.Add(completion);
 
         Task.Run(() =>
         {
