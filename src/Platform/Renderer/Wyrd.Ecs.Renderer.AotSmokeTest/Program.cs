@@ -68,7 +68,7 @@ world.Commands.AddComponent(perspectiveCameraEntity, new Transform { Position = 
 world.Commands.AddComponent(perspectiveCameraEntity, new Camera(Order: 1, ProjectionMode.Perspective, ClearOnBegin: false, MathF.PI / 4f, 0.1f, 100f));
 world.ApplyCommands();
 
-renderer.SpawnModel(world, parts, Transform.Identity);
+world.Commands.CreateEntity(parts.ToEntityTemplate()).AddTransform(Transform.Identity);
 world.ApplyCommands();
 
 var framesBeforeFinalDraws = renderer.FrameInFlight.CurrentFrame;
