@@ -175,10 +175,11 @@ Runs BenchmarkDotNet's interactive picker over every benchmark in the project. P
 ## Known gaps
 
 - No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Debug`, `Wyrd.Ecs.Debug.Abstractions`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, `Wyrd.Ecs.Persistence.Continuous`, `Wyrd.Ecs.Platform`, `Wyrd.Ecs.Renderer`, `Wyrd.Ecs.Input`, `Wyrd.Ecs.Audio`, `Wyrd.Ecs.Assets`, and `Wyrd.Ecs.Engine`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
-- No renderer, audio, or asset pipeline yet — `Wyrd.Ecs.Platform` (SDL3 window/lifecycle/event
-  pump) works, but `Wyrd.Ecs.Renderer`/`.Input`/`.Audio`/`.Assets` are package skeletons with no
-  functional code, and `Wyrd.Ecs.Input` is additionally blocked on a not-yet-built `World`
-  resource store. See `docs/superpowers/specs/2026-08-17-platform-layer-foundation-design.md`.
+- No audio or asset pipeline yet — `Wyrd.Ecs.Platform` (SDL3 window/lifecycle/event
+  pump), `Wyrd.Ecs.Renderer` (2D sprite path), and `Wyrd.Ecs.Input` (strongly-typed
+  keyboard/mouse action mapping, multi-seat/hot-plug support) all work; `.Audio`/`.Assets`
+  are still package skeletons with no functional code. See
+  `docs/superpowers/specs/2026-08-20-input-package-and-scheduler-phase-markers-design.md`.
 
 ## License
 
