@@ -65,6 +65,29 @@ export default defineConfig({
 						{ label: 'Persistence', slug: 'guides/persistence' },
 					],
 				},
+				{
+					label: 'Engine',
+					items: [
+						{ label: 'Platform', slug: 'engine/platform' },
+						{ label: 'Renderer', slug: 'engine/renderer' },
+						{ label: 'Sprites', slug: 'engine/renderer/sprites' },
+						{ label: 'Meshes', slug: 'engine/renderer/meshes' },
+						{ label: 'Input', slug: 'engine/input' },
+					],
+				},
+				{
+					label: 'Advanced',
+					items: [
+						{
+							label: 'Input',
+							items: [
+								{ label: 'Multi-Device', slug: 'advanced/input/multi-device' },
+								{ label: 'Remapping', slug: 'advanced/input/remapping' },
+							],
+						},
+						{ label: 'Custom Rendering', slug: 'advanced/custom-rendering' },
+					],
+				},
 			],
 		}),
 	],
