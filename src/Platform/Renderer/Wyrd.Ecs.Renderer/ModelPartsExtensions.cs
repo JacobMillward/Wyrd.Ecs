@@ -29,8 +29,7 @@ public static class ModelPartsExtensions
             {
                 var child = new EntityTemplate()
                     .AddTransform(Transform.Identity)
-                    .AddComponent(new MeshRenderer(part.Mesh, Color.White))
-                    .AddComponent(new Material(ShaderKind.UnlitMesh, part.Texture));
+                    .Add(new MeshBundle(part.Mesh, part.Texture));
                 root.AddChild(child);
             }
             return root;
