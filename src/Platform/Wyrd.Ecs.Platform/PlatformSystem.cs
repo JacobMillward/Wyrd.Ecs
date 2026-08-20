@@ -9,6 +9,7 @@ namespace Wyrd.Ecs.Platform;
 /// <see cref="World.RemoveSystem(EcsSystem)"/> and just lets the process exit, cleanup never
 /// runs; that's fine, SDL doesn't require <c>SDL_Quit</c> before process exit.
 /// </summary>
+[Phase(Phase.PreUpdate)]
 public sealed class PlatformSystem : EcsSystem
 {
     private readonly List<SDL.Event> _events = [];
