@@ -10,6 +10,7 @@ namespace Wyrd.Ecs.Renderer;
 /// Runs at Variable cadence (once per <see cref="World.Update"/>): rendering is presentation,
 /// deliberately decoupled from simulation rate.
 /// </summary>
+[Phase(Phase.PostUpdate)]
 public sealed partial class RendererSystem : EcsSystem
 {
     private readonly PlatformSystem _platform;
