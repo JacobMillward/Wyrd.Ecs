@@ -9,8 +9,12 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <Version>0.1.0-alpha</Version>
-    <Description>The Intent action-mapping system for Wyrd.Ecs. Not yet implemented, blocked on the World resource-store spec; package skeleton only.</Description>
+    <Description>Strongly-typed action-mapping input for Wyrd.Ecs: keyboard/mouse binding, multi-seat and hot-plug support, over Wyrd.Ecs.Platform's pumped SDL event stream.</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wyrd.Ecs.Input.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
@@ -19,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\Wyrd.Ecs.Platform\Wyrd.Ecs.Platform.csproj" />
+    <ProjectReference Include="..\..\..\Persistence\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

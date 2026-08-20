@@ -28,8 +28,20 @@
         "resolved": "3.4.14.1",
         "contentHash": "Be2vHp02n5wWJgX3CGicmohg5+QjleULdbJgQtCKis+2r53VaIwTdt0OYx8wCARYCuS17OSHXj8AMhoCo41qyA=="
       },
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "seeO8icDfED/Qwl9PDFUx2Gf/7xv7dPsMnw5PnRwNZuz4EWMpy0wIVohC4MfCcTIoJgp+KUrWG4WH3NPSusQOA=="
+      },
       "wyrd.ecs": {
         "type": "Project"
+      },
+      "wyrd.ecs.persistence": {
+        "type": "Project",
+        "dependencies": {
+          "System.IO.Hashing": "[9.0.0, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
       },
       "wyrd.ecs.platform": {
         "type": "Project",
