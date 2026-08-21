@@ -12,7 +12,7 @@ public static class ModelPartsExtensions
     {
         /// <summary>
         /// Builds the template: one child per part, each with <see cref="Transform.Identity"/>
-        /// (paired with <see cref="PreviousTransform"/> via <see cref="EntityTemplate.AddTransform"/>),
+        /// (paired with <see cref="PreviousTransform"/> via <see cref="EntityTemplate.AddTransform(Transform, bool)"/>),
         /// <see cref="MeshRenderer"/>, and <see cref="Material"/>(<see cref="ShaderKind.UnlitMesh"/>,
         /// tint <see cref="Color.White"/>). The root carries the same paired
         /// <see cref="Transform.Identity"/>/<see cref="PreviousTransform"/> and nothing else,

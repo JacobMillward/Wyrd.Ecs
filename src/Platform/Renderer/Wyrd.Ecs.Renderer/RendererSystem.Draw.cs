@@ -47,7 +47,7 @@ public sealed partial class RendererSystem
 
         foreach (var (cameraEntity, camera) in _cameraScratch)
         {
-            var cameraWorldTransform = world.GetWorldTransform(cameraEntity);
+            var cameraWorldTransform = world.GetInterpolatedWorldTransform(cameraEntity);
             var viewProjection = camera.GetViewMatrix(cameraWorldTransform) * camera.GetProjectionMatrix((float)viewportWidth / viewportHeight);
 
             if (camera.ProjectionMode == ProjectionMode.Orthographic)

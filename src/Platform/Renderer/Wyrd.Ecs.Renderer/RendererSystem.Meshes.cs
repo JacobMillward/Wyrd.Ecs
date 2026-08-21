@@ -233,7 +233,7 @@ public sealed partial class RendererSystem
                 var entity = entities[i];
                 var meshRenderer = meshRenderers[i];
                 var material = materials[i];
-                var worldTransform = world.GetWorldTransform(entity);
+                var worldTransform = world.GetInterpolatedWorldTransform(entity);
                 var mesh = ResolveMesh(meshRenderer.Mesh);
                 var bounds = MeshBounds.ComputeWorld(worldTransform, mesh.LocalBounds);
                 _meshScratchIndex[entity] = _meshScratch.Count;

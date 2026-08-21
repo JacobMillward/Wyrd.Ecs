@@ -13,7 +13,7 @@ public sealed partial class RendererSystem
     // the only one giving entity-row-aligned Access<TAccessor>() at 3+ component arity without
     // generator setup. World.Query<T0,T1>'s hand-written ChunkAction overloads cap at arity 2
     // and never expose Entity, and the fluent Query<TShape>.ForEach() terminal (generator-
-    // emitted) never exposes Entity either. Both ruled out since GetWorldTransform needs it.
+    // emitted) never exposes Entity either. Both ruled out since GetInterpolatedWorldTransform needs it.
     private static readonly ArchetypeQuery SpriteArchetypeQuery = ArchetypeQuery.Empty
         .Access<Ref<Transform>>().Access<Ref<Sprite>>().Access<Ref<Material>>();
 
@@ -31,7 +31,7 @@ public sealed partial class RendererSystem
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct BatchUniforms(Vector2 TextureSizePixels, uint InstanceBase, uint Padding = 0);
 
-    /// <summary>Resolves every active <c>(Transform, Sprite, Material)</c> entity's world transform and bounds once per frame, into <see cref="_spriteScratch"/>, so <see cref="DrawSprites"/> never repeats <see cref="World.GetWorldTransform"/> per camera. Called once from <see cref="DrawFrame"/>, before the per-camera loop.</summary>
+    /// <summary>Resolves every active <c>(Transform, Sprite, Material)</c> entity's world transform and bounds once per frame, into <see cref="_spriteScratch"/>, so <see cref="DrawSprites"/> never repeats <see cref="World.GetInterpolatedWorldTransform"/> per camera. Called once from <see cref="DrawFrame"/>, before the per-camera loop.</summary>
     private void ResolveSprites(World world)
     {
         _spriteScratch.Clear();
@@ -47,7 +47,7 @@ public sealed partial class RendererSystem
                 var entity = entities[i];
                 var sprite = sprites[i];
                 var material = materials[i];
-                var worldTransform = world.GetWorldTransform(entity);
+                var worldTransform = world.GetInterpolatedWorldTransform(entity);
                 var texture = ResolveTexture(material);
                 var bounds = SpriteBounds.Compute(worldTransform, sprite, texture.PixelWidth, texture.PixelHeight);
                 _spriteScratchIndex[entity] = _spriteScratch.Count;
@@ -80,7 +80,7 @@ public sealed partial class RendererSystem
             _batchInstanceBases.Add(_instanceScratch.Count);
             foreach (var batchEntity in batch.Entities)
             {
-                var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above, no second GetWorldTransform walk
+                var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above, no second GetInterpolatedWorldTransform walk
                 var sourceRect = resolved.Sprite.SourceRect is { } r ? new Vector4(r.X, r.Y, r.Width, r.Height) : Vector4.Zero;
                 _instanceScratch.Add(new SpriteInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.Sprite.Tint, sourceRect));
             }

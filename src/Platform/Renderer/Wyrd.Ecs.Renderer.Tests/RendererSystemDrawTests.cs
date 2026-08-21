@@ -147,4 +147,37 @@ public class RendererSystemDrawTests
 
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Update_WithAMovingSpriteAcrossMultipleFixedSteps_DoesNotThrow()
+    {
+        // Exercises the actual interpolation path end to end: a sprite whose Transform is
+        // written by a fixed-timestep system, drawn every frame while mid-step. This only
+        // checks the draw pipeline survives reading GetInterpolatedWorldTransform on a real
+        // moving entity; it does not verify pixel output (this test suite has no GPU-readback
+        // harness for that).
+        var world = new WorldBuilder()
+            .AddPlatform("Renderer Interpolated Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .WithFixedTimestep(TimeSpan.FromMilliseconds(20))
+            .AddTransformSystem()
+            .AddRenderer()
+            .Build();
+
+        var cameraEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(cameraEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(cameraEntity, new Camera(0, ProjectionMode.Orthographic, true, 10f, 0.1f, 100f));
+
+        var spriteEntity = world.Commands.CreateEntity().AddTransform(Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(spriteEntity.Entity, new Sprite(SourceRect: null, Tint: Color.White));
+        world.Commands.AddComponent(spriteEntity.Entity, new Material(ShaderKind.UnlitSprite, Texture: null));
+        world.ApplyCommands();
+
+        var act = () =>
+        {
+            for (var i = 0; i < 10; i++)
+                world.Update(TimeSpan.FromMilliseconds(7)); // deliberately not a divisor of 20ms, guarantees mid-step frames
+        };
+
+        act.Should().NotThrow();
+    }
 }
