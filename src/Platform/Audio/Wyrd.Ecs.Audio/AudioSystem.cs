@@ -34,15 +34,19 @@ public sealed partial class AudioSystem : EcsSystem
     /// <inheritdoc/>
     protected override void Execute(World world, Time time)
     {
+        EnsureDeviceChangeReader(world);
         while (_finishedPending.TryDequeue(out var playback))
             world.Emit(new PlaybackFinished(playback));
         UpdateSpatialPlaybacks(world);
+        ApplyDeviceChanges();
     }
 
     /// <inheritdoc/>
     protected override void OnDestroy()
     {
         _destroyed = true;
+        var teardownException = new ObjectDisposedException(nameof(AudioSystem), "The audio system was destroyed before this asset finished loading.");
+        _soundArena.FaultAllPending(teardownException);
         DestroyAllOutputs();
         Mixer.Quit();
         SDL.QuitSubSystem(SDL.InitFlags.Audio);
