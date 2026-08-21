@@ -24,7 +24,7 @@ public class WorldTransformTests
         var world = new World();
         var parent = world.Commands.CreateEntity().AddTransform(Transform.Identity with { Position = new Vector3(10, 0, 0) });
         var child = world.Commands.CreateEntity().AddTransform(Transform.Identity with { Position = new Vector3(1, 0, 0) });
-        child.SetParent(parent.Entity);
+        child.SetParent(parent);
         world.ApplyCommands();
 
         var worldTransform = world.GetWorldTransform(child.Entity);
@@ -38,7 +38,7 @@ public class WorldTransformTests
         var world = new World();
         var parent = world.Commands.CreateEntity().AddTransform(Transform.Identity with { Scale = new Vector3(2, 2, 2) });
         var child = world.Commands.CreateEntity().AddTransform(Transform.Identity with { Position = new Vector3(1, 0, 0) });
-        child.SetParent(parent.Entity);
+        child.SetParent(parent);
         world.ApplyCommands();
 
         var worldTransform = world.GetWorldTransform(child.Entity);
@@ -102,7 +102,7 @@ public class WorldTransformTests
 
         var parent = world.Commands.CreateEntity().AddTransform(Transform.Identity);
         var child = world.Commands.CreateEntity().AddTransform(new Vector3(1, 0, 0), isInterpolated: false);
-        child.SetParent(parent.Entity);
+        child.SetParent(parent);
         world.ApplyCommands();
 
         // Same accumulator math as GetInterpolatedWorldTransform_BlendsBetweenPreviousAndCurrent:
@@ -125,7 +125,7 @@ public class WorldTransformTests
 
         var parent = world.Commands.CreateEntity().AddTransform(new Vector3(10, 0, 0), isInterpolated: false);
         var child = world.Commands.CreateEntity().AddTransform(Transform.Identity);
-        child.SetParent(parent.Entity);
+        child.SetParent(parent);
         world.ApplyCommands();
 
         world.Update(TimeSpan.FromSeconds(2.5));
