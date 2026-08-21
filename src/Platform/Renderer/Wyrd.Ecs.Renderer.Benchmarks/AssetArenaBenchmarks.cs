@@ -8,7 +8,7 @@ namespace Wyrd.Ecs.Renderer.Benchmarks;
 /// cref="AssetArena{TKey,TAsset}.TryGet"/>/<see cref="AssetArena{TKey,TAsset}.GetState"/> (the
 /// per-frame, per-visible-instance resolve call — see <c>RendererSystem.Sprites.cs</c>'s
 /// <c>ResolveTexture</c>) and repeated <see cref="AssetArena{TKey,TAsset}.Reserve"/> against an
-/// already-loaded path (the per-tick dedup-load call a <c>[Resource] AssetLoader</c> consumer may
+/// already-loaded path (the per-tick dedup-load call a <c>[Resource] RenderAssets</c> consumer may
 /// make every tick). Baseline recorded against the pre-migration concrete <c>TextureArena</c>
 /// (mean ~13.7-14.8us / ~271-274us for ResolveVisibleInstances at 1,000/20,000 instances,
 /// ~35.1-35.6us / ~827-839us for ReserveAlreadyLoadedPath) — see the Task 5 commit. This version

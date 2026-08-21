@@ -57,7 +57,7 @@ public sealed partial class RendererSystem : EcsSystem
         CreateSpritePipeline();
         CreateMeshPipeline();
 
-        world.AddResource(new AssetLoader(this));
+        world.AddResource(new RenderAssets(this));
     }
 
     /// <inheritdoc/>
