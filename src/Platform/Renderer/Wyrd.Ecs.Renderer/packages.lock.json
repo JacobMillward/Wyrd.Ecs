@@ -98,6 +98,32 @@
           "Wyrd.Ecs": "[0.1.0-alpha, )"
         }
       }
+    },
+    "net10.0/linux-x64": {
+      "SDL3-CS.Linux": {
+        "type": "Direct",
+        "requested": "[3.4.14.1, )",
+        "resolved": "3.4.14.1",
+        "contentHash": "8nrQnkKPm0t48u659QEbYEpoJQ0puP1WlPX//NhbF48uZ2+ofOteKgZiXVS2iRLUEub15wWcyRs3QJDt+Hp0TQ=="
+      },
+      "SDL3-CS.MacOS": {
+        "type": "Direct",
+        "requested": "[3.4.14.1, )",
+        "resolved": "3.4.14.1",
+        "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
+      },
+      "SDL3-CS.Windows": {
+        "type": "Direct",
+        "requested": "[3.4.14.1, )",
+        "resolved": "3.4.14.1",
+        "contentHash": "Be2vHp02n5wWJgX3CGicmohg5+QjleULdbJgQtCKis+2r53VaIwTdt0OYx8wCARYCuS17OSHXj8AMhoCo41qyA=="
+      },
+      "Ultz.Native.Assimp": {
+        "type": "Direct",
+        "requested": "[6.0.2, )",
+        "resolved": "6.0.2",
+        "contentHash": "sLlr+PPldAB8+7Nfq/By/hm4lW0yfLD3JZf7Cy7sEPjt9yG6kBX86oftD1EnYauq6bpDQxrmMj9fziFwyegbcQ=="
+      }
     }
   }
 }
