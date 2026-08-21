@@ -9,7 +9,7 @@ public class IntentSystemTests
     {
         var bindings = new BindingTable<TestAction>();
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var platform = world.GetSystem<PlatformSystem>()!;
         world.AddSystemCore(

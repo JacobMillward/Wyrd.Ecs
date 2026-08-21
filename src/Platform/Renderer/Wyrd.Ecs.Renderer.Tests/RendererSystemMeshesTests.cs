@@ -10,7 +10,7 @@ public class RendererSystemMeshesTests
 
     private static World BuildWorldWithPlatform() =>
         new WorldBuilder()
-            .AddPlatform("Renderer Mesh Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Mesh Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 

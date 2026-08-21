@@ -3,7 +3,7 @@ title: Input
 description: Bind keys and mouse buttons to your own action enum, and read resolved state every tick.
 ---
 
-`Wyrd.Ecs.Input` resolves physical keys and mouse buttons into named actions you define, strongly typed as your own enum. `AddInput` needs `AddPlatform` called first in the same chain, it reads events off `PlatformSystem`.
+`Wyrd.Ecs.Input` resolves physical keys and mouse buttons into named actions you define, strongly typed as your own enum. `AddInput` needs `AddWindow` called somewhere in the same chain, it reads events off `PlatformSystem` - but not necessarily first, construction order doesn't matter.
 
 ## Declaring actions and binding them
 
@@ -18,7 +18,7 @@ var bindings = new BindingTable<PlayerAction>()
     .Bind(PlayerAction.Jump, SDL.Scancode.Space);
 
 var world = new WorldBuilder()
-    .AddPlatform("My Game", 1280, 720)
+    .AddWindow("My Game", 1280, 720)
     .AddInput(bindings)
     .Build();
 ```

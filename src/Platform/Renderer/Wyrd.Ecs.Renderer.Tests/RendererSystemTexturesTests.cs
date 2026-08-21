@@ -9,7 +9,7 @@ public class RendererSystemTexturesTests
 {
     private static World BuildWorldWithPlatform() =>
         new WorldBuilder()
-            .AddPlatform("Renderer Texture Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Texture Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 

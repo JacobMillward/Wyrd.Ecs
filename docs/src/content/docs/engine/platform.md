@@ -11,11 +11,11 @@ Every Engine package needs a window before it needs anything else. `Wyrd.Ecs.Pla
 using Wyrd.Ecs.Platform;
 
 var world = new WorldBuilder()
-    .AddPlatform("My Game", 1280, 720)
+    .AddWindow("My Game", 1280, 720)
     .Build();
 ```
 
-`AddPlatform` registers a `PlatformSystem` that calls `SDL_Init(Video)` and creates the window immediately. Every other Engine package (`AddRenderer`, `AddInput`) resolves this system by type at `Build()` time, so `AddPlatform` has to come first in the chain.
+`AddWindow` registers a `PlatformSystem` that calls `SDL_Init(Video)` and creates the window immediately. Every other Engine package (`AddRenderer`, `AddInput`) resolves this system by type, but construction order doesn't matter: call `AddWindow` before or after them in the same chain, `Build()` sorts it out. It still has to be called *somewhere* in the chain, though - `Build()` throws if it isn't.
 
 :::note
 An optional fourth argument takes `SDL.WindowFlags`, for things like `Hidden` or `Vulkan` in a headless test run.
@@ -58,4 +58,4 @@ public sealed partial class DeviceLogSystem(World world) : QuerySystem
 
 ## Next
 
-[Renderer](/engine/renderer/) and [Input](/engine/input/) both build on the window `AddPlatform` opens.
+[Renderer](/engine/renderer/) and [Input](/engine/input/) both build on the window `AddWindow` opens.

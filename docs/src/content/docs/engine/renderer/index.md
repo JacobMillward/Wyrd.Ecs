@@ -3,7 +3,7 @@ title: Renderer
 description: Draw sprites and meshes through SDL_GPU, with cameras and materials as ordinary components.
 ---
 
-`Wyrd.Ecs.Renderer` draws entities through SDL_GPU: batched, frustum-culled, one draw call per (material, mesh) pair. `AddRenderer` needs `AddPlatform` called first in the same chain, it claims the window `AddPlatform` opened.
+`Wyrd.Ecs.Renderer` draws entities through SDL_GPU: batched, frustum-culled, one draw call per (material, mesh) pair. `AddRenderer` needs `AddWindow` called somewhere in the same chain, it claims the window `AddWindow` opened - but not necessarily first, construction order doesn't matter.
 
 ## Setting up
 
@@ -11,7 +11,7 @@ description: Draw sprites and meshes through SDL_GPU, with cameras and materials
 using Wyrd.Ecs.Renderer;
 
 var world = new WorldBuilder()
-    .AddPlatform("My Game", 1280, 720)
+    .AddWindow("My Game", 1280, 720)
     .AddRenderer()
     .Build();
 ```

@@ -8,7 +8,7 @@ public class PlatformSystemTests
     public void Constructor_InitializesVideoAndCreatesAWindow()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
 
         var platform = world.GetSystem<PlatformSystem>();
@@ -20,7 +20,7 @@ public class PlatformSystemTests
     public void RemoveSystem_RunsCleanupWithoutThrowing()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var platform = world.GetSystem<PlatformSystem>();
 
@@ -33,7 +33,7 @@ public class PlatformSystemTests
     public void Update_DrainsPendingEventsIntoEventsBuffer()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var pushed = new SDL.Event { Type = (uint)SDL.EventType.Quit };
         SDL.PushEvent(ref pushed);
@@ -64,7 +64,7 @@ public class PlatformSystemTests
             construct: _ => new OrdinaryProbeSystem(),
             generatedBeforeTargets: [],
             generatedAfterTargets: []);
-        builder.AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden);
+        builder.AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden);
         var world = builder.Build();
         var pushed = new SDL.Event { Type = (uint)SDL.EventType.Quit };
         SDL.PushEvent(ref pushed);
@@ -88,7 +88,7 @@ public class PlatformSystemTests
     public void Update_EmitsADeviceChangeEventForHotPlugSdlEvents(SDL.EventType sdlEventType, DeviceKind expectedKind, DeviceChangeKind expectedChange)
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var reader = world.CreateEventReader<DeviceChange>();
         var pushed = expectedKind == DeviceKind.Keyboard
@@ -105,7 +105,7 @@ public class PlatformSystemTests
     public void Update_WithNoHotPlugEvent_EmitsNoDeviceChange()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var reader = world.CreateEventReader<DeviceChange>();
 
@@ -121,7 +121,7 @@ public class PlatformSystemTests
             .Concat((SDL.GetMice(out _) ?? []).Select(id => new DeviceId(id)));
 
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
 
         world.GetResource<ConnectedDevices>().DevicesById.Keys.Should().BeEquivalentTo(expected);
@@ -133,7 +133,7 @@ public class PlatformSystemTests
     public void Update_OnDeviceAdded_AddsItToConnectedDevices(SDL.EventType sdlEventType, DeviceKind expectedKind)
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var pushed = expectedKind == DeviceKind.Keyboard
             ? new SDL.Event { Type = (uint)sdlEventType, KDevice = new SDL.KeyboardDeviceEvent { Type = sdlEventType, Which = 77 } }
@@ -151,7 +151,7 @@ public class PlatformSystemTests
     public void Update_OnDeviceRemoved_RemovesItFromConnectedDevices(SDL.EventType sdlEventType, DeviceKind expectedKind)
     {
         var world = new WorldBuilder()
-            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
             .Build();
         var added = expectedKind == DeviceKind.Keyboard
             ? new SDL.Event { Type = (uint)SDL.EventType.KeyboardAdded, KDevice = new SDL.KeyboardDeviceEvent { Type = SDL.EventType.KeyboardAdded, Which = 77 } }

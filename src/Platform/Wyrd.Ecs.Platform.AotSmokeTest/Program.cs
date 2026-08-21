@@ -3,7 +3,7 @@ using Wyrd.Ecs;
 using Wyrd.Ecs.Platform;
 
 var world = new WorldBuilder()
-    .AddPlatform("aot-smoke-test", 320, 240, SDL.WindowFlags.Hidden)
+    .AddWindow("aot-smoke-test", 320, 240, SDL.WindowFlags.Hidden)
     .Build();
 
 var platform = world.GetSystem<PlatformSystem>();

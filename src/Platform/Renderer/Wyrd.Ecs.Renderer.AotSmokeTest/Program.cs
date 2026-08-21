@@ -5,7 +5,7 @@ using Wyrd.Ecs.Platform;
 using Wyrd.Ecs.Renderer;
 
 var world = new WorldBuilder()
-    .AddPlatform("renderer-aot-smoke-test", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+    .AddWindow("renderer-aot-smoke-test", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
     .AddRenderer()
     .Build();
 

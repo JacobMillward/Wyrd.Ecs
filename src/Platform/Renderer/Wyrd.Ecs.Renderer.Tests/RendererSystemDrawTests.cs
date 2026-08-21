@@ -10,7 +10,7 @@ public class RendererSystemDrawTests
     public void Update_WithCameraAndSprite_DoesNotThrow()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -37,7 +37,7 @@ public class RendererSystemDrawTests
     public void Update_NoCameras_StillRunsWithoutThrowing()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Draw No Camera Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Draw No Camera Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -55,7 +55,7 @@ public class RendererSystemDrawTests
         // layer is the real check here, since debugMode:true is set on the device). It does
         // not verify pixel output.
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Draw Multi-Camera Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Draw Multi-Camera Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -86,7 +86,7 @@ public class RendererSystemDrawTests
     public void Update_WithPerspectiveCameraAndMeshRenderer_DoesNotThrow()
     {
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Mesh Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Mesh Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -116,7 +116,7 @@ public class RendererSystemDrawTests
         // layered on top without clearing. Only checks render-pass sequencing doesn't
         // throw/assert; does not verify pixel output.
         var world = new WorldBuilder()
-            .AddPlatform("Renderer 3D+HUD Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer 3D+HUD Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
@@ -157,7 +157,7 @@ public class RendererSystemDrawTests
         // moving entity; it does not verify pixel output (this test suite has no GPU-readback
         // harness for that).
         var world = new WorldBuilder()
-            .AddPlatform("Renderer Interpolated Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Interpolated Draw Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .WithFixedTimestep(TimeSpan.FromMilliseconds(20))
             .AddTransformSystem()
             .AddRenderer()

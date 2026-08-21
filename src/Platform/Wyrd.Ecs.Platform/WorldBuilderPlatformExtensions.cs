@@ -14,7 +14,7 @@ public static class WorldBuilderPlatformExtensions
     extension(WorldBuilder builder)
     {
         /// <summary>Registers a <see cref="PlatformSystem"/> that opens a <paramref name="width"/>x<paramref name="height"/> window titled <paramref name="title"/>.</summary>
-        public WorldBuilder AddPlatform(string title, int width, int height, SDL.WindowFlags flags = default)
+        public WorldBuilder AddWindow(string title, int width, int height, SDL.WindowFlags flags = default)
         {
             builder.AddSystem<PlatformSystem>(w => new PlatformSystem(w, title, width, height, flags));
             return builder;

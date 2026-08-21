@@ -8,7 +8,7 @@ public class AssetLoaderTests
 {
     private static World BuildWorldWithPlatform() =>
         new WorldBuilder()
-            .AddPlatform("AssetLoader Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("AssetLoader Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 

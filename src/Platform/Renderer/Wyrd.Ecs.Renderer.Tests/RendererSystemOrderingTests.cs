@@ -35,7 +35,7 @@ public class RendererSystemOrderingTests
         var probe = new OrdinaryGameplaySystem();
         var builder = new WorldBuilder();
         builder
-            .AddPlatform("Renderer Ordering Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Ordering Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer();
         builder.AddSystemCore(
             typeof(OrdinaryGameplaySystem),

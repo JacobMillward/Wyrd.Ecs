@@ -8,7 +8,7 @@ public class RendererSystemLifetimeTests
 {
     private static World BuildWorldWithPlatform() =>
         new WorldBuilder()
-            .AddPlatform("Renderer Lifetime Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddWindow("Renderer Lifetime Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
             .AddRenderer()
             .Build();
 
