@@ -34,6 +34,8 @@ public sealed partial class AudioSystem : EcsSystem
     /// <inheritdoc/>
     protected override void Execute(World world, Time time)
     {
+        while (_finishedPending.TryDequeue(out var playback))
+            world.Emit(new PlaybackFinished(playback));
     }
 
     /// <inheritdoc/>

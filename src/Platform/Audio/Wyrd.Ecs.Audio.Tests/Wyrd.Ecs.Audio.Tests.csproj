@@ -26,4 +26,8 @@
     <ProjectReference Include="..\Wyrd.Ecs.Audio\Wyrd.Ecs.Audio.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
