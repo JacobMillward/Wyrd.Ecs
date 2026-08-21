@@ -205,4 +205,34 @@ public class AssetArenaTests
         var act = () => arena.GetState(original);
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task FaultAllPending_FaultsOnlyLoadingSlots()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var loading = arena.Reserve("loading.wav", out _);
+        var loaded = arena.Reserve("loaded.wav", out _);
+        var sound = new Sound("pcm-bytes");
+        arena.MarkLoaded(loaded, sound);
+
+        arena.FaultAllPending(new ObjectDisposedException("teardown"));
+
+        arena.GetState(loading).Should().Be(LoadState.Failed);
+        var act = async () => await arena.WaitForLoadAsync(loading);
+        await act.Should().ThrowAsync<ObjectDisposedException>();
+
+        arena.GetState(loaded).Should().Be(LoadState.Loaded);
+        arena.TryGet(loaded).Should().BeSameAs(sound);
+    }
+
+    [Fact]
+    public void Reserve_ConcurrentSameKey_AllCallsDedupToOneSlot()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handles = new Handle<Sound>[50];
+
+        Parallel.For(0, 50, i => handles[i] = arena.Reserve("shared.wav", out _));
+
+        handles.Should().AllSatisfy(h => h.Should().Be(handles[0]));
+    }
 }

@@ -129,6 +129,26 @@ public sealed class AssetArena<TKey, TAsset>
         }
     }
 
+    /// <summary>
+    /// Faults every slot still <see cref="LoadState.Loading"/> with <paramref name="exception"/>
+    /// (via the same first-resolution-wins path as <see cref="MarkFailed"/> — already-resolved
+    /// slots are untouched). For teardown: a load still in flight when its owner is destroyed can
+    /// never resolve on its own, so without this an awaiting caller hangs forever instead of
+    /// observing the teardown.
+    /// </summary>
+    public void FaultAllPending(Exception exception)
+    {
+        lock (_gate)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot is null || slot.State != LoadState.Loading) continue;
+                slot.State = LoadState.Failed;
+                slot.Completion.TrySetException(exception);
+            }
+        }
+    }
+
     private Slot GetSlotLocked(Handle<TAsset> handle)
     {
         if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } slot || _generations[handle.Index] != handle.Generation)
