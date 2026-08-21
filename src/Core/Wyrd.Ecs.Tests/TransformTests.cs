@@ -46,12 +46,12 @@ public class TransformTests
     }
 
     [Fact]
-    public void AddTransform_IsStaticTrue_AddsOnlyTransform()
+    public void AddTransform_IsInterpolatedFalse_AddsOnlyTransform()
     {
         var world = new World();
         var value = new Transform { Position = new Vector3(1, 2, 3), Rotation = Quaternion.Identity, Scale = Vector3.One };
 
-        var entity = world.Commands.CreateEntity().AddTransform(value, isStatic: true);
+        var entity = world.Commands.CreateEntity().AddTransform(value, isInterpolated: false);
         world.ApplyCommands();
 
         world.GetComponent<Transform>(entity.Entity).Position.Should().Be(value.Position);
@@ -59,11 +59,11 @@ public class TransformTests
     }
 
     [Fact]
-    public void EntityTemplate_AddTransform_IsStaticTrue_AddsOnlyTransform()
+    public void EntityTemplate_AddTransform_IsInterpolatedFalse_AddsOnlyTransform()
     {
         var world = new World();
         var value = new Transform { Position = new Vector3(1, 2, 3), Rotation = Quaternion.Identity, Scale = Vector3.One };
-        var template = new EntityTemplate().AddTransform(value, isStatic: true);
+        var template = new EntityTemplate().AddTransform(value, isInterpolated: false);
 
         var entity = world.Commands.CreateEntity(template);
         world.ApplyCommands();
@@ -115,11 +115,11 @@ public class TransformTests
     }
 
     [Fact]
-    public void AddTransform_VectorOnly_IsStaticTrue_AddsOnlyTransform()
+    public void AddTransform_VectorOnly_IsInterpolatedFalse_AddsOnlyTransform()
     {
         var world = new World();
 
-        var entity = world.Commands.CreateEntity().AddTransform(new Vector3(1, 0, 0), isStatic: true);
+        var entity = world.Commands.CreateEntity().AddTransform(new Vector3(1, 0, 0), isInterpolated: false);
         world.ApplyCommands();
 
         world.HasComponent<PreviousTransform>(entity.Entity).Should().BeFalse();

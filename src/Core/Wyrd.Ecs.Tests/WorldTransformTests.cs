@@ -81,7 +81,7 @@ public class WorldTransformTests
     public void GetInterpolatedWorldTransform_StaticEntityNoParent_ReturnsItsCurrentValueWithoutThrowing()
     {
         var world = new World();
-        Entity entity = world.Commands.CreateEntity().AddTransform(new Vector3(3, 4, 5), isStatic: true);
+        Entity entity = world.Commands.CreateEntity().AddTransform(new Vector3(3, 4, 5), isInterpolated: false);
         world.ApplyCommands();
 
         var act = () => world.GetInterpolatedWorldTransform(entity);
@@ -101,7 +101,7 @@ public class WorldTransformTests
         var world = builder.AddTransformSystem().Build();
 
         var parent = world.Commands.CreateEntity().AddTransform(Transform.Identity);
-        var child = world.Commands.CreateEntity().AddTransform(new Vector3(1, 0, 0), isStatic: true);
+        var child = world.Commands.CreateEntity().AddTransform(new Vector3(1, 0, 0), isInterpolated: false);
         child.SetParent(parent.Entity);
         world.ApplyCommands();
 
@@ -123,7 +123,7 @@ public class WorldTransformTests
         builder.AddSystem<MovesDynamicTransformEachFixedStep>();
         var world = builder.AddTransformSystem().Build();
 
-        var parent = world.Commands.CreateEntity().AddTransform(new Vector3(10, 0, 0), isStatic: true);
+        var parent = world.Commands.CreateEntity().AddTransform(new Vector3(10, 0, 0), isInterpolated: false);
         var child = world.Commands.CreateEntity().AddTransform(Transform.Identity);
         child.SetParent(parent.Entity);
         world.ApplyCommands();

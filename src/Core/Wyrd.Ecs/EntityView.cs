@@ -52,36 +52,37 @@ public readonly ref struct EntityView : IComponentSink
     }
 
     /// <summary>
-    /// Queues <see cref="Transform"/>, and, unless <paramref name="isStatic"/>, a matching
-    /// <see cref="PreviousTransform"/> (equal to <paramref name="value"/>) too. Adding only
-    /// <see cref="Transform"/> for an entity meant to move would leave it unmatched by
-    /// <see cref="TransformSnapshotSystem"/>'s query (it requires both) and would make the
-    /// first interpolated read snap from a stale/default <see cref="PreviousTransform"/>
-    /// instead of holding steady, so <paramref name="isStatic"/> defaults to <c>false</c>.
+    /// Queues <see cref="Transform"/>, and, when <paramref name="isInterpolated"/>, a
+    /// matching <see cref="PreviousTransform"/> (equal to <paramref name="value"/>) too.
+    /// Adding only <see cref="Transform"/> for an entity meant to move smoothly would leave
+    /// it unmatched by <see cref="TransformSnapshotSystem"/>'s query (it requires both) and
+    /// would make the first interpolated read snap from a stale/default
+    /// <see cref="PreviousTransform"/> instead of holding steady, so
+    /// <paramref name="isInterpolated"/> defaults to <c>true</c>.
     /// </summary>
-    public EntityView AddTransform(Transform value, bool isStatic = false)
+    public EntityView AddTransform(Transform value, bool isInterpolated = true)
     {
         AddComponent(value);
-        if (!isStatic)
+        if (isInterpolated)
             AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
         return this;
     }
 
     /// <summary>Same as <see cref="AddTransform(Transform, bool)"/>, with identity rotation and unit scale.</summary>
-    public EntityView AddTransform(Vector3 position, bool isStatic = false) =>
-        AddTransform(new Transform { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One }, isStatic);
+    public EntityView AddTransform(Vector3 position, bool isInterpolated = true) =>
+        AddTransform(new Transform { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One }, isInterpolated);
 
     /// <summary>Same as <see cref="AddTransform(Transform, bool)"/>, with unit scale. For arbitrary 3D facing.</summary>
-    public EntityView AddTransform(Vector3 position, Quaternion rotation, bool isStatic = false) =>
-        AddTransform(new Transform { Position = position, Rotation = rotation, Scale = Vector3.One }, isStatic);
+    public EntityView AddTransform(Vector3 position, Quaternion rotation, bool isInterpolated = true) =>
+        AddTransform(new Transform { Position = position, Rotation = rotation, Scale = Vector3.One }, isInterpolated);
 
     /// <summary>
     /// Same as <see cref="AddTransform(Transform, bool)"/>, with unit scale and rotation
     /// around Z only. For 2D content, which shouldn't need quaternion literacy just to
     /// rotate a sprite.
     /// </summary>
-    public EntityView AddTransform(Vector3 position, Angle rotation, bool isStatic = false) =>
-        AddTransform(new Transform { Position = position, Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, rotation.Radians), Scale = Vector3.One }, isStatic);
+    public EntityView AddTransform(Vector3 position, Angle rotation, bool isInterpolated = true) =>
+        AddTransform(new Transform { Position = position, Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, rotation.Radians), Scale = Vector3.One }, isInterpolated);
 
     /// <inheritdoc/>
     void IComponentSink.AddComponent<T>(T value) => AddComponent(value);
