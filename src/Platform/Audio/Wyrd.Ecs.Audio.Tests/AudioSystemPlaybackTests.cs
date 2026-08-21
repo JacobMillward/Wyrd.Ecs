@@ -98,4 +98,42 @@ public class AudioSystemPlaybackTests
         act.Should().NotThrow();
         File.Delete(path);
     }
+
+    [Fact]
+    public void Play_StreamedPath_ReturnsAPlayback()
+    {
+        var path = WriteTinyTestWav();
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+
+        var act = () => audio.Play(path);
+
+        act.Should().NotThrow();
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void Play_StreamedPathTwice_ReturnsDistinctPlaybacksNoDedup()
+    {
+        var path = WriteTinyTestWav();
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+
+        var first = audio.Play(path);
+        var second = audio.Play(path);
+
+        first.Should().NotBe(second);
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void Play_StreamedMissingFile_Throws()
+    {
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+
+        var act = () => audio.Play("does/not/exist.wav");
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

@@ -17,9 +17,9 @@ public sealed partial class AudioSystem
     /// <summary>Plays an already-loaded <paramref name="sound"/>. <paramref name="bus"/> null
     /// resolves to <c>Bus(BusKind.Sfx, DefaultOutput)</c> - the output this plays on is entirely
     /// determined by <paramref name="bus"/>, there's no separate output parameter. Prefer this
-    /// overload over the <c>Play(string, ...)</c> overload for anything played more than once -
-    /// the string overload decodes fresh on every call, this one reuses the already-decoded
-    /// <see cref="Sound"/>.</summary>
+    /// overload over <see cref="Play(string, AudioBus?, float, bool, System.Numerics.Vector3?)"/>
+    /// for anything played more than once - the string overload decodes fresh on every call,
+    /// this one reuses the already-decoded <see cref="Sound"/>.</summary>
     public Playback Play(Handle<Sound> sound, AudioBus? bus = null, float volume = 1f, bool loop = false, System.Numerics.Vector3? position = null)
     {
         ObjectDisposedException.ThrowIf(_destroyed, this);
@@ -30,6 +30,29 @@ public sealed partial class AudioSystem
         var track = Mixer.CreateTrack(mixer);
         if (!Mixer.SetTrackAudio(track, audioObject.AudioHandle))
             throw new InvalidOperationException($"MIX_SetTrackAudio failed: {SDL.GetError()}");
+
+        return StartTrack(track, mixer, resolvedBus, volume, loop, position);
+    }
+
+    /// <summary>Streams <paramref name="path"/> directly - never cached, never dedup'd, opens a
+    /// fresh <c>SDL_IOStream</c> and decodes on demand every call. For anything played more than
+    /// once, prefer the <see cref="Play(Handle{Sound}, AudioBus?, float, bool, System.Numerics.Vector3?)"/>
+    /// overload via <see cref="LoadSound"/> instead - this overload exists for genuinely one-off
+    /// or long-running streamed content (a music track, a rarely-heard voice line) where caching
+    /// it in the arena would just waste memory holding something played once, or never.</summary>
+    public Playback Play(string path, AudioBus? bus = null, float volume = 1f, bool loop = false, System.Numerics.Vector3? position = null)
+    {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
+        var resolvedBus = bus ?? Bus(BusKind.Sfx);
+        var mixer = GetOutput(resolvedBus.Output).Mixer;
+
+        var io = SDL.IOFromFile(path, "rb");
+        if (io == IntPtr.Zero)
+            throw new InvalidOperationException($"SDL_IOFromFile failed: {SDL.GetError()}");
+
+        var track = Mixer.CreateTrack(mixer);
+        if (!Mixer.SetTrackIOStream(track, io, closeio: true))
+            throw new InvalidOperationException($"MIX_SetTrackIOStream failed: {SDL.GetError()}");
 
         return StartTrack(track, mixer, resolvedBus, volume, loop, position);
     }
