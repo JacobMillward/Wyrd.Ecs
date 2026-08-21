@@ -10,4 +10,12 @@ public readonly record struct CameraBundle(ProjectionMode ProjectionMode, float 
     /// <inheritdoc/>
     public void ApplyTo<TSink>(TSink sink) where TSink : IComponentSink, allows ref struct =>
         new BundleBuilder<TSink>(sink).Add(new Camera(Order, ProjectionMode, ClearOnBegin, FieldOfViewOrOrthographicSize, Near, Far));
+
+    /// <summary>A <see cref="ProjectionMode.Perspective"/> camera. <paramref name="fieldOfView"/> is typed so a caller can't accidentally pass a world-space size where an angle is meant, unlike this record's own constructor.</summary>
+    public static CameraBundle Perspective(Angle fieldOfView, float near, float far, int order = 0, bool clearOnBegin = true) =>
+        new(ProjectionMode.Perspective, fieldOfView.Radians, near, far, order, clearOnBegin);
+
+    /// <summary>A <see cref="ProjectionMode.Orthographic"/> camera. <paramref name="halfHeight"/> is half the vertical world-space extent, not an angle.</summary>
+    public static CameraBundle Orthographic(float halfHeight, float near, float far, int order = 0, bool clearOnBegin = true) =>
+        new(ProjectionMode.Orthographic, halfHeight, near, far, order, clearOnBegin);
 }
