@@ -52,16 +52,22 @@ public sealed partial class World
     private (WorldTransform Current, WorldTransform Previous) ComposeInterpolated(Entity entity)
     {
         var current = GetComponent<Transform>(entity);
-        var previous = GetComponent<PreviousTransform>(entity);
+        var currentWorld = new WorldTransform(current.Position, current.Rotation, current.Scale);
+
+        // A static entity (no PreviousTransform) never changes, so its previous value
+        // equals its current one: this link in the chain contributes no interpolation,
+        // exactly, not approximately, with no separate fallback needed in the public API.
+        ref var previousComponent = ref TryGetComponent<PreviousTransform>(entity, out var hasPrevious);
+        var previousLocal = hasPrevious
+            ? new WorldTransform(previousComponent.Position, previousComponent.Rotation, previousComponent.Scale)
+            : currentWorld;
 
         if (!TryGetParent(entity, out var parent))
-            return (
-                new WorldTransform(current.Position, current.Rotation, current.Scale),
-                new WorldTransform(previous.Position, previous.Rotation, previous.Scale));
+            return (currentWorld, previousLocal);
 
         var (parentCurrent, parentPrevious) = ComposeInterpolated(parent);
         return (
             Compose(parentCurrent, current.Position, current.Rotation, current.Scale),
-            Compose(parentPrevious, previous.Position, previous.Rotation, previous.Scale));
+            Compose(parentPrevious, previousLocal.Position, previousLocal.Rotation, previousLocal.Scale));
     }
 }

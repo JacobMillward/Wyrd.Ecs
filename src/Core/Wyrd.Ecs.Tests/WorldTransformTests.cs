@@ -76,4 +76,77 @@ public class WorldTransformTests
         // (1,0,0) + 0.5 * ((2,0,0) - (1,0,0)) = (1.5, 0, 0).
         interpolated.Position.Should().Be(new Vector3(1.5f, 0, 0));
     }
+
+    [Fact]
+    public void GetInterpolatedWorldTransform_StaticEntityNoParent_ReturnsItsCurrentValueWithoutThrowing()
+    {
+        var world = new World();
+        Entity entity = world.Commands.CreateEntity().AddTransform(new Vector3(3, 4, 5), isStatic: true);
+        world.ApplyCommands();
+
+        var act = () => world.GetInterpolatedWorldTransform(entity);
+
+        act.Should().NotThrow();
+        var interpolated = act();
+        interpolated.Position.Should().Be(new Vector3(3, 4, 5));
+        interpolated.Rotation.Should().Be(Quaternion.Identity);
+        interpolated.Scale.Should().Be(Vector3.One);
+    }
+
+    [Fact]
+    public void GetInterpolatedWorldTransform_StaticChildOfAMovingDynamicParent_OnlyTheParentLinkInterpolates()
+    {
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        builder.AddSystem<MovesDynamicTransformEachFixedStep>();
+        var world = builder.AddTransformSystem().Build();
+
+        var parent = world.Commands.CreateEntity().AddTransform(Transform.Identity);
+        var child = world.Commands.CreateEntity().AddTransform(new Vector3(1, 0, 0), isStatic: true);
+        child.SetParent(parent.Entity);
+        world.ApplyCommands();
+
+        // Same accumulator math as GetInterpolatedWorldTransform_BlendsBetweenPreviousAndCurrent:
+        // two fixed steps land the parent's Previous=(1,0,0), current=(2,0,0), alpha=0.5.
+        world.Update(TimeSpan.FromSeconds(2.5));
+
+        var interpolated = world.GetInterpolatedWorldTransform(child.Entity);
+
+        // Parent contributes the interpolated (1.5,0,0); child's own local (1,0,0) is exact,
+        // since a static entity has no Previous to blend against.
+        interpolated.Position.Should().Be(new Vector3(2.5f, 0, 0));
+    }
+
+    [Fact]
+    public void GetInterpolatedWorldTransform_DynamicChildOfAStaticParent_OnlyTheChildLinkInterpolates()
+    {
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        builder.AddSystem<MovesDynamicTransformEachFixedStep>();
+        var world = builder.AddTransformSystem().Build();
+
+        var parent = world.Commands.CreateEntity().AddTransform(new Vector3(10, 0, 0), isStatic: true);
+        var child = world.Commands.CreateEntity().AddTransform(Transform.Identity);
+        child.SetParent(parent.Entity);
+        world.ApplyCommands();
+
+        world.Update(TimeSpan.FromSeconds(2.5));
+
+        var interpolated = world.GetInterpolatedWorldTransform(child.Entity);
+
+        // Parent's static (10,0,0) is exact; child's own interpolated local is (1.5,0,0).
+        interpolated.Position.Should().Be(new Vector3(11.5f, 0, 0));
+    }
+}
+
+/// <summary>
+/// Like <see cref="MovesTransformEachFixedStep"/>, but scoped to dynamic entities only
+/// (via <c>.Has&lt;PreviousTransform&gt;()</c>, a presence-only filter that doesn't affect
+/// <c>Update</c>'s parameter list): a static entity sharing an archetype with a moving one
+/// must never be moved just because it also has a <see cref="Transform"/>.
+/// </summary>
+[FixedTimestep]
+sealed partial class MovesDynamicTransformEachFixedStep : QuerySystem
+{
+    protected override IQuery DefineQuery(Query query) => query.With<Transform>().Has<PreviousTransform>();
+
+    public void Update(Time time, ref Transform transform) => transform.Position += new Vector3(1, 0, 0);
 }
