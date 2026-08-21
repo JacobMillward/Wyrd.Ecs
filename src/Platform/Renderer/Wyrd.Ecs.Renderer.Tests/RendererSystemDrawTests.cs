@@ -16,7 +16,7 @@ public class RendererSystemDrawTests
 
         var cameraEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(cameraEntity, Wyrd.Ecs.Transform.Identity);
-        world.Commands.AddComponent(cameraEntity, new Camera(0, ProjectionMode.Orthographic, true, 10f, 0.1f, 100f));
+        world.Commands.AddComponent(cameraEntity, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
 
         var spriteEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(spriteEntity, Wyrd.Ecs.Transform.Identity);
@@ -61,11 +61,11 @@ public class RendererSystemDrawTests
 
         var worldCamera = world.Commands.CreateEntity();
         world.Commands.AddComponent(worldCamera, Wyrd.Ecs.Transform.Identity);
-        world.Commands.AddComponent(worldCamera, new Camera(Order: 0, ProjectionMode.Orthographic, ClearOnBegin: true, 10f, 0.1f, 100f));
+        world.Commands.AddComponent(worldCamera, new OrthographicCamera(Order: 0, ClearOnBegin: true, Size: 10f, Near: 0.1f, Far: 100f));
 
         var hudCamera = world.Commands.CreateEntity();
         world.Commands.AddComponent(hudCamera, Wyrd.Ecs.Transform.Identity);
-        world.Commands.AddComponent(hudCamera, new Camera(Order: 1, ProjectionMode.Orthographic, ClearOnBegin: false, 10f, 0.1f, 100f));
+        world.Commands.AddComponent(hudCamera, new OrthographicCamera(Order: 1, ClearOnBegin: false, Size: 10f, Near: 0.1f, Far: 100f));
 
         var spriteEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(spriteEntity, Wyrd.Ecs.Transform.Identity);
@@ -92,7 +92,7 @@ public class RendererSystemDrawTests
 
         var cameraEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(cameraEntity, new Wyrd.Ecs.Transform { Position = new System.Numerics.Vector3(0, 0, -5), Rotation = System.Numerics.Quaternion.Identity, Scale = System.Numerics.Vector3.One });
-        world.Commands.AddComponent(cameraEntity, new Camera(0, ProjectionMode.Perspective, true, MathF.PI / 4f, 0.1f, 100f));
+        world.Commands.AddComponent(cameraEntity, new PerspectiveCamera(0, true, Angle.Rad(MathF.PI / 4f), 0.1f, 100f));
 
         var meshEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(meshEntity, Wyrd.Ecs.Transform.Identity);
@@ -122,11 +122,11 @@ public class RendererSystemDrawTests
 
         var worldCamera = world.Commands.CreateEntity();
         world.Commands.AddComponent(worldCamera, new Wyrd.Ecs.Transform { Position = new System.Numerics.Vector3(0, 0, -5), Rotation = System.Numerics.Quaternion.Identity, Scale = System.Numerics.Vector3.One });
-        world.Commands.AddComponent(worldCamera, new Camera(Order: 0, ProjectionMode.Perspective, ClearOnBegin: true, MathF.PI / 4f, 0.1f, 100f));
+        world.Commands.AddComponent(worldCamera, new PerspectiveCamera(Order: 0, ClearOnBegin: true, FieldOfView: Angle.Rad(MathF.PI / 4f), Near: 0.1f, Far: 100f));
 
         var hudCamera = world.Commands.CreateEntity();
         world.Commands.AddComponent(hudCamera, Wyrd.Ecs.Transform.Identity);
-        world.Commands.AddComponent(hudCamera, new Camera(Order: 1, ProjectionMode.Orthographic, ClearOnBegin: false, 10f, 0.1f, 100f));
+        world.Commands.AddComponent(hudCamera, new OrthographicCamera(Order: 1, ClearOnBegin: false, Size: 10f, Near: 0.1f, Far: 100f));
 
         var meshEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(meshEntity, Wyrd.Ecs.Transform.Identity);
@@ -165,7 +165,7 @@ public class RendererSystemDrawTests
 
         var cameraEntity = world.Commands.CreateEntity();
         world.Commands.AddComponent(cameraEntity, Wyrd.Ecs.Transform.Identity);
-        world.Commands.AddComponent(cameraEntity, new Camera(0, ProjectionMode.Orthographic, true, 10f, 0.1f, 100f));
+        world.Commands.AddComponent(cameraEntity, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
 
         var spriteEntity = world.Commands.CreateEntity().AddTransform(Wyrd.Ecs.Transform.Identity);
         world.Commands.AddComponent(spriteEntity.Entity, new Sprite(SourceRect: null, Tint: Color.White));
