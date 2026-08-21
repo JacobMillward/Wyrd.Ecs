@@ -61,6 +61,7 @@
   </Folder>
   <Folder Name="/src/Platform/Assets/">
     <Project Path="src/Platform/Assets/Wyrd.Ecs.Assets/Wyrd.Ecs.Assets.csproj" />
+    <Project Path="src/Platform/Assets/Wyrd.Ecs.Assets.Tests/Wyrd.Ecs.Assets.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
