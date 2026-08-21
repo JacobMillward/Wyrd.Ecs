@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Wyrd.Ecs;
 
 /// <summary>
@@ -64,6 +66,22 @@ public readonly ref struct EntityView : IComponentSink
             AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
         return this;
     }
+
+    /// <summary>Same as <see cref="AddTransform(Transform, bool)"/>, with identity rotation and unit scale.</summary>
+    public EntityView AddTransform(Vector3 position, bool isStatic = false) =>
+        AddTransform(new Transform { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One }, isStatic);
+
+    /// <summary>Same as <see cref="AddTransform(Transform, bool)"/>, with unit scale. For arbitrary 3D facing.</summary>
+    public EntityView AddTransform(Vector3 position, Quaternion rotation, bool isStatic = false) =>
+        AddTransform(new Transform { Position = position, Rotation = rotation, Scale = Vector3.One }, isStatic);
+
+    /// <summary>
+    /// Same as <see cref="AddTransform(Transform, bool)"/>, with unit scale and rotation
+    /// around Z only. For 2D content, which shouldn't need quaternion literacy just to
+    /// rotate a sprite.
+    /// </summary>
+    public EntityView AddTransform(Vector3 position, Angle rotation, bool isStatic = false) =>
+        AddTransform(new Transform { Position = position, Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, rotation.Radians), Scale = Vector3.One }, isStatic);
 
     /// <inheritdoc/>
     void IComponentSink.AddComponent<T>(T value) => AddComponent(value);
