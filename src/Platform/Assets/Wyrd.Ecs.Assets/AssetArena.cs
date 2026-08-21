@@ -96,6 +96,39 @@ public sealed class AssetArena<TKey, TAsset>
         lock (_gate) { return GetSlotLocked(handle).Asset; }
     }
 
+    /// <summary>Task that completes (or faults with the exception passed to <see cref="MarkFailed"/>) once <paramref name="handle"/> resolves.</summary>
+    public Task WaitForLoadAsync(Handle<TAsset> handle)
+    {
+        lock (_gate) { return GetSlotLocked(handle).Completion.Task; }
+    }
+
+    /// <summary>
+    /// Decrements the handle's use-count; once it reaches zero, removes the slot, bumps its
+    /// generation (so any handle issued before this call now compares unequal to future <see
+    /// cref="Reserve"/> calls reusing this index), and hands the caller the asset via <paramref
+    /// name="readyForRelease"/>. The arena never disposes/releases the asset itself — only the
+    /// caller knows how (e.g. GPU resource release timing tied to frames-in-flight).
+    /// </summary>
+    public bool Unload(Handle<TAsset> handle, out TAsset? readyForRelease)
+    {
+        lock (_gate)
+        {
+            var slot = GetSlotLocked(handle);
+            slot.UseCount--;
+            if (slot.UseCount > 0)
+            {
+                readyForRelease = null;
+                return false;
+            }
+
+            readyForRelease = slot.Asset;
+            _keyToIndex.Remove(slot.Key);
+            _generations[handle.Index]++;
+            _slots[handle.Index] = null;
+            return true;
+        }
+    }
+
     private Slot GetSlotLocked(Handle<TAsset> handle)
     {
         if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } slot || _generations[handle.Index] != handle.Generation)

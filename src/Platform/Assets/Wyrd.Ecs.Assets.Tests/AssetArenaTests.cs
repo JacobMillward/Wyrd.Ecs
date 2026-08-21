@@ -115,4 +115,94 @@ public class AssetArenaTests
 
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task WaitForLoadAsync_ThenMarkLoaded_CompletesTask()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handle = arena.Reserve("foo.wav", out _);
+
+        var waitTask = arena.WaitForLoadAsync(handle);
+        arena.MarkLoaded(handle, new Sound("pcm-bytes"));
+
+        await waitTask;
+        waitTask.IsCompletedSuccessfully.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WaitForLoadAsync_ThenMarkFailed_FaultsWithSameException()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handle = arena.Reserve("foo.wav", out _);
+        var exception = new InvalidOperationException("decode failed");
+
+        var waitTask = arena.WaitForLoadAsync(handle);
+        arena.MarkFailed(handle, exception);
+
+        var act = async () => await waitTask;
+        (await act.Should().ThrowAsync<InvalidOperationException>()).Which.Should().BeSameAs(exception);
+    }
+
+    [Fact]
+    public async Task WaitForLoadAsync_OnDedupHandle_SharesOriginalCompletion()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var first = arena.Reserve("foo.wav", out _);
+        var second = arena.Reserve("foo.wav", out _);
+        var sound = new Sound("pcm-bytes");
+
+        var waitTask = arena.WaitForLoadAsync(second);
+        arena.MarkLoaded(first, sound);
+
+        await waitTask;
+        arena.TryGet(second).Should().BeSameAs(sound);
+    }
+
+    [Fact]
+    public void Unload_WhileOtherUsersRemain_ReturnsFalse()
+    {
+        var arena = new AssetArena<string, Sound>();
+        arena.Reserve("foo.wav", out _);
+        var handle = arena.Reserve("foo.wav", out _);
+
+        var released = arena.Unload(handle, out var readyForRelease);
+
+        released.Should().BeFalse();
+        readyForRelease.Should().BeNull();
+        arena.GetState(handle).Should().Be(LoadState.Loading);
+    }
+
+    [Fact]
+    public void Unload_LastUser_ReturnsTrueWithAssetAndBumpsGeneration()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handle = arena.Reserve("foo.wav", out _);
+        var sound = new Sound("pcm-bytes");
+        arena.MarkLoaded(handle, sound);
+
+        var released = arena.Unload(handle, out var readyForRelease);
+
+        released.Should().BeTrue();
+        readyForRelease.Should().BeSameAs(sound);
+
+        var act = () => arena.GetState(handle);
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Reserve_AfterSlotFreedByUnload_ReusesIndexWithNewGeneration()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var original = arena.Reserve("foo.wav", out _);
+        arena.Unload(original, out _);
+
+        var reused = arena.Reserve("bar.wav", out var isNew);
+
+        isNew.Should().BeTrue();
+        reused.Index.Should().Be(original.Index);
+        reused.Generation.Should().NotBe(original.Generation);
+
+        var act = () => arena.GetState(original);
+        act.Should().Throw<InvalidOperationException>();
+    }
 }
