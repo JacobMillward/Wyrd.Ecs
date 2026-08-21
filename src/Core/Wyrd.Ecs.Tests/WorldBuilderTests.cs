@@ -2,6 +2,18 @@ namespace Wyrd.Ecs.Tests;
 
 file sealed class CadenceProbeSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
 
+file sealed class DependencyRootSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
+
+file sealed class DependencyLeafSystem : EcsSystem
+{
+    public DependencyRootSystem Root { get; }
+    public DependencyLeafSystem(World world) => Root = world.GetSystem<DependencyRootSystem>();
+    protected override void Execute(World world, Time time) { }
+}
+
+file sealed class CycleASystem : EcsSystem { protected override void Execute(World world, Time time) { } }
+file sealed class CycleBSystem : EcsSystem { protected override void Execute(World world, Time time) { } }
+
 public class WorldBuilderTests
 {
     private struct Position : IComponent
@@ -160,5 +172,59 @@ public class WorldBuilderTests
         var registration = builder.AddSystemCore(typeof(CadenceProbeSystem), access: null, _ => new CadenceProbeSystem(), [], []);
 
         registration.Entry.Cadence.Should().Be(SystemCadence.Variable);
+    }
+
+    [Fact]
+    public void Build_ConstructsDependenciesBeforeDependents_RegardlessOfRegistrationOrder()
+    {
+        // DependencyLeafSystem registered BEFORE DependencyRootSystem - the adversarial
+        // order. Its Construct closure calls world.GetSystem<DependencyRootSystem>() at
+        // construction time, so this only passes if Build() actually reorders construction
+        // by the declared dependency, not registration order.
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(
+            typeof(DependencyLeafSystem), access: null, w => new DependencyLeafSystem(w),
+            generatedBeforeTargets: [], generatedAfterTargets: [],
+            constructionDependencies: [typeof(DependencyRootSystem)]);
+        builder.AddSystemCore(
+            typeof(DependencyRootSystem), access: null, _ => new DependencyRootSystem(),
+            generatedBeforeTargets: [], generatedAfterTargets: []);
+
+        var world = builder.Build();
+
+        world.GetSystem<DependencyLeafSystem>().Root.Should().BeSameAs(world.GetSystem<DependencyRootSystem>());
+    }
+
+    [Fact]
+    public void Build_WithAnUnregisteredConstructionDependency_ThrowsNamingBothTypes()
+    {
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(
+            typeof(DependencyLeafSystem), access: null, w => new DependencyLeafSystem(w),
+            generatedBeforeTargets: [], generatedAfterTargets: [],
+            constructionDependencies: [typeof(DependencyRootSystem)]);
+        // DependencyRootSystem is never registered.
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*DependencyLeafSystem*DependencyRootSystem*");
+    }
+
+    [Fact]
+    public void Build_WithACyclicConstructionDependency_ThrowsNamingTheCycle()
+    {
+        var builder = new WorldBuilder();
+        builder.AddSystemCore(
+            typeof(CycleASystem), access: null, _ => new CycleASystem(),
+            generatedBeforeTargets: [], generatedAfterTargets: [],
+            constructionDependencies: [typeof(CycleBSystem)]);
+        builder.AddSystemCore(
+            typeof(CycleBSystem), access: null, _ => new CycleBSystem(),
+            generatedBeforeTargets: [], generatedAfterTargets: [],
+            constructionDependencies: [typeof(CycleASystem)]);
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*CycleASystem*CycleBSystem*");
     }
 }

@@ -1,3 +1,5 @@
+using Wyrd.Ecs.Internal;
+
 namespace Wyrd.Ecs;
 
 /// <summary>
@@ -54,13 +56,50 @@ public sealed class WorldBuilder
         ThrowIfAlreadyBuilt();
         _built = true;
 
+        var sortedPending = SortByConstructionDependency(_pending);
+
         var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
         var world = new World(_archetypeCapacity, scheduler, _fixedStep, _maxSubstepsPerUpdate);
         foreach (var (_, apply) in _pendingResources) apply(world);
-        scheduler.InitialRegister(_pending, world);
+        scheduler.InitialRegister(sortedPending, world);
 
         OnBuilt?.Invoke(world);
         return world;
+    }
+
+    /// <summary>
+    /// Orders <paramref name="pending"/> so every entry's
+    /// <see cref="SystemEntry.ConstructionDependencies"/> is constructed before it,
+    /// independent of the order <c>AddSystemCore</c> was called in - e.g. <c>.AddRenderer()</c>
+    /// before <c>.AddWindow()</c> in the same chain builds correctly, exactly as if they'd
+    /// been called in the other order. Throws <see cref="InvalidOperationException"/> if a
+    /// declared dependency was never registered on this builder, or if dependencies form a
+    /// cycle (unreachable through any dependency this repo's own extension methods declare
+    /// today, but the check is generic, same as <see cref="Internal.StableTopologicalSort"/>
+    /// itself).
+    /// </summary>
+    private static List<SystemEntry> SortByConstructionDependency(List<SystemEntry> pending)
+    {
+        var byType = pending.ToDictionary(e => e.SystemType);
+        var nodes = pending.Select(e => e.SystemType).ToList();
+        var edges = new List<StableTopologicalSort.Edge<Type>>();
+        foreach (var entry in pending)
+        {
+            foreach (var dependency in entry.ConstructionDependencies)
+            {
+                if (!byType.ContainsKey(dependency))
+                    throw new InvalidOperationException(
+                        $"A system of type '{entry.SystemType}' declares a construction dependency on " +
+                        $"'{dependency}', but no system of that type is registered on this WorldBuilder. " +
+                        "Register it before calling Build().");
+
+                edges.Add(new StableTopologicalSort.Edge<Type>(dependency, entry.SystemType));
+            }
+        }
+
+        var tieBreak = nodes.Select((t, i) => (t, i)).ToDictionary(x => x.t, x => x.i);
+        var order = StableTopologicalSort.Sort(nodes, edges, tieBreak, t => t.Name);
+        return [.. order.Select(t => byType[t])];
     }
 
     /// <summary>
@@ -111,6 +150,13 @@ public sealed class WorldBuilder
     /// registered on this builder (same at-most-one-instance rule
     /// <see cref="ParallelSystemScheduler.Register"/> enforces at runtime, checked here too so
     /// a duplicate is diagnosed at the <c>AddSystem&lt;T&gt;()</c> call site, not later).
+    /// <paramref name="constructionDependencies"/> declares which other registered types must
+    /// be constructed first, resolved by <see cref="Build"/> independent of call order - see
+    /// <see cref="SystemEntry.ConstructionDependencies"/>. Trailing and optional, defaulting
+    /// to none, so the generator's positional <c>AddSystem&lt;T&gt;()</c> call sites keep
+    /// compiling unchanged; only a hand-written registration that actually has a construction
+    /// dependency (e.g. <c>Wyrd.Ecs.Renderer</c>'s <c>AddRenderer</c> on <c>PlatformSystem</c>)
+    /// needs to name it.
     /// </summary>
     public SystemRegistration AddSystemCore(
         Type systemType,
@@ -118,10 +164,12 @@ public sealed class WorldBuilder
         Func<World, EcsSystem> construct,
         IReadOnlyList<Type> generatedBeforeTargets,
         IReadOnlyList<Type> generatedAfterTargets,
-        SystemCadence cadence = SystemCadence.Variable)
+        SystemCadence cadence = SystemCadence.Variable,
+        IReadOnlyList<Type>? constructionDependencies = null)
     {
         ThrowIfAlreadyBuilt();
         var entry = RegisterEntry(systemType, access, construct, generatedBeforeTargets, generatedAfterTargets, cadence);
+        entry.ConstructionDependencies.AddRange(constructionDependencies ?? []);
         return new SystemRegistration(RegisterEntry, Build, entry);
     }
 

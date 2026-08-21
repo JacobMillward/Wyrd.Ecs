@@ -38,6 +38,16 @@ public sealed class SystemEntry
     /// <summary>Every type this system must run in a strictly later stage than, unioned from <c>[RunAfter]</c> and fluent <see cref="SystemRegistration.After{T}"/> declarations.</summary>
     public List<Type> AfterTargets = [];
 
+    /// <summary>
+    /// Every type this system's construction must happen after, resolved by
+    /// <see cref="WorldBuilder.Build"/> itself before any <see cref="Construct"/> delegate
+    /// runs - independent of the order <c>AddSystemCore</c> was called in. Distinct from
+    /// <see cref="BeforeTargets"/>/<see cref="AfterTargets"/>, which govern *execution* order
+    /// among already-constructed instances, resolved later by
+    /// <see cref="Internal.SystemOrderGraph"/>.
+    /// </summary>
+    public List<Type> ConstructionDependencies = [];
+
     /// <summary>Whether <see cref="EcsSystem.Enabled"/> is set to true (the default) or false the moment <see cref="Instance"/> is constructed. See <see cref="SystemRegistration.StartDisabled"/>.</summary>
     public bool StartEnabled = true;
 
