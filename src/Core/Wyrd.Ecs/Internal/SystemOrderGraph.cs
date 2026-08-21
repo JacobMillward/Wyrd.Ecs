@@ -1,5 +1,7 @@
 namespace Wyrd.Ecs.Internal;
 
+using Edge = StableTopologicalSort.Edge<OrderNode>;
+
 /// <summary>
 /// Resolves every Before/After edge declared across a system list - both fluent
 /// <see cref="SystemRegistration"/> edges and generator-seeded
@@ -15,8 +17,6 @@ namespace Wyrd.Ecs.Internal;
 /// </summary>
 internal static class SystemOrderGraph
 {
-    internal readonly record struct Edge(OrderNode Before, OrderNode After);
-
     internal readonly record struct Result(IReadOnlyList<OrderNode> Nodes, IReadOnlyList<Edge> Edges);
 
     /// <summary>

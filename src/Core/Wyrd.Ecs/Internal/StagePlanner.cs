@@ -31,7 +31,7 @@ internal static class StagePlanner
             if (!tieBreak.ContainsKey(node))
                 tieBreak[node] = syntheticIndex++;
 
-        var order = StableTopologicalSort.Sort(graph.Nodes, graph.Edges, tieBreak);
+        var order = StableTopologicalSort.Sort(graph.Nodes, graph.Edges, tieBreak, n => n.DisplayName);
 
         var predecessors = new Dictionary<OrderNode, List<OrderNode>>();
         foreach (var node in graph.Nodes) predecessors[node] = [];

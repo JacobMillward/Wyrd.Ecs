@@ -17,7 +17,7 @@ public class StableTopologicalSortTests
         var b = OrderNode.ForSystem(new NodeB());
         var tieBreak = new Dictionary<OrderNode, int> { [b] = 0, [a] = 1 };
 
-        var order = StableTopologicalSort.Sort([b, a], [], tieBreak);
+        var order = StableTopologicalSort.Sort([b, a], [], tieBreak, n => n.DisplayName);
 
         order.Should().Equal(b, a);
     }
@@ -29,9 +29,9 @@ public class StableTopologicalSortTests
         var b = OrderNode.ForSystem(new NodeB());
         // Tie-break alone would put b first; the edge must override that.
         var tieBreak = new Dictionary<OrderNode, int> { [b] = 0, [a] = 1 };
-        SystemOrderGraph.Edge[] edges = [new(a, b)];
+        StableTopologicalSort.Edge<OrderNode>[] edges = [new(a, b)];
 
-        var order = StableTopologicalSort.Sort([b, a], edges, tieBreak);
+        var order = StableTopologicalSort.Sort([b, a], edges, tieBreak, n => n.DisplayName);
 
         order.Should().Equal(a, b);
     }
@@ -42,9 +42,9 @@ public class StableTopologicalSortTests
         var a = OrderNode.ForSystem(new NodeA());
         var b = OrderNode.ForSystem(new NodeB());
         var tieBreak = new Dictionary<OrderNode, int> { [a] = 0, [b] = 1 };
-        SystemOrderGraph.Edge[] edges = [new(a, b), new(b, a)];
+        StableTopologicalSort.Edge<OrderNode>[] edges = [new(a, b), new(b, a)];
 
-        var act = () => StableTopologicalSort.Sort([a, b], edges, tieBreak);
+        var act = () => StableTopologicalSort.Sort([a, b], edges, tieBreak, n => n.DisplayName);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*NodeA*NodeB*");
     }
@@ -56,9 +56,9 @@ public class StableTopologicalSortTests
         var b = OrderNode.ForSystem(new NodeB());
         var c = OrderNode.ForSystem(new NodeC());
         var tieBreak = new Dictionary<OrderNode, int> { [a] = 0, [b] = 1, [c] = 2 };
-        SystemOrderGraph.Edge[] edges = [new(a, b), new(b, c), new(c, a)];
+        StableTopologicalSort.Edge<OrderNode>[] edges = [new(a, b), new(b, c), new(c, a)];
 
-        var act = () => StableTopologicalSort.Sort([a, b, c], edges, tieBreak);
+        var act = () => StableTopologicalSort.Sort([a, b, c], edges, tieBreak, n => n.DisplayName);
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -73,9 +73,9 @@ public class StableTopologicalSortTests
         var b = OrderNode.ForSystem(new NodeB());
         var d = OrderNode.ForSystem(new NodeD());
         var tieBreak = new Dictionary<OrderNode, int> { [d] = 0, [a] = 1, [b] = 2 };
-        SystemOrderGraph.Edge[] edges = [new(a, b), new(b, a), new(a, d)];
+        StableTopologicalSort.Edge<OrderNode>[] edges = [new(a, b), new(b, a), new(a, d)];
 
-        var act = () => StableTopologicalSort.Sort([d, a, b], edges, tieBreak);
+        var act = () => StableTopologicalSort.Sort([d, a, b], edges, tieBreak, n => n.DisplayName);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*NodeA*NodeB*");
     }
