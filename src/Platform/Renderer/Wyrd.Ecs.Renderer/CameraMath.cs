@@ -6,7 +6,7 @@ namespace Wyrd.Ecs.Renderer;
 /// View/projection math shared between <see cref="PerspectiveCamera"/> and
 /// <see cref="OrthographicCamera"/>. Not public: each camera type exposes its own
 /// <c>GetViewMatrix</c>/<c>WorldToScreen</c>/<c>ScreenToWorld</c>, so callers never need to know
-/// this helper exists — only the mode-specific pieces (<c>GetProjectionMatrix</c>, the
+/// this helper exists: only the mode-specific pieces (<c>GetProjectionMatrix</c>, the
 /// NDC-to-view-space reconstruction inside <c>ScreenToWorld</c>) live on the camera types
 /// themselves.
 /// </summary>
@@ -21,8 +21,8 @@ internal static class CameraMath
     /// invert and, unlike inverting a matrix that could carry a degenerate scale (a
     /// default-constructed, non-<see cref="Wyrd.Ecs.Transform.Identity"/> <c>Transform</c> has
     /// <c>Scale</c> zeroed, see that type's doc comment), never singular. Produces left-handed
-    /// view space (forward = +Z for an identity-rotated camera), matching Unity's convention —
-    /// each camera type's <c>GetProjectionMatrix</c> uses the matching <c>LeftHanded</c>
+    /// view space (forward = +Z for an identity-rotated camera), matching Unity's convention.
+    /// Each camera type's <c>GetProjectionMatrix</c> uses the matching <c>LeftHanded</c>
     /// constructor deliberately; mixing handedness silently culls everything a camera looks at.
     /// </summary>
     public static Matrix4x4 GetViewMatrix(WorldTransform transform)

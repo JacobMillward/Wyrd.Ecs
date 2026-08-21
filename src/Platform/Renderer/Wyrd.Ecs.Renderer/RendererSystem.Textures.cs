@@ -12,7 +12,7 @@ public sealed partial class RendererSystem
     /// <summary>
     /// Allocates a <see cref="Handle{T}"/> immediately (state <see cref="LoadState.Loading"/>)
     /// and starts a background decode. Calling this again with a path already reserved returns
-    /// the existing handle without re-decoding or re-uploading — <c>AssetArena.Reserve</c>'s
+    /// the existing handle without re-decoding or re-uploading. <c>AssetArena.Reserve</c>'s
     /// <c>isNew</c> out-param is what makes this safe: without checking it, every repeat call
     /// would decode and GPU-upload the file again, leaking the previous <c>SDL_GPUTexture</c>.
     /// The GPU upload itself happens later, inside this system's existing copy pass (see <see

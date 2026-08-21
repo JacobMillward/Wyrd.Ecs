@@ -5,7 +5,7 @@ namespace Wyrd.Ecs.Renderer;
 /// <summary>
 /// Queried as <c>(Transform, OrthographicCamera)</c>. An <see cref="OrthographicCamera"/> entity
 /// with no <see cref="Transform"/> simply never matches and is never rendered (structural, not a
-/// runtime check). Active cameras — this and <see cref="PerspectiveCamera"/> alike — render in
+/// runtime check). Active cameras (this and <see cref="PerspectiveCamera"/> alike) render in
 /// <see cref="Order"/> sequence into the same swapchain target; a 3D-scene-plus-2D-HUD frame is a
 /// <see cref="PerspectiveCamera"/> plus an <see cref="OrthographicCamera"/> entity with different
 /// <see cref="Order"/>/<see cref="ClearOnBegin"/>, no separate compositing step.
