@@ -19,7 +19,7 @@ public static class WorldBuilderAudioExtensions
             builder.AddSystemCore(
                 typeof(AudioSystem),
                 access: null,
-                construct: _ => new AudioSystem(),
+                construct: w => new AudioSystem(w),
                 generatedBeforeTargets: [],
                 generatedAfterTargets: [],
                 constructionDependencies: [typeof(PlatformSystem)])

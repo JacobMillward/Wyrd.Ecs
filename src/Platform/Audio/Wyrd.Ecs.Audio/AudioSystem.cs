@@ -21,7 +21,7 @@ public sealed partial class AudioSystem : EcsSystem
     /// <see cref="AudioOutput"/> (becoming <see cref="DefaultOutput"/>) bound to the OS's
     /// current default playback device. Throws <see cref="InvalidOperationException"/> if any
     /// step fails, wrapping <c>SDL_GetError()</c>.</summary>
-    public AudioSystem()
+    public AudioSystem(World world)
     {
         if (!SDL.Init(SDL.InitFlags.Audio))
             throw new InvalidOperationException($"SDL_Init(Audio) failed: {SDL.GetError()}");
@@ -29,6 +29,7 @@ public sealed partial class AudioSystem : EcsSystem
             throw new InvalidOperationException($"MIX_Init failed: {SDL.GetError()}");
 
         DefaultOutput = AddOutput(SDL.AudioDeviceDefaultPlayback);
+        world.AddResource(new AudioPlayer(this));
     }
 
     /// <inheritdoc/>
