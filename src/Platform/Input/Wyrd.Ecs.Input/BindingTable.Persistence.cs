@@ -27,23 +27,24 @@ public sealed partial class BindingTable<TAction>
                 ?? throw new InvalidOperationException("Remap file deserialized to null.");
             foreach (var profileDto in dto.Profiles)
             {
+                var profile = new ProfileId(profileDto.Profile);
                 foreach (var (actionName, keyNames) in profileDto.Keys)
                 {
                     var action = Enum.Parse<TAction>(actionName);
-                    Unbind(profileDto.Profile, action);
-                    Bind(profileDto.Profile, action, [.. keyNames.Select(Enum.Parse<SDL.Scancode>)]);
+                    Unbind(profile, action);
+                    Bind(profile, action, [.. keyNames.Select(Enum.Parse<SDL.Scancode>)]);
                 }
                 foreach (var (actionName, buttonNames) in profileDto.MouseButtons)
                 {
                     var action = Enum.Parse<TAction>(actionName);
-                    Unbind(profileDto.Profile, action);
-                    Bind(profileDto.Profile, action, [.. buttonNames.Select(Enum.Parse<MouseButton>)]);
+                    Unbind(profile, action);
+                    Bind(profile, action, [.. buttonNames.Select(Enum.Parse<MouseButton>)]);
                 }
                 foreach (var (actionName, axisNames) in profileDto.Axes)
                 {
                     var action = Enum.Parse<TAction>(actionName);
-                    Unbind(profileDto.Profile, action);
-                    BindAxis2D(profileDto.Profile, action,
+                    Unbind(profile, action);
+                    BindAxis2D(profile, action,
                         Enum.Parse<SDL.Scancode>(axisNames[0]), Enum.Parse<SDL.Scancode>(axisNames[1]),
                         Enum.Parse<SDL.Scancode>(axisNames[2]), Enum.Parse<SDL.Scancode>(axisNames[3]));
                 }
@@ -54,14 +55,14 @@ public sealed partial class BindingTable<TAction>
     /// <summary>Same as <see cref="SaveOverrides(IPersistenceStore)"/>, wrapping <paramref name="path"/> in a <c>new FileStore(path)</c>.</summary>
     public void SaveOverrides(string path) => SaveOverrides(new FileStore(path));
 
-    /// <summary>Saves every current binding to <paramref name="store"/> as human-editable JSON, keyed by profile and action name. Device assignments (<see cref="AssignDevice"/>) are deliberately not saved - SDL device ids aren't stable across a relaunch.</summary>
+    /// <summary>Saves every current binding to <paramref name="store"/> as human-editable JSON, keyed by profile and action name. Device assignments (<see cref="AssignDevice"/>) are deliberately not saved: SDL device ids aren't stable across a relaunch.</summary>
     public void SaveOverrides(IPersistenceStore store)
     {
         var byProfile = BoundActions().Select(b => b.Profile).Distinct();
         var dto = new BindingFileDto();
         foreach (var profile in byProfile)
         {
-            var profileDto = new ProfileBindingsDto { Profile = profile };
+            var profileDto = new ProfileBindingsDto { Profile = profile.Value };
             foreach (var (p, action, kind) in BoundActions().Where(b => b.Profile == profile))
             {
                 var name = action.ToString();

@@ -98,7 +98,7 @@ public class PlatformSystemTests
 
         world.Update(TimeSpan.Zero);
 
-        reader.Read().Should().ContainSingle(c => c.DeviceId == 77 && c.DeviceKind == expectedKind && c.Change == expectedChange);
+        reader.Read().Should().ContainSingle(c => c.DeviceId == new DeviceId(77) && c.DeviceKind == expectedKind && c.Change == expectedChange);
     }
 
     [Fact]
@@ -112,6 +112,60 @@ public class PlatformSystemTests
         world.Update(TimeSpan.Zero);
 
         reader.Read().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Constructor_SeedsConnectedDevicesFromTheLiveSdlSnapshot()
+    {
+        var expected = (SDL.GetKeyboards(out _) ?? []).Select(id => new DeviceId(id))
+            .Concat((SDL.GetMice(out _) ?? []).Select(id => new DeviceId(id)));
+
+        var world = new WorldBuilder()
+            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+
+        world.GetResource<ConnectedDevices>().DevicesById.Keys.Should().BeEquivalentTo(expected);
+    }
+
+    [Theory]
+    [InlineData(SDL.EventType.KeyboardAdded, DeviceKind.Keyboard)]
+    [InlineData(SDL.EventType.MouseAdded, DeviceKind.Mouse)]
+    public void Update_OnDeviceAdded_AddsItToConnectedDevices(SDL.EventType sdlEventType, DeviceKind expectedKind)
+    {
+        var world = new WorldBuilder()
+            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var pushed = expectedKind == DeviceKind.Keyboard
+            ? new SDL.Event { Type = (uint)sdlEventType, KDevice = new SDL.KeyboardDeviceEvent { Type = sdlEventType, Which = 77 } }
+            : new SDL.Event { Type = (uint)sdlEventType, MDevice = new SDL.MouseDeviceEvent { Type = sdlEventType, Which = 77 } };
+        SDL.PushEvent(ref pushed);
+
+        world.Update(TimeSpan.Zero);
+
+        world.GetResource<ConnectedDevices>().DevicesById.Should().Contain(new DeviceId(77), expectedKind);
+    }
+
+    [Theory]
+    [InlineData(SDL.EventType.KeyboardRemoved, DeviceKind.Keyboard)]
+    [InlineData(SDL.EventType.MouseRemoved, DeviceKind.Mouse)]
+    public void Update_OnDeviceRemoved_RemovesItFromConnectedDevices(SDL.EventType sdlEventType, DeviceKind expectedKind)
+    {
+        var world = new WorldBuilder()
+            .AddPlatform("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var added = expectedKind == DeviceKind.Keyboard
+            ? new SDL.Event { Type = (uint)SDL.EventType.KeyboardAdded, KDevice = new SDL.KeyboardDeviceEvent { Type = SDL.EventType.KeyboardAdded, Which = 77 } }
+            : new SDL.Event { Type = (uint)SDL.EventType.MouseAdded, MDevice = new SDL.MouseDeviceEvent { Type = SDL.EventType.MouseAdded, Which = 77 } };
+        SDL.PushEvent(ref added);
+        world.Update(TimeSpan.Zero);
+        var removed = expectedKind == DeviceKind.Keyboard
+            ? new SDL.Event { Type = (uint)sdlEventType, KDevice = new SDL.KeyboardDeviceEvent { Type = sdlEventType, Which = 77 } }
+            : new SDL.Event { Type = (uint)sdlEventType, MDevice = new SDL.MouseDeviceEvent { Type = sdlEventType, Which = 77 } };
+        SDL.PushEvent(ref removed);
+
+        world.Update(TimeSpan.Zero);
+
+        world.GetResource<ConnectedDevices>().DevicesById.Should().NotContainKey(new DeviceId(77));
     }
 }
 

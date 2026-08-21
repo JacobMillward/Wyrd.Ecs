@@ -34,7 +34,7 @@ public class IntentSystemMultiDeviceTests
     public void KeyboardAddedEvent_IsObservableViaTheSharedDeviceChangeEventChannel()
     {
         // DeviceChange is emitted by PlatformSystem (the single canonical source, see its
-        // own doc comment) - IntentSystem only consumes it for its own down-state
+        // own doc comment). IntentSystem only consumes it for its own down-state
         // bookkeeping. This confirms that consumption doesn't somehow swallow the event
         // for anyone else subscribed to the same channel.
         var (world, _) = BuildWorld();
@@ -44,25 +44,25 @@ public class IntentSystemMultiDeviceTests
 
         world.Update(TimeSpan.Zero);
 
-        reader.Read().Should().ContainSingle(c => c.DeviceId == 42 && c.DeviceKind == DeviceKind.Keyboard && c.Change == DeviceChangeKind.Connected);
+        reader.Read().Should().ContainSingle(c => c.DeviceId == new DeviceId(42) && c.DeviceKind == DeviceKind.Keyboard && c.Change == DeviceChangeKind.Connected);
     }
 
     [Fact]
     public void AssignedProfile_OnlyRespondsToItsOwnDevicesKeyPresses()
     {
         var (world, bindings) = BuildWorld();
-        bindings.Bind(profile: 0, TestAction.Jump, SDL.Scancode.Space);
-        bindings.Bind(profile: 1, TestAction.Jump, SDL.Scancode.Space);
-        bindings.AssignDevice(0, 111u);
-        bindings.AssignDevice(1, 222u);
+        bindings.Bind(profile: default, TestAction.Jump, SDL.Scancode.Space);
+        bindings.Bind(profile: new ProfileId(1), TestAction.Jump, SDL.Scancode.Space);
+        bindings.AssignDevice(default, new DeviceId(111));
+        bindings.AssignDevice(new ProfileId(1), new DeviceId(222));
         var press = KeyDown(SDL.Scancode.Space, deviceId: 111u);
         SDL.PushEvent(ref press);
 
         world.Update(TimeSpan.Zero);
 
         var state = world.GetResource<IntentState<TestAction>>();
-        state[TestAction.Jump, profile: 0].IsHeld.Should().BeTrue();
-        state[TestAction.Jump, profile: 1].IsHeld.Should().BeFalse();
+        state[TestAction.Jump, profile: default].IsHeld.Should().BeTrue();
+        state[TestAction.Jump, profile: new ProfileId(1)].IsHeld.Should().BeFalse();
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class IntentSystemMultiDeviceTests
         var (world, bindings) = BuildWorld();
         var deviceChanges = world.CreateEventReader<DeviceChange>();
         bindings.Bind(TestAction.Jump, SDL.Scancode.Space);
-        bindings.AssignDevice(0, 111u);
+        bindings.AssignDevice(default, new DeviceId(111));
         var press = KeyDown(SDL.Scancode.Space, deviceId: 111u);
         SDL.PushEvent(ref press);
         world.Update(TimeSpan.Zero);
@@ -97,19 +97,19 @@ public class IntentSystemMultiDeviceTests
         var state = world.GetResource<IntentState<TestAction>>();
         state[TestAction.Jump].IsHeld.Should().BeFalse("a disconnect must never leave an action stuck held");
         state[TestAction.Jump].JustReleased.Should().BeTrue();
-        deviceChanges.Read().Should().Contain(c => c.DeviceId == 111u && c.DeviceKind == DeviceKind.Keyboard && c.Change == DeviceChangeKind.Disconnected);
+        deviceChanges.Read().Should().Contain(c => c.DeviceId == new DeviceId(111) && c.DeviceKind == DeviceKind.Keyboard && c.Change == DeviceChangeKind.Disconnected);
     }
 
     [Fact]
     public void DeviceRemoved_AlsoClearsItsProfileAssignment()
     {
         var (world, bindings) = BuildWorld();
-        bindings.AssignDevice(0, 111u);
+        bindings.AssignDevice(default, new DeviceId(111));
         var removed = KeyboardRemoved(111u);
         SDL.PushEvent(ref removed);
 
         world.Update(TimeSpan.Zero);
 
-        bindings.AssignedDevicesFor(0).Should().BeNull();
+        bindings.AssignedDevicesFor(default).Should().BeNull();
     }
 }

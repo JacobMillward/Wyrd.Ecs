@@ -38,9 +38,9 @@ public class IntentStateTests
     {
         var state = new IntentState<TestAction>();
         var expected = new ActionState(true, true, false, Vector2.UnitX);
-        state.States[(TestAction.Jump, 1)] = expected;
+        state.States[(TestAction.Jump, new ProfileId(1))] = expected;
 
-        state[TestAction.Jump, profile: 1].Should().Be(expected);
+        state[TestAction.Jump, profile: new ProfileId(1)].Should().Be(expected);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class IntentStateTests
     {
         var state = new IntentState<TestAction>();
         var expected = new ActionState(true, false, false, Vector2.Zero);
-        state.States[(TestAction.Jump, 0)] = expected;
+        state.States[(TestAction.Jump, default)] = expected;
 
         state[TestAction.Jump].Should().Be(expected);
     }

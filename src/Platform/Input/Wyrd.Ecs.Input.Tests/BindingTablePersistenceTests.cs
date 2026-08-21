@@ -15,7 +15,7 @@ public class BindingTablePersistenceTests
 
         table.LoadOverrides(TempPath()); // never written to - FileNotFoundException swallowed
 
-        table.KeysFor(0, TestAction.Jump).Should().BeEquivalentTo([SDL.Scancode.Space]);
+        table.KeysFor(default, TestAction.Jump).Should().BeEquivalentTo([SDL.Scancode.Space]);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public class BindingTablePersistenceTests
             loaded.Bind(TestAction.Jump, SDL.Scancode.Space); // code default, must be replaced not merged
             loaded.LoadOverrides(path);
 
-            loaded.KeysFor(0, TestAction.Jump).Should().BeEquivalentTo([SDL.Scancode.Return]);
+            loaded.KeysFor(default, TestAction.Jump).Should().BeEquivalentTo([SDL.Scancode.Return]);
         }
         finally
         {
@@ -55,7 +55,7 @@ public class BindingTablePersistenceTests
             loaded.BindAxis2D(TestAction.Move, SDL.Scancode.W, SDL.Scancode.S, SDL.Scancode.A, SDL.Scancode.D);
             loaded.LoadOverrides(path);
 
-            loaded.AxisFor(0, TestAction.Move).Should().Be((SDL.Scancode.W, SDL.Scancode.S, SDL.Scancode.A, SDL.Scancode.D));
+            loaded.AxisFor(default, TestAction.Move).Should().Be((SDL.Scancode.W, SDL.Scancode.S, SDL.Scancode.A, SDL.Scancode.D));
         }
         finally
         {

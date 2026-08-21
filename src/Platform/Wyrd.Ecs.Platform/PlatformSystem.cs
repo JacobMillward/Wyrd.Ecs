@@ -36,6 +36,13 @@ public sealed class PlatformSystem : EcsSystem
             SDL.QuitSubSystem(SDL.InitFlags.Video);
             throw new InvalidOperationException($"SDL_CreateWindow failed: {error}");
         }
+
+        world.AddResource(new ConnectedDevices());
+        ref var connected = ref world.GetResourceRef<ConnectedDevices>();
+        foreach (var id in SDL.GetKeyboards(out _) ?? [])
+            connected._devicesById[new DeviceId(id)] = DeviceKind.Keyboard;
+        foreach (var id in SDL.GetMice(out _) ?? [])
+            connected._devicesById[new DeviceId(id)] = DeviceKind.Mouse;
     }
 
     /// <inheritdoc/>
@@ -43,22 +50,27 @@ public sealed class PlatformSystem : EcsSystem
     {
         _events.Clear();
         SDL.PumpEvents();
+        ref var connected = ref world.GetResourceRef<ConnectedDevices>();
         while (SDL.PollEvent(out var ev))
         {
             _events.Add(ev);
             switch ((SDL.EventType)ev.Type)
             {
                 case SDL.EventType.KeyboardAdded:
-                    world.Emit(new DeviceChange(ev.KDevice.Which, DeviceKind.Keyboard, DeviceChangeKind.Connected));
+                    world.Emit(new DeviceChange(new DeviceId(ev.KDevice.Which), DeviceKind.Keyboard, DeviceChangeKind.Connected));
+                    connected._devicesById[new DeviceId(ev.KDevice.Which)] = DeviceKind.Keyboard;
                     break;
                 case SDL.EventType.KeyboardRemoved:
-                    world.Emit(new DeviceChange(ev.KDevice.Which, DeviceKind.Keyboard, DeviceChangeKind.Disconnected));
+                    world.Emit(new DeviceChange(new DeviceId(ev.KDevice.Which), DeviceKind.Keyboard, DeviceChangeKind.Disconnected));
+                    connected._devicesById.Remove(new DeviceId(ev.KDevice.Which));
                     break;
                 case SDL.EventType.MouseAdded:
-                    world.Emit(new DeviceChange(ev.MDevice.Which, DeviceKind.Mouse, DeviceChangeKind.Connected));
+                    world.Emit(new DeviceChange(new DeviceId(ev.MDevice.Which), DeviceKind.Mouse, DeviceChangeKind.Connected));
+                    connected._devicesById[new DeviceId(ev.MDevice.Which)] = DeviceKind.Mouse;
                     break;
                 case SDL.EventType.MouseRemoved:
-                    world.Emit(new DeviceChange(ev.MDevice.Which, DeviceKind.Mouse, DeviceChangeKind.Disconnected));
+                    world.Emit(new DeviceChange(new DeviceId(ev.MDevice.Which), DeviceKind.Mouse, DeviceChangeKind.Disconnected));
+                    connected._devicesById.Remove(new DeviceId(ev.MDevice.Which));
                     break;
             }
         }

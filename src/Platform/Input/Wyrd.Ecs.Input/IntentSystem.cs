@@ -21,7 +21,7 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
 {
     private readonly PlatformSystem _platform;
     private readonly EventReader<DeviceChange> _deviceChanges;
-    private readonly Dictionary<(TAction Action, int Profile), bool> _previousHeld = [];
+    private readonly Dictionary<(TAction Action, ProfileId Profile), bool> _previousHeld = [];
 
     /// <summary>The live binding table this system resolves every tick - mutate it (or its overrides) and the change applies on the very next tick.</summary>
     public BindingTable<TAction> Bindings { get; }
@@ -60,7 +60,7 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
         }
     }
 
-    private Vector2 ResolveAxis(int profile, TAction action)
+    private Vector2 ResolveAxis(ProfileId profile, TAction action)
     {
         if (Bindings.AxisFor(profile, action) is not { } axis) return Vector2.Zero;
         var x = (KeyIsDown(profile, axis.Right) ? 1f : 0f) - (KeyIsDown(profile, axis.Left) ? 1f : 0f);
@@ -69,7 +69,7 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
         return v == Vector2.Zero ? v : Vector2.Normalize(v);
     }
 
-    private bool ResolveDigital(int profile, TAction action)
+    private bool ResolveDigital(ProfileId profile, TAction action)
     {
         foreach (var key in Bindings.KeysFor(profile, action))
             if (KeyIsDown(profile, key)) return true;

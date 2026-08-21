@@ -5,26 +5,26 @@ namespace Wyrd.Ecs.Input;
 
 public sealed partial class IntentSystem<TAction>
 {
-    private readonly Dictionary<uint, HashSet<SDL.Scancode>> _keysDownByDevice = [];
-    private readonly Dictionary<uint, HashSet<MouseButton>> _mouseButtonsDownByDevice = [];
+    private readonly Dictionary<DeviceId, HashSet<SDL.Scancode>> _keysDownByDevice = [];
+    private readonly Dictionary<DeviceId, HashSet<MouseButton>> _mouseButtonsDownByDevice = [];
 
     private void HandleEvent(SDL.Event ev, ref IntentState<TAction> state)
     {
         switch ((SDL.EventType)ev.Type)
         {
             case SDL.EventType.KeyDown:
-                DeviceSet(_keysDownByDevice, ev.Key.Which).Add(ev.Key.Scancode);
+                DeviceSet(_keysDownByDevice, new DeviceId(ev.Key.Which)).Add(ev.Key.Scancode);
                 break;
             case SDL.EventType.KeyUp:
-                DeviceSet(_keysDownByDevice, ev.Key.Which).Remove(ev.Key.Scancode);
+                DeviceSet(_keysDownByDevice, new DeviceId(ev.Key.Which)).Remove(ev.Key.Scancode);
                 break;
             case SDL.EventType.MouseButtonDown:
                 if (MouseButtonExtensions.FromSdlButton(ev.Button.Button) is { } downButton)
-                    DeviceSet(_mouseButtonsDownByDevice, ev.Button.Which).Add(downButton);
+                    DeviceSet(_mouseButtonsDownByDevice, new DeviceId(ev.Button.Which)).Add(downButton);
                 break;
             case SDL.EventType.MouseButtonUp:
                 if (MouseButtonExtensions.FromSdlButton(ev.Button.Button) is { } upButton)
-                    DeviceSet(_mouseButtonsDownByDevice, ev.Button.Which).Remove(upButton);
+                    DeviceSet(_mouseButtonsDownByDevice, new DeviceId(ev.Button.Which)).Remove(upButton);
                 break;
             case SDL.EventType.MouseMotion:
                 state.MousePosition = new System.Numerics.Vector2(ev.Motion.X, ev.Motion.Y);
@@ -36,17 +36,17 @@ public sealed partial class IntentSystem<TAction>
         }
     }
 
-    private static HashSet<T> DeviceSet<T>(Dictionary<uint, HashSet<T>> byDevice, uint deviceId) =>
+    private static HashSet<T> DeviceSet<T>(Dictionary<DeviceId, HashSet<T>> byDevice, DeviceId deviceId) =>
         byDevice.TryGetValue(deviceId, out var set) ? set : byDevice[deviceId] = [];
 
     /// <summary>
     /// Reacts to <see cref="DeviceChange"/> (sourced from <see cref="PlatformSystem"/>, the
-    /// single canonical emitter - see that type's own doc comment). Only disconnects need a
+    /// single canonical emitter; see that type's own doc comment). Only disconnects need a
     /// reaction: a connect needs no seeding, since <see cref="DeviceSet{T}"/> already lazily
     /// creates a device's down-state entry on its first real key/button event. Runs after
     /// this tick's raw key/button events are already applied (in <see cref="Execute"/>), so
     /// a disconnect always wins over a same-tick key event for that device, regardless of
-    /// the order SDL happened to deliver them in - the mid-press "stuck held" safety net
+    /// the order SDL happened to deliver them in: the mid-press "stuck held" safety net
     /// this package guarantees.
     /// </summary>
     private void ApplyDeviceChanges()
@@ -68,7 +68,7 @@ public sealed partial class IntentSystem<TAction>
         }
     }
 
-    private bool KeyIsDown(int profile, SDL.Scancode key)
+    private bool KeyIsDown(ProfileId profile, SDL.Scancode key)
     {
         var assigned = Bindings.AssignedDevicesFor(profile);
         if (assigned is null)
@@ -82,7 +82,7 @@ public sealed partial class IntentSystem<TAction>
         return false;
     }
 
-    private bool MouseButtonIsDown(int profile, MouseButton button)
+    private bool MouseButtonIsDown(ProfileId profile, MouseButton button)
     {
         var assigned = Bindings.AssignedDevicesFor(profile);
         if (assigned is null)
