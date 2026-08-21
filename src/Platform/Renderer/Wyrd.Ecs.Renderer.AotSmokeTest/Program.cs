@@ -21,7 +21,7 @@ var handle = renderer.LoadTexture(pngPath);
 
 var cameraEntity = world.Commands.CreateEntity();
 world.Commands.AddComponent(cameraEntity, Transform.Identity);
-world.Commands.AddComponent(cameraEntity, new Camera(0, ProjectionMode.Orthographic, true, 10f, 0.1f, 100f));
+world.Commands.AddComponent(cameraEntity, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
 
 var spriteEntity = world.Commands.CreateEntity();
 world.Commands.AddComponent(spriteEntity, Transform.Identity);
@@ -65,7 +65,7 @@ if (parts.Count != 2)
 
 var perspectiveCameraEntity = world.Commands.CreateEntity();
 world.Commands.AddComponent(perspectiveCameraEntity, new Transform { Position = new Vector3(0, 0, -5), Rotation = Quaternion.Identity, Scale = Vector3.One });
-world.Commands.AddComponent(perspectiveCameraEntity, new Camera(Order: 1, ProjectionMode.Perspective, ClearOnBegin: false, MathF.PI / 4f, 0.1f, 100f));
+world.Commands.AddComponent(perspectiveCameraEntity, new PerspectiveCamera(Order: 1, ClearOnBegin: false, FieldOfView: Angle.Rad(MathF.PI / 4f), Near: 0.1f, Far: 100f));
 world.ApplyCommands();
 
 world.Commands.CreateEntity(parts.ToEntityTemplate()).AddTransform(Transform.Identity);

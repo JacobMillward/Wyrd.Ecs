@@ -19,7 +19,7 @@ public class SpriteBoundsTests
     [Fact]
     public void IsInsideFrustum_SphereAtOrigin_OrthographicCameraLookingAtIt_ReturnsTrue()
     {
-        var camera = new Camera(0, ProjectionMode.Orthographic, true, FieldOfViewOrOrthographicSize: 10f, Near: 0.1f, Far: 100f);
+        var camera = new OrthographicCamera(0, true, Size: 10f, Near: 0.1f, Far: 100f);
         var cameraTransform = new WorldTransform(new Vector3(0, 0, -5), Quaternion.Identity, Vector3.One);
         var viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(1f);
         var bounds = new BoundingSphere(Vector3.Zero, 0.5f);
@@ -30,7 +30,7 @@ public class SpriteBoundsTests
     [Fact]
     public void IsInsideFrustum_SphereFarOutsideFrustum_ReturnsFalse()
     {
-        var camera = new Camera(0, ProjectionMode.Orthographic, true, FieldOfViewOrOrthographicSize: 10f, Near: 0.1f, Far: 100f);
+        var camera = new OrthographicCamera(0, true, Size: 10f, Near: 0.1f, Far: 100f);
         var cameraTransform = new WorldTransform(new Vector3(0, 0, -5), Quaternion.Identity, Vector3.One);
         var viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(1f);
         var bounds = new BoundingSphere(new Vector3(10_000, 0, 0), 0.5f);

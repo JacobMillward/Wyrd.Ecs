@@ -24,7 +24,7 @@ public class MeshBoundsBenchmarks
 
         _localBounds = new BoundingSphere(Vector3.Zero, 1f);
 
-        var camera = new Camera(0, ProjectionMode.Perspective, true, FieldOfViewOrOrthographicSize: MathF.PI / 4f, Near: 0.1f, Far: 100f);
+        var camera = new PerspectiveCamera(0, true, FieldOfView: Angle.Rad(MathF.PI / 4f), Near: 0.1f, Far: 100f);
         var cameraTransform = new WorldTransform(new Vector3(0, 0, -5), Quaternion.Identity, Vector3.One);
         _viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(aspectRatio: 16f / 9f);
     }

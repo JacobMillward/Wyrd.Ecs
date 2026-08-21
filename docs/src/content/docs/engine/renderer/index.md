@@ -21,23 +21,23 @@ var world = new WorldBuilder()
 ```csharp
 var camera = world.Commands.CreateEntity();
 world.Commands.AddComponent(camera, Transform.Identity);
-world.Commands.AddComponent(camera, new Camera(0, ProjectionMode.Orthographic, true, 10f, 0.1f, 100f));
+world.Commands.AddComponent(camera, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
 world.ApplyCommands();
 ```
 
-A `Camera` is queried as `(Transform, Camera)`, an entity with no `Transform` simply never renders. Every active camera draws in `Order` sequence into the same swapchain target, so a 3D scene plus a 2D HUD is two camera entities, not a separate compositing pass:
+A camera is queried as `(Transform, PerspectiveCamera)` or `(Transform, OrthographicCamera)`, an entity with no `Transform` simply never renders. Every active camera, of either kind, draws in `Order` sequence into the same swapchain target, so a 3D scene plus a 2D HUD is two camera entities, not a separate compositing pass:
 
 ```csharp
 var hud = world.Commands.CreateEntity();
 world.Commands.AddComponent(hud, new Transform { Position = new Vector3(0, 0, -5), Rotation = Quaternion.Identity, Scale = Vector3.One });
-world.Commands.AddComponent(hud, new Camera(Order: 1, ProjectionMode.Perspective, ClearOnBegin: false, MathF.PI / 4f, 0.1f, 100f));
+world.Commands.AddComponent(hud, new PerspectiveCamera(Order: 1, ClearOnBegin: false, Angle.Deg(45), 0.1f, 100f));
 world.ApplyCommands();
 ```
 
 `ClearOnBegin: false` draws on top of whatever the first camera already put in the swapchain, instead of erasing it first.
 
 :::note
-`FieldOfViewOrOrthographicSize` is vertical FOV in radians for `Perspective`, or half the vertical world-space extent for `Orthographic`.
+`PerspectiveCamera.FieldOfView` is a vertical `Angle`. `OrthographicCamera.Size` is half the vertical world-space extent.
 :::
 
 ## Materials

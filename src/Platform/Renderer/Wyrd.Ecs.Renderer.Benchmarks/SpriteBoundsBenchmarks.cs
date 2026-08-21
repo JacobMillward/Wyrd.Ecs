@@ -31,7 +31,7 @@ public class SpriteBoundsBenchmarks
             _sprites[i] = new Sprite(SourceRect: null, Tint: Color.White);
         }
 
-        var camera = new Camera(0, ProjectionMode.Orthographic, true, FieldOfViewOrOrthographicSize: 10f, Near: 0.1f, Far: 100f);
+        var camera = new OrthographicCamera(0, true, Size: 10f, Near: 0.1f, Far: 100f);
         var cameraTransform = new WorldTransform(Vector3.Zero, Quaternion.Identity, Vector3.One);
         _viewProjection = camera.GetViewMatrix(cameraTransform) * camera.GetProjectionMatrix(aspectRatio: 16f / 9f);
     }
