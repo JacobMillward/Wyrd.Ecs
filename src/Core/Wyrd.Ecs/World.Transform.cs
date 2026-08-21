@@ -3,7 +3,22 @@ using System.Numerics;
 namespace Wyrd.Ecs;
 
 /// <summary>A composed, world-space position/rotation/scale: the result of walking an entity's <see cref="Parent"/> chain, not itself a component.</summary>
-public readonly record struct WorldTransform(Vector3 Position, Quaternion Rotation, Vector3 Scale);
+public readonly record struct WorldTransform(Vector3 Position, Quaternion Rotation, Vector3 Scale)
+{
+    /// <summary>Converts <paramref name="localPoint"/> (a location relative to this world transform) into world space.</summary>
+    public Vector3 ToWorldPoint(Vector3 localPoint) =>
+        Position + Vector3.Transform(localPoint * Scale, Rotation);
+
+    /// <summary>Converts <paramref name="worldPoint"/> into a location relative to this world transform. Inverse of <see cref="ToWorldPoint"/>. Degenerate (produces infinity or NaN) if any axis of <see cref="Scale"/> is zero.</summary>
+    public Vector3 ToLocalPoint(Vector3 worldPoint) =>
+        Vector3.Transform(worldPoint - Position, Quaternion.Conjugate(Rotation)) / Scale;
+
+    /// <summary>Converts <paramref name="localOffset"/> (a displacement, not a location, so <see cref="Position"/> plays no part) into world space.</summary>
+    public Vector3 ToWorldOffset(Vector3 localOffset) => Vector3.Transform(localOffset * Scale, Rotation);
+
+    /// <summary>Converts <paramref name="worldOffset"/> into a displacement relative to this world transform. Inverse of <see cref="ToWorldOffset"/>. Degenerate (produces infinity or NaN) if any axis of <see cref="Scale"/> is zero.</summary>
+    public Vector3 ToLocalOffset(Vector3 worldOffset) => Vector3.Transform(worldOffset, Quaternion.Conjugate(Rotation)) / Scale;
+}
 
 public sealed partial class World
 {

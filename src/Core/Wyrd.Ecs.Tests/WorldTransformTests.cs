@@ -135,6 +135,87 @@ public class WorldTransformTests
         // Parent's static (10,0,0) is exact; child's own interpolated local is (1.5,0,0).
         interpolated.Position.Should().Be(new Vector3(11.5f, 0, 0));
     }
+
+    [Fact]
+    public void ToWorldPoint_WithIdentityTransform_ReturnsTheSamePoint()
+    {
+        var worldTransform = new WorldTransform(Vector3.Zero, Quaternion.Identity, Vector3.One);
+
+        worldTransform.ToWorldPoint(new Vector3(1, 2, 3)).Should().Be(new Vector3(1, 2, 3));
+    }
+
+    [Fact]
+    public void ToWorldPoint_AtLocalOrigin_ReturnsThisWorldTransformsOwnPosition()
+    {
+        var worldTransform = new WorldTransform(new Vector3(4, 5, 6), Quaternion.Identity, Vector3.One);
+
+        worldTransform.ToWorldPoint(Vector3.Zero).Should().Be(new Vector3(4, 5, 6));
+    }
+
+    [Fact]
+    public void ToWorldPoint_AppliesScaleBeforeAddingPosition()
+    {
+        var worldTransform = new WorldTransform(new Vector3(10, 0, 0), Quaternion.Identity, new Vector3(2, 2, 2));
+
+        worldTransform.ToWorldPoint(new Vector3(1, 0, 0)).Should().Be(new Vector3(12, 0, 0));
+    }
+
+    [Fact]
+    public void ToWorldPoint_ThenToLocalPoint_RoundTripsForAnArbitraryTransform()
+    {
+        var worldTransform = new WorldTransform(
+            new Vector3(3, -2, 7),
+            Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 3f),
+            new Vector3(2, 0.5f, 3));
+        var localPoint = new Vector3(1, 2, 3);
+
+        var roundTripped = worldTransform.ToLocalPoint(worldTransform.ToWorldPoint(localPoint));
+
+        roundTripped.X.Should().BeApproximately(localPoint.X, 0.0001f);
+        roundTripped.Y.Should().BeApproximately(localPoint.Y, 0.0001f);
+        roundTripped.Z.Should().BeApproximately(localPoint.Z, 0.0001f);
+    }
+
+    [Fact]
+    public void ToWorldOffset_OfZero_IsAlwaysZero()
+    {
+        var worldTransform = new WorldTransform(new Vector3(4, 5, 6), Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 4f), new Vector3(2, 2, 2));
+
+        worldTransform.ToWorldOffset(Vector3.Zero).Should().Be(Vector3.Zero);
+    }
+
+    [Fact]
+    public void ToWorldOffset_IgnoresPosition()
+    {
+        var atOrigin = new WorldTransform(Vector3.Zero, Quaternion.Identity, Vector3.One);
+        var farFromOrigin = new WorldTransform(new Vector3(100, -50, 25), Quaternion.Identity, Vector3.One);
+
+        atOrigin.ToWorldOffset(new Vector3(1, 0, 0)).Should().Be(farFromOrigin.ToWorldOffset(new Vector3(1, 0, 0)));
+    }
+
+    [Fact]
+    public void ToWorldOffset_AppliesScale()
+    {
+        var worldTransform = new WorldTransform(new Vector3(10, 0, 0), Quaternion.Identity, new Vector3(2, 2, 2));
+
+        worldTransform.ToWorldOffset(new Vector3(1, 0, 0)).Should().Be(new Vector3(2, 0, 0));
+    }
+
+    [Fact]
+    public void ToWorldOffset_ThenToLocalOffset_RoundTripsForAnArbitraryTransform()
+    {
+        var worldTransform = new WorldTransform(
+            new Vector3(3, -2, 7),
+            Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 3f),
+            new Vector3(2, 0.5f, 3));
+        var localOffset = new Vector3(1, 2, 3);
+
+        var roundTripped = worldTransform.ToLocalOffset(worldTransform.ToWorldOffset(localOffset));
+
+        roundTripped.X.Should().BeApproximately(localOffset.X, 0.0001f);
+        roundTripped.Y.Should().BeApproximately(localOffset.Y, 0.0001f);
+        roundTripped.Z.Should().BeApproximately(localOffset.Z, 0.0001f);
+    }
 }
 
 /// <summary>
