@@ -44,4 +44,31 @@ public class TransformTests
         previous.Rotation.Should().Be(value.Rotation);
         previous.Scale.Should().Be(value.Scale);
     }
+
+    [Fact]
+    public void AddTransform_IsStaticTrue_AddsOnlyTransform()
+    {
+        var world = new World();
+        var value = new Transform { Position = new Vector3(1, 2, 3), Rotation = Quaternion.Identity, Scale = Vector3.One };
+
+        var entity = world.Commands.CreateEntity().AddTransform(value, isStatic: true);
+        world.ApplyCommands();
+
+        world.GetComponent<Transform>(entity.Entity).Position.Should().Be(value.Position);
+        world.HasComponent<PreviousTransform>(entity.Entity).Should().BeFalse();
+    }
+
+    [Fact]
+    public void EntityTemplate_AddTransform_IsStaticTrue_AddsOnlyTransform()
+    {
+        var world = new World();
+        var value = new Transform { Position = new Vector3(1, 2, 3), Rotation = Quaternion.Identity, Scale = Vector3.One };
+        var template = new EntityTemplate().AddTransform(value, isStatic: true);
+
+        var entity = world.Commands.CreateEntity(template);
+        world.ApplyCommands();
+
+        world.GetComponent<Transform>(entity.Entity).Position.Should().Be(value.Position);
+        world.HasComponent<PreviousTransform>(entity.Entity).Should().BeFalse();
+    }
 }

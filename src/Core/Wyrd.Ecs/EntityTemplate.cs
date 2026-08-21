@@ -73,16 +73,18 @@ public class EntityTemplate : IComponentSink
     }
 
     /// <summary>
-    /// Adds both <see cref="Transform"/> and a matching <see cref="PreviousTransform"/>
-    /// (equal to <paramref name="value"/>) in one call, mirroring
-    /// <see cref="EntityView.AddTransform"/>. A template built with bare
-    /// <c>AddComponent(Transform.Identity)</c> instead would produce entities
-    /// <see cref="TransformSnapshotSystem"/>'s query never matches, since it requires both.
+    /// Adds <see cref="Transform"/>, and, unless <paramref name="isStatic"/>, a matching
+    /// <see cref="PreviousTransform"/> (equal to <paramref name="value"/>) too, mirroring
+    /// <see cref="EntityView.AddTransform(Transform, bool)"/>. <paramref name="isStatic"/>
+    /// entities never match <see cref="TransformSnapshotSystem"/>'s query (it requires both
+    /// components), so they skip the per-tick snapshot copy entirely, the right choice for
+    /// anything placed once and never moved again (level geometry, background art).
     /// </summary>
-    public EntityTemplate AddTransform(Transform value)
+    public EntityTemplate AddTransform(Transform value, bool isStatic = false)
     {
         AddComponent(value);
-        AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
+        if (!isStatic)
+            AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
         return this;
     }
 

@@ -50,16 +50,18 @@ public readonly ref struct EntityView : IComponentSink
     }
 
     /// <summary>
-    /// Queues both <see cref="Transform"/> and a matching <see cref="PreviousTransform"/>
-    /// (equal to <paramref name="value"/>) in one call. Adding only <see cref="Transform"/>
-    /// by itself would leave this entity unmatched by <see cref="TransformSnapshotSystem"/>'s
-    /// query (it requires both) and would make the first interpolated read snap from a
-    /// stale/default <see cref="PreviousTransform"/> instead of holding steady.
+    /// Queues <see cref="Transform"/>, and, unless <paramref name="isStatic"/>, a matching
+    /// <see cref="PreviousTransform"/> (equal to <paramref name="value"/>) too. Adding only
+    /// <see cref="Transform"/> for an entity meant to move would leave it unmatched by
+    /// <see cref="TransformSnapshotSystem"/>'s query (it requires both) and would make the
+    /// first interpolated read snap from a stale/default <see cref="PreviousTransform"/>
+    /// instead of holding steady, so <paramref name="isStatic"/> defaults to <c>false</c>.
     /// </summary>
-    public EntityView AddTransform(Transform value)
+    public EntityView AddTransform(Transform value, bool isStatic = false)
     {
         AddComponent(value);
-        AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
+        if (!isStatic)
+            AddComponent(new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale });
         return this;
     }
 
