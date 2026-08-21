@@ -71,6 +71,20 @@ public sealed class PlatformSystem : EcsSystem
                     world.Emit(new DeviceChange(new DeviceId(ev.MDevice.Which), DeviceKind.Mouse, DeviceChangeKind.Disconnected));
                     connected._devicesById.Remove(new DeviceId(ev.MDevice.Which));
                     break;
+                case SDL.EventType.AudioDeviceAdded:
+                    if (!ev.ADevice.Recording)
+                    {
+                        world.Emit(new DeviceChange(new DeviceId(ev.ADevice.Which), DeviceKind.AudioOutput, DeviceChangeKind.Connected));
+                        connected._devicesById[new DeviceId(ev.ADevice.Which)] = DeviceKind.AudioOutput;
+                    }
+                    break;
+                case SDL.EventType.AudioDeviceRemoved:
+                    if (!ev.ADevice.Recording)
+                    {
+                        world.Emit(new DeviceChange(new DeviceId(ev.ADevice.Which), DeviceKind.AudioOutput, DeviceChangeKind.Disconnected));
+                        connected._devicesById.Remove(new DeviceId(ev.ADevice.Which));
+                    }
+                    break;
             }
         }
     }

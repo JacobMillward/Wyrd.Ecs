@@ -24,6 +24,9 @@ public enum DeviceKind
 
     /// <summary>A mouse.</summary>
     Mouse,
+
+    /// <summary>An audio playback (output) device. Recording/input devices are never reported.</summary>
+    AudioOutput,
 }
 
 /// <summary>Whether a <see cref="DeviceChange"/> is a connection or a disconnection.</summary>

@@ -102,6 +102,38 @@ public class PlatformSystemTests
         reader.Read().Should().ContainSingle(c => c.DeviceId == new DeviceId(77) && c.DeviceKind == expectedKind && c.Change == expectedChange);
     }
 
+    [Theory]
+    [InlineData(SDL.EventType.AudioDeviceAdded, DeviceChangeKind.Connected)]
+    [InlineData(SDL.EventType.AudioDeviceRemoved, DeviceChangeKind.Disconnected)]
+    public void Update_EmitsADeviceChangeEventForAudioOutputHotPlugSdlEvents(SDL.EventType sdlEventType, DeviceChangeKind expectedChange)
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var reader = world.CreateEventReader<DeviceChange>();
+        var pushed = new SDL.Event { Type = (uint)sdlEventType, ADevice = new SDL.AudioDeviceEvent { Type = sdlEventType, Which = 77, Recording = false } };
+        SDL.PushEvent(ref pushed);
+
+        world.Update(TimeSpan.Zero);
+
+        reader.Read().Should().ContainSingle(c => c.DeviceId == new DeviceId(77) && c.DeviceKind == DeviceKind.AudioOutput && c.Change == expectedChange);
+    }
+
+    [Fact]
+    public void Update_IgnoresRecordingDeviceHotPlugEvents()
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var reader = world.CreateEventReader<DeviceChange>();
+        var pushed = new SDL.Event { Type = (uint)SDL.EventType.AudioDeviceAdded, ADevice = new SDL.AudioDeviceEvent { Type = SDL.EventType.AudioDeviceAdded, Which = 77, Recording = true } };
+        SDL.PushEvent(ref pushed);
+
+        world.Update(TimeSpan.Zero);
+
+        reader.Read().Should().BeEmpty();
+    }
+
     [Fact]
     public void Update_WithNoHotPlugEvent_EmitsNoDeviceChange()
     {
