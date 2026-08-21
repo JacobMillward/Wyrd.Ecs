@@ -82,7 +82,7 @@ public sealed partial class World
 
         var (parentCurrent, parentPrevious) = ComposeInterpolated(parent);
         return (
-            Compose(parentCurrent, current.Position, current.Rotation, current.Scale),
+            Compose(parentCurrent, currentWorld.Position, currentWorld.Rotation, currentWorld.Scale),
             Compose(parentPrevious, previousLocal.Position, previousLocal.Rotation, previousLocal.Scale));
     }
 }

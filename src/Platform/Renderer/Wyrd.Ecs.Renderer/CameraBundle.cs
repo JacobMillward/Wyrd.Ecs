@@ -11,7 +11,15 @@ public readonly record struct CameraBundle(ProjectionMode ProjectionMode, float 
     public void ApplyTo<TSink>(TSink sink) where TSink : IComponentSink, allows ref struct =>
         new BundleBuilder<TSink>(sink).Add(new Camera(Order, ProjectionMode, ClearOnBegin, FieldOfViewOrOrthographicSize, Near, Far));
 
-    /// <summary>A <see cref="ProjectionMode.Perspective"/> camera. <paramref name="fieldOfView"/> is typed so a caller can't accidentally pass a world-space size where an angle is meant, unlike this record's own constructor.</summary>
+    /// <summary>
+    /// A <see cref="ProjectionMode.Perspective"/> camera. <paramref name="fieldOfView"/> is
+    /// typed so a caller can't accidentally pass a world-space size where an angle is
+    /// meant, unlike this record's own constructor. <see cref="Angle"/>'s wraparound is
+    /// correct for a rotation but not for a FOV, which has no wrap-around meaning of its
+    /// own: <paramref name="fieldOfView"/> outside (0, 180) degrees produces a degenerate
+    /// projection matrix, same as it always could through the bare constructor, not
+    /// validated here.
+    /// </summary>
     public static CameraBundle Perspective(Angle fieldOfView, float near, float far, int order = 0, bool clearOnBegin = true) =>
         new(ProjectionMode.Perspective, fieldOfView.Radians, near, far, order, clearOnBegin);
 

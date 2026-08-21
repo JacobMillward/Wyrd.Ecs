@@ -374,14 +374,14 @@ export function EntityInspectorPanel() {
         await submitEdit(discriminator, () => postEdit(editUrl(selected!, discriminator), { field, value }));
     }
 
+    const systemManagedCount = entitySnapshot.components.filter((c) => c.isSystemManaged).length;
     const visibleComponents = entitySnapshot.components.filter((c) => showSystemManaged || !c.isSystemManaged);
-    const hiddenCount = entitySnapshot.components.length - visibleComponents.length;
 
     return (
         <div>
-            {hiddenCount > 0 && (
+            {systemManagedCount > 0 && (
                 <button onClick={() => setShowSystemManaged((v) => !v)}>
-                    {showSystemManaged ? `Hide ${hiddenCount} system-managed` : `Show ${hiddenCount} system-managed`}
+                    {showSystemManaged ? `Hide ${systemManagedCount} system-managed` : `Show ${systemManagedCount} system-managed`}
                 </button>
             )}
             <div class={grid}>
