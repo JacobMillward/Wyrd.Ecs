@@ -4,12 +4,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Wyrd.Ecs.Audio</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <Version>0.1.0-alpha</Version>
-    <Description>SDL3 audio for Wyrd.Ecs. Not yet implemented, package skeleton only.</Description>
+    <Description>SDL3_mixer-based audio for Wyrd.Ecs: cached and streamed playback, spatial audio, buses, multi-output devices.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,7 +18,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Wyrd.Ecs.Audio.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SDL3-CS" Version="3.4.14.1" />
+    <PackageReference Include="SDL3-CS.Windows" Version="3.4.14.1" />
+    <PackageReference Include="SDL3-CS.Linux" Version="3.4.14.1" />
+    <PackageReference Include="SDL3-CS.MacOS" Version="3.4.14.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\..\Wyrd.Ecs.Platform\Wyrd.Ecs.Platform.csproj" />
+    <ProjectReference Include="..\..\Assets\Wyrd.Ecs.Assets\Wyrd.Ecs.Assets.csproj" />
   </ItemGroup>
 
 </Project>

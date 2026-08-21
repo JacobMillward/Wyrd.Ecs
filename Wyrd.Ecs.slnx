@@ -58,6 +58,7 @@
   </Folder>
   <Folder Name="/src/Platform/Audio/">
     <Project Path="src/Platform/Audio/Wyrd.Ecs.Audio/Wyrd.Ecs.Audio.csproj" />
+    <Project Path="src/Platform/Audio/Wyrd.Ecs.Audio.Tests/Wyrd.Ecs.Audio.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Platform/Assets/">
     <Project Path="src/Platform/Assets/Wyrd.Ecs.Assets/Wyrd.Ecs.Assets.csproj" />
