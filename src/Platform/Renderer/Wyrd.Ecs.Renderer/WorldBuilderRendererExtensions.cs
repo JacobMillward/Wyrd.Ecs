@@ -4,10 +4,11 @@ namespace Wyrd.Ecs.Renderer;
 
 /// <summary>
 /// Registers a <see cref="RendererSystem"/> on a <see cref="WorldBuilder"/>, bound to the
-/// already-registered <see cref="PlatformSystem"/>. Requires <c>AddPlatform</c> to have been
-/// called earlier in the same builder chain, since <see cref="RendererSystem"/>'s constructor
-/// resolves <see cref="PlatformSystem"/> via <see cref="World.GetSystem{T}"/> at
-/// <c>Build()</c> time, which only finds systems constructed earlier in registration order.
+/// registered <see cref="PlatformSystem"/> - order-independent: <c>AddWindow</c> can be
+/// called before or after this method in the same chain, since both declare their
+/// construction relationship to <see cref="WorldBuilder.AddSystemCore"/> explicitly rather
+/// than relying on call order. <see cref="WorldBuilder.Build"/> throws if <c>AddWindow</c>
+/// was never called at all.
 /// </summary>
 public static class WorldBuilderRendererExtensions
 {
@@ -16,7 +17,14 @@ public static class WorldBuilderRendererExtensions
         /// <summary>Registers a <see cref="RendererSystem"/> claiming the platform's window.</summary>
         public WorldBuilder AddRenderer()
         {
-            builder.AddSystem<RendererSystem>(w => new RendererSystem(w, w.GetSystem<PlatformSystem>()));
+            builder.AddSystemCore(
+                typeof(RendererSystem),
+                access: null,
+                construct: w => new RendererSystem(w, w.GetSystem<PlatformSystem>()),
+                generatedBeforeTargets: [],
+                generatedAfterTargets: [],
+                constructionDependencies: [typeof(PlatformSystem)])
+                .Phase(Phase.PostUpdate);
             return builder;
         }
     }

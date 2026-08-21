@@ -18,4 +18,27 @@ public class WorldBuilderRendererExtensionsTests
 
         renderer.Device.Should().NotBe(IntPtr.Zero);
     }
+
+    [Fact]
+    public void AddRenderer_CalledBeforeAddWindow_StillResolvesTheRealPlatformSystem()
+    {
+        var world = new WorldBuilder()
+            .AddRenderer()
+            .AddWindow("Renderer Order-Independence Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .Build();
+
+        var renderer = world.GetSystem<RendererSystem>();
+
+        renderer.Device.Should().NotBe(IntPtr.Zero);
+    }
+
+    [Fact]
+    public void AddRenderer_WithNoAddWindowInTheChain_ThrowsNamingPlatformSystem()
+    {
+        var builder = new WorldBuilder().AddRenderer();
+
+        var act = () => builder.Build();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*RendererSystem*PlatformSystem*");
+    }
 }

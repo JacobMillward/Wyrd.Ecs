@@ -24,14 +24,15 @@ public class RendererSystemOrderingTests
         // AddSystemCore, not the generated AddSystem<T>() sugar: this test project
         // doesn't reference Wyrd.Ecs.Generators as an analyzer.
         //
-        // Registered deliberately AFTER AddPlatform/AddRenderer - the actual adversarial
+        // Registered deliberately AFTER AddWindow/AddRenderer - the actual adversarial
         // order for this bug. Registering a gameplay system before AddRenderer (i.e.
         // calling AddRenderer last, the "conventional" order) already works by accident of
         // registration-order tie-break even without any fix, since exclusive-stage nodes
         // open trailing stages in registration order - that's precisely the "only works
         // because .AddRenderer() is conventionally called last" bug this mechanism exists
         // to fix, so a same-order test wouldn't catch a regression back to it. This test
-        // only passes because of [Phase(Phase.PostUpdate)] on RendererSystem itself.
+        // only passes because AddRenderer() applies Phase.PostUpdate fluently (via
+        // SystemRegistration.Phase(), not a class attribute).
         var probe = new OrdinaryGameplaySystem();
         var builder = new WorldBuilder();
         builder
