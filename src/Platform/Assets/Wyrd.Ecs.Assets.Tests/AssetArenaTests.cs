@@ -235,4 +235,43 @@ public class AssetArenaTests
 
         handles.Should().AllSatisfy(h => h.Should().Be(handles[0]));
     }
+
+    [Fact]
+    public async Task WaitForLoadAsync_CalledAfterAlreadyLoaded_ReturnsCompletedTask()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handle = arena.Reserve("foo.wav", out _);
+        arena.MarkLoaded(handle, new Sound("pcm-bytes"));
+
+        var task = arena.WaitForLoadAsync(handle);
+
+        await task;
+        task.IsCompletedSuccessfully.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WaitForLoadAsync_CalledAfterAlreadyFailed_ReturnsFaultedTaskWithSameException()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handle = arena.Reserve("foo.wav", out _);
+        var exception = new InvalidOperationException("decode failed");
+        arena.MarkFailed(handle, exception);
+
+        var task = arena.WaitForLoadAsync(handle);
+
+        var act = async () => await task;
+        (await act.Should().ThrowAsync<InvalidOperationException>()).Which.Should().BeSameAs(exception);
+    }
+
+    [Fact]
+    public void WaitForLoadAsync_CalledTwiceBeforeResolution_ReturnsSameTask()
+    {
+        var arena = new AssetArena<string, Sound>();
+        var handle = arena.Reserve("foo.wav", out _);
+
+        var first = arena.WaitForLoadAsync(handle);
+        var second = arena.WaitForLoadAsync(handle);
+
+        second.Should().BeSameAs(first);
+    }
 }

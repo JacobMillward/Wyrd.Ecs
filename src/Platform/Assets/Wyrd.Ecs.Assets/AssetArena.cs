@@ -14,8 +14,9 @@ public sealed class AssetArena<TKey, TAsset>
         public TKey Key = key;
         public LoadState State = LoadState.Loading;
         public TAsset? Asset;
+        public Exception? Failure;
         public int UseCount = 1;
-        public readonly TaskCompletionSource Completion = new();
+        public TaskCompletionSource? Completion;
     }
 
     private readonly Lock _gate = new();
@@ -68,7 +69,7 @@ public sealed class AssetArena<TKey, TAsset>
             if (slot.State != LoadState.Loading) return;
             slot.Asset = asset;
             slot.State = LoadState.Loaded;
-            slot.Completion.TrySetResult();
+            slot.Completion?.TrySetResult();
         }
     }
 
@@ -80,7 +81,8 @@ public sealed class AssetArena<TKey, TAsset>
             var slot = GetSlotLocked(handle);
             if (slot.State != LoadState.Loading) return;
             slot.State = LoadState.Failed;
-            slot.Completion.TrySetException(exception);
+            slot.Failure = exception;
+            slot.Completion?.TrySetException(exception);
         }
     }
 
@@ -96,10 +98,39 @@ public sealed class AssetArena<TKey, TAsset>
         lock (_gate) { return GetSlotLocked(handle).Asset; }
     }
 
-    /// <summary>Task that completes (or faults with the exception passed to <see cref="MarkFailed"/>) once <paramref name="handle"/> resolves.</summary>
+    /// <summary>
+    /// Task that completes (or faults with the exception passed to <see cref="MarkFailed"/>) once
+    /// <paramref name="handle"/> resolves. The backing <see cref="TaskCompletionSource"/> is
+    /// created lazily, here, rather than eagerly in <see cref="Reserve"/> — most loads are never
+    /// awaited (callers poll <see cref="GetState"/>/<see cref="TryGet"/> instead), and an eager
+    /// per-slot allocation measurably bloats <see cref="Slot"/>'s footprint under the scan-heavy
+    /// access pattern a per-tick resolve call produces (many distinct slots touched every frame).
+    /// If the slot already resolved before this is called, the returned task is already
+    /// completed/faulted rather than left to hang — <see cref="Slot.Failure"/> exists precisely
+    /// so a late call still has the original exception to fault with.
+    /// </summary>
     public Task WaitForLoadAsync(Handle<TAsset> handle)
     {
-        lock (_gate) { return GetSlotLocked(handle).Completion.Task; }
+        lock (_gate)
+        {
+            var slot = GetSlotLocked(handle);
+            if (slot.Completion is { } existing) return existing.Task;
+
+            var completion = new TaskCompletionSource();
+            switch (slot.State)
+            {
+                case LoadState.Loaded:
+                    completion.SetResult();
+                    break;
+                case LoadState.Failed:
+                    completion.SetException(slot.Failure!);
+                    break;
+                default:
+                    slot.Completion = completion;
+                    break;
+            }
+            return completion.Task;
+        }
     }
 
     /// <summary>
@@ -144,7 +175,8 @@ public sealed class AssetArena<TKey, TAsset>
             {
                 if (slot is null || slot.State != LoadState.Loading) continue;
                 slot.State = LoadState.Failed;
-                slot.Completion.TrySetException(exception);
+                slot.Failure = exception;
+                slot.Completion?.TrySetException(exception);
             }
         }
     }
