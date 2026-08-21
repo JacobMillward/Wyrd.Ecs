@@ -16,7 +16,7 @@ public sealed partial class RendererSystem : EcsSystem
     private readonly PlatformSystem _platform;
     private readonly PendingUploadQueue _pendingUploads = new();
     private readonly DeferredDestroyQueue _deferredDestroy = new();
-    private bool _destroyed;
+    private volatile bool _destroyed;
 
     /// <summary>The native <c>SDL_GPUDevice*</c>, for consumers that need direct SDL3-CS access (the escape hatch).</summary>
     public IntPtr Device { get; }
