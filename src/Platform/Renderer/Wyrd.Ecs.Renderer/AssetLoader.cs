@@ -14,8 +14,8 @@ public readonly record struct AssetLoader(RendererSystem Renderer) : IResource
     /// <summary>Same as <see cref="RendererSystem.LoadTexture"/>.</summary>
     public Handle<Texture> LoadTexture(string path) => Renderer.LoadTexture(path);
 
-    /// <summary>Same as <see cref="RendererSystem.WaitForLoad"/>.</summary>
-    public Task WaitForLoad(Handle<Texture> handle) => Renderer.WaitForLoad(handle);
+    /// <summary>Same as <see cref="RendererSystem.WaitForLoadAsync(Handle{Texture})"/>.</summary>
+    public Task WaitForLoadAsync(Handle<Texture> handle) => Renderer.WaitForLoadAsync(handle);
 
     /// <summary>Same as <see cref="RendererSystem.Unload(Handle{Texture})"/>.</summary>
     public void Unload(Handle<Texture> handle) => Renderer.Unload(handle);

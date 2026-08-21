@@ -38,7 +38,7 @@ public class RendererSystemTexturesTests
         var path = WriteTinyTestPng();
 
         var handle = renderer.LoadTexture(path);
-        var loadTask = renderer.WaitForLoad(handle);
+        var loadTask = renderer.WaitForLoadAsync(handle);
 
         for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
         {
@@ -59,7 +59,7 @@ public class RendererSystemTexturesTests
         var renderer = world.GetSystem<RendererSystem>();
 
         var handle = renderer.LoadTexture("does/not/exist.png");
-        var loadTask = renderer.WaitForLoad(handle);
+        var loadTask = renderer.WaitForLoadAsync(handle);
 
         for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
         {
@@ -70,5 +70,29 @@ public class RendererSystemTexturesTests
         var act = async () => await loadTask;
         await act.Should().ThrowAsync<Exception>();
         renderer.GetTextureLoadState(handle).Should().Be(LoadState.Failed);
+    }
+
+    [Fact]
+    public async Task LoadTexture_SamePathTwice_DecodesOnlyOnce()
+    {
+        var world = BuildWorldWithPlatform();
+        var renderer = world.GetSystem<RendererSystem>();
+        var path = WriteTinyTestPng();
+
+        var first = renderer.LoadTexture(path);
+        var second = renderer.LoadTexture(path);
+
+        var loadTask = renderer.WaitForLoadAsync(first);
+        for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
+        {
+            world.Update(TimeSpan.FromMilliseconds(16));
+            await Task.Delay(10);
+        }
+        await loadTask;
+
+        second.Should().Be(first);
+        renderer.GetTextureLoadState(second).Should().Be(LoadState.Loaded);
+
+        File.Delete(path);
     }
 }

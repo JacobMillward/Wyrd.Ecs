@@ -1,26 +1,29 @@
 using System.Runtime.InteropServices;
 using SDL3;
 using StbImageSharp;
+using Wyrd.Ecs.Assets;
 
 namespace Wyrd.Ecs.Renderer;
 
 public sealed partial class RendererSystem
 {
-    private readonly TextureArena _textureArena = new();
-    private readonly Dictionary<int, TaskCompletionSource> _textureLoadCompletions = new();
+    private readonly AssetArena<string, Texture> _textureArena = new();
 
     /// <summary>
     /// Allocates a <see cref="Handle{T}"/> immediately (state <see cref="LoadState.Loading"/>)
-    /// and starts a background decode. The GPU upload itself happens later, inside this
-    /// system's existing copy pass (see <see cref="Execute"/>), since SDL_GPU device calls can
-    /// only run on the thread that owns the device, so this method never touches the device.
+    /// and starts a background decode. Calling this again with a path already reserved returns
+    /// the existing handle without re-decoding or re-uploading — <c>AssetArena.Reserve</c>'s
+    /// <c>isNew</c> out-param is what makes this safe: without checking it, every repeat call
+    /// would decode and GPU-upload the file again, leaking the previous <c>SDL_GPUTexture</c>.
+    /// The GPU upload itself happens later, inside this system's existing copy pass (see <see
+    /// cref="Execute"/>), since SDL_GPU device calls can only run on the thread that owns the
+    /// device, so this method never touches the device.
     /// </summary>
     public Handle<Texture> LoadTexture(string path)
     {
         ObjectDisposedException.ThrowIf(_destroyed, this);
-        var handle = _textureArena.Reserve(path);
-        var completion = new TaskCompletionSource();
-        _textureLoadCompletions[handle.Index] = completion;
+        var handle = _textureArena.Reserve(path, out var isNew);
+        if (!isNew) return handle;
 
         Task.Run(() =>
         {
@@ -28,15 +31,11 @@ public sealed partial class RendererSystem
             {
                 var bytes = File.ReadAllBytes(path);
                 var image = ImageResult.FromMemory(bytes, ColorComponents.RedGreenBlueAlpha);
-                PendingUploads.Enqueue(copyPass => UploadDecoded(handle, image, copyPass, completion));
+                PendingUploads.Enqueue(copyPass => UploadDecoded(handle, image, copyPass));
             }
             catch (Exception ex)
             {
-                PendingUploads.Enqueue(_ =>
-                {
-                    _textureArena.MarkFailed(handle);
-                    completion.TrySetException(ex);
-                });
+                PendingUploads.Enqueue(_ => _textureArena.MarkFailed(handle, ex));
             }
         });
 
@@ -44,7 +43,7 @@ public sealed partial class RendererSystem
     }
 
     /// <summary>Runs on the render thread, inside the copy pass. Creates the GPU texture and uploads decoded pixels via the transfer-buffer/staging pattern.</summary>
-    private void UploadDecoded(Handle<Texture> handle, ImageResult image, IntPtr copyPass, TaskCompletionSource completion)
+    private void UploadDecoded(Handle<Texture> handle, ImageResult image, IntPtr copyPass)
     {
         var textureCreateInfo = new SDL.GPUTextureCreateInfo
         {
@@ -60,8 +59,7 @@ public sealed partial class RendererSystem
         var gpuTexture = SDL.CreateGPUTexture(Device, in textureCreateInfo);
         if (gpuTexture == IntPtr.Zero)
         {
-            _textureArena.MarkFailed(handle);
-            completion.TrySetException(new InvalidOperationException($"SDL_CreateGPUTexture failed: {SDL.GetError()}"));
+            _textureArena.MarkFailed(handle, new InvalidOperationException($"SDL_CreateGPUTexture failed: {SDL.GetError()}"));
             return;
         }
 
@@ -81,19 +79,18 @@ public sealed partial class RendererSystem
         SDL.ReleaseGPUTransferBuffer(Device, transferBuffer);
 
         _textureArena.MarkLoaded(handle, new Texture(gpuTexture, image.Width, image.Height));
-        completion.TrySetResult();
     }
 
     /// <summary>Task that completes (or faults with the captured decode/IO/GPU exception) once <paramref name="handle"/> resolves. Polling <see cref="GetTextureLoadState"/> instead avoids the throw for call sites that don't want to await.</summary>
-    public Task WaitForLoad(Handle<Texture> handle)
+    public Task WaitForLoadAsync(Handle<Texture> handle)
     {
         ObjectDisposedException.ThrowIf(_destroyed, this);
-        return _textureLoadCompletions[handle.Index].Task;
+        return _textureArena.WaitForLoadAsync(handle);
     }
 
     internal LoadState GetTextureLoadState(Handle<Texture> handle) => _textureArena.GetState(handle);
 
-    /// <summary>Decrements the handle's use-count; once it reaches zero, the GPU texture is queued on <see cref="DeferredDestroy"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames, never while a command buffer that could still reference it might be in flight.</summary>
+    /// <summary>Decrements the handle's use-count; once it reaches zero, the GPU texture is queued on <see cref="DeferredDestroyQueue"/>, released only after <see cref="FrameInFlightTracker.FramesInFlight"/> further frames, never while a command buffer that could still reference it might be in flight.</summary>
     public void Unload(Handle<Texture> handle)
     {
         ObjectDisposedException.ThrowIf(_destroyed, this);
