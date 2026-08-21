@@ -47,60 +47,61 @@ public class BundleTests
     }
 
     [Fact]
-    public void CameraBundle_Defaults_ProduceOrderZeroAndClearOnBeginTrue()
+    public void OrthographicCameraBundle_Defaults_ProduceOrderZeroAndClearOnBeginTrue()
     {
         var world = new WorldBuilder().Build();
 
-        var entity = world.Commands.CreateEntity().Add(new CameraBundle(ProjectionMode.Orthographic, 10f, 0.1f, 100f));
+        var entity = world.Commands.CreateEntity().Add(new OrthographicCameraBundle(Size: 10f, Near: 0.1f, Far: 100f));
         world.ApplyCommands();
 
-        var camera = world.GetComponent<Camera>(entity);
+        var camera = world.GetComponent<OrthographicCamera>(entity);
         camera.Order.Should().Be(0);
         camera.ClearOnBegin.Should().BeTrue();
-        camera.FieldOfViewOrOrthographicSize.Should().Be(10f);
+        camera.Size.Should().Be(10f);
         camera.Near.Should().Be(0.1f);
         camera.Far.Should().Be(100f);
     }
 
     [Fact]
-    public void CameraBundle_Perspective_SetsProjectionModeAndConvertsAngleToRadians()
+    public void OrthographicCameraBundle_ExplicitOrderAndClearOnBegin_OverrideDefaults()
+    {
+        var world = new WorldBuilder().Build();
+
+        var entity = world.Commands.CreateEntity().Add(new OrthographicCameraBundle(Size: 10f, Near: 0.1f, Far: 100f, Order: 1, ClearOnBegin: false));
+        world.ApplyCommands();
+
+        var camera = world.GetComponent<OrthographicCamera>(entity);
+        camera.Order.Should().Be(1);
+        camera.ClearOnBegin.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PerspectiveCameraBundle_Defaults_ProduceOrderZeroClearOnBeginTrueAndConvertsAngleToRadians()
     {
         var world = new WorldBuilder().Build();
         var fov = Angle.Deg(60f);
 
-        var entity = world.Commands.CreateEntity().Add(CameraBundle.Perspective(fov, 0.1f, 100f));
+        var entity = world.Commands.CreateEntity().Add(new PerspectiveCameraBundle(fov, 0.1f, 100f));
         world.ApplyCommands();
 
-        var camera = world.GetComponent<Camera>(entity);
-        camera.ProjectionMode.Should().Be(ProjectionMode.Perspective);
-        camera.FieldOfViewOrOrthographicSize.Should().BeApproximately(fov.Radians, 0.0001f);
+        var camera = world.GetComponent<PerspectiveCamera>(entity);
+        camera.Order.Should().Be(0);
+        camera.ClearOnBegin.Should().BeTrue();
+        camera.FieldOfView.Radians.Should().BeApproximately(fov.Radians, 0.0001f);
         camera.Near.Should().Be(0.1f);
         camera.Far.Should().Be(100f);
     }
 
     [Fact]
-    public void CameraBundle_Orthographic_SetsProjectionModeAndPassesTheHalfHeightThrough()
+    public void PerspectiveCameraBundle_ExplicitOrderAndClearOnBegin_OverrideDefaults()
     {
         var world = new WorldBuilder().Build();
 
-        var entity = world.Commands.CreateEntity().Add(CameraBundle.Orthographic(10f, 0.1f, 100f));
+        var entity = world.Commands.CreateEntity().Add(new PerspectiveCameraBundle(Angle.Deg(60f), 0.1f, 100f, Order: 1, ClearOnBegin: false));
         world.ApplyCommands();
 
-        var camera = world.GetComponent<Camera>(entity);
-        camera.ProjectionMode.Should().Be(ProjectionMode.Orthographic);
-        camera.FieldOfViewOrOrthographicSize.Should().Be(10f);
-    }
-
-    [Fact]
-    public void CameraBundle_Perspective_Defaults_ProduceOrderZeroAndClearOnBeginTrue()
-    {
-        var world = new WorldBuilder().Build();
-
-        var entity = world.Commands.CreateEntity().Add(CameraBundle.Perspective(Angle.Deg(60f), 0.1f, 100f));
-        world.ApplyCommands();
-
-        var camera = world.GetComponent<Camera>(entity);
-        camera.Order.Should().Be(0);
-        camera.ClearOnBegin.Should().BeTrue();
+        var camera = world.GetComponent<PerspectiveCamera>(entity);
+        camera.Order.Should().Be(1);
+        camera.ClearOnBegin.Should().BeFalse();
     }
 }

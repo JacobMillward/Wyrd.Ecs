@@ -242,8 +242,8 @@ public sealed partial class RendererSystem
         }
     }
 
-    /// <summary>Culls, batches, and draws every <see cref="_meshScratch"/> entry surviving <paramref name="camera"/>'s frustum. Called once per <see cref="ProjectionMode.Perspective"/> camera.</summary>
-    private void DrawMeshes(World world, IntPtr commandBuffer, IntPtr swapchainTexture, Camera camera, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight)
+    /// <summary>Culls, batches, and draws every <see cref="_meshScratch"/> entry surviving <paramref name="viewProjection"/>'s frustum. Called once per active <see cref="PerspectiveCamera"/>.</summary>
+    private void DrawMeshes(World world, IntPtr commandBuffer, IntPtr swapchainTexture, bool clearOnBegin, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight)
     {
         _meshSurvivorScratch.Clear();
         foreach (var candidate in _meshScratch)
@@ -277,7 +277,7 @@ public sealed partial class RendererSystem
         {
             Texture = swapchainTexture,
             ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
-            LoadOp = camera.ClearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
+            LoadOp = clearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
             StoreOp = SDL.GPUStoreOp.Store,
         };
         var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
