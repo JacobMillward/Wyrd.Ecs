@@ -36,6 +36,7 @@ public sealed partial class AudioSystem : EcsSystem
     {
         while (_finishedPending.TryDequeue(out var playback))
             world.Emit(new PlaybackFinished(playback));
+        UpdateFollowedPlaybacks(world);
     }
 
     /// <inheritdoc/>
