@@ -1,16 +1,18 @@
 using BenchmarkDotNet.Attributes;
+using Wyrd.Ecs.Assets;
 
 namespace Wyrd.Ecs.Renderer.Benchmarks;
 
 /// <summary>
 /// Measures the two arena operations the Assets migration must not regress: <see
-/// cref="TextureArena.TryGetTexture"/>/<see cref="TextureArena.GetState"/> (the per-frame,
-/// per-visible-instance resolve call — see <c>RendererSystem.Sprites.cs:134</c>) and repeated <see
-/// cref="TextureArena.Reserve"/> against an already-loaded path (the per-tick dedup-load call a
-/// <c>[Resource] AssetLoader</c> consumer may make every tick). Run against this concrete,
-/// pre-migration arena first to record a baseline; after migrating to <c>AssetArena&lt;string,
-/// Texture&gt;</c>, this same benchmark (updated to the new type) must be within 5% on the first
-/// case and no worse on the second — see the plan's Task 9.
+/// cref="AssetArena{TKey,TAsset}.TryGet"/>/<see cref="AssetArena{TKey,TAsset}.GetState"/> (the
+/// per-frame, per-visible-instance resolve call — see <c>RendererSystem.Sprites.cs</c>'s
+/// <c>ResolveTexture</c>) and repeated <see cref="AssetArena{TKey,TAsset}.Reserve"/> against an
+/// already-loaded path (the per-tick dedup-load call a <c>[Resource] AssetLoader</c> consumer may
+/// make every tick). Baseline recorded against the pre-migration concrete <c>TextureArena</c>
+/// (mean ~13.7-14.8us / ~271-274us for ResolveVisibleInstances at 1,000/20,000 instances,
+/// ~35.1-35.6us / ~827-839us for ReserveAlreadyLoadedPath) — see the Task 5 commit. This version
+/// targets the post-migration generic arena directly; compared against that baseline in Task 9.
 /// </summary>
 [MemoryDiagnoser]
 public class AssetArenaBenchmarks
@@ -18,17 +20,17 @@ public class AssetArenaBenchmarks
     [Params(1_000, 20_000)]
     public int InstanceCount { get; set; }
 
-    private TextureArena _arena = null!;
+    private AssetArena<string, Texture> _arena = null!;
     private Handle<Texture>[] _handles = null!;
 
     [GlobalSetup]
     public void Setup()
     {
-        _arena = new TextureArena();
+        _arena = new AssetArena<string, Texture>();
         _handles = new Handle<Texture>[InstanceCount];
         for (var i = 0; i < InstanceCount; i++)
         {
-            var handle = _arena.Reserve($"texture-{i}.png");
+            var handle = _arena.Reserve($"texture-{i}.png", out _);
             _arena.MarkLoaded(handle, new Texture(IntPtr.Zero, 1, 1));
             _handles[i] = handle;
         }
@@ -39,7 +41,7 @@ public class AssetArenaBenchmarks
     {
         for (var i = 0; i < _handles.Length; i++)
         {
-            _ = _arena.GetState(_handles[i]) == LoadState.Loaded ? _arena.TryGetTexture(_handles[i]) : null;
+            _ = _arena.GetState(_handles[i]) == LoadState.Loaded ? _arena.TryGet(_handles[i]) : null;
         }
     }
 
@@ -48,7 +50,7 @@ public class AssetArenaBenchmarks
     {
         for (var i = 0; i < _handles.Length; i++)
         {
-            _arena.Reserve($"texture-{i}.png");
+            _arena.Reserve($"texture-{i}.png", out _);
         }
     }
 }

@@ -20,10 +20,10 @@ internal static class MeshLoader
 
     /// <summary>
     /// Parses <paramref name="path"/> synchronously; callers wanting this off the calling
-    /// thread wrap it in their own <c>Task.Run</c> (see <see cref="RendererSystem.LoadModel"/>).
+    /// thread wrap it in their own <c>Task.Run</c> (see <see cref="RendererSystem.LoadModelAsync"/>).
     /// One <see cref="ParsedSubMesh"/> per Assimp <c>aiMesh</c>: Assimp itself splits a
     /// multi-material source file into one sub-mesh per <c>usemtl</c>/material group. That's the
-    /// exact per-part unit <see cref="RendererSystem.LoadModel"/> spawns one child entity for.
+    /// exact per-part unit <see cref="RendererSystem.LoadModelAsync"/> spawns one child entity for.
     /// </summary>
     public static unsafe IReadOnlyList<ParsedSubMesh> Load(string path)
     {
@@ -83,7 +83,7 @@ internal static class MeshLoader
         }
     }
 
-    /// <summary>Backs <see cref="RendererSystem.LoadModel"/>'s "any format Assimp itself supports" contract.</summary>
+    /// <summary>Backs <see cref="RendererSystem.LoadModelAsync"/>'s "any format Assimp itself supports" contract.</summary>
     public static unsafe bool IsExtensionSupported(string path)
     {
         AssimpString extensionList = default;

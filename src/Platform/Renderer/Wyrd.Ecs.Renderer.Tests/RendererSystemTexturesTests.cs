@@ -1,5 +1,6 @@
 using SDL3;
 using StbImageWriteSharp;
+using Wyrd.Ecs.Assets;
 using Wyrd.Ecs.Platform;
 
 namespace Wyrd.Ecs.Renderer.Tests;

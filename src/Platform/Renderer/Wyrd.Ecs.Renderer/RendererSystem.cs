@@ -103,8 +103,8 @@ public sealed partial class RendererSystem : EcsSystem
         // from Execute, which never runs again once this system is removed. Without this, an
         // awaiting caller hangs forever instead of seeing the teardown.
         var teardownException = new ObjectDisposedException(nameof(RendererSystem), "The renderer was destroyed before this asset finished loading.");
-        foreach (var completion in new List<TaskCompletionSource>(_textureLoadCompletions.Values))
-            completion.TrySetException(teardownException);
+        _textureArena.FaultAllPending(teardownException);
+        _meshArena.FaultAllPending(teardownException);
         foreach (var completion in _modelLoadCompletions)
             completion.TrySetException(teardownException);
 

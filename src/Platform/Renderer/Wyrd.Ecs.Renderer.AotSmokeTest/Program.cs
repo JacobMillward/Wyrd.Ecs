@@ -29,7 +29,7 @@ world.Commands.AddComponent(spriteEntity, new Sprite(SourceRect: null, Tint: Col
 world.Commands.AddComponent(spriteEntity, new Material(ShaderKind.UnlitSprite, handle));
 world.ApplyCommands();
 
-var loadTask = renderer.WaitForLoad(handle);
+var loadTask = renderer.WaitForLoadAsync(handle);
 for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
 {
     world.Update(TimeSpan.FromMilliseconds(16));
@@ -43,7 +43,7 @@ if (!loadTask.IsCompletedSuccessfully)
 }
 
 var objPath = Path.Combine(AppContext.BaseDirectory, "smoke-test-cube.obj");
-var modelTask = renderer.LoadModel(objPath);
+var modelTask = renderer.LoadModelAsync(objPath);
 for (var i = 0; i < 50 && !modelTask.IsCompleted; i++)
 {
     world.Update(TimeSpan.FromMilliseconds(16));

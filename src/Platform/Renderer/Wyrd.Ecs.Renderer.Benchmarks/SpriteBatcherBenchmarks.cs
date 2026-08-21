@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using Wyrd.Ecs.Assets;
 
 namespace Wyrd.Ecs.Renderer.Benchmarks;
 

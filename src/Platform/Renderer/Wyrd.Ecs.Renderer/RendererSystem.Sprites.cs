@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using SDL3;
+using Wyrd.Ecs.Assets;
 
 namespace Wyrd.Ecs.Renderer;
 
@@ -131,7 +132,7 @@ public sealed partial class RendererSystem
 
     private Texture ResolveTexture(Material material) =>
         material.Texture is { } handle && GetTextureLoadState(handle) == LoadState.Loaded
-            ? _textureArena.TryGetTexture(handle)!
+            ? _textureArena.TryGet(handle)!
             : PlaceholderTexture;
 
     private (SDL.GPUShaderFormat Format, string Extension) ResolveShaderFormat() => SDL.GetGPUShaderFormats(Device) switch

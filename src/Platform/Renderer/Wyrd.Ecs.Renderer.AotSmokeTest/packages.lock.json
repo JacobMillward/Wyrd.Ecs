@@ -81,6 +81,12 @@
       "wyrd.ecs": {
         "type": "Project"
       },
+      "wyrd.ecs.assets": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
       "wyrd.ecs.platform": {
         "type": "Project",
         "dependencies": {
@@ -102,6 +108,7 @@
           "StbImageSharp": "[2.30.15, )",
           "Ultz.Native.Assimp": "[6.0.2, )",
           "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Assets": "[0.1.0-alpha, )",
           "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
         }
       }

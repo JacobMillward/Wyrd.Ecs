@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wyrd.Ecs.Renderer\Wyrd.Ecs.Renderer.csproj" />
+    <ProjectReference Include="..\..\Assets\Wyrd.Ecs.Assets\Wyrd.Ecs.Assets.csproj" />
   </ItemGroup>
 
 </Project>

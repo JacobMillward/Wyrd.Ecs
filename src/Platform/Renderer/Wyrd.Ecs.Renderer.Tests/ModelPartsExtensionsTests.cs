@@ -1,3 +1,5 @@
+using Wyrd.Ecs.Assets;
+
 namespace Wyrd.Ecs.Renderer.Tests;
 
 public class ModelPartsExtensionsTests

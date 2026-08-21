@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\Wyrd.Ecs.Platform\Wyrd.Ecs.Platform.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Renderer\Wyrd.Ecs.Renderer.csproj" />
+    <ProjectReference Include="..\..\Assets\Wyrd.Ecs.Assets\Wyrd.Ecs.Assets.csproj" />
   </ItemGroup>
 
   <ItemGroup>
