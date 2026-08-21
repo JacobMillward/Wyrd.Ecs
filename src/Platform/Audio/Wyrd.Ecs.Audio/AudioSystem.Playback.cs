@@ -14,6 +14,7 @@ public sealed partial class AudioSystem
 
     private readonly List<PlaybackSlot?> _playbacks = [];
     private readonly List<int> _playbackGenerations = [];
+    private readonly Dictionary<Playback, System.Numerics.Vector3> _fixedPositions = new();
 
     /// <summary>Plays an already-loaded <paramref name="sound"/>. <paramref name="bus"/> null
     /// resolves to <c>Bus(BusKind.Sfx, DefaultOutput)</c> - the output this plays on is entirely
@@ -105,6 +106,9 @@ public sealed partial class AudioSystem
         };
         _pinnedStoppedCallbacks[track] = GCHandle.Alloc(callback);
         Mixer.SetTrackStoppedCallback(track, callback, IntPtr.Zero);
+
+        if (position is { } fixedPosition)
+            _fixedPositions[playback] = fixedPosition;
 
         if (!Mixer.PlayTrack(track, options: 0))
             throw new InvalidOperationException($"MIX_PlayTrack failed: {SDL.GetError()}");
