@@ -52,7 +52,10 @@ public sealed class DebugNameGenerator : IIncrementalGenerator
             ? containingType.Name
             : symbol.ContainingNamespace.ToDisplayString();
 
-        return new RegisteredDebugNameInfo(symbol.ToDisplayString(), symbol.Name, containingName);
+        var isSystemManaged = symbol.GetAttributes()
+            .Any(a => a.AttributeClass?.ToDisplayString() == "Wyrd.Ecs.SystemManagedAttribute");
+
+        return new RegisteredDebugNameInfo(symbol.ToDisplayString(), symbol.Name, containingName, isSystemManaged);
     }
 
     private static string Render(ImmutableArray<RegisteredDebugNameInfo> infos)
@@ -71,6 +74,8 @@ public sealed class DebugNameGenerator : IIncrementalGenerator
         {
             var name = collisionCounts[info.SimpleName] > 1 ? $"{info.ContainingName}.{info.SimpleName}" : info.SimpleName;
             sb.AppendLine($"        Wyrd.Ecs.Internal.DebugNameRegistry.Register<global::{info.FullyQualifiedName}>(\"{name}\");");
+            if (info.IsSystemManaged)
+                sb.AppendLine($"        Wyrd.Ecs.Internal.SystemManagedRegistry.Register(\"{name}\");");
         }
 
         sb.AppendLine("    }");
@@ -78,5 +83,5 @@ public sealed class DebugNameGenerator : IIncrementalGenerator
         return sb.ToString();
     }
 
-    private record struct RegisteredDebugNameInfo(string FullyQualifiedName, string SimpleName, string ContainingName);
+    private record struct RegisteredDebugNameInfo(string FullyQualifiedName, string SimpleName, string ContainingName, bool IsSystemManaged);
 }

@@ -104,6 +104,52 @@ public class SnapshotPublisherTests
     }
 
     [Fact]
+    public void WithAComponentRegisteredAsSystemManaged_OnTickAdvancedSetsIsSystemManagedOnItsInspectedComponent()
+    {
+        var world = new World();
+        var registry = new CodecRegistry();
+        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
+        Wyrd.Ecs.Internal.SystemManagedRegistry.Register("Position");
+        try
+        {
+            world.Commands.CreateEntity(new Position { X = 3f });
+            world.ApplyCommands();
+
+            var publisher = new SnapshotPublisher(world, registry);
+            publisher.Changed += () => { };
+
+            publisher.OnTickAdvanced(1);
+
+            var entity = publisher.Latest!.Entities.Should().ContainSingle().Subject;
+            var component = entity.Components.Should().ContainSingle(c => c.Component.Discriminator == "Position").Subject;
+            component.IsSystemManaged.Should().BeTrue();
+        }
+        finally
+        {
+            Wyrd.Ecs.Internal.SystemManagedRegistry.Unregister("Position");
+        }
+    }
+
+    [Fact]
+    public void WithAComponentNotRegisteredAsSystemManaged_OnTickAdvancedLeavesIsSystemManagedFalse()
+    {
+        var world = new World();
+        var registry = new CodecRegistry();
+        registry.Register<Position>("Position", p => BitConverter.GetBytes(p.X), b => new Position { X = BitConverter.ToSingle(b) });
+        world.Commands.CreateEntity(new Position { X = 3f });
+        world.ApplyCommands();
+
+        var publisher = new SnapshotPublisher(world, registry);
+        publisher.Changed += () => { };
+
+        publisher.OnTickAdvanced(1);
+
+        var entity = publisher.Latest!.Entities.Should().ContainSingle().Subject;
+        var component = entity.Components.Should().ContainSingle(c => c.Component.Discriminator == "Position").Subject;
+        component.IsSystemManaged.Should().BeFalse();
+    }
+
+    [Fact]
     public void WithASubscriber_OnTickAdvancedRaisesChanged()
     {
         var world = new World();

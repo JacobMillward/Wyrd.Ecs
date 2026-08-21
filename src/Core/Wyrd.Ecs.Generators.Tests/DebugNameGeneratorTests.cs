@@ -118,4 +118,35 @@ public class DebugNameGeneratorTests
         var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
         generated.Should().NotContain("NotTracked");
     }
+
+    [Fact]
+    public void AStructWithSystemManaged_AlsoEmitsASystemManagedRegistryCall()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            namespace Test;
+            [SystemManaged]
+            public struct Internal : IComponent { public int X; }
+            """;
+
+        var result = GeneratorTestHost.Run(new DebugNameGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().Contain("Wyrd.Ecs.Internal.SystemManagedRegistry.Register(\"Internal\");");
+    }
+
+    [Fact]
+    public void AStructWithoutSystemManaged_EmitsNoSystemManagedRegistryCallForIt()
+    {
+        const string source = """
+            using Wyrd.Ecs;
+            namespace Test;
+            public struct Ordinary : IComponent { public int X; }
+            """;
+
+        var result = GeneratorTestHost.Run(new DebugNameGenerator(), GeneratorTestHost.Compile(source));
+
+        var generated = result.Results[0].GeneratedSources.Single().SourceText.ToString();
+        generated.Should().NotContain("SystemManagedRegistry.Register(\"Ordinary\")");
+    }
 }

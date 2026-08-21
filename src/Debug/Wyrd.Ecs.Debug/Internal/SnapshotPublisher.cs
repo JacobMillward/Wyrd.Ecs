@@ -36,7 +36,7 @@ internal sealed class SnapshotPublisher(World world, CodecRegistry registry)
             for (var j = 0; j < entity.Components.Count; j++)
             {
                 var component = entity.Components[j];
-                components[j] = new InspectedComponent(component, DescribeIfRendered(component));
+                components[j] = new InspectedComponent(component, DescribeIfRendered(component), Wyrd.Ecs.Internal.SystemManagedRegistry.IsManaged(component.Discriminator));
             }
             inspected[i] = new InspectedEntity(entity.Entity, components, entity.Tags);
         }
