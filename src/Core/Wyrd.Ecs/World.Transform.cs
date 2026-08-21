@@ -63,6 +63,25 @@ public sealed partial class World
             Vector3.Lerp(previous.Scale, current.Scale, alpha));
     }
 
+    /// <summary>
+    /// Writes <paramref name="value"/> as <paramref name="entity"/>'s <see cref="Transform"/>
+    /// and, if it has one, snaps its <see cref="PreviousTransform"/> to match too, so the
+    /// very next <see cref="GetInterpolatedWorldTransform"/> call renders
+    /// <paramref name="value"/> exactly instead of blending from wherever the entity was
+    /// before this call. The deliberate one-off counterpart to writing
+    /// <see cref="Transform"/> directly (via <see cref="GetComponent{T}(Entity)"/> or a
+    /// <see cref="CommandBuffer"/>): a respawn, a teleporter, or a cutscene warp on an
+    /// otherwise-interpolated entity that skips this method visibly slides across the jump
+    /// on the next render instead of landing on it immediately.
+    /// </summary>
+    public void Teleport(Entity entity, Transform value)
+    {
+        GetComponent<Transform>(entity) = value;
+        ref var previous = ref TryGetComponent<PreviousTransform>(entity, out var hasPrevious);
+        if (hasPrevious)
+            previous = new PreviousTransform { Position = value.Position, Rotation = value.Rotation, Scale = value.Scale };
+    }
+
     /// <summary>Composes both the current and the previous world transform in one walk of the <see cref="Parent"/> chain.</summary>
     private (WorldTransform Current, WorldTransform Previous) ComposeInterpolated(Entity entity)
     {
