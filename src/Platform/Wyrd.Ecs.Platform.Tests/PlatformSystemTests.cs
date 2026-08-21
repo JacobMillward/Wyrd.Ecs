@@ -52,11 +52,12 @@ public class PlatformSystemTests
         // code lives here), so that sugar doesn't exist in this compilation.
         //
         // Registered deliberately in the adversarial order - OrdinaryProbeSystem BEFORE
-        // AddPlatform - so this only passes because of [Phase(Phase.PreUpdate)] on
-        // PlatformSystem itself, not by accident of registration-order tie-break (which is
-        // exactly the "only works because .AddRenderer() is conventionally called last"
-        // bug this whole mechanism exists to fix - a same-order test wouldn't catch a
-        // regression back to that accidental behavior).
+        // AddWindow - so this only passes because AddWindow() applies Phase.PreUpdate
+        // fluently (via SystemRegistration.Phase(), not a class attribute), not by accident
+        // of registration-order tie-break (which is exactly the "only works because
+        // .AddRenderer() is conventionally called last" bug this whole mechanism exists to
+        // fix - a same-order test wouldn't catch a regression back to that accidental
+        // behavior).
         var builder = new WorldBuilder();
         builder.AddSystemCore(
             typeof(OrdinaryProbeSystem),
