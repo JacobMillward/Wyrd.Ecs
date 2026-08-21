@@ -26,6 +26,12 @@
         "resolved": "3.4.14.1",
         "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
       },
+      "SDL3-CS.Native.Mixer": {
+        "type": "Direct",
+        "requested": "[3.2.0, )",
+        "resolved": "3.2.0",
+        "contentHash": "Ki+Qc8Sm3sPi6YuUt3Y+Jm+nKO7Dc588tVKa7KtOjpenvDWlBUlRYuFGtx/OMR2IzuTekvNsddThq16rlxMvTg=="
+      },
       "SDL3-CS.Windows": {
         "type": "Direct",
         "requested": "[3.4.14.1, )",
