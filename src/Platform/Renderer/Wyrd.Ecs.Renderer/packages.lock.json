@@ -82,6 +82,12 @@
       "wyrd.ecs": {
         "type": "Project"
       },
+      "wyrd.ecs.assets": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
       "wyrd.ecs.platform": {
         "type": "Project",
         "dependencies": {
