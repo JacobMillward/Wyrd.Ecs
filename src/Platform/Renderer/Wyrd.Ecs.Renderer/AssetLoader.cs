@@ -20,8 +20,8 @@ public readonly record struct AssetLoader(RendererSystem Renderer) : IResource
     /// <summary>Same as <see cref="RendererSystem.Unload(Handle{Texture})"/>.</summary>
     public void Unload(Handle<Texture> handle) => Renderer.Unload(handle);
 
-    /// <summary>Same as <see cref="RendererSystem.LoadModel"/>.</summary>
-    public Task<IReadOnlyList<RendererSystem.ModelPart>> LoadModel(string path) => Renderer.LoadModel(path);
+    /// <summary>Same as <see cref="RendererSystem.LoadModelAsync"/>.</summary>
+    public Task<IReadOnlyList<RendererSystem.ModelPart>> LoadModelAsync(string path) => Renderer.LoadModelAsync(path);
 
     /// <summary>Same as <see cref="RendererSystem.Unload(Handle{Mesh})"/>.</summary>
     public void Unload(Handle<Mesh> handle) => Renderer.Unload(handle);

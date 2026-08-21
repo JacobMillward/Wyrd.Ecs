@@ -1,12 +1,16 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using SDL3;
+using Wyrd.Ecs.Assets;
 
 namespace Wyrd.Ecs.Renderer;
 
+/// <summary>Dedup key for mesh loading: a source path plus which Assimp sub-mesh within it, since a multi-material file produces multiple distinct <see cref="Mesh"/> assets from one path.</summary>
+public readonly record struct MeshKey(string Path, int PartIndex);
+
 public sealed partial class RendererSystem
 {
-    private readonly MeshArena _meshArena = new();
+    private readonly AssetArena<MeshKey, Mesh> _meshArena = new();
 
     private static readonly ArchetypeQuery MeshArchetypeQuery = ArchetypeQuery.Empty
         .Access<Ref<Transform>>().Access<Ref<MeshRenderer>>().Access<Ref<Material>>();
@@ -36,7 +40,7 @@ public sealed partial class RendererSystem
     /// mesh upload, not texture load, matching how a <see cref="Sprite"/>'s texture is allowed
     /// to still be <see cref="LoadState.Loading"/> when the entity is first drawn.
     /// </summary>
-    public Task<IReadOnlyList<ModelPart>> LoadModel(string path)
+    public Task<IReadOnlyList<ModelPart>> LoadModelAsync(string path)
     {
         ObjectDisposedException.ThrowIf(_destroyed, this);
         var completion = new TaskCompletionSource<IReadOnlyList<ModelPart>>();
@@ -60,9 +64,16 @@ public sealed partial class RendererSystem
                 {
                     var index = i;
                     var subMesh = parsed[i];
-                    var meshHandle = _meshArena.Reserve(new MeshKey(path, index));
+                    var meshHandle = _meshArena.Reserve(new MeshKey(path, index), out var isNew);
                     var textureHandle = subMesh.TexturePath is { } texturePath ? LoadTexture(texturePath) : (Handle<Texture>?)null;
                     parts[index] = new ModelPart(meshHandle, textureHandle);
+
+                    if (!isNew)
+                    {
+                        if (--remaining == 0)
+                            completion.TrySetResult(parts);
+                        continue;
+                    }
 
                     PendingUploads.Enqueue(copyPass =>
                     {
@@ -89,7 +100,7 @@ public sealed partial class RendererSystem
         var gpuVertexBuffer = SDL.CreateGPUBuffer(Device, in vertexBufferCreateInfo);
         if (gpuVertexBuffer == IntPtr.Zero)
         {
-            _meshArena.MarkFailed(handle);
+            _meshArena.MarkFailed(handle, new InvalidOperationException($"SDL_CreateGPUBuffer (mesh vertices) failed: {SDL.GetError()}"));
             return;
         }
 
@@ -110,7 +121,7 @@ public sealed partial class RendererSystem
         if (gpuIndexBuffer == IntPtr.Zero)
         {
             SDL.ReleaseGPUBuffer(Device, gpuVertexBuffer);
-            _meshArena.MarkFailed(handle);
+            _meshArena.MarkFailed(handle, new InvalidOperationException($"SDL_CreateGPUBuffer (mesh indices) failed: {SDL.GetError()}"));
             return;
         }
 
@@ -216,7 +227,7 @@ public sealed partial class RendererSystem
     }
 
     private Mesh ResolveMesh(Handle<Mesh> handle) =>
-        GetMeshLoadState(handle) == LoadState.Loaded ? _meshArena.TryGetMesh(handle)! : PlaceholderMesh;
+        GetMeshLoadState(handle) == LoadState.Loaded ? _meshArena.TryGet(handle)! : PlaceholderMesh;
 
     private void ResolveMeshes(World world)
     {

@@ -20,7 +20,7 @@ public class RendererSystemMeshesTests
         var world = BuildWorldWithPlatform();
         var renderer = world.GetSystem<RendererSystem>();
 
-        var loadTask = renderer.LoadModel(FixturePath("cube.obj"));
+        var loadTask = renderer.LoadModelAsync(FixturePath("cube.obj"));
         for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
         {
             world.Update(TimeSpan.FromMilliseconds(16));
@@ -38,7 +38,7 @@ public class RendererSystemMeshesTests
         var world = BuildWorldWithPlatform();
         var renderer = world.GetSystem<RendererSystem>();
 
-        var loadTask = renderer.LoadModel(FixturePath("cube-multimaterial.obj"));
+        var loadTask = renderer.LoadModelAsync(FixturePath("cube-multimaterial.obj"));
         for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
         {
             world.Update(TimeSpan.FromMilliseconds(16));
@@ -56,7 +56,7 @@ public class RendererSystemMeshesTests
         var world = BuildWorldWithPlatform();
         var renderer = world.GetSystem<RendererSystem>();
 
-        var loadTask = renderer.LoadModel(FixturePath("does-not-exist.obj"));
+        var loadTask = renderer.LoadModelAsync(FixturePath("does-not-exist.obj"));
         for (var i = 0; i < 50 && !loadTask.IsCompleted; i++)
         {
             world.Update(TimeSpan.FromMilliseconds(16));
@@ -65,5 +65,31 @@ public class RendererSystemMeshesTests
 
         var act = async () => await loadTask;
         await act.Should().ThrowAsync<Exception>();
+    }
+
+    [Fact]
+    public async Task LoadModel_SamePathTwice_ParsesOnlyOnce()
+    {
+        var world = BuildWorldWithPlatform();
+        var renderer = world.GetSystem<RendererSystem>();
+
+        var firstTask = renderer.LoadModelAsync(FixturePath("cube.obj"));
+        var firstParts = await AwaitParts(world, firstTask);
+
+        var secondTask = renderer.LoadModelAsync(FixturePath("cube.obj"));
+        var secondParts = await AwaitParts(world, secondTask);
+
+        secondParts.Should().ContainSingle();
+        secondParts[0].Mesh.Should().Be(firstParts[0].Mesh);
+    }
+
+    private static async Task<IReadOnlyList<RendererSystem.ModelPart>> AwaitParts(World world, Task<IReadOnlyList<RendererSystem.ModelPart>> task)
+    {
+        for (var i = 0; i < 50 && !task.IsCompleted; i++)
+        {
+            world.Update(TimeSpan.FromMilliseconds(16));
+            await Task.Delay(10);
+        }
+        return await task;
     }
 }
