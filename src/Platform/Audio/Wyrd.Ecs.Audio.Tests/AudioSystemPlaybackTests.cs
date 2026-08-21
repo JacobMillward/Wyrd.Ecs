@@ -136,4 +136,46 @@ public class AudioSystemPlaybackTests
 
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public void Stop_PlayingPlayback_StopsIt()
+    {
+        var path = WriteTinyTestWav();
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+        var playback = audio.Play(path, loop: true);
+
+        audio.Stop(playback);
+
+        audio.IsPlaying(playback).Should().BeFalse();
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void Stop_WithFadeOut_DoesNotThrow()
+    {
+        var path = WriteTinyTestWav();
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+        var playback = audio.Play(path, loop: true);
+
+        var act = () => audio.Stop(playback, TimeSpan.FromMilliseconds(50));
+
+        act.Should().NotThrow();
+        File.Delete(path);
+    }
+
+    [Fact]
+    public void SetVolume_DoesNotThrow()
+    {
+        var path = WriteTinyTestWav();
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+        var playback = audio.Play(path);
+
+        var act = () => audio.SetVolume(playback, 0.3f);
+
+        act.Should().NotThrow();
+        File.Delete(path);
+    }
 }

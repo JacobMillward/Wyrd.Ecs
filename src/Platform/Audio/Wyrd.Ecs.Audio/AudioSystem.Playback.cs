@@ -80,6 +80,31 @@ public sealed partial class AudioSystem
     /// <summary><c>true</c> if <paramref name="playback"/> hasn't finished or been stopped yet.</summary>
     public bool IsPlaying(Playback playback) => Mixer.TrackPlaying(GetPlaybackSlot(playback).Track);
 
+    /// <summary>Stops <paramref name="playback"/>, fading out over <paramref name="fadeOut"/>
+    /// (default: immediate).</summary>
+    public void Stop(Playback playback, TimeSpan fadeOut = default)
+    {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
+        var slot = GetPlaybackSlot(playback);
+        var fadeFrames = fadeOut == default ? 0L : (long)(fadeOut.TotalSeconds * GetOutputSampleRate(slot.Mixer));
+        Mixer.StopTrack(slot.Track, fadeFrames);
+    }
+
+    /// <summary>Sets <paramref name="playback"/>'s gain, clamped to <c>[0f, 1f]</c>.</summary>
+    public void SetVolume(Playback playback, float volume)
+    {
+        ObjectDisposedException.ThrowIf(_destroyed, this);
+        Mixer.SetTrackGain(GetPlaybackSlot(playback).Track, Math.Clamp(volume, 0f, 1f));
+    }
+
+    private static unsafe long GetOutputSampleRate(IntPtr mixer)
+    {
+        var spec = new SDL.AudioSpec();
+        if (!Mixer.GetMixerFormat(mixer, (IntPtr)(&spec)))
+            throw new InvalidOperationException($"MIX_GetMixerFormat failed: {SDL.GetError()}");
+        return spec.Freq;
+    }
+
     private PlaybackSlot GetPlaybackSlot(Playback playback)
     {
         if (playback.Index >= _playbacks.Count || _playbacks[playback.Index] is not { } slot || _playbackGenerations[playback.Index] != playback.Generation)
