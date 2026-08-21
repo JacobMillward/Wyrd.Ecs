@@ -7,6 +7,7 @@ namespace Wyrd.Ecs;
 /// blend against the live value using <see cref="World.FixedStepAlpha"/>. Written only by
 /// <see cref="TransformSnapshotSystem"/>. Never write this directly.
 /// </summary>
+[SystemManaged]
 public struct PreviousTransform : IComponent
 {
     /// <inheritdoc cref="Transform.Position"/>

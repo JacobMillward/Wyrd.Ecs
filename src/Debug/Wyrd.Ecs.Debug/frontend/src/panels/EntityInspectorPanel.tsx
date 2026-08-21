@@ -324,6 +324,7 @@ async function errorMessage(response: Response): Promise<string> {
 
 export function EntityInspectorPanel() {
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showSystemManaged, setShowSystemManaged] = useState(false);
     const selected = selectedEntity.value;
 
     // New selection: old field-level errors no longer apply to whatever's now shown.
@@ -373,32 +374,42 @@ export function EntityInspectorPanel() {
         await submitEdit(discriminator, () => postEdit(editUrl(selected!, discriminator), { field, value }));
     }
 
+    const visibleComponents = entitySnapshot.components.filter((c) => showSystemManaged || !c.isSystemManaged);
+    const hiddenCount = entitySnapshot.components.length - visibleComponents.length;
+
     return (
-        <div class={grid}>
-            {entitySnapshot.components.map((inspected) => {
-                const discriminator = inspected.component.discriminator;
-                const data = inspected.component.data as Record<string, unknown> | null;
-                return (
-                    <div key={discriminator} class={card}>
-                        <h4 class={cardHeader}>{discriminator}</h4>
-                        <div class={fieldsWrap}>
-                            {inspected.field ? (
-                                <InspectorFieldTree field={inspected.field} inspected={inspected} onCommit={handleRendererEdit} />
-                            ) : (
-                                Object.entries(data ?? {}).map(([key, value]) => (
-                                    <div key={key} class={fieldRow}>
-                                        <label class={fieldLabel}>{key}</label>
-                                        <div class={fieldControl}>
-                                            <RawFieldInput inspected={inspected} field={key} value={value} onCommit={handleFieldEdit} />
+        <div>
+            {hiddenCount > 0 && (
+                <button onClick={() => setShowSystemManaged((v) => !v)}>
+                    {showSystemManaged ? `Hide ${hiddenCount} system-managed` : `Show ${hiddenCount} system-managed`}
+                </button>
+            )}
+            <div class={grid}>
+                {visibleComponents.map((inspected) => {
+                    const discriminator = inspected.component.discriminator;
+                    const data = inspected.component.data as Record<string, unknown> | null;
+                    return (
+                        <div key={discriminator} class={card}>
+                            <h4 class={cardHeader}>{discriminator}</h4>
+                            <div class={fieldsWrap}>
+                                {inspected.field ? (
+                                    <InspectorFieldTree field={inspected.field} inspected={inspected} onCommit={handleRendererEdit} />
+                                ) : (
+                                    Object.entries(data ?? {}).map(([key, value]) => (
+                                        <div key={key} class={fieldRow}>
+                                            <label class={fieldLabel}>{key}</label>
+                                            <div class={fieldControl}>
+                                                <RawFieldInput inspected={inspected} field={key} value={value} onCommit={handleFieldEdit} />
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
+                            {errors[discriminator] && <div class={fieldError}>{errors[discriminator]}</div>}
                         </div>
-                        {errors[discriminator] && <div class={fieldError}>{errors[discriminator]}</div>}
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }

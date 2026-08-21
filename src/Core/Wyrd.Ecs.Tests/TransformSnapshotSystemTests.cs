@@ -19,6 +19,12 @@ public class TransformSnapshotSystemTests
         var previous = world.GetComponent<PreviousTransform>(entity.Entity);
         previous.Position.Should().Be(new Vector3(1, 0, 0));
     }
+
+    [Fact]
+    public void PreviousTransform_CarriesTheSystemManagedAttribute()
+    {
+        typeof(PreviousTransform).GetCustomAttributes(typeof(SystemManagedAttribute), inherit: false).Should().NotBeEmpty();
+    }
 }
 
 [FixedTimestep]
