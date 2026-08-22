@@ -184,7 +184,7 @@ internal static class QueryChainEmitter
         if (spec.IsParallel)
         {
             sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
-            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(query.World)) chunks.Add(chunk);");
+            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter)) chunks.Add(chunk);");
             sb.AppendLine();
             if (uniform)
             {
@@ -200,7 +200,7 @@ internal static class QueryChainEmitter
         }
         else
         {
-            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(query.World))");
+            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter))");
             var leading = uniform ? new[] { "state", "action", "chunk.Count" } : ["action", "chunk.Count"];
             var callArgs = string.Join(", ", leading.Concat(accessArgs));
             var callStatement = spec.ProcessReturnType == "bool" ? $"if (!Process({callArgs})) return;" : $"Process({callArgs});";
@@ -466,7 +466,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("    {");
         AppendResourceFetch(sb, candidate.ResourceProperties);
         sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query());");
-        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Combine(query.Filter).Resolve(world))");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(world, query.Filter))");
         sb.AppendLine("        {");
         sb.AppendLine("            var entities = chunk.Entities;");
         foreach (var e in dataElements)

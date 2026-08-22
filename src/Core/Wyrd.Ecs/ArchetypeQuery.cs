@@ -46,4 +46,16 @@ public sealed partial class ArchetypeQuery
     /// <summary>Every archetype in <paramref name="world"/> currently matching this query.</summary>
     public ArchetypeChunks Resolve(World world) =>
         new(world.GetMatchingArchetypes(TypeBitSet.Empty, _filter), world);
+
+    /// <summary>
+    /// Resolves this query with <paramref name="additional"/>'s constraints layered on top,
+    /// without materializing the combined filter: generated terminals call this once per
+    /// invocation, so their backend terms and the caller's chain filter are probed as a pair
+    /// in the archetype-set cache instead of being recombined every call. Public because
+    /// generated code compiles into arbitrary consumer assemblies with no
+    /// <c>InternalsVisibleTo</c> grant - not intended for hand-written call sites, which
+    /// should keep chaining filters and calling <see cref="Resolve(World)"/>.
+    /// </summary>
+    public ArchetypeChunks Resolve(World world, ArchetypeQuery additional) =>
+        new(world.GetMatchingArchetypes(_filter, additional._filter), world);
 }

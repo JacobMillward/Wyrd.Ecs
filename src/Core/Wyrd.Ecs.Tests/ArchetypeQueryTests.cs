@@ -1,5 +1,6 @@
 namespace Wyrd.Ecs.Tests;
 
+
 file struct Position : IComponent { public float X; }
 file struct Velocity : IComponent { public float X; }
 file struct Dead : ITag;
@@ -131,5 +132,45 @@ public class ArchetypeQueryTests
             total += chunk.Count;
 
         total.Should().Be(3);
+    }
+
+    private static int CountAll(ArchetypeChunks chunks)
+    {
+        var total = 0;
+        for (var i = 0; i < chunks.Count; i++)
+            total += chunks[i].Count;
+        return total;
+    }
+
+    [Fact]
+    public void PairResolve_MatchesCombinedResolve()
+    {
+        var world = BuildWorld(out _, out _, out _);
+        var baseQuery = ArchetypeQuery.Empty.Has<Position>();
+        var userQuery = ArchetypeQuery.Empty.Any<BuffA, BuffB>();
+
+        var pairCount = CountAll(baseQuery.Resolve(world, userQuery));
+        var combinedCount = CountAll(baseQuery.Combine(userQuery).Resolve(world));
+
+        pairCount.Should().Be(combinedCount, "pair evaluation is boolean-equivalent to evaluating the combined filter");
+    }
+
+    [Fact]
+    public void PairResolve_IsInvalidatedByNewArchetypeCreation()
+    {
+        var world = BuildWorld(out var alive, out _, out _);
+        var baseQuery = ArchetypeQuery.Empty.Has<Position>();
+        var userQuery = ArchetypeQuery.Empty.Without<BuffA>();
+
+        var before = CountAll(baseQuery.Resolve(world, userQuery));
+
+        // A fresh signature (Position without any buff tag) creates a new archetype and must
+        // invalidate the pair cache like every other archetype-set cache.
+        var plain = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
+
+        var after = CountAll(baseQuery.Resolve(world, userQuery));
+        after.Should().Be(before + 1);
+        _ = alive;
     }
 }

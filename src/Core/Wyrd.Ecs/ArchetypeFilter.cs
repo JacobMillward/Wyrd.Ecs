@@ -63,7 +63,7 @@ public readonly partial struct ArchetypeFilter : IEquatable<ArchetypeFilter>
     public ArchetypeFilter Any<T0, T1>() where T0 : struct where T1 : struct =>
         new(Required, Excluded, AnyGroups.Add(TypeBitSet.Empty.With(TypeIndex<T0>.Value).With(TypeIndex<T1>.Value)));
 
-    /// <summary>True when <paramref name="archetypeSignature"/> satisfies every requirement: has everything in <see cref="Required"/>, nothing in <see cref="Excluded"/>, and at least one bit from every group in <see cref="AnyGroups"/>. Internal, not public: <see cref="TypeBitSet"/> itself stays internal, and the only caller is <see cref="World.GetMatchingArchetypes(TypeBitSet, ArchetypeFilter)"/>, in the same assembly.</summary>
+    /// <summary>True when <paramref name="archetypeSignature"/> satisfies every requirement: has everything in <see cref="Required"/>, nothing in <see cref="Excluded"/>, and at least one bit from every group in <see cref="AnyGroups"/>. Internal, not public: <see cref="TypeBitSet"/> itself stays internal. Callers are <see cref="World.GetMatchingArchetypes(TypeBitSet, ArchetypeFilter)"/> and the pair-keyed chain overload, both in the same assembly.</summary>
     internal bool Matches(TypeBitSet archetypeSignature)
     {
         if (!Required.IsSubsetOf(archetypeSignature) || Excluded.Intersects(archetypeSignature))

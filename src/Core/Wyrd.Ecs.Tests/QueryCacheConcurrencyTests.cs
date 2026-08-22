@@ -98,6 +98,68 @@ public class QueryCacheConcurrencyTests
         }
     }
 
+    [Fact]
+    public void ParallelColdCacheResolution_CombinedChainPairCacheSurvivesSimultaneousMisses()
+    {
+        var world = CreateWorldWithOneEntityPerSignature();
+        var exceptions = new Exception?[ThreadCount];
+        var wrongResults = new int[ThreadCount];
+        var barrier = new Barrier(ThreadCount);
+        var threads = new Thread[ThreadCount];
+
+        for (var t = 0; t < ThreadCount; t++)
+        {
+            var slot = t;
+            threads[t] = new Thread(() =>
+            {
+                try
+                {
+                    var signature = slot % SignatureCount;
+                    var baseFilter = BaseFilterFor(signature);
+                    var userFilter = FilterFor(signature);
+                    barrier.SignalAndWait();
+
+                    for (var round = 0; round < Rounds; round++)
+                    {
+                        // The keep-type's entity never carries the skip-type, so exactly one
+                        // archetype satisfies the pair.
+                        var matches = world.GetMatchingArchetypes(baseFilter, userFilter);
+                        if (matches.Length != 1)
+                            Interlocked.Increment(ref wrongResults[slot]);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    exceptions[slot] = ex;
+                }
+            });
+        }
+
+        foreach (var thread in threads) thread.Start();
+        foreach (var thread in threads) thread.Join();
+
+        var failures = exceptions.Where(e => e is not null).ToList();
+        failures.Should().BeEmpty(
+            $"every worker completed its bounded rounds without exception{Describe(failures)}");
+        wrongResults.Should().AllBeEquivalentTo(0,
+            "every pair resolution returns exactly the one matching archetype");
+    }
+
+    private static ArchetypeFilter BaseFilterFor(int signatureIndex)
+    {
+        switch (signatureIndex)
+        {
+            case 0: return ArchetypeFilter.Empty.Has<QccComp0>();
+            case 1: return ArchetypeFilter.Empty.Has<QccComp1>();
+            case 2: return ArchetypeFilter.Empty.Has<QccComp2>();
+            case 3: return ArchetypeFilter.Empty.Has<QccComp3>();
+            case 4: return ArchetypeFilter.Empty.Has<QccComp4>();
+            case 5: return ArchetypeFilter.Empty.Has<QccComp5>();
+            case 6: return ArchetypeFilter.Empty.Has<QccComp6>();
+            default: return ArchetypeFilter.Empty.Has<QccComp7>();
+        }
+    }
+
     /// <summary>
     /// ThreadsPerSignature workers share each signature while SignatureCount distinct keys are
     /// inserted concurrently - exercising both same-key duplicate writes and cross-key resize

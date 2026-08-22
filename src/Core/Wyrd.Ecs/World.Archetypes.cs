@@ -21,8 +21,9 @@ public sealed partial class World
     // readers stay lock-free at plain-dictionary lookup speed, and every mutation (miss fill or
     // invalidation) serializes on _archetypeSetsGate. Serializing both writers prevents a stale
     // fill from resurrecting entries invalidated by an archetype creation that interleaved with
-    // it. The unfiltered and filtered key spaces stay separate dictionaries inside the snapshot
-    // so callers that never filter never hash a filter.
+    // it. The three key spaces stay separate dictionaries inside the snapshot: callers that
+    // never filter never hash a filter, and fluent-chain resolution probes the backend/user
+    // filter pair directly instead of materializing a combined filter per call.
     private readonly Lock _archetypeSetsGate = new();
     private ArchetypeSetCaches _archetypeSets = ArchetypeSetCaches.Empty;
 
@@ -78,33 +79,40 @@ public sealed partial class World
     internal int TotalEntityCount => _archetypes.Values.Sum(a => a.Count);
 
     /// <summary>
-    /// Immutable snapshot of both archetype-set caches. Instances are never mutated after
-    /// publication, so lock-free readers always observe a consistent pair, and invalidation is
-    /// a single allocation-free swap to <see cref="Empty"/>. The two key spaces stay separate
-    /// dictionaries so callers that never filter never hash an <see cref="ArchetypeFilter"/>.
+    /// Immutable snapshot of all archetype-set caches. Instances are never mutated after
+    /// publication, so lock-free readers always observe a consistent set, and invalidation is
+    /// a single allocation-free swap to <see cref="Empty"/>. The key spaces stay separate
+    /// dictionaries so callers never pay for key parts they don't use.
     /// </summary>
     private sealed class ArchetypeSetCaches
     {
         public static readonly ArchetypeSetCaches Empty = new(
             new Dictionary<TypeBitSet, Archetype[]>(),
-            new Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]>());
+            new Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]>(),
+            new Dictionary<(ArchetypeFilter Base, ArchetypeFilter User), Archetype[]>());
 
         private ArchetypeSetCaches(
             Dictionary<TypeBitSet, Archetype[]> unfiltered,
-            Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> filtered)
+            Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> filtered,
+            Dictionary<(ArchetypeFilter Base, ArchetypeFilter User), Archetype[]> combinedChain)
         {
             Unfiltered = unfiltered;
             Filtered = filtered;
+            CombinedChain = combinedChain;
         }
 
         public Dictionary<TypeBitSet, Archetype[]> Unfiltered { get; }
         public Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> Filtered { get; }
+        public Dictionary<(ArchetypeFilter Base, ArchetypeFilter User), Archetype[]> CombinedChain { get; }
 
-        /// <summary>A new snapshot with <paramref name="unfiltered"/> replacing this one's unfiltered cache; the filtered cache is shared unchanged.</summary>
-        public ArchetypeSetCaches WithUnfiltered(Dictionary<TypeBitSet, Archetype[]> unfiltered) => new(unfiltered, Filtered);
+        /// <summary>A new snapshot with <paramref name="unfiltered"/> replacing this one's unfiltered cache; every other cache is shared unchanged.</summary>
+        public ArchetypeSetCaches WithUnfiltered(Dictionary<TypeBitSet, Archetype[]> unfiltered) => new(unfiltered, Filtered, CombinedChain);
 
-        /// <summary>A new snapshot with <paramref name="filtered"/> replacing this one's filtered cache; the unfiltered cache is shared unchanged.</summary>
-        public ArchetypeSetCaches WithFiltered(Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> filtered) => new(Unfiltered, filtered);
+        /// <summary>A new snapshot with <paramref name="filtered"/> replacing this one's filtered cache; every other cache is shared unchanged.</summary>
+        public ArchetypeSetCaches WithFiltered(Dictionary<(TypeBitSet Required, ArchetypeFilter Filter), Archetype[]> filtered) => new(Unfiltered, filtered, CombinedChain);
+
+        /// <summary>A new snapshot with <paramref name="combinedChain"/> replacing this one's chain cache; every other cache is shared unchanged.</summary>
+        public ArchetypeSetCaches WithCombinedChain(Dictionary<(ArchetypeFilter Base, ArchetypeFilter User), Archetype[]> combinedChain) => new(Unfiltered, Filtered, combinedChain);
     }
 
     /// <summary>Every archetype whose signature contains all of <paramref name="required"/>'s bits, cached per required set and invalidated whenever a new archetype is created. Hot path: one volatile reference load plus a plain dictionary lookup; misses take a gate and publish a new snapshot.</summary>
@@ -160,6 +168,41 @@ public sealed partial class World
             foreach (var entry in snapshot.Filtered) filtered[entry.Key] = entry.Value;
             filtered[key] = result;
             Volatile.Write(ref _archetypeSets, snapshot.WithFiltered(filtered));
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Same matching contract as <see cref="GetMatchingArchetypes(TypeBitSet, ArchetypeFilter)"/>,
+    /// for fluent-chain resolution: every constraint from <paramref name="baseFilter"/> and
+    /// <paramref name="userFilter"/> must hold, evaluated without materializing their combined
+    /// filter. Keyed by the pair, so the caller's per-invocation Combine disappears from the
+    /// hot path.
+    /// </summary>
+    internal Archetype[] GetMatchingArchetypes(ArchetypeFilter baseFilter, ArchetypeFilter userFilter)
+    {
+        var key = (baseFilter, userFilter);
+        var snapshot = Volatile.Read(ref _archetypeSets);
+        if (snapshot.CombinedChain.TryGetValue(key, out var cached)) return cached;
+
+        lock (_archetypeSetsGate)
+        {
+            snapshot = Volatile.Read(ref _archetypeSets);
+            if (snapshot.CombinedChain.TryGetValue(key, out cached)) return cached;
+
+            var matches = new List<Archetype>();
+            foreach (var archetype in _archetypes.Values)
+            {
+                if (baseFilter.Matches(archetype.Signature) && userFilter.Matches(archetype.Signature))
+                    matches.Add(archetype);
+            }
+
+            // Copy-on-write: publish a fresh snapshot; never mutate instances readers may hold.
+            var result = matches.ToArray();
+            var combinedChain = new Dictionary<(ArchetypeFilter Base, ArchetypeFilter User), Archetype[]>(snapshot.CombinedChain.Count + 1);
+            foreach (var entry in snapshot.CombinedChain) combinedChain[entry.Key] = entry.Value;
+            combinedChain[key] = result;
+            Volatile.Write(ref _archetypeSets, snapshot.WithCombinedChain(combinedChain));
             return result;
         }
     }
