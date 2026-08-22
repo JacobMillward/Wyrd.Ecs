@@ -102,4 +102,32 @@ public class ArchetypeFilterTests
         a.Equals(b).Should().BeTrue();
         a.GetHashCode().Should().Be(b.GetHashCode());
     }
+
+    [Fact]
+    public void Equals_IgnoresConstructionOrder()
+    {
+        // The cached identity hash must depend on final state, not builder history.
+        var a = ArchetypeFilter.Empty.Has<Alpha>().Without<Delta>();
+        var b = ArchetypeFilter.Empty.Without<Delta>().Has<Alpha>();
+
+        a.Equals(b).Should().BeTrue();
+        a.GetHashCode().Should().Be(b.GetHashCode());
+    }
+
+    [Fact]
+    public void Combine_EqualsHandBuiltEquivalent()
+    {
+        var left = ArchetypeFilter.Empty.Has<Alpha>();
+        var right = ArchetypeFilter.Empty.Any<Gamma, Delta>();
+        var combined = left.Combine(right);
+
+        var handBuilt = ArchetypeFilter.Empty.Has<Alpha>().Any<Gamma, Delta>();
+        combined.Equals(handBuilt).Should().BeTrue();
+        combined.GetHashCode().Should().Be(handBuilt.GetHashCode());
+
+        // Group order remains significant when both sides carry groups.
+        var oneWay = ArchetypeFilter.Empty.Any<Gamma, Delta>().Any<Epsilon, Gamma>();
+        var otherWay = ArchetypeFilter.Empty.Any<Epsilon, Gamma>().Any<Gamma, Delta>();
+        oneWay.Equals(otherWay).Should().BeFalse();
+    }
 }
