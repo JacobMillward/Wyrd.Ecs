@@ -39,6 +39,11 @@ public sealed partial class RendererSystem
     /// loaded through the same <see cref="LoadTexture"/> path; the returned task only waits on
     /// mesh upload, not texture load, matching how a <see cref="Sprite"/>'s texture is allowed
     /// to still be <see cref="LoadState.Loading"/> when the entity is first drawn.
+    /// Unload-during-load caveat: if a part's asset is unloaded before its upload lands, the
+    /// task still completes successfully but that part's handle is dead - read APIs
+    /// (<see cref="GetMeshLoadState"/>, <see cref="WaitForLoadAsync(Handle{Mesh})"/>) throw for
+    /// it. Callers must tolerate or filter such parts; the arena treats their uploads as
+    /// discarded work.
     /// </summary>
     public Task<IReadOnlyList<ModelPart>> LoadModelAsync(string path)
     {
@@ -95,6 +100,10 @@ public sealed partial class RendererSystem
     /// <summary>Runs on the render thread, inside the copy pass. Creates the GPU vertex/index buffers and uploads via the transfer-buffer/staging pattern, matching <see cref="UploadDecoded"/>'s texture equivalent.</summary>
     private unsafe void UploadMesh(Handle<Mesh> handle, MeshVertex[] vertices, uint[] indices, IntPtr copyPass)
     {
+        // Same unload-during-load guard as UploadDecoded: skip before creating GPU resources.
+        if (!_meshArena.IsLive(handle))
+            return;
+
         var vertexByteSize = (uint)(vertices.Length * sizeof(MeshVertex));
         var vertexBufferCreateInfo = new SDL.GPUBufferCreateInfo { Usage = SDL.GPUBufferUsageFlags.Vertex, Size = vertexByteSize };
         var gpuVertexBuffer = SDL.CreateGPUBuffer(Device, in vertexBufferCreateInfo);
@@ -120,7 +129,10 @@ public sealed partial class RendererSystem
         var gpuIndexBuffer = SDL.CreateGPUBuffer(Device, in indexBufferCreateInfo);
         if (gpuIndexBuffer == IntPtr.Zero)
         {
-            SDL.ReleaseGPUBuffer(Device, gpuVertexBuffer);
+            // The vertex upload above was already recorded into this same copy pass, so this
+            // buffer cannot be released synchronously either - defer it like the discard path.
+            var device = Device;
+            DeferredDestroy.Enqueue(FrameInFlight.CurrentFrame, () => SDL.ReleaseGPUBuffer(device, gpuVertexBuffer));
             _meshArena.MarkFailed(handle, new InvalidOperationException($"SDL_CreateGPUBuffer (mesh indices) failed: {SDL.GetError()}"));
             return;
         }
@@ -137,7 +149,19 @@ public sealed partial class RendererSystem
         SDL.ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
 
         var bounds = MeshBounds.ComputeLocal(vertices);
-        _meshArena.MarkLoaded(handle, new Mesh(gpuVertexBuffer, gpuIndexBuffer, (uint)indices.Length, bounds));
+        if (_meshArena.MarkLoaded(handle, new Mesh(gpuVertexBuffer, gpuIndexBuffer, (uint)indices.Length, bounds)) != AssetResolution.Landed)
+        {
+            // Not landed means the arena registered nothing for this handle, so both buffers
+            // are referenced by nothing and are ours to release. Both uploads were recorded
+            // into this same copy pass, so neither can be released synchronously - defer like
+            // Unload does.
+            var device = Device;
+            DeferredDestroy.Enqueue(FrameInFlight.CurrentFrame, () =>
+            {
+                SDL.ReleaseGPUBuffer(device, gpuVertexBuffer);
+                SDL.ReleaseGPUBuffer(device, gpuIndexBuffer);
+            });
+        }
     }
 
     internal LoadState GetMeshLoadState(Handle<Mesh> handle) => _meshArena.GetState(handle);

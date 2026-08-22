@@ -1,5 +1,18 @@
 namespace Wyrd.Ecs.Assets;
 
+/// <summary>The outcome of <see cref="AssetArena{TKey,TAsset}.MarkLoaded"/>/<see cref="AssetArena{TKey,TAsset}.MarkFailed"/>.</summary>
+public enum AssetResolution
+{
+    /// <summary>The resolution landed on a live, still-loading slot.</summary>
+    Landed,
+
+    /// <summary>Another resolution won the first-resolution-wins race on a live slot; the slot's registered asset/failure is authoritative.</summary>
+    AlreadyResolved,
+
+    /// <summary>The slot was unloaded while the load was in flight. The resolution is discarded - and any caller-side work product (e.g. GPU resources created for the upload) belongs to the caller to release.</summary>
+    SlotDiscarded,
+}
+
 /// <summary>
 /// Key-keyed dedup, use-count, and generation-tracked arena backing <see cref="Handle{T}"/>-based
 /// asset loading. Owns no decode/upload logic itself: callers drive <see cref="MarkLoaded"/>/
@@ -60,29 +73,54 @@ public sealed class AssetArena<TKey, TAsset>
         }
     }
 
-    /// <summary>First-resolution-wins: a no-op if <paramref name="handle"/>'s slot is no longer <see cref="LoadState.Loading"/>.</summary>
-    public void MarkLoaded(Handle<TAsset> handle, TAsset asset)
+    /// <summary>
+    /// First-resolution-wins: <see cref="AssetResolution.Landed"/> if this call resolved the
+    /// slot, <see cref="AssetResolution.AlreadyResolved"/> if a prior resolution won, and
+    /// <see cref="AssetResolution.SlotDiscarded"/> if the handle's slot was unloaded while the
+    /// load was in flight. A discarded resolution is a benign lost race - unloading an asset
+    /// that is still loading is legal (a scene switching faster than disk) - not a caller bug,
+    /// so it must not throw: callers run this inside their own upload pipelines where a throw
+    /// aborts the batch and strands resources created just before the call.
+    /// </summary>
+    public AssetResolution MarkLoaded(Handle<TAsset> handle, TAsset asset)
     {
         lock (_gate)
         {
-            var slot = GetSlotLocked(handle);
-            if (slot.State != LoadState.Loading) return;
+            if (!TryGetSlotLocked(handle, out var slot)) return AssetResolution.SlotDiscarded;
+            if (slot.State != LoadState.Loading) return AssetResolution.AlreadyResolved;
             slot.Asset = asset;
             slot.State = LoadState.Loaded;
             slot.Completion?.TrySetResult();
+            return AssetResolution.Landed;
         }
     }
 
-    /// <summary>First-resolution-wins: a no-op if <paramref name="handle"/>'s slot is no longer <see cref="LoadState.Loading"/>.</summary>
-    public void MarkFailed(Handle<TAsset> handle, Exception exception)
+    /// <summary>First-resolution-wins, with the same <see cref="AssetResolution"/> contract as <see cref="MarkLoaded"/>.</summary>
+    public AssetResolution MarkFailed(Handle<TAsset> handle, Exception exception)
     {
         lock (_gate)
         {
-            var slot = GetSlotLocked(handle);
-            if (slot.State != LoadState.Loading) return;
+            if (!TryGetSlotLocked(handle, out var slot)) return AssetResolution.SlotDiscarded;
+            if (slot.State != LoadState.Loading) return AssetResolution.AlreadyResolved;
             slot.State = LoadState.Failed;
             slot.Failure = exception;
             slot.Completion?.TrySetException(exception);
+            return AssetResolution.Landed;
+        }
+    }
+
+    /// <summary>
+    /// True while the arena still tracks <paramref name="handle"/>'s slot, for callers that
+    /// want to skip speculative work (e.g. GPU resource creation) before racing the unload.
+    /// Advisory only: a slot can be unloaded between this check and any later action, so it
+    /// never replaces the <see cref="AssetResolution.SlotDiscarded"/> handling in <see
+    /// cref="MarkLoaded"/>/<see cref="MarkFailed"/>.
+    /// </summary>
+    public bool IsLive(Handle<TAsset> handle)
+    {
+        lock (_gate)
+        {
+            return TryGetSlotLocked(handle, out _);
         }
     }
 
@@ -139,6 +177,10 @@ public sealed class AssetArena<TKey, TAsset>
     /// cref="Reserve"/> calls reusing this index), and hands the caller the asset via <paramref
     /// name="readyForRelease"/>. The arena never disposes/releases the asset itself: only the
     /// caller knows how (e.g. GPU resource release timing tied to frames-in-flight).
+    /// A slot removed while still <see cref="LoadState.Loading"/> faults its waiters rather
+    /// than leaving them pending forever: the background load can never resolve into a slot
+    /// that no longer exists, and an awaiter that subscribed before the unload would otherwise
+    /// hang (teardown's <see cref="FaultAllPending"/> can't help - it only runs at dispose).
     /// </summary>
     public bool Unload(Handle<TAsset> handle, out TAsset? readyForRelease)
     {
@@ -153,6 +195,8 @@ public sealed class AssetArena<TKey, TAsset>
             }
 
             readyForRelease = slot.Asset;
+            if (slot.State == LoadState.Loading)
+                slot.Completion?.TrySetException(new InvalidOperationException($"Asset '{slot.Key}' was unloaded while its load was still in flight."));
             _keyToIndex.Remove(slot.Key);
             _generations[handle.Index]++;
             _slots[handle.Index] = null;
@@ -183,8 +227,21 @@ public sealed class AssetArena<TKey, TAsset>
 
     private Slot GetSlotLocked(Handle<TAsset> handle)
     {
-        if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } slot || _generations[handle.Index] != handle.Generation)
+        if (!TryGetSlotLocked(handle, out var slot))
             throw new InvalidOperationException($"Handle {handle} does not refer to a live asset (stale or already unloaded).");
         return slot;
+    }
+
+    /// <summary>Non-throwing counterpart to <see cref="GetSlotLocked"/>: false when the handle is stale or its slot was unloaded. The mark paths treat that as a benign lost race; the read paths still surface it as a caller bug via <see cref="GetSlotLocked"/>.</summary>
+    private bool TryGetSlotLocked(Handle<TAsset> handle, out Slot? slot)
+    {
+        if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } found || _generations[handle.Index] != handle.Generation)
+        {
+            slot = null;
+            return false;
+        }
+
+        slot = found;
+        return true;
     }
 }

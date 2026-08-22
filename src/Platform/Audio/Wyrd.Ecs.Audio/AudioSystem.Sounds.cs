@@ -30,7 +30,12 @@ public sealed partial class AudioSystem
                 _soundArena.MarkFailed(handle, new InvalidOperationException($"MIX_LoadAudio failed: {SDL.GetError()}"));
                 return;
             }
-            _soundArena.MarkLoaded(handle, new Sound(audio));
+
+            // The slot can be unloaded while this decode runs; a discarded resolution means
+            // the decoded audio would otherwise drop with no owner. MIX destruction is
+            // synchronous-safe here (no frames-in-flight concern like GPU resources).
+            if (_soundArena.MarkLoaded(handle, new Sound(audio)) == AssetResolution.SlotDiscarded)
+                Mixer.DestroyAudio(audio);
         });
 
         return handle;

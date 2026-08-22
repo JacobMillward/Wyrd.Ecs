@@ -45,6 +45,12 @@ public sealed partial class RendererSystem
     /// <summary>Runs on the render thread, inside the copy pass. Creates the GPU texture and uploads decoded pixels via the transfer-buffer/staging pattern.</summary>
     private void UploadDecoded(Handle<Texture> handle, ImageResult image, IntPtr copyPass)
     {
+        // The slot can be unloaded while its decode is still running; skipping here avoids
+        // creating GPU resources only to discard them. Advisory: MarkLoaded below still owns
+        // the authoritative discard handling for the unload-races-the-upload window.
+        if (!_textureArena.IsLive(handle))
+            return;
+
         var textureCreateInfo = new SDL.GPUTextureCreateInfo
         {
             Type = SDL.GPUTextureType.TextureType2D,
@@ -78,7 +84,17 @@ public sealed partial class RendererSystem
         SDL.UploadToGPUTexture(copyPass, in source, in destination, false);
         SDL.ReleaseGPUTransferBuffer(Device, transferBuffer);
 
-        _textureArena.MarkLoaded(handle, new Texture(gpuTexture, image.Width, image.Height));
+        if (_textureArena.MarkLoaded(handle, new Texture(gpuTexture, image.Width, image.Height)) != AssetResolution.Landed)
+        {
+            // Not landed means the arena registered nothing for this handle (discarded, or a
+            // prior resolution somehow won), so the texture we just created is referenced by
+            // nothing and must be released by us. The upload above was recorded into this
+            // same copy pass, so it cannot be released synchronously - it must outlive the
+            // pass's command buffer, exactly like Unload's release. Deferring keeps
+            // frames-in-flight safety without leaking.
+            var device = Device;
+            DeferredDestroy.Enqueue(FrameInFlight.CurrentFrame, () => SDL.ReleaseGPUTexture(device, gpuTexture));
+        }
     }
 
     /// <summary>Task that completes (or faults with the captured decode/IO/GPU exception) once <paramref name="handle"/> resolves. Polling <see cref="GetTextureLoadState"/> instead avoids the throw for call sites that don't want to await.</summary>
