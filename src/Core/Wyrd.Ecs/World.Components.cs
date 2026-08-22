@@ -168,14 +168,7 @@ public sealed partial class World
     private int MoveEntity(Entity entity, Archetype source, int sourceRow, Archetype target)
     {
         var targetRow = target.AddRow(entity);
-
-        foreach (var (typeIndex, sourceStorage) in source.Storages)
-        {
-            if (target.Storages.TryGetValue(typeIndex, out var targetStorage))
-                sourceStorage.CopyRowTo(sourceRow, targetStorage, targetRow);
-        }
-
-        var moved = source.RemoveRow(sourceRow);
+        var moved = source.RemoveRowMovingTo(sourceRow, target, targetRow);
         if (!moved.IsNull)
             _entityTable[moved.Id] = new EntityLocation(source, sourceRow);
 

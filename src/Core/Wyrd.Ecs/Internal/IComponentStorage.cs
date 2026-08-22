@@ -13,15 +13,16 @@ internal interface IComponentStorage
     int[] RawLastMarkedTick { get; }
 
     void EnsureCapacity(int capacity);
-    void SwapRemove(int row, int lastRow);
 
     /// <summary>
-    /// Copies the value and tick-stamp at <paramref name="sourceRow"/> into
-    /// <paramref name="destination"/> at <paramref name="destinationRow"/>. Carrying the
-    /// tick-stamp across a structural move is required: without it, a component that
-    /// legitimately changed just before the move would read as unchanged afterward.
+    /// Closes the gap left by the row's departure: backfills <paramref name="row"/> from
+    /// <paramref name="lastRow"/> when they differ, and resets the vacated tail to default
+    /// so make-live paths never observe a prior occupant's bytes.
     /// </summary>
-    void CopyRowTo(int sourceRow, IComponentStorage destination, int destinationRow);
+    void CloseGap(int row, int lastRow);
+
+    /// <summary>One-pass structural move out of this archetype: copies the row into <paramref name="destination"/>, carrying its tick stamp, then closes the gap left by the move.</summary>
+    void MoveRowAndCloseGap(int sourceRow, int sourceLastRow, IComponentStorage destination, int destinationRow);
 
     /// <summary>Creates a fresh, empty storage of this same component type, already sized to <paramref name="capacity"/>.</summary>
     IComponentStorage CreateEmpty(int capacity);

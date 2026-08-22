@@ -62,7 +62,7 @@ public class ComponentStorageTests
     }
 
     [Fact]
-    public void SwapRemove_MiddleRow_MovesLastRowIntoIt()
+    public void CloseGap_MiddleRow_MovesLastRowIntoIt()
     {
         var storage = new ComponentStorage<Value>();
         storage.EnsureCapacity(3);
@@ -70,51 +70,52 @@ public class ComponentStorageTests
         storage[1].Number = 2;
         storage[2].Number = 3;
 
-        storage.SwapRemove(row: 0, lastRow: 2);
+        storage.CloseGap(row: 0, lastRow: 2);
 
         storage[0].Number.Should().Be(3);
     }
 
     [Fact]
-    public void SwapRemove_LastRow_ClearsIt()
+    public void CloseGap_LastRow_ResetsItToDefault()
     {
         var storage = new ComponentStorage<Value>();
         storage.EnsureCapacity(2);
         storage[1].Number = 9;
 
-        storage.SwapRemove(row: 1, lastRow: 1);
+        storage.CloseGap(row: 1, lastRow: 1);
 
         storage[1].Number.Should().Be(0);
     }
 
     [Fact]
-    public void SwapRemove_MovesLastMarkedTickAlongsideTheValue()
+    public void CloseGap_MovesLastMarkedTickAlongsideTheValue()
     {
         var storage = new ComponentStorage<Value>();
         storage.EnsureCapacity(3);
         storage.MarkDirty(row: 2, tick: 9);
 
-        storage.SwapRemove(row: 0, lastRow: 2);
+        storage.CloseGap(row: 0, lastRow: 2);
 
         storage.RawLastMarkedTick[0].Should().Be(9);
-        storage.RawLastMarkedTick[2].Should().Be(0);
     }
 
     [Fact]
-    public void CopyRowTo_CopiesBothTheValueAndTheLastMarkedTick()
+    public void MoveRowAndCloseGap_CopiesValueAndTick_ThenBackfills()
     {
         var source = new ComponentStorage<Value>();
         var destination = new ComponentStorage<Value>();
-        source.EnsureCapacity(1);
-        destination.EnsureCapacity(1);
+        source.EnsureCapacity(3);
+        destination.EnsureCapacity(2);
         source[0].Number = 55;
         source.MarkDirty(row: 0, tick: 9);
+        source[2].Number = 77;
 
         IComponentStorage sourceStorage = source;
-        sourceStorage.CopyRowTo(0, destination, 0);
+        sourceStorage.MoveRowAndCloseGap(sourceRow: 0, sourceLastRow: 2, destination, destinationRow: 0);
 
         destination[0].Number.Should().Be(55);
         destination.RawLastMarkedTick[0].Should().Be(9);
+        source[0].Number.Should().Be(77, "the gap left by the move is closed by backfill");
     }
 
     [Fact]

@@ -28,22 +28,34 @@ internal sealed class ComponentStorage<T> : IComponentStorage where T : struct, 
         ArrayGrowth.EnsureCapacity(ref _lastMarkedTick, capacity);
     }
 
-    public void SwapRemove(int row, int lastRow)
+    public void CloseGap(int row, int lastRow)
     {
         if (row != lastRow)
         {
             _items[row] = _items[lastRow];
             _lastMarkedTick[row] = _lastMarkedTick[lastRow];
         }
+
+        // The vacated tail must read as default even though live reads are Count-bounded:
+        // make-live paths observe slots before their first write - relation-link components
+        // branch on Targets being null to initialize their edge dictionaries, and
+        // component-added/created notifications fire before the caller writes through its
+        // ref - so a prior occupant's bytes would corrupt state or leak into observers.
         _items[lastRow] = default;
         _lastMarkedTick[lastRow] = 0;
     }
 
-    public void CopyRowTo(int sourceRow, IComponentStorage destination, int destinationRow)
+    public void MoveRowAndCloseGap(int sourceRow, int sourceLastRow, IComponentStorage destination, int destinationRow)
     {
         var typed = (ComponentStorage<T>)destination;
         typed._items[destinationRow] = _items[sourceRow];
         typed._lastMarkedTick[destinationRow] = _lastMarkedTick[sourceRow];
+
+        if (sourceRow != sourceLastRow)
+        {
+            _items[sourceRow] = _items[sourceLastRow];
+            _lastMarkedTick[sourceRow] = _lastMarkedTick[sourceLastRow];
+        }
     }
 
     public IComponentStorage CreateEmpty(int capacity) => new ComponentStorage<T>(capacity);

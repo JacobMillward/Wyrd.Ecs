@@ -79,7 +79,36 @@ internal sealed class Archetype
         }
 
         foreach (var storage in Storages.Values)
-            storage.SwapRemove(row, lastRow);
+            storage.CloseGap(row, lastRow);
+
+        Entities[lastRow] = Entity.Null;
+        Count--;
+        return movedEntity;
+    }
+
+    /// <summary>
+    /// One-pass structural move: copies every storage row into <paramref name="destination"/>
+    /// at <paramref name="destinationRow"/> (every type shared between the signatures has a
+    /// destination storage) while closing this archetype's gap in the same pass. Returns
+    /// the entity backfilled into <paramref name="row"/>, or <see cref="Entity.Null"/>.
+    /// </summary>
+    internal Entity RemoveRowMovingTo(int row, Archetype destination, int destinationRow)
+    {
+        var lastRow = Count - 1;
+        var movedEntity = Entity.Null;
+        if (row != lastRow)
+        {
+            movedEntity = Entities[lastRow];
+            Entities[row] = movedEntity;
+        }
+
+        foreach (var (typeIndex, storage) in Storages)
+        {
+            if (destination.Storages.TryGetValue(typeIndex, out var destinationStorage))
+                storage.MoveRowAndCloseGap(row, lastRow, destinationStorage, destinationRow);
+            else
+                storage.CloseGap(row, lastRow);
+        }
 
         Entities[lastRow] = Entity.Null;
         Count--;
