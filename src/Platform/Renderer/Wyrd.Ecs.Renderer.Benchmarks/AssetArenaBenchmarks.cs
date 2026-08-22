@@ -37,12 +37,18 @@ public class AssetArenaBenchmarks
     }
 
     [Benchmark]
-    public void ResolveVisibleInstances()
+    public int ResolveVisibleInstances()
     {
+        // Same GetState-then-conditional-TryGet flow as ResolveTexture, with the resolved
+        // texture counted so the JIT cannot eliminate either call.
+        var resolved = 0;
         for (var i = 0; i < _handles.Length; i++)
         {
-            _ = _arena.GetState(_handles[i]) == LoadState.Loaded ? _arena.TryGet(_handles[i]) : null;
+            if (_arena.GetState(_handles[i]) == LoadState.Loaded && _arena.TryGet(_handles[i]) is not null)
+                resolved++;
         }
+
+        return resolved;
     }
 
     [Benchmark]

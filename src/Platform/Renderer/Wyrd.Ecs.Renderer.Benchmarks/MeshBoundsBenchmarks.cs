@@ -30,19 +30,31 @@ public class MeshBoundsBenchmarks
     }
 
     [Benchmark]
-    public void ComputeWorldBoundsForAllMeshes()
+    public float ComputeWorldBoundsForAllMeshes()
     {
-        for (var i = 0; i < EntityCount; i++)
-            MeshBounds.ComputeWorld(_transforms[i], _localBounds);
-    }
-
-    [Benchmark]
-    public void CullAllMeshesAgainstOneCamera()
-    {
+        // Sink accumulates every computed bound; BDN consumes the return value, so the JIT
+        // cannot dead-code-eliminate the loop body.
+        var sink = 0f;
         for (var i = 0; i < EntityCount; i++)
         {
             var bounds = MeshBounds.ComputeWorld(_transforms[i], _localBounds);
-            FrustumCulling.IsInsideFrustum(bounds, _viewProjection);
+            sink += bounds.Center.Z + bounds.Radius;
         }
+
+        return sink;
+    }
+
+    [Benchmark]
+    public int CullAllMeshesAgainstOneCamera()
+    {
+        var visible = 0;
+        for (var i = 0; i < EntityCount; i++)
+        {
+            var bounds = MeshBounds.ComputeWorld(_transforms[i], _localBounds);
+            if (FrustumCulling.IsInsideFrustum(bounds, _viewProjection))
+                visible++;
+        }
+
+        return visible;
     }
 }
