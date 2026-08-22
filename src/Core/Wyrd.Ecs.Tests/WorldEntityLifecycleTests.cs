@@ -250,4 +250,24 @@ public class WorldEntityLifecycleTests
 
         TestReflection.GetTotalEntityCount(world).Should().Be(2);
     }
+
+    [Fact]
+    public void RecycledEntity_GetsFreshPermanentIdentity()
+    {
+        var world = new World();
+        Entity first = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
+        var firstId = world.GetPermanentId(first);
+
+        world.Commands.DestroyEntity(first);
+        world.ApplyCommands();
+
+        Entity second = world.Commands.CreateEntity(new Position());
+        world.ApplyCommands();
+
+        // Same slot, new incarnation: the permanent identity must never be reused across
+        // incarnations - persistence and WAL replay key entities by it.
+        second.Id.Should().Be(first.Id);
+        world.GetPermanentId(second).Should().NotBe(firstId);
+    }
 }

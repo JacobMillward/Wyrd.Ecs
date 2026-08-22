@@ -33,7 +33,21 @@ internal struct EntityTable
     /// <summary>The archetype+row currently backing entity id <paramref name="id"/>.</summary>
     internal ref EntityLocation this[int id] => ref _locations[id];
 
-    internal EntityId PermanentId(int id) => _permanentIds[id];
+    /// <summary>
+    /// The entity's permanent identity, minted on first request and stable for the
+    /// incarnation's lifetime; retiring the id drops it, so a recycled id never inherits its
+    /// predecessor's identity. Single-threaded like every table mutation - callers reading
+    /// identities from off-thread must serialize against structural mutation themselves.
+    /// </summary>
+    internal EntityId PermanentId(int id)
+    {
+        var permanent = _permanentIds[id];
+        if (permanent != default) return permanent;
+
+        permanent = EntityId.NewId();
+        _permanentIds[id] = permanent;
+        return permanent;
+    }
 
     /// <summary>
     /// A direct array index, not a <c>HashSet&lt;int&gt;</c>, since this runs on every
@@ -144,7 +158,9 @@ internal struct EntityTable
     {
         EnsureCapacity(entity.Id);
         if (entity.Id >= _nextId) _nextId = entity.Id + 1;
-        _permanentIds[entity.Id] = EntityId.NewId();
+        // The permanent id stays default (unassigned) here and is minted on first request:
+        // only persistence, relations, and cross-process references ever need one, so eager
+        // random generation would tax every bulk spawn for identity most entities never use.
         _reserved[entity.Id] = false;
         this[entity.Id] = new EntityLocation(archetype, row);
     }
@@ -190,6 +206,10 @@ internal struct EntityTable
     private void Retire(int id)
     {
         _generations[id]++;
+        // Drop the retired incarnation's permanent identity: the slot must read unassigned
+        // so the next incarnation mints fresh, and identity is never reused across
+        // incarnations of one id (persistence and WAL replay key entities by it).
+        _permanentIds[id] = default;
         var firstStaleSlot = _freeCursor < 0 ? 0 : _freeCursor;
         ArrayGrowth.EnsureCapacity(ref _pending, firstStaleSlot + 1);
         _pending[firstStaleSlot] = id;
