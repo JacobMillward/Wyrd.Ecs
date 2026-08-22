@@ -18,10 +18,12 @@ namespace Wyrd.Ecs.Internal;
 /// <para>
 /// <see cref="ChangeSubscription.Drain"/> is callable from any thread, so it must be safe
 /// against running concurrently with <see cref="Subscribe{T}"/>/<see cref="Unsubscribe"/> and
-/// the tick-driven scan. <see cref="_lock"/> guards the hub's own bookkeeping; each
-/// <see cref="Subscriber.Lock"/> guards only that subscriber's double-buffer, always acquired
-/// while <see cref="_lock"/> is held or, in <see cref="Drain"/>, after releasing it, never
-/// the reverse, so the two never deadlock.
+/// the tick-driven scan. <see cref="_lock"/> guards the hub's own bookkeeping only;
+/// publishing and scanning run against immutable snapshots of the subscriber/scanner sets,
+/// so an event fan-out never touches <see cref="_lock"/> and a tick's scans never block a
+/// concurrent drain. Each <see cref="Subscriber.Lock"/> guards only that subscriber's
+/// double-buffer and is always acquired alone - never while any other lock is held - so no
+/// ordering between them can deadlock.
 /// </para>
 /// </summary>
 internal sealed class ChangeFeedHub
@@ -31,9 +33,16 @@ internal sealed class ChangeFeedHub
     private readonly Dictionary<int, Subscriber> _subscribers = [];
     private readonly Dictionary<int, int> _typeInterestCount = [];
     private readonly Dictionary<int, IDisposable> _trackingHandles = [];
-    private readonly Dictionary<int, Action<int>> _scanners = [];
+    private readonly Dictionary<int, TypeScanner> _scanners = [];
+
+    // Immutable snapshots, swapped in under _lock whenever membership changes and read
+    // lock-free by Publish/OnTickAdvanced. A subscriber removed after a snapshot was taken
+    // may still receive publishes until the next rebuild; its buffers are simply never
+    // drained again.
+    private Subscriber[] _subscriberSnapshot = [];
+    private TypeScanner[] _scannerSnapshot = [];
+
     private int _nextId;
-    private int _sinceTick;
     private bool _tickSubscribed;
     private int _structuralSubscriberCount;
     private IDisposable? _structuralSubscription;
@@ -47,6 +56,19 @@ internal sealed class ChangeFeedHub
     internal int ScanCount;
 
     internal ChangeFeedHub(World world) => _world = world;
+
+    /// <summary>
+    /// One watched type's scanner plus its own watermark: the tick to scan from, advanced
+    /// by whoever runs the scan. Owning the watermark per record is what lets scans run
+    /// outside the bookkeeping lock without losing a subscriber that joined mid-scan - a
+    /// type absent from the tick's snapshot simply keeps its seed watermark and catches up
+    /// on the next tick, rather than having a shared watermark advance past its data.
+    /// </summary>
+    private sealed class TypeScanner(Action<int> run, int sinceTick)
+    {
+        internal readonly Action<int> Run = run;
+        internal int SinceTick = sinceTick;
+    }
 
     /// <summary>
     /// One subscription: which type index it's scoped to (<c>null</c> only for
@@ -78,11 +100,13 @@ internal sealed class ChangeFeedHub
             var id = _nextId++;
             var subscriber = new Subscriber(typeIndex, ChangeKind.ValueChanged | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved);
             _subscribers[id] = subscriber;
+            RebuildSnapshots();
 
             EnsureTypeTracked<T>(typeIndex);
             EnsureStructuralSubscribed(subscriber);
             EnsureTickSubscribed();
 
+            RebuildSnapshots();
             return new ChangeSubscription(this, id);
         }
     }
@@ -94,11 +118,13 @@ internal sealed class ChangeFeedHub
             var id = _nextId++;
             var subscriber = new Subscriber(codec.TypeIndex, ChangeKind.ValueChanged | ChangeKind.ComponentAdded | ChangeKind.ComponentRemoved);
             _subscribers[id] = subscriber;
+            RebuildSnapshots();
 
             EnsureTypeTrackedErased(codec, codec.TypeIndex);
             EnsureStructuralSubscribed(subscriber);
             EnsureTickSubscribed();
 
+            RebuildSnapshots();
             return new ChangeSubscription(this, id);
         }
     }
@@ -110,9 +136,11 @@ internal sealed class ChangeFeedHub
             var id = _nextId++;
             var subscriber = new Subscriber(TypeIndex<T>.Value, ChangeKind.TagAdded | ChangeKind.TagRemoved);
             _subscribers[id] = subscriber;
+            RebuildSnapshots();
 
             EnsureStructuralSubscribed(subscriber);
 
+            RebuildSnapshots();
             return new ChangeSubscription(this, id);
         }
     }
@@ -124,9 +152,11 @@ internal sealed class ChangeFeedHub
             var id = _nextId++;
             var subscriber = new Subscriber(TypeIndex<T>.Value, ChangeKind.RelationLinked | ChangeKind.RelationUnlinked);
             _subscribers[id] = subscriber;
+            RebuildSnapshots();
 
             EnsureStructuralSubscribed(subscriber);
 
+            RebuildSnapshots();
             return new ChangeSubscription(this, id);
         }
     }
@@ -138,9 +168,11 @@ internal sealed class ChangeFeedHub
             var id = _nextId++;
             var subscriber = new Subscriber(typeIndex: null, ChangeKind.EntityCreated | ChangeKind.EntityDestroyed);
             _subscribers[id] = subscriber;
+            RebuildSnapshots();
 
             EnsureStructuralSubscribed(subscriber);
 
+            RebuildSnapshots();
             return new ChangeSubscription(this, id);
         }
     }
@@ -151,7 +183,7 @@ internal sealed class ChangeFeedHub
         if (_trackingHandles.ContainsKey(typeIndex)) return;
 
         _trackingHandles[typeIndex] = _world.TrackChanges<T>();
-        _scanners[typeIndex] = sinceTick => ScanType<T>(typeIndex, sinceTick);
+        _scanners[typeIndex] = new TypeScanner(sinceTick => ScanType<T>(typeIndex, sinceTick), _world.CurrentTick - 1);
     }
 
     private void EnsureTypeTrackedErased(IComponentCodec codec, int typeIndex)
@@ -161,7 +193,7 @@ internal sealed class ChangeFeedHub
 
         var source = (IComponentChangeSource)codec;
         _trackingHandles[typeIndex] = source.EnableChangeTracking(_world);
-        _scanners[typeIndex] = sinceTick => ScanTypeErased(source, typeIndex, sinceTick);
+        _scanners[typeIndex] = new TypeScanner(sinceTick => ScanTypeErased(source, typeIndex, sinceTick), _world.CurrentTick - 1);
     }
 
     /// <summary>Registers the raw structural observer, if not already registered, the first time any subscriber wants a non-<see cref="ChangeKind.ValueChanged"/> kind.</summary>
@@ -174,15 +206,19 @@ internal sealed class ChangeFeedHub
         _structuralSubscriberCount++;
     }
 
-    /// <summary>The single fan-out path every <see cref="ChangeEntry"/> goes through, structural or value alike.</summary>
+    /// <summary>
+    /// The single fan-out path every <see cref="ChangeEntry"/> goes through, structural or
+    /// value alike. Lock-free against the hub: iterates the immutable subscriber snapshot and
+    /// takes only the matching subscribers' own buffer locks. Publishers are single-threaded
+    /// (structural observers fire inline from structural mutation, scans run at tick
+    /// advance), so per-subscriber delivery order is preserved.
+    /// </summary>
     internal void Publish(ChangeEntry entry)
     {
-        lock (_lock)
-        {
-            foreach (var subscriber in _subscribers.Values)
-                if (subscriber.Matches(entry))
-                    lock (subscriber.Lock) subscriber.Front.Add(entry);
-        }
+        var snapshot = Volatile.Read(ref _subscriberSnapshot);
+        foreach (var subscriber in snapshot)
+            if (subscriber.Matches(entry))
+                lock (subscriber.Lock) subscriber.Front.Add(entry);
     }
 
     private void ScanType<T>(int typeIndex, int sinceTick) where T : struct, IComponent
@@ -203,21 +239,32 @@ internal sealed class ChangeFeedHub
     {
         if (_tickSubscribed) return;
         _tickSubscribed = true;
-        ResetWatermark(_world.CurrentTick);
         _world.OnTickAdvanced += OnTickAdvanced;
     }
 
     private void OnTickAdvanced(int tick)
     {
-        lock (_lock)
+        // Scans run against the snapshot outside the bookkeeping lock: a scan can walk every
+        // archetype containing its type and must not stall a concurrent Drain for its
+        // duration. Each scanner owns its watermark, so a subscriber that joined mid-scan
+        // (absent from this snapshot) keeps its seed and catches up next tick instead of
+        // having a shared watermark advance past unseen data. Single-flight like
+        // World.Update itself: two concurrent tick advances would re-deliver a batch.
+        var scanners = Volatile.Read(ref _scannerSnapshot);
+        foreach (var scanner in scanners)
         {
-            foreach (var scan in _scanners.Values)
-                scan(_sinceTick);
-            ResetWatermark(tick);
+            var sinceTick = scanner.SinceTick;
+            scanner.Run(sinceTick);
+            scanner.SinceTick = tick - 1;
         }
     }
 
-    private void ResetWatermark(int tick) => _sinceTick = tick - 1;
+    /// <summary>Rebuilds the lock-free snapshots after any membership change; callers hold <see cref="_lock"/>.</summary>
+    private void RebuildSnapshots()
+    {
+        _subscriberSnapshot = [.. _subscribers.Values];
+        _scannerSnapshot = [.. _scanners.Values];
+    }
 
     internal IReadOnlyList<ChangeEntry> Drain(int id)
     {
@@ -255,6 +302,12 @@ internal sealed class ChangeFeedHub
                     _scanners.Remove(typeIndex);
                 }
             }
+
+            // Unconditional, not just on last-structural-out: a survivor-heavy unsubscribe
+            // must still retire the removed subscriber's buffer and any scanner whose type
+            // interest just hit zero, or disposed subscriptions keep receiving events and
+            // ghost scans keep walking untracked types.
+            RebuildSnapshots();
 
             if (!subscriber.WantsAnyStructuralKind) return;
             _structuralSubscriberCount--;
