@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Wyrd.Ecs;
 
 public sealed partial class World
@@ -27,22 +29,27 @@ public sealed partial class World
     /// <summary>
     /// Gets this <see cref="World"/>'s <see cref="Internal.EventChannel{T}"/> for
     /// <typeparamref name="T"/>, creating and registering it in
-    /// <see cref="_activeEventChannels"/> on first use. Locked for the whole check-or-create
-    /// step: unlike <see cref="CommandBuffer.GetAddComponentBuffer{T}"/>, which relies on its
-    /// caller already holding a lock, <see cref="Emit{T}"/> has no existing per-call lock to
-    /// piggyback on. Every subsequent <c>Write</c>/<c>Read</c> call against an
-    /// already-created channel goes through that channel's own separate lock instead, so two
-    /// different event types never contend with each other here. Internal, not private, so
-    /// tests can exercise the get-or-create race directly.
+    /// <see cref="_activeEventChannels"/> on first use. Safe to call without the gate:
+    /// channels are created once and never replaced or removed, so a stale reader either
+    /// sees the channel or misses and takes the locked path. Writes and reads against an
+    /// already-created channel go through that channel's own separate lock, so different
+    /// event types never contend with each other. Internal, not private, so tests can
+    /// exercise the get-or-create race directly.
     /// </summary>
     internal Internal.EventChannel<T> GetOrCreateEventChannel<T>() where T : struct, IEvent
     {
         var typeIndex = Internal.TypeIndex<T>.Value;
+
+        var channels = Volatile.Read(ref _eventChannels);
+        if ((uint)typeIndex < (uint)channels.Length && channels[typeIndex] is Internal.EventChannel<T> existing)
+            return existing;
+
         lock (_eventChannelsGate)
         {
-            Internal.ArrayGrowth.EnsureCapacity(ref _eventChannels, typeIndex + 1);
-            if (_eventChannels[typeIndex] is Internal.EventChannel<T> existing) return existing;
+            if ((uint)typeIndex < (uint)_eventChannels.Length && _eventChannels[typeIndex] is Internal.EventChannel<T> ready)
+                return ready;
 
+            Internal.ArrayGrowth.EnsureCapacity(ref _eventChannels, typeIndex + 1);
             var created = new Internal.EventChannel<T>();
             _eventChannels[typeIndex] = created;
             _activeEventChannels.Add(created);
