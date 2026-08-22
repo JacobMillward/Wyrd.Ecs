@@ -64,16 +64,20 @@ internal sealed class EventChannel<T> : IEventChannel where T : struct
     /// <summary>
     /// Retires <c>_older</c>, promotes <c>_newer</c> in its place, and ping-pongs the
     /// discarded backing array back in as the next tick's write target - no per-tick
-    /// allocation in steady state. Takes no lock: only ever called from
-    /// <see cref="World.AdvanceTick"/>, before that tick's systems have started, so nothing
-    /// else can be touching this channel concurrently - same reasoning
-    /// <see cref="CommandBuffer.Apply"/>'s own doc gives for skipping its lock.
+    /// allocation in steady state.
+    /// Takes the gate: <see cref="World.AdvanceTick"/> is public and <see cref="World.Emit{T}"/>
+    /// documents concurrent emission, so a tick advance can race a parallel-stage system's
+    /// append. The gate makes an append land wholly in one generation - events are never
+    /// visible twice or skipped.
     /// </summary>
     public void Swap()
     {
-        (_older, _newer) = (_newer, _older);
-        _countBeforeOlder += _olderCount;
-        _olderCount = _newerCount;
-        _newerCount = 0;
+        lock (_gate)
+        {
+            (_older, _newer) = (_newer, _older);
+            _countBeforeOlder += _olderCount;
+            _olderCount = _newerCount;
+            _newerCount = 0;
+        }
     }
 }

@@ -27,7 +27,14 @@ public sealed partial class World
     public void AdvanceTick()
     {
         _currentTick++;
-        foreach (var channel in _activeEventChannels) channel.Swap();
+        // Under the channels gate so a concurrent first-time Emit of a new event type cannot
+        // Add to _activeEventChannels mid-walk. Ordering is safe: Emit holds only this gate
+        // (its channel writes happen after release), and Swap takes each channel's own gate
+        // inside it - gate-then-channel-gate, never the reverse.
+        lock (_eventChannelsGate)
+        {
+            foreach (var channel in _activeEventChannels) channel.Swap();
+        }
         OnTickAdvanced?.Invoke(_currentTick);
     }
 
