@@ -10,6 +10,7 @@ public sealed partial class AudioSystem
     {
         public required IntPtr Track;
         public required IntPtr Mixer;
+        public required GCHandle CallbackHandle;
     }
 
     private readonly List<PlaybackSlot?> _playbacks = [];
@@ -61,58 +62,83 @@ public sealed partial class AudioSystem
 
     private readonly System.Collections.Concurrent.ConcurrentQueue<Playback> _finishedPending = new();
 
-    // Keeps each track's stopped-callback delegate alive independent of AudioSystem's own
-    // reachability: SetTrackStoppedCallback hands SDL_mixer a native function pointer, invoked
-    // asynchronously on whatever thread the mixer's internal audio callback runs on, at some
-    // point after this method returns. A field or list reference isn't enough - the whole
-    // AudioSystem (and everything it owns) can itself become unreachable and get collected
-    // while a track is still playing, taking the delegate down with it and leaving SDL_mixer
-    // holding a dangling function pointer. A GCHandle roots the delegate independent of normal
-    // object-graph reachability; it's freed the moment the callback fires, since that's the one
-    // guarantee SDL_mixer gives that it won't invoke this particular track's callback again.
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<IntPtr, GCHandle> _pinnedStoppedCallbacks = new();
-
     private Playback StartTrack(IntPtr track, IntPtr mixer, AudioBus bus, float volume, bool loop, System.Numerics.Vector3? position)
     {
         Mixer.TagTrack(track, bus.Tag);
         Mixer.SetTrackGain(track, Math.Clamp(volume, 0f, 1f));
         Mixer.SetTrackLoops(track, loop ? -1 : 0);
 
-        var slot = new PlaybackSlot { Track = track, Mixer = mixer };
-        Playback playback;
         var freeIndex = _playbacks.FindIndex(s => s is null);
+        int index, generation;
         if (freeIndex >= 0)
         {
-            _playbacks[freeIndex] = slot;
-            playback = new Playback(freeIndex, _playbackGenerations[freeIndex]);
+            index = freeIndex;
+            generation = _playbackGenerations[freeIndex];
         }
         else
         {
-            _playbacks.Add(slot);
+            _playbacks.Add(null);
             _playbackGenerations.Add(0);
-            playback = new Playback(_playbacks.Count - 1, 0);
+            index = _playbacks.Count - 1;
+            generation = 0;
         }
-
-        // Registered before PlayTrack so the callback is guaranteed in place before playback
-        // can possibly finish. Real signature is (IntPtr userdata, IntPtr track) - neither is
-        // needed here since playback is already captured by the closure. The callback frees its
-        // own GCHandle as its last act - see _pinnedStoppedCallbacks' own comment for why one is
-        // needed at all.
-        Mixer.TrackStoppedCallback callback = (IntPtr userdata, IntPtr stoppedTrack) =>
-        {
-            _finishedPending.Enqueue(playback);
-            if (_pinnedStoppedCallbacks.TryRemove(stoppedTrack, out var handle))
-                handle.Free();
-        };
-        _pinnedStoppedCallbacks[track] = GCHandle.Alloc(callback);
-        Mixer.SetTrackStoppedCallback(track, callback, IntPtr.Zero);
+        var playback = new Playback(index, generation);
 
         if (position is { } fixedPosition)
             _fixedPositions[playback] = fixedPosition;
 
+        // Fires on whatever thread the mixer's internal audio callback runs on - it must not
+        // touch _playbacks or anything else non-thread-safe directly, so it only ever hands the
+        // finished Playback to the thread-safe queue. FinishTrack (called from Execute, main
+        // thread only) does the actual cleanup, including freeing this callback's GCHandle - see
+        // the GCHandle.Alloc call below for why that has to stay single-threaded.
+        Mixer.TrackStoppedCallback callback = (IntPtr userdata, IntPtr stoppedTrack) =>
+            _finishedPending.Enqueue(playback);
+
+        // Keeps the callback delegate alive independent of AudioSystem's own reachability:
+        // SetTrackStoppedCallback hands SDL_mixer a native function pointer, invoked
+        // asynchronously at some point after this method returns. A field or list reference
+        // isn't enough - the whole AudioSystem (and everything it owns) can itself become
+        // unreachable and get collected while a track is still playing, taking the delegate
+        // down with it. Freed exactly once, from the main thread only, in FinishTrack or
+        // FreeRemainingPlaybackCallbackHandles - never from the callback above, since
+        // GCHandle.Free isn't safe to race against those.
+        var callbackHandle = GCHandle.Alloc(callback);
+        _playbacks[index] = new PlaybackSlot { Track = track, Mixer = mixer, CallbackHandle = callbackHandle };
+        Mixer.SetTrackStoppedCallback(track, callback, IntPtr.Zero);
+
         if (!Mixer.PlayTrack(track, options: 0))
             throw new InvalidOperationException($"MIX_PlayTrack failed: {SDL.GetError()}");
         return playback;
+    }
+
+    /// <summary>Runs the single-threaded half of a track's finish - called from
+    /// <see cref="Execute"/> once its <c>MIX_TrackStoppedCallback</c> has already fired (natural
+    /// completion or an explicit <see cref="Stop"/>), confirmed by the <see cref="Playback"/>'s
+    /// presence in <see cref="_finishedPending"/>. Frees the slot's <see cref="GCHandle"/>,
+    /// destroys the now-idle native track, and recycles the slot for reuse by a future
+    /// <see cref="StartTrack"/> call.</summary>
+    private void FinishTrack(Playback playback)
+    {
+        if (playback.Index >= _playbacks.Count || _playbacks[playback.Index] is not { } slot || _playbackGenerations[playback.Index] != playback.Generation)
+            return; // shouldn't happen - each Playback finishes exactly once - but a no-op is cheap insurance against a bookkeeping mismatch
+        slot.CallbackHandle.Free();
+        Mixer.DestroyTrack(slot.Track);
+        _playbacks[playback.Index] = null;
+        _playbackGenerations[playback.Index]++;
+        _fixedPositions.Remove(playback);
+        _following.Remove(playback);
+    }
+
+    /// <summary><c>MIX_DestroyMixer</c> (called by <see cref="DestroyAllOutputs"/> right after
+    /// this runs, from <see cref="OnDestroy"/>) destroys every track still alive on it without
+    /// firing <c>MIX_TrackStoppedCallback</c> - confirmed via SDL_mixer's own docs for
+    /// <c>MIX_DestroyTrack</c>. Without this, any track still playing at shutdown would leak its
+    /// <see cref="GCHandle"/> for the rest of the process's lifetime.</summary>
+    private void FreeRemainingPlaybackCallbackHandles()
+    {
+        foreach (var slot in _playbacks)
+            slot?.CallbackHandle.Free();
     }
 
     /// <summary><c>true</c> if <paramref name="playback"/> hasn't finished or been stopped yet.</summary>

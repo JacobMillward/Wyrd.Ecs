@@ -37,7 +37,10 @@ public sealed partial class AudioSystem : EcsSystem
     {
         EnsureDeviceChangeReader(world);
         while (_finishedPending.TryDequeue(out var playback))
+        {
+            FinishTrack(playback);
             world.Emit(new PlaybackFinished(playback));
+        }
         UpdateSpatialPlaybacks(world);
         ApplyDeviceChanges();
     }
@@ -48,6 +51,7 @@ public sealed partial class AudioSystem : EcsSystem
         _destroyed = true;
         var teardownException = new ObjectDisposedException(nameof(AudioSystem), "The audio system was destroyed before this asset finished loading.");
         _soundArena.FaultAllPending(teardownException);
+        FreeRemainingPlaybackCallbackHandles();
         DestroyAllOutputs();
         Mixer.Quit();
         SDL.QuitSubSystem(SDL.InitFlags.Audio);
