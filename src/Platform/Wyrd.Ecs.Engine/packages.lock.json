@@ -27,6 +27,11 @@
         "resolved": "3.4.14.1",
         "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
       },
+      "SDL3-CS.Native.Mixer": {
+        "type": "Transitive",
+        "resolved": "3.2.0",
+        "contentHash": "Ki+Qc8Sm3sPi6YuUt3Y+Jm+nKO7Dc588tVKa7KtOjpenvDWlBUlRYuFGtx/OMR2IzuTekvNsddThq16rlxMvTg=="
+      },
       "SDL3-CS.Windows": {
         "type": "Transitive",
         "resolved": "3.4.14.1",
@@ -83,7 +88,14 @@
       "wyrd.ecs.audio": {
         "type": "Project",
         "dependencies": {
-          "Wyrd.Ecs": "[0.1.0-alpha, )"
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Native.Mixer": "[3.2.0, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Assets": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
         }
       },
       "wyrd.ecs.input": {
