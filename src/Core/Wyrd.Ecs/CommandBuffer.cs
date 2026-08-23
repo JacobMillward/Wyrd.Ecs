@@ -24,6 +24,16 @@ public sealed partial class CommandBuffer
     private int _count;
 
     /// <summary>
+    /// The per-type buffers (<see cref="IResettableBuffer"/>) this batch's enqueues have
+    /// dirtied, deduplicated so cleanup cost tracks the number of distinct types touched
+    /// rather than the number of commands queued. Entries are direct buffer references -
+    /// stable across later growth of the type-indexed arrays - and <see cref="Apply"/>
+    /// empties the list during cleanup, so no entry can outlive its own batch.
+    /// </summary>
+    private IResettableBuffer[] _touchedBuffers = new IResettableBuffer[4];
+    private int _touchedCount;
+
+    /// <summary>
     /// Guards every enqueue-side mutation (<see cref="_queue"/>/<see cref="_count"/>,
     /// <see cref="_addComponentBuffers"/>, and each buffer's own <c>Items</c>/<c>Count</c>),
     /// so several systems can queue against this shared buffer concurrently. Every public
@@ -42,6 +52,21 @@ public sealed partial class CommandBuffer
     {
         Internal.ArrayGrowth.EnsureCapacity(ref _queue, _count + 1);
         _queue[_count++] = command;
+    }
+
+    /// <summary>
+    /// Records <paramref name="buffer"/> as dirtied by the current batch, unless it is
+    /// already recorded. Resetting a buffer twice would be harmless (<see cref="IResettableBuffer.ResetForNextBatch"/>
+    /// is idempotent), but deduplicating keeps the list bounded by distinct types per
+    /// batch. Caller must already hold <see cref="_gate"/>.
+    /// </summary>
+    private void TrackTouched(IResettableBuffer buffer)
+    {
+        for (var i = 0; i < _touchedCount; i++)
+            if (ReferenceEquals(_touchedBuffers[i], buffer)) return;
+
+        Internal.ArrayGrowth.EnsureCapacity(ref _touchedBuffers, _touchedCount + 1);
+        _touchedBuffers[_touchedCount++] = buffer;
     }
 
     /// <summary>
@@ -471,6 +496,7 @@ public sealed partial class CommandBuffer
         lock (_gate)
         {
             var buffer = GetAddComponentBuffer<T>();
+            TrackTouched(buffer);
             Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
             var slot = buffer.Count++;
             buffer.Items[slot] = value;
@@ -513,6 +539,7 @@ public sealed partial class CommandBuffer
         lock (_gate)
         {
             var buffer = GetAddRelationBuffer<T>();
+            TrackTouched(buffer);
             Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
             var slot = buffer.Count++;
             buffer.Items[slot] = (target, value);
@@ -529,6 +556,7 @@ public sealed partial class CommandBuffer
         lock (_gate)
         {
             var buffer = GetRelationTargetBuffer();
+            TrackTouched(buffer);
             Internal.ArrayGrowth.EnsureCapacity(ref buffer.Items, buffer.Count + 1);
             var slot = buffer.Count++;
             buffer.Items[slot] = target;
@@ -541,8 +569,8 @@ public sealed partial class CommandBuffer
     /// re-checks <see cref="World.IsAlive"/> at its own point in the sequence, so an earlier
     /// command that destroys an entity silently invalidates any later command targeting it,
     /// rather than throwing. Consumer code reached through a structural-change notification
-    /// can still throw; cleanup (clearing the queue, resetting the per-type buffers) runs in
-    /// a <c>finally</c> regardless, so a misbehaving observer never leaves the batch
+    /// can still throw; cleanup (clearing the queue, resetting every touched per-type
+    /// buffer) runs in a <c>finally</c> regardless, so a misbehaving observer never leaves the batch
     /// half-applied for the next <see cref="Apply"/> call to silently replay. Only ever
     /// called single-threaded, after every enqueueing thread has already returned.
     /// </summary>
@@ -561,11 +589,14 @@ public sealed partial class CommandBuffer
             Array.Clear(_queue, 0, _count);
             _count = 0;
 
-            foreach (var buffer in _addComponentBuffers)
-                (buffer as IResettableBuffer)?.ResetForNextBatch();
-            foreach (var buffer in _addRelationBuffers)
-                (buffer as IResettableBuffer)?.ResetForNextBatch();
-            _relationTargetBuffer?.ResetForNextBatch();
+            // Only the buffers this batch actually queued against need resetting; a
+            // batch that never touched one leaves it at Count 0 from the previous
+            // cleanup. Clearing the entries alongside the count keeps every reset
+            // scoped to exactly one batch even if an observer threw mid-apply.
+            for (var i = 0; i < _touchedCount; i++)
+                _touchedBuffers[i].ResetForNextBatch();
+            Array.Clear(_touchedBuffers, 0, _touchedCount);
+            _touchedCount = 0;
         }
     }
 }

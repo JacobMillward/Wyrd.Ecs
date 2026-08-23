@@ -283,4 +283,55 @@ public class CommandsTests
         world.HasComponent<Position>(toRemoveFrom).Should().BeFalse();
         world.HasComponent<Position>(untouched).Should().BeTrue();
     }
+
+    [Fact]
+    public void ObserverThrowingMidApply_StillResetsTheQueueAndPayloadBuffers_ForTheNextBatch()
+    {
+        var world = new World();
+        Entity survivor = world.Commands.CreateEntity();
+        Entity doomed = world.Commands.CreateEntity();
+        world.ApplyCommands();
+
+        // The destroy triggers the throwing observer while the AddComponent sits later in
+        // the same batch: the throw must abort the batch AND drop its unapplied remainder,
+        // leaving nothing to silently replay.
+        using (world.ObserveStructuralChanges(new ThrowingOnDestroyObserver(when: e => e.Equals(doomed))))
+        {
+            world.Commands.DestroyEntity(doomed);
+            world.Commands.AddComponent(survivor, new Position { X = 9f });
+            world.Commands.AddTag<Marker>(survivor);
+
+            var act = () => world.ApplyCommands();
+            act.Should().Throw<InvalidOperationException>("the observer's exception propagates to the Apply caller");
+        }
+
+        world.HasComponent<Position>(survivor).Should().BeFalse("the aborted batch's unapplied commands were dropped");
+        world.HasTag<Marker>(survivor).Should().BeFalse();
+
+        // The next batch must behave as if starting from a fresh buffer.
+        world.Commands.AddComponent(survivor, new Position { X = 3f });
+        world.ApplyCommands();
+        world.GetComponent<Position>(survivor).X.Should().Be(3f);
+
+        world.Commands.AddComponent(survivor, new Position { X = 4f });
+        world.ApplyCommands();
+        world.GetComponent<Position>(survivor).X.Should().Be(4f);
+    }
+
+    private sealed class ThrowingOnDestroyObserver : IStructuralChangeObserver
+    {
+        private readonly Func<Entity, bool> _when;
+        internal ThrowingOnDestroyObserver(Func<Entity, bool> when) => _when = when;
+
+        public void OnEntityCreated(Entity entity) { }
+        public void OnComponentAdded(Entity entity, int typeIndex) { }
+        public void OnComponentRemoved(Entity entity, int typeIndex) { }
+        public void OnTagAdded(Entity entity, int typeIndex) { }
+        public void OnTagRemoved(Entity entity, int typeIndex) { }
+
+        public void OnEntityDestroyed(Entity entity)
+        {
+            if (_when(entity)) throw new InvalidOperationException("observer boom");
+        }
+    }
 }
