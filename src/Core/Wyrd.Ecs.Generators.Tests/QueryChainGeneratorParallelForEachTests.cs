@@ -2,6 +2,8 @@ namespace Wyrd.Ecs.Generators.Tests;
 
 public class QueryChainGeneratorParallelForEachTests
 {
+    private struct ProbeRow : IComponent { public float X; }
+
     private const string Harness = """
         using System.Threading;
         using Wyrd.Ecs;
@@ -46,8 +48,9 @@ public class QueryChainGeneratorParallelForEachTests
                 return visited;
             }
 
-            // 10_000 rows exceeds the library's parallel slice threshold (4096), so this
-            // exercises sliced dispatch of one oversized archetype.
+            // 10_000 rows exceeds the library's parallel slice threshold, so this exercises
+            // sliced dispatch of one oversized archetype; the invoking test asserts slicedness
+            // observably before calling in.
             public static double RunSliced(out int visited)
             {
                 var world = new World();
@@ -96,6 +99,19 @@ public class QueryChainGeneratorParallelForEachTests
     [Fact]
     public void ParallelForEach_SlicedLargeArchetype_VisitsEveryRowExactlyOnce()
     {
+        // Slicedness is asserted, not assumed: below the slice threshold ParallelForEach
+        // silently dispatches as a single chunk, so require the same-shaped query to split
+        // 10_000 rows into multiple chunks first or the visit/sum checks prove nothing
+        // about slicing.
+        var probe = new World();
+        for (var i = 0; i < 10_000; i++)
+            probe.Commands.CreateEntity(new ProbeRow { X = i });
+        probe.ApplyCommands();
+
+        var chunks = new List<ArchetypeChunk>();
+        ArchetypeQuery.Empty.Has<ProbeRow>().Resolve(probe).CollectParallelChunks(chunks);
+        chunks.Count.Should().BeGreaterThan(1);
+
         var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
 
         var type = assembly.GetType("Harness")!;

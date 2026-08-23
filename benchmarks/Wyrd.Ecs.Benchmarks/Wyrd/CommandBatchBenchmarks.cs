@@ -12,7 +12,8 @@ public struct CbxOwned : IRelation { }
 
 // One-shot component types used only during setup, mirroring the many component types a
 // long-lived world accumulates over its lifetime while any single frame's command batch
-// touches just a few. Each leaves behind a per-type payload buffer for the buffer's lifetime.
+// touches just a few. Each AddComponent below leaves behind a per-type payload buffer for
+// the rest of the run; tags carry no payload and leave none.
 public struct CbxWarm01 : IComponent { public float Value; }
 public struct CbxWarm02 : IComponent { public float Value; }
 public struct CbxWarm03 : IComponent { public float Value; }
@@ -65,14 +66,16 @@ public struct CbxWarm48 : IComponent { public float Value; }
 /// <summary>
 /// Measures a full enqueue-then-apply round trip for a realistic mixed command batch
 /// (creates, destroys, component adds/removes, tag flips) against a pooled entity set,
-/// across batch sizes. GlobalSetup creates per-type payload buffers for roughly fifty
-/// component/relation types that the measured batches never touch - CbxMana, CbxOwned,
-/// CbxBurning, the shared remove-relation target buffer, and forty-eight one-shot
-/// component types - mirroring a long-lived world whose lifetime type set far exceeds any
-/// single batch's, so cleanup work per apply is visible separately from replay work.
-/// StructuralAndTagsOnly queues no payload-carrying commands at all, isolating that
-/// cleanup cost. Population is held stable by pairing every create with a destroy. The
-/// sink defeats dead-code elimination.
+/// across batch sizes. GlobalSetup leaves behind fifty-one resettable payload buffers
+/// that the measured batches never touch - CbxMana's, CbxOwned's, the shared
+/// remove-relation target buffer, and one for each of forty-eight one-shot component
+/// types - mirroring a long-lived world whose lifetime type set far exceeds any single
+/// batch's, so cleanup work per apply is visible separately from replay work.
+/// StructuralAndTagsOnly queues no commands that touch those buffers: its creates still
+/// carry Position/Velocity payloads through generated tuple dispatch, but placement into
+/// an existing archetype allocates nothing resettable, isolating that cleanup cost.
+/// Population is held stable by pairing every create with a destroy. The sink defeats
+/// dead-code elimination.
 /// </summary>
 [MemoryDiagnoser]
 public class CommandBatchBenchmarks
@@ -205,7 +208,7 @@ public class CommandBatchBenchmarks
         _sink++;
     }
 
-    /// <summary>Same shape minus every payload-carrying op: placements and tags only, no per-type buffer is ever touched.</summary>
+    /// <summary>Same shape minus every buffer-touching op: placements and tags only, so no per-type resettable buffer is ever dirtied.</summary>
     [Benchmark]
     public void StructuralAndTagsOnly()
     {

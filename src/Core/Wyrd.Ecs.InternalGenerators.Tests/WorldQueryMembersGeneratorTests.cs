@@ -64,4 +64,11 @@ public class WorldQueryMembersGeneratorTests
         var sources = Run();
         sources.Should().Contain(s => s.Contains("public EntityView CreateEntity<T0, T1, T2, T3, T4, T5, T6, T7>"));
     }
+
+    [Fact]
+    public void ArchetypeQuery_EmitsReadonlyPartialStructDeclaration()
+    {
+        var sources = Run();
+        sources.Should().Contain(s => s.Contains("public readonly partial struct ArchetypeQuery"));
+    }
 }

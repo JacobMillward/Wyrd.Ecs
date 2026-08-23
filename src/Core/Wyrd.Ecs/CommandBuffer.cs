@@ -35,7 +35,8 @@ public sealed partial class CommandBuffer
 
     /// <summary>
     /// Guards every enqueue-side mutation (<see cref="_queue"/>/<see cref="_count"/>,
-    /// <see cref="_addComponentBuffers"/>, and each buffer's own <c>Items</c>/<c>Count</c>),
+    /// <see cref="_addComponentBuffers"/>, <see cref="_touchedBuffers"/>/<see cref="_touchedCount"/>,
+    /// and each buffer's own <c>Items</c>/<c>Count</c>),
     /// so several systems can queue against this shared buffer concurrently. Every public
     /// method locks once for its whole body; <see cref="Enqueue"/> and the buffer getters
     /// are unlocked helpers always called with it already held.
