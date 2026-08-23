@@ -111,7 +111,7 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             var archetypeQuery = new StringBuilder();
             archetypeQuery.AppendLine("namespace Wyrd.Ecs;");
             archetypeQuery.AppendLine();
-            archetypeQuery.AppendLine("public sealed partial class ArchetypeQuery");
+            archetypeQuery.AppendLine("public readonly partial struct ArchetypeQuery");
             archetypeQuery.AppendLine("{");
             for (var n = 3; n <= ArityCap.Max; n++)
             {

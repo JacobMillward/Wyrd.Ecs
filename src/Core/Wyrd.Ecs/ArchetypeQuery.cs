@@ -8,8 +8,14 @@ namespace Wyrd.Ecs;
 /// <see cref="ArchetypeChunk.Access{TAccessor}"/> span access to component columns. Every
 /// other query surface is built on this one. Use <see cref="Has{T}"/> for presence-only
 /// checks; use <see cref="Access{TAccessor}"/> for a type a chunk will actually read or write.
+///
+/// <para>
+/// Every query originates from <see cref="Empty"/> via its Has/Access/Without/Any builders;
+/// <c>default(ArchetypeQuery)</c> is not a meaningful value - the filter it carries never ran
+/// its constructor-computed identity hash, so it compares unequal to an equal-shaped query.
+/// </para>
 /// </summary>
-public sealed partial class ArchetypeQuery
+public readonly partial struct ArchetypeQuery : IEquatable<ArchetypeQuery>
 {
     /// <summary>An empty query: matches every archetype in the world.</summary>
     public static readonly ArchetypeQuery Empty = new(ArchetypeFilter.Empty);
@@ -35,12 +41,17 @@ public sealed partial class ArchetypeQuery
     /// Combines this query's filter with <paramref name="other"/>'s: every requirement from
     /// both must hold. See <see cref="ArchetypeFilter.Combine"/>.
     /// </summary>
-    public ArchetypeQuery Combine(ArchetypeQuery other) => ReferenceEquals(other, Empty) ? this : new(_filter.Combine(other._filter));
+    public ArchetypeQuery Combine(ArchetypeQuery other) => new(_filter.Combine(other._filter));
 
     /// <inheritdoc/>
-    public override bool Equals(object? obj) => obj is ArchetypeQuery other && _filter.Equals(other._filter);
+    public bool Equals(ArchetypeQuery other) => _filter.Equals(other._filter);
 
     /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is ArchetypeQuery other && Equals(other);
+
+    /// <inheritdoc/>
+    // The filter's own hash is computed once at its construction; delegating keeps Equal
+    // queries hash-identical to it without re-walking the filter's groups per comparison.
     public override int GetHashCode() => _filter.GetHashCode();
 
     /// <summary>Every archetype in <paramref name="world"/> currently matching this query.</summary>
