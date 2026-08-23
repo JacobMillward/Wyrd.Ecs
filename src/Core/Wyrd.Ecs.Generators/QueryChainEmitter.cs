@@ -184,7 +184,7 @@ internal static class QueryChainEmitter
         if (spec.IsParallel)
         {
             sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
-            sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter)) chunks.Add(chunk);");
+            sb.AppendLine($"        QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter).CollectParallelChunks(chunks);");
             sb.AppendLine();
             if (uniform)
             {
