@@ -45,7 +45,7 @@ An event stays readable for the `Update` call it was emitted in, plus the one af
 :::
 
 :::tip
-Need to know what a component's value actually became, not just that something happened, or need it to persist across more than two ticks? See Change Tracking under Advanced/Patterns.
+Need to know what a component's value actually became, not just that something happened, or need it to persist across more than two ticks? See [Change Tracking](/advanced/change-tracking/).
 :::
 
 ## Next

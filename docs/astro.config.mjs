@@ -60,6 +60,7 @@ export default defineConfig({
 						{ label: 'Relations', slug: 'guides/relations' },
 						{ label: 'Parent/Child', slug: 'guides/relations/parent-child' },
 						{ label: 'Templates', slug: 'guides/templates' },
+						{ label: 'Resources', slug: 'guides/resources' },
 						{ label: 'Events', slug: 'guides/events' },
 						{ label: 'Debugging', slug: 'guides/debugging' },
 						{ label: 'Persistence', slug: 'guides/persistence' },
@@ -73,11 +74,14 @@ export default defineConfig({
 						{ label: 'Sprites', slug: 'engine/renderer/sprites' },
 						{ label: 'Meshes', slug: 'engine/renderer/meshes' },
 						{ label: 'Input', slug: 'engine/input' },
+						{ label: 'Audio', slug: 'engine/audio' },
+						{ label: 'Assets', slug: 'engine/assets' },
 					],
 				},
 				{
 					label: 'Advanced',
 					items: [
+						{ label: 'Change Tracking', slug: 'advanced/change-tracking' },
 						{
 							label: 'Input',
 							items: [

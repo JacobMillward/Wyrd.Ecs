@@ -20,7 +20,7 @@ Full guides and reference live at **[wyrd.millward.dev](https://wyrd.millward.de
 - [Relations and hierarchy](#relations-and-hierarchy): structural edges between entities, parent/child ships built in.
 - [Reusable prefabs](#quick-start) via `EntityTemplate`.
 - [Events](#events) for one-off signals between systems that don't know about each other.
-- Tick-based change tracking and structural change observers, opt in per component type.
+- Tick-based [change tracking](https://wyrd.millward.dev/advanced/change-tracking/) and structural change observers, opt in per component type.
 - [A live debug UI](#debug-ui) for browsing world state as your game runs.
 - AOT-compatible throughout, fully source-generated, no reflection.
 - [Add-in persistence](https://wyrd.millward.dev/guides/persistence/): binary or JSON, one method on `WorldBuilder`, optional continuous WAL.
@@ -152,8 +152,10 @@ Serves a browser panel at `http://127.0.0.1:5299` showing every archetype, every
 src/Core/         World, entities, archetype storage, the query chain, command buffer, the scheduler, and the source generators behind them
 src/Debug/        Wyrd.Ecs.Debug, the live browser debug UI and the programmatic inspection API it's built on
 src/Persistence/  Snapshot persistence core, and the Binary, Json, and Continuous packages built on it
-src/Platform/     Wyrd.Ecs.Platform (SDL3 window/lifecycle/event pump), plus empty package
-                  skeletons for Renderer/Input/Audio/Assets and the Wyrd.Ecs.Engine meta-package
+src/Platform/     Wyrd.Ecs.Platform (SDL3 window/lifecycle/event pump), Wyrd.Ecs.Renderer
+                  (SDL_GPU sprites and meshes), Wyrd.Ecs.Input (strongly-typed keyboard/mouse
+                  actions), Wyrd.Ecs.Audio (SDL_mixer), Wyrd.Ecs.Assets (the shared loading
+                  arena), and the Wyrd.Ecs.Engine meta-package
 docs/             The Starlight docs site published at wyrd.millward.dev
 benchmarks/       BenchmarkDotNet suites, including head-to-head comparisons against Friflo.Engine.ECS and fennecs
 ```
@@ -175,11 +177,6 @@ Runs BenchmarkDotNet's interactive picker over every benchmark in the project. P
 ## Known gaps
 
 - No published package yet. `dotnet pack` produces installable packages for `Wyrd.Ecs`, `Wyrd.Ecs.Debug`, `Wyrd.Ecs.Debug.Abstractions`, `Wyrd.Ecs.Persistence`, `Wyrd.Ecs.Persistence.Binary`, `Wyrd.Ecs.Persistence.Json`, `Wyrd.Ecs.Persistence.Continuous`, `Wyrd.Ecs.Platform`, `Wyrd.Ecs.Renderer`, `Wyrd.Ecs.Input`, `Wyrd.Ecs.Audio`, `Wyrd.Ecs.Assets`, and `Wyrd.Ecs.Engine`, but none are published to nuget.org yet. Reference the projects directly until a release goes out.
-- No audio or asset pipeline yet — `Wyrd.Ecs.Platform` (SDL3 window/lifecycle/event
-  pump), `Wyrd.Ecs.Renderer` (2D sprite path), and `Wyrd.Ecs.Input` (strongly-typed
-  keyboard/mouse action mapping, multi-profile/hot-plug support) all work; `.Audio`/`.Assets`
-  are still package skeletons with no functional code. See
-  `docs/superpowers/specs/2026-08-20-input-package-and-scheduler-phase-markers-design.md`.
 
 ## License
 
