@@ -31,6 +31,10 @@ world.ApplyCommands(commands);
 
 Useful for building up a batch of changes somewhere other than inline in a system's `Update`, then applying them together on your own schedule.
 
+:::tip
+For the storage-level reason structural changes have to defer, see [Structural Changes](/understand/structural-changes/).
+:::
+
 ## Next
 
 A system that depends on another running first, not just on shared data, needs to say so explicitly. See [System Ordering](/build/game-loop/system-ordering/).

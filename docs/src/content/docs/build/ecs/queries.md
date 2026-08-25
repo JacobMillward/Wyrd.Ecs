@@ -50,6 +50,10 @@ world.Query().With<Position>()
 Your callback runs concurrently across threads. Mutating shared state, like `total` above, needs `Interlocked` or a lock. Each entity's own components are always safe to mutate directly, they belong to that thread's row alone.
 :::
 
+:::tip
+For how the underlying archetypes get sliced across threads, see [Parallel Execution](/understand/parallel-execution/).
+:::
+
 ## Conditional filters
 
 `Without`, `Has`, and `Any` only narrow the query's runtime filter, they never change its shape the way [`With`](#matching-components-with-with) does. That means each of them can be applied conditionally, and the result still compiles and matches the way you'd expect.

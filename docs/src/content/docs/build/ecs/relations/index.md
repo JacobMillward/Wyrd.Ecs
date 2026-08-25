@@ -49,6 +49,10 @@ Destroy the `tank`, and every `turret` `MountedOn` it goes with it.
 Filter queries by relation with `WithRelation`/`WithoutRelation`, see [Queries](/build/ecs/queries/#filtering-by-relation).
 :::
 
+:::tip
+For how an edge is actually stored, see [Relations](/understand/relations/).
+:::
+
 ## Next
 
 Wyrd ships one relation built in, for the most common case of all. See [Parent/Child](/build/ecs/relations/parent-child/).
