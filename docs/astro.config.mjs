@@ -139,6 +139,7 @@ export default defineConfig({
 						{ label: 'Source Generation', slug: 'understand/source-generation' },
 					],
 				},
+				{ label: 'API Reference', slug: 'api-reference' },
 			],
 		}),
 	],
