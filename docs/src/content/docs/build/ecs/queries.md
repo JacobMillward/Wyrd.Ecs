@@ -130,6 +130,10 @@ world.Query().With<Position>().WithoutRelation<Targeting>()
 `WithRelation<T>()` is shorthand for `.With<RelationLinks<T>>()`, and `WithoutRelation<T>()` for `.Without<RelationLinks<T>>()`. They read as intent at the call site, that's the only difference.
 :::
 
+:::tip
+For how a query chain compiles down to a cached `ArchetypeQuery`, see [Queries](/understand/queries/).
+:::
+
 ## Next
 
 A query you build once and run every tick is a system. See [Systems](/build/game-loop/systems/).

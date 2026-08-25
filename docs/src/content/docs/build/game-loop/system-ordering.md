@@ -54,6 +54,10 @@ public sealed partial class AIDecisionSystem : QuerySystem { /* ... */ }
 world.AddSystem<LateJoinerSystem>().After<InputProcessed>();
 ```
 
+:::tip
+For how the stage graph, phases, and cadence actually work, see [Scheduling](/understand/scheduling/).
+:::
+
 ## Next
 
 Ordering controls sequence. For controlling how often a system runs at all, see [Timestep, Pause & Timescale](/build/game-loop/timestep-pause-timescale/).

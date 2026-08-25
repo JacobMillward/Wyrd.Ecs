@@ -127,7 +127,12 @@ export default defineConfig({
 				},
 				{
 					label: 'Understand Wyrd',
-					items: [{ label: 'Change Tracking', slug: 'understand/change-tracking' }],
+					items: [
+						{ label: 'ECS Architecture', slug: 'understand/ecs-architecture' },
+						{ label: 'Queries', slug: 'understand/queries' },
+						{ label: 'Scheduling', slug: 'understand/scheduling' },
+						{ label: 'Change Tracking', slug: 'understand/change-tracking' },
+					],
 				},
 			],
 		}),

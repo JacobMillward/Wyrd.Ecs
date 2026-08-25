@@ -59,6 +59,10 @@ goblin.DestroyEntity();
 world.ApplyCommands();
 ```
 
+:::tip
+For how archetypes actually store this and why adding a component moves the entity, see [ECS Architecture](/understand/ecs-architecture/).
+:::
+
 ## Next
 
 Once you can create entities, the next step is asking which ones have what. See [Queries](/build/ecs/queries/).
