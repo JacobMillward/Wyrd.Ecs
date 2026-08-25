@@ -71,7 +71,11 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Start Here',
-					items: [{ label: 'Wyrd in 10 minutes', slug: 'start-here/wyrd-in-10-minutes' }],
+					items: [
+						{ label: 'New to Wyrd', slug: 'start-here/new-to-wyrd' },
+						{ label: 'Already know ECS?', slug: 'start-here/already-know-ecs' },
+						{ label: 'Wyrd in 10 minutes', slug: 'start-here/wyrd-in-10-minutes' },
+					],
 				},
 				{
 					label: 'Build with Wyrd',
