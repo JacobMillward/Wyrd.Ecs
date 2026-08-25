@@ -46,7 +46,7 @@ world.ApplyCommands();
 world.Commands.AddComponent(entity, new Material(ShaderKind.UnlitSprite, textureHandle));
 ```
 
-`Material` is pipeline-selecting state only, the shader and the texture, the two things that have to match for two entities to batch into one draw call. Per-instance data like tint lives on the drawable component instead, see [Sprites](/engine/renderer/sprites/) and [Meshes](/engine/renderer/meshes/).
+`Material` is pipeline-selecting state only, the shader and the texture, the two things that have to match for two entities to batch into one draw call. Per-instance data like tint lives on the drawable component instead, see [Sprites](/build/rendering/sprites/) and [Meshes](/build/rendering/meshes/).
 
 ## Loading assets
 
@@ -54,4 +54,4 @@ Textures and meshes load through `RendererSystem`, returning a `Handle<T>`: a ch
 
 ## Next
 
-[Sprites](/engine/renderer/sprites/) for the 2D path, [Meshes](/engine/renderer/meshes/) for 3D.
+[Sprites](/build/rendering/sprites/) for the 2D path, [Meshes](/build/rendering/meshes/) for 3D.

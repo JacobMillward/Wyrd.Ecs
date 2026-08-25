@@ -27,6 +27,10 @@ export default defineConfig({
 		'/guides/system-ordering': '/build/game-loop/system-ordering',
 		'/guides/timestep-pause-timescale': '/build/game-loop/timestep-pause-timescale',
 		'/engine/platform': '/build/game-loop/platform',
+		'/engine/renderer': '/build/rendering',
+		'/engine/renderer/sprites': '/build/rendering/sprites',
+		'/engine/renderer/meshes': '/build/rendering/meshes',
+		'/advanced/custom-rendering': '/build/rendering/custom-rendering',
 	},
 	integrations: [
 		starlight({
@@ -82,6 +86,15 @@ export default defineConfig({
 								{ label: 'Timestep, Pause & Timescale', slug: 'build/game-loop/timestep-pause-timescale' },
 							],
 						},
+						{
+							label: 'Rendering',
+							items: [
+								{ label: 'Renderer', slug: 'build/rendering' },
+								{ label: 'Sprites', slug: 'build/rendering/sprites' },
+								{ label: 'Meshes', slug: 'build/rendering/meshes' },
+								{ label: 'Custom Rendering', slug: 'build/rendering/custom-rendering' },
+							],
+						},
 					],
 				},
 				{
@@ -94,9 +107,6 @@ export default defineConfig({
 				{
 					label: 'Engine',
 					items: [
-						{ label: 'Renderer', slug: 'engine/renderer' },
-						{ label: 'Sprites', slug: 'engine/renderer/sprites' },
-						{ label: 'Meshes', slug: 'engine/renderer/meshes' },
 						{ label: 'Input', slug: 'engine/input' },
 						{ label: 'Audio', slug: 'engine/audio' },
 						{ label: 'Assets', slug: 'engine/assets' },
@@ -113,7 +123,6 @@ export default defineConfig({
 								{ label: 'Remapping', slug: 'advanced/input/remapping' },
 							],
 						},
-						{ label: 'Custom Rendering', slug: 'advanced/custom-rendering' },
 					],
 				},
 			],

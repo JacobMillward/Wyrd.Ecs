@@ -3,7 +3,7 @@ title: Custom Rendering
 description: Where Wyrd.Ecs.Renderer's public surface stops guarding you from SDL_GPU, and how to reach past it.
 ---
 
-`Wyrd.Ecs.Renderer` deliberately doesn't hide the native library underneath it. The common path ([Renderer](/engine/renderer/), `Sprite`/`MeshRenderer`, `LoadTexture`/`LoadModel`) covers batched 2D and 3D drawing, when it doesn't cover what you need, the pieces underneath are public, not sealed off.
+`Wyrd.Ecs.Renderer` deliberately doesn't hide the native library underneath it. The common path ([Renderer](/build/rendering/), `Sprite`/`MeshRenderer`, `LoadTexture`/`LoadModel`) covers batched 2D and 3D drawing, when it doesn't cover what you need, the pieces underneath are public, not sealed off.
 
 ## The SDL_GPU device
 
@@ -40,4 +40,4 @@ A custom `ShaderKind` value changes batching grouping only. The sprite and mesh 
 
 ## Next
 
-[Renderer](/engine/renderer/) covers the common path this page assumes you've already outgrown.
+[Renderer](/build/rendering/) covers the common path this page assumes you've already outgrown.

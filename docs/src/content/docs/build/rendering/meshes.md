@@ -3,7 +3,7 @@ title: Meshes
 description: The 3D drawable component, loading multi-material models, and spawning them.
 ---
 
-A 3D drawable entity needs `Transform`, `MeshRenderer`, and `Material` together, same shape as a [sprite entity](/engine/renderer/sprites/), swapping `Sprite` for `MeshRenderer` and pointing `Material` at `ShaderKind.UnlitMesh`.
+A 3D drawable entity needs `Transform`, `MeshRenderer`, and `Material` together, same shape as a [sprite entity](/build/rendering/sprites/), swapping `Sprite` for `MeshRenderer` and pointing `Material` at `ShaderKind.UnlitMesh`.
 
 ## Loading and spawning a model
 
@@ -35,8 +35,8 @@ world.Commands.AddComponent(entity, new Material(ShaderKind.UnlitMesh, texture))
 renderer.Unload(handle);
 ```
 
-Same use-count/deferred-release behavior as [`Unload(Handle<Texture>)`](/engine/renderer/sprites/#loading-textures), called once per `Handle<Mesh>` a part returned.
+Same use-count/deferred-release behavior as [`Unload(Handle<Texture>)`](/build/rendering/sprites/#loading-textures), called once per `Handle<Mesh>` a part returned.
 
 ## Next
 
-Both drawable paths need a camera, see [Renderer](/engine/renderer/#cameras) if you skipped it. For direct SDL_GPU access when the common path isn't enough, see [Custom Rendering](/advanced/custom-rendering/).
+Both drawable paths need a camera, see [Renderer](/build/rendering/#cameras) if you skipped it. For direct SDL_GPU access when the common path isn't enough, see [Custom Rendering](/build/rendering/custom-rendering/).
