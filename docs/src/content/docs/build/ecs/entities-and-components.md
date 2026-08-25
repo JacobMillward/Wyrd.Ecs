@@ -30,7 +30,7 @@ Entity goblin = world.Commands.CreateEntity()
 world.ApplyCommands();
 ```
 
-Nothing is queued into the world until `world.ApplyCommands()` runs. A [query](/guides/queries/) never sees a half-finished change mid-iteration.
+Nothing is queued into the world until `world.ApplyCommands()` runs. A [query](/build/ecs/queries/) never sees a half-finished change mid-iteration.
 
 ## The EntityView shortcut
 
@@ -46,7 +46,7 @@ world.ApplyCommands();
 `EntityView` is a `ref struct`, it can't be stored in a field, a list, or captured by a lambda, only ever a local variable or a chained expression. If all you have is a plain `Entity` you stored earlier, `world[goblin]` gets you an `EntityView` back for it.
 :::
 
-See [Systems](/guides/systems/#optional-update-parameters) for how a system's `Update` gets one automatically.
+See [Systems](/build/game-loop/systems/#optional-update-parameters) for how a system's `Update` gets one automatically.
 
 :::note[Advanced]
 `goblin.AddComponent(...)` and `world.Commands.AddComponent(goblin, ...)` queue the exact same thing, `EntityView` is a thin wrapper. The direct form skips constructing a view, worth it only in a hot per-entity loop.
@@ -61,4 +61,4 @@ world.ApplyCommands();
 
 ## Next
 
-Once you can create entities, the next step is asking which ones have what. See [Queries](/guides/queries/).
+Once you can create entities, the next step is asking which ones have what. See [Queries](/build/ecs/queries/).

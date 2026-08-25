@@ -64,4 +64,4 @@ A template is mutable until the moment it's first instantiated, then further `Ad
 
 ## Next
 
-Templates and relations both shape entities you already know about ahead of time. For state that belongs to no entity at all, see [Resources](/guides/resources/).
+Templates and relations both shape entities you already know about ahead of time. For state that belongs to no entity at all, see [Resources](/build/ecs/resources/).

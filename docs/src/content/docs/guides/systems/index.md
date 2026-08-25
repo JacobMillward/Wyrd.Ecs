@@ -3,7 +3,7 @@ title: Systems
 description: QuerySystem, registering systems, and how the parallel scheduler works.
 ---
 
-A `QuerySystem` pairs a [query](/guides/queries/) with the code that runs against every entity it matches: `DefineQuery` for the shape, `Update` for the per-entity body. A source generator fills in the dispatch between them.
+A `QuerySystem` pairs a [query](/build/ecs/queries/) with the code that runs against every entity it matches: `DefineQuery` for the shape, `Update` for the per-entity body. A source generator fills in the dispatch between them.
 
 ```csharp
 public sealed partial class MovementSystem : QuerySystem
@@ -20,7 +20,7 @@ public sealed partial class MovementSystem : QuerySystem
 
 ## Optional Update parameters
 
-`MovementSystem.Update` above takes `Time time` plus its components, that's the minimum. `World world` and/or [`EntityView entity`](/guides/entities-and-components/#the-entityview-shortcut) can slot in right after `time`, only when the system actually needs them:
+`MovementSystem.Update` above takes `Time time` plus its components, that's the minimum. `World world` and/or [`EntityView entity`](/build/ecs/entities-and-components/#the-entityview-shortcut) can slot in right after `time`, only when the system actually needs them:
 
 ```csharp
 public void Update(Time time, ref Position position) { }

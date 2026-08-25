@@ -85,4 +85,4 @@ Declaring a public setter and then never assigning to it also warns (WYRD009). W
 
 ## Next
 
-Resources are shared state systems read. For a system telling another system that something happened, rather than both reading the same state, see [Events](/guides/events/).
+Resources are shared state systems read. For a system telling another system that something happened, rather than both reading the same state, see [Events](/build/ecs/events/).

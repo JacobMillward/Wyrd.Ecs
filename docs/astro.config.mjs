@@ -14,6 +14,15 @@ const wyrdCodeThemeLight = ExpressiveCodeTheme.fromJSONString(
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://wyrd.millward.dev',
+	redirects: {
+		'/guides/entities-and-components': '/build/ecs/entities-and-components',
+		'/guides/queries': '/build/ecs/queries',
+		'/guides/relations': '/build/ecs/relations',
+		'/guides/relations/parent-child': '/build/ecs/relations/parent-child',
+		'/guides/templates': '/build/ecs/templates',
+		'/guides/resources': '/build/ecs/resources',
+		'/guides/events': '/build/ecs/events',
+	},
 	integrations: [
 		starlight({
 			title: 'Wyrd.Ecs',
@@ -44,10 +53,25 @@ export default defineConfig({
 			sidebar: [
 				{ label: 'Getting Started', slug: 'getting-started' },
 				{
+					label: 'Build with Wyrd',
+					items: [
+						{
+							label: 'ECS',
+							items: [
+								{ label: 'Entities & Components', slug: 'build/ecs/entities-and-components' },
+								{ label: 'Queries', slug: 'build/ecs/queries' },
+								{ label: 'Relations', slug: 'build/ecs/relations' },
+								{ label: 'Parent/Child', slug: 'build/ecs/relations/parent-child' },
+								{ label: 'Templates', slug: 'build/ecs/templates' },
+								{ label: 'Resources', slug: 'build/ecs/resources' },
+								{ label: 'Events', slug: 'build/ecs/events' },
+							],
+						},
+					],
+				},
+				{
 					label: 'Guides',
 					items: [
-						{ label: 'Entities & Components', slug: 'guides/entities-and-components' },
-						{ label: 'Queries', slug: 'guides/queries' },
 						{
 							label: 'Game Loop',
 							items: [
@@ -57,11 +81,6 @@ export default defineConfig({
 								{ label: 'Timestep, Pause & Timescale', slug: 'guides/timestep-pause-timescale' },
 							],
 						},
-						{ label: 'Relations', slug: 'guides/relations' },
-						{ label: 'Parent/Child', slug: 'guides/relations/parent-child' },
-						{ label: 'Templates', slug: 'guides/templates' },
-						{ label: 'Resources', slug: 'guides/resources' },
-						{ label: 'Events', slug: 'guides/events' },
 						{ label: 'Debugging', slug: 'guides/debugging' },
 						{ label: 'Persistence', slug: 'guides/persistence' },
 					],

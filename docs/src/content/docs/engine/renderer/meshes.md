@@ -14,7 +14,7 @@ var ship = world.Commands.CreateEntity(parts.ToEntityTemplate()).AddTransform(Tr
 world.ApplyCommands();
 ```
 
-`LoadModel` parses the file off-thread via Assimp and reserves one `Handle<Mesh>` per sub-mesh, a multi-material model becomes multiple mesh assets from one file. `ToEntityTemplate()` turns the resolved parts into a reusable `EntityTemplate`: one parent, one child per part carrying `MeshRenderer` and `Material` (`ShaderKind.UnlitMesh`, `Color.White` tint). `CreateEntity(template).AddTransform(...)` instantiates and positions it in one chain. Destroying the parent destroys every child with it, the same [parent/child hierarchy](/guides/relations/parent-child/) used everywhere else.
+`LoadModel` parses the file off-thread via Assimp and reserves one `Handle<Mesh>` per sub-mesh, a multi-material model becomes multiple mesh assets from one file. `ToEntityTemplate()` turns the resolved parts into a reusable `EntityTemplate`: one parent, one child per part carrying `MeshRenderer` and `Material` (`ShaderKind.UnlitMesh`, `Color.White` tint). `CreateEntity(template).AddTransform(...)` instantiates and positions it in one chain. Destroying the parent destroys every child with it, the same [parent/child hierarchy](/build/ecs/relations/parent-child/) used everywhere else.
 
 :::note
 Every part spawns with `Color.White`. A different tint per part means mutating the returned children's `MeshRenderer` afterward, `ToEntityTemplate()` doesn't take per-part tint as a parameter.

@@ -42,8 +42,8 @@ None of these guard against a cycle. Assigning a descendant as its own ancestor'
 
 ## Cascading destruction
 
-Destroying a parent destroys its whole subtree, not just the parent. This comes from `Parent` implementing `IDependent`, the same mechanism [Relations](/guides/relations/#cascading-destruction) covers for any relation, not a hierarchy-specific special case.
+Destroying a parent destroys its whole subtree, not just the parent. This comes from `Parent` implementing `IDependent`, the same mechanism [Relations](/build/ecs/relations/#cascading-destruction) covers for any relation, not a hierarchy-specific special case.
 
 ## Next
 
-Relations link existing entities together. For starting several entities from one reusable definition, see [Templates](/guides/templates/).
+Relations link existing entities together. For starting several entities from one reusable definition, see [Templates](/build/ecs/templates/).

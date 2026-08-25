@@ -11,7 +11,7 @@ Wyrd.Ecs hasn't shipped to NuGet yet. Reference the project directly (`dotnet ad
 
 ## Define a component
 
-A [component](/guides/entities-and-components/#components-and-tags) is a struct implementing `IComponent`, carrying whatever data it needs.
+A [component](/build/ecs/entities-and-components/#components-and-tags) is a struct implementing `IComponent`, carrying whatever data it needs.
 
 ```csharp
 using Wyrd.Ecs;
@@ -76,7 +76,7 @@ runs a system once against a `World` directly, no `WorldBuilder` needed. Useful 
 
 ## Next steps
 
-- [Entities & components](/guides/entities-and-components/) covers tags, destroying entities, and adding components after creation.
-- [Queries](/guides/queries/) covers filtering beyond `With`: `Without`, `Has`, `Any`, and running work across the entities that match.
+- [Entities & components](/build/ecs/entities-and-components/) covers tags, destroying entities, and adding components after creation.
+- [Queries](/build/ecs/queries/) covers filtering beyond `With`: `Without`, `Has`, `Any`, and running work across the entities that match.
 - [Systems](/guides/systems/) covers optional `Update` parameters and how the scheduler parallelizes systems.
 - [Platform](/engine/platform/) covers opening a window and building an actual game loop on top of the ECS, not just embedding it.

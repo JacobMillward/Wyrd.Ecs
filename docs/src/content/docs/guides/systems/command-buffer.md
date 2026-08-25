@@ -14,7 +14,7 @@ goblin.DestroyEntity();
 world.ApplyCommands();
 ```
 
-`goblin.DestroyEntity()` queues on `world.Commands`, the world's default `CommandBuffer`, same as calling `world.Commands.DestroyEntity(goblin)` directly. `ApplyCommands()` replays everything queued since the last call, then clears it. Nothing queued is visible to a query until this runs, see [Entities & components](/guides/entities-and-components/#creating-entities) for the creation-side version of this.
+`goblin.DestroyEntity()` queues on `world.Commands`, the world's default `CommandBuffer`, same as calling `world.Commands.DestroyEntity(goblin)` directly. `ApplyCommands()` replays everything queued since the last call, then clears it. Nothing queued is visible to a query until this runs, see [Entities & components](/build/ecs/entities-and-components/#creating-entities) for the creation-side version of this.
 
 Several systems can queue against the same buffer at once, from different threads in the same parallel stage, safely.
 

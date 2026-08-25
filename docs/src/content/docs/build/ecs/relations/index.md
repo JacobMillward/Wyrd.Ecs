@@ -46,9 +46,9 @@ turret.AddRelation<MountedOn>(tank);
 Destroy the `tank`, and every `turret` `MountedOn` it goes with it.
 
 :::tip
-Filter queries by relation with `WithRelation`/`WithoutRelation`, see [Queries](/guides/queries/#filtering-by-relation).
+Filter queries by relation with `WithRelation`/`WithoutRelation`, see [Queries](/build/ecs/queries/#filtering-by-relation).
 :::
 
 ## Next
 
-Wyrd ships one relation built in, for the most common case of all. See [Parent/Child](/guides/relations/parent-child/).
+Wyrd ships one relation built in, for the most common case of all. See [Parent/Child](/build/ecs/relations/parent-child/).

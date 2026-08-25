@@ -56,4 +56,4 @@ var rendered = Vector2.Lerp(previousPosition, currentPosition, (float)world.Fixe
 
 ## Next
 
-Timestep and ordering both shape when code runs. For how entities relate to each other structurally, see [Relations](/guides/relations/).
+Timestep and ordering both shape when code runs. For how entities relate to each other structurally, see [Relations](/build/ecs/relations/).
