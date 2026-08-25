@@ -39,6 +39,7 @@ export default defineConfig({
 		'/guides/persistence': '/build/persistence',
 		'/guides/debugging': '/build/debugging',
 		'/advanced/change-tracking': '/understand/change-tracking',
+		'/getting-started': '/start-here/wyrd-in-10-minutes',
 	},
 	integrations: [
 		starlight({
@@ -68,7 +69,10 @@ export default defineConfig({
 			},
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/JacobMillward/Wyrd.Ecs' }],
 			sidebar: [
-				{ label: 'Getting Started', slug: 'getting-started' },
+				{
+					label: 'Start Here',
+					items: [{ label: 'Wyrd in 10 minutes', slug: 'start-here/wyrd-in-10-minutes' }],
+				},
 				{
 					label: 'Build with Wyrd',
 					items: [

@@ -1,5 +1,5 @@
 ---
-title: Getting started
+title: Wyrd in 10 minutes
 description: Install Wyrd.Ecs, define a component, and write your first system.
 ---
 
