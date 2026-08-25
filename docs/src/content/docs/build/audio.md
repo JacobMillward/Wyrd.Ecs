@@ -101,4 +101,4 @@ Audio.Follow(engineHum, enemyEntity);
 
 ## Next
 
-[Assets](/engine/assets/) covers the dedup-and-use-count loading pattern `LoadSound` is built on, reusable for loaders of your own.
+[Assets](/build/assets/) covers the dedup-and-use-count loading pattern `LoadSound` is built on, reusable for loaders of your own.

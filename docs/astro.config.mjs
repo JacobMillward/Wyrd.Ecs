@@ -34,6 +34,10 @@ export default defineConfig({
 		'/engine/input': '/build/input',
 		'/advanced/input/multi-device': '/build/input/multi-device',
 		'/advanced/input/remapping': '/build/input/remapping',
+		'/engine/audio': '/build/audio',
+		'/engine/assets': '/build/assets',
+		'/guides/persistence': '/build/persistence',
+		'/guides/debugging': '/build/debugging',
 	},
 	integrations: [
 		starlight({
@@ -106,20 +110,10 @@ export default defineConfig({
 								{ label: 'Remapping', slug: 'build/input/remapping' },
 							],
 						},
-					],
-				},
-				{
-					label: 'Guides',
-					items: [
-						{ label: 'Debugging', slug: 'guides/debugging' },
-						{ label: 'Persistence', slug: 'guides/persistence' },
-					],
-				},
-				{
-					label: 'Engine',
-					items: [
-						{ label: 'Audio', slug: 'engine/audio' },
-						{ label: 'Assets', slug: 'engine/assets' },
+						{ label: 'Audio', slug: 'build/audio' },
+						{ label: 'Assets', slug: 'build/assets' },
+						{ label: 'Persistence', slug: 'build/persistence' },
+						{ label: 'Debugging', slug: 'build/debugging' },
 					],
 				},
 				{
