@@ -53,9 +53,9 @@ public sealed partial class DeviceLogSystem(World world) : QuerySystem
 `PlatformSystem` is the single source of `DeviceChange`, one event per real hot-plug, covering both directions so a reader can't handle connects while forgetting disconnects.
 
 :::note
-`DeviceKind` covers `Keyboard` and `Mouse` today. `Wyrd.Ecs.Input` already reacts to `DeviceChange` for you, see [Input](/engine/input/) and, for assigning specific devices to profiles, [Multi-Device](/advanced/input/multi-device/).
+`DeviceKind` covers `Keyboard` and `Mouse` today. `Wyrd.Ecs.Input` already reacts to `DeviceChange` for you, see [Input](/build/input/) and, for assigning specific devices to profiles, [Multi-Device](/build/input/multi-device/).
 :::
 
 ## Next
 
-[Renderer](/engine/renderer/) and [Input](/engine/input/) both build on the window `AddWindow` opens.
+[Renderer](/build/rendering/) and [Input](/build/input/) both build on the window `AddWindow` opens.

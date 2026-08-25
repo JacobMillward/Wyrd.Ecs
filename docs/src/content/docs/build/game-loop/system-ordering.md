@@ -56,4 +56,4 @@ world.AddSystem<LateJoinerSystem>().After<InputProcessed>();
 
 ## Next
 
-Ordering controls sequence. For controlling how often a system runs at all, see [Timestep, Pause & Timescale](/guides/timestep-pause-timescale/).
+Ordering controls sequence. For controlling how often a system runs at all, see [Timestep, Pause & Timescale](/build/game-loop/timestep-pause-timescale/).

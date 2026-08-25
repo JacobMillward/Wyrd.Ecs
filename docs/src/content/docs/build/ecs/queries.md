@@ -132,4 +132,4 @@ world.Query().With<Position>().WithoutRelation<Targeting>()
 
 ## Next
 
-A query you build once and run every tick is a system. See [Systems](/guides/systems/).
+A query you build once and run every tick is a system. See [Systems](/build/game-loop/systems/).

@@ -22,6 +22,11 @@ export default defineConfig({
 		'/guides/templates': '/build/ecs/templates',
 		'/guides/resources': '/build/ecs/resources',
 		'/guides/events': '/build/ecs/events',
+		'/guides/systems': '/build/game-loop/systems',
+		'/guides/systems/command-buffer': '/build/game-loop/systems/command-buffer',
+		'/guides/system-ordering': '/build/game-loop/system-ordering',
+		'/guides/timestep-pause-timescale': '/build/game-loop/timestep-pause-timescale',
+		'/engine/platform': '/build/game-loop/platform',
 	},
 	integrations: [
 		starlight({
@@ -67,20 +72,21 @@ export default defineConfig({
 								{ label: 'Events', slug: 'build/ecs/events' },
 							],
 						},
+						{
+							label: 'Game Loop',
+							items: [
+								{ label: 'Platform', slug: 'build/game-loop/platform' },
+								{ label: 'Systems', slug: 'build/game-loop/systems' },
+								{ label: 'Command Buffer', slug: 'build/game-loop/systems/command-buffer' },
+								{ label: 'System Ordering', slug: 'build/game-loop/system-ordering' },
+								{ label: 'Timestep, Pause & Timescale', slug: 'build/game-loop/timestep-pause-timescale' },
+							],
+						},
 					],
 				},
 				{
 					label: 'Guides',
 					items: [
-						{
-							label: 'Game Loop',
-							items: [
-								{ label: 'Systems', slug: 'guides/systems' },
-								{ label: 'Command Buffer', slug: 'guides/systems/command-buffer' },
-								{ label: 'System Ordering', slug: 'guides/system-ordering' },
-								{ label: 'Timestep, Pause & Timescale', slug: 'guides/timestep-pause-timescale' },
-							],
-						},
 						{ label: 'Debugging', slug: 'guides/debugging' },
 						{ label: 'Persistence', slug: 'guides/persistence' },
 					],
@@ -88,7 +94,6 @@ export default defineConfig({
 				{
 					label: 'Engine',
 					items: [
-						{ label: 'Platform', slug: 'engine/platform' },
 						{ label: 'Renderer', slug: 'engine/renderer' },
 						{ label: 'Sprites', slug: 'engine/renderer/sprites' },
 						{ label: 'Meshes', slug: 'engine/renderer/meshes' },

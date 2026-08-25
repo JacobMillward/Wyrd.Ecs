@@ -5,7 +5,7 @@ description: Why structural changes defer, and how to use CommandBuffer directly
 
 Two systems in the same parallel stage might both want to destroy an entity, or add a component to one the other is mid-iteration over. Mutating archetype storage directly while another system might be reading it has no guard against corruption, so structural changes never happen immediately. They queue instead, then apply in one deterministic pass.
 
-That's the piece that makes [systems running in parallel with no thread code](/guides/systems/#the-parallel-scheduler) actually hold together.
+That's the piece that makes [systems running in parallel with no thread code](/build/game-loop/systems/#the-parallel-scheduler) actually hold together.
 
 ## Applying the queue
 
@@ -33,4 +33,4 @@ Useful for building up a batch of changes somewhere other than inline in a syste
 
 ## Next
 
-A system that depends on another running first, not just on shared data, needs to say so explicitly. See [System Ordering](/guides/system-ordering/).
+A system that depends on another running first, not just on shared data, needs to say so explicitly. See [System Ordering](/build/game-loop/system-ordering/).

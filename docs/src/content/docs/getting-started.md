@@ -22,7 +22,7 @@ public struct Velocity : IComponent { public float X; public float Y; }
 
 ## Write a system
 
-A [`QuerySystem`](/guides/systems/) is how you act on entities: it declares what it wants with `DefineQuery`, and acts on it with `Update`. The class must be `partial`, a source generator fills in the dispatch.
+A [`QuerySystem`](/build/game-loop/systems/) is how you act on entities: it declares what it wants with `DefineQuery`, and acts on it with `Update`. The class must be `partial`, a source generator fills in the dispatch.
 
 ```csharp
 public sealed partial class MovementSystem : QuerySystem
@@ -78,5 +78,5 @@ runs a system once against a `World` directly, no `WorldBuilder` needed. Useful 
 
 - [Entities & components](/build/ecs/entities-and-components/) covers tags, destroying entities, and adding components after creation.
 - [Queries](/build/ecs/queries/) covers filtering beyond `With`: `Without`, `Has`, `Any`, and running work across the entities that match.
-- [Systems](/guides/systems/) covers optional `Update` parameters and how the scheduler parallelizes systems.
-- [Platform](/engine/platform/) covers opening a window and building an actual game loop on top of the ECS, not just embedding it.
+- [Systems](/build/game-loop/systems/) covers optional `Update` parameters and how the scheduler parallelizes systems.
+- [Platform](/build/game-loop/platform/) covers opening a window and building an actual game loop on top of the ECS, not just embedding it.

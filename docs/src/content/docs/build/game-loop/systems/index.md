@@ -47,7 +47,7 @@ public sealed partial class DeathCheckSystem : QuerySystem
 
 ## Registering systems
 
-A single system you want to run once, without registering it, uses `world.RunOnce(...)` directly (see [Getting started](/getting-started/#running-a-single-system-without-registering-it)). For a real game loop, register systems with `WorldBuilder` and run every tick with `world.Update(...)`:
+A single system you want to run once, without registering it, uses `world.RunOnce(...)` directly (see [Wyrd in 10 minutes](/start-here/wyrd-in-10-minutes/#running-a-single-system-without-registering-it)). For a real game loop, register systems with `WorldBuilder` and run every tick with `world.Update(...)`:
 
 ```csharp
 var world = new WorldBuilder()
@@ -120,4 +120,4 @@ public sealed partial class DamageOverTimeSystem
 
 ## Next
 
-Structural changes made from inside a system still go through `CommandBuffer`, the same as everywhere else. See [Command Buffer](/guides/systems/command-buffer/) for why, and how to use one directly.
+Structural changes made from inside a system still go through `CommandBuffer`, the same as everywhere else. See [Command Buffer](/build/game-loop/systems/command-buffer/) for why, and how to use one directly.

@@ -26,7 +26,7 @@ var world = new WorldBuilder()
 `BindAxis2D` composes four keys into one `Vector2`, each contributing +/-1 on its axis, clamped to unit length. `Bind` maps one or more keys or mouse buttons to a digital action. Both are additive across calls, `Unbind` removes a binding. An action is either digital or an axis, never both, binding it the other way throws until you `Unbind` first.
 
 :::note
-Every `Bind`/`BindAxis2D`/`Unbind` overload above targets profile 0 by default. A `profile` parameter is there for more than one player, see [Multi-Device](/advanced/input/multi-device/).
+Every `Bind`/`BindAxis2D`/`Unbind` overload above targets profile 0 by default. A `profile` parameter is there for more than one player, see [Multi-Device](/build/input/multi-device/).
 :::
 
 ## Reading resolved state
@@ -60,4 +60,4 @@ Read directly off `IntentState<TAction>`, not tied to any bound action.
 
 ## Next
 
-[Audio](/engine/audio/) for sound effects and music, [Multi-Device](/advanced/input/multi-device/) for more than one keyboard or mouse, [Remapping](/advanced/input/remapping/) for saving player-customized bindings.
+[Audio](/build/audio/) for sound effects and music, [Multi-Device](/build/input/multi-device/) for more than one keyboard or mouse, [Remapping](/build/input/remapping/) for saving player-customized bindings.

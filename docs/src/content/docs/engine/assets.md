@@ -62,4 +62,4 @@ For teardown, `FaultAllPending(exception)` resolves every still-loading slot at 
 
 ## Next
 
-[Multi-Device](/advanced/input/multi-device/) continues the engine tour with input across more than one keyboard or mouse.
+[Multi-Device](/build/input/multi-device/) continues the engine tour with input across more than one keyboard or mouse.
