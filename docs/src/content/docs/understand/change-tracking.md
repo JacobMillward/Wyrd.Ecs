@@ -61,6 +61,10 @@ Every kind arrives as the same `ChangeEntry`:
 | `TypeIndex` | The component/tag/relation's runtime index. `null` for lifecycle entries |
 | `Tick` | When it happened |
 
+## Under the hood
+
+There's no separate change log to maintain. Each component's storage keeps one extra array alongside the component's own, a per-row tick marking when that row was last written. A tick advancing triggers the scan, once per tracked type regardless of how many subscribers are watching it, each scanner keeping its own watermark so a subscriber that joins mid-scan catches up on the next tick instead of sharing another one's progress. `Drain()` itself runs no scan at all, it just swaps out the buffer of entries that tick's scan already published.
+
 ## Watching structural changes synchronously
 
 When a buffered report is too late - maintaining an external index, feeding a profiler, mirroring state out of the world entirely - `ObserveStructuralChanges` fires inline at the exact moment of mutation, including deferred ones the moment a command buffer applies them:
@@ -81,10 +85,10 @@ Registering and disposing observers isn't thread-safe against each other. Subscr
 
 ## Events or change tracking?
 
-- **[Events](/guides/events/)**: a system deliberately announces something, with its own payload. You designed the signal.
+- **[Events](/build/ecs/events/)**: a system deliberately announces something, with its own payload. You designed the signal.
 - **A subscription**: you want to react to state changes you didn't instrument, including what a value became. The world tells you.
 - **A structural observer**: you need to know the instant anything structurally moves, without buffering, and don't need types.
 
 ## Next
 
-For inspecting live world state rather than reacting to its changes, see [Debugging](/guides/debugging/).
+For inspecting live world state rather than reacting to its changes, see [Debugging](/build/debugging/).

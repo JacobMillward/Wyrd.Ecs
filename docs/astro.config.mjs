@@ -38,6 +38,7 @@ export default defineConfig({
 		'/engine/assets': '/build/assets',
 		'/guides/persistence': '/build/persistence',
 		'/guides/debugging': '/build/debugging',
+		'/advanced/change-tracking': '/understand/change-tracking',
 	},
 	integrations: [
 		starlight({
@@ -117,8 +118,8 @@ export default defineConfig({
 					],
 				},
 				{
-					label: 'Advanced',
-					items: [{ label: 'Change Tracking', slug: 'advanced/change-tracking' }],
+					label: 'Understand Wyrd',
+					items: [{ label: 'Change Tracking', slug: 'understand/change-tracking' }],
 				},
 			],
 		}),
