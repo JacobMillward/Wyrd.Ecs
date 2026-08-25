@@ -110,6 +110,10 @@ If the process exits without calling `StopContinuousPersistence`, a safety net s
 world.StopContinuousPersistence();
 ```
 
+:::tip
+For how the full-world walk and the WAL actually relate, see [Persistence](/understand/persistence/).
+:::
+
 ## How it fits together
 
 - `world.Save()`/`Load()` are the manual, on-demand primitive: a synchronous walk of every entity and every registered component, through an `IPersistenceStore`. Continuous persistence's periodic checkpoint calls the same `Save`, it doesn't duplicate the walk.

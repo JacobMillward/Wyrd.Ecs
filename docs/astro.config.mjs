@@ -135,6 +135,8 @@ export default defineConfig({
 						{ label: 'Structural Changes', slug: 'understand/structural-changes' },
 						{ label: 'Relations', slug: 'understand/relations' },
 						{ label: 'Change Tracking', slug: 'understand/change-tracking' },
+						{ label: 'Persistence', slug: 'understand/persistence' },
+						{ label: 'Source Generation', slug: 'understand/source-generation' },
 					],
 				},
 			],
