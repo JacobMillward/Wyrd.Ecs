@@ -41,4 +41,4 @@ A disconnect clears that device's held keys immediately, before the next tick re
 
 ## Next
 
-[Remapping](/advanced/input/remapping/) for saving player-customized bindings, device assignments aren't part of what gets saved.
+[Remapping](/build/input/remapping/) for saving player-customized bindings, device assignments aren't part of what gets saved.

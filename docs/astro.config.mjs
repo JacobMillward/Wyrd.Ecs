@@ -31,6 +31,9 @@ export default defineConfig({
 		'/engine/renderer/sprites': '/build/rendering/sprites',
 		'/engine/renderer/meshes': '/build/rendering/meshes',
 		'/advanced/custom-rendering': '/build/rendering/custom-rendering',
+		'/engine/input': '/build/input',
+		'/advanced/input/multi-device': '/build/input/multi-device',
+		'/advanced/input/remapping': '/build/input/remapping',
 	},
 	integrations: [
 		starlight({
@@ -95,6 +98,14 @@ export default defineConfig({
 								{ label: 'Custom Rendering', slug: 'build/rendering/custom-rendering' },
 							],
 						},
+						{
+							label: 'Input',
+							items: [
+								{ label: 'Input', slug: 'build/input' },
+								{ label: 'Multi-Device', slug: 'build/input/multi-device' },
+								{ label: 'Remapping', slug: 'build/input/remapping' },
+							],
+						},
 					],
 				},
 				{
@@ -107,23 +118,13 @@ export default defineConfig({
 				{
 					label: 'Engine',
 					items: [
-						{ label: 'Input', slug: 'engine/input' },
 						{ label: 'Audio', slug: 'engine/audio' },
 						{ label: 'Assets', slug: 'engine/assets' },
 					],
 				},
 				{
 					label: 'Advanced',
-					items: [
-						{ label: 'Change Tracking', slug: 'advanced/change-tracking' },
-						{
-							label: 'Input',
-							items: [
-								{ label: 'Multi-Device', slug: 'advanced/input/multi-device' },
-								{ label: 'Remapping', slug: 'advanced/input/remapping' },
-							],
-						},
-					],
+					items: [{ label: 'Change Tracking', slug: 'advanced/change-tracking' }],
 				},
 			],
 		}),
