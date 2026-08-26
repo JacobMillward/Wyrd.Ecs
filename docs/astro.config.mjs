@@ -14,33 +14,6 @@ const wyrdCodeThemeLight = ExpressiveCodeTheme.fromJSONString(
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://wyrd.millward.dev',
-	redirects: {
-		'/guides/entities-and-components': '/build/ecs/entities-and-components',
-		'/guides/queries': '/build/ecs/queries',
-		'/guides/relations': '/build/ecs/relations',
-		'/guides/relations/parent-child': '/build/ecs/relations/parent-child',
-		'/guides/templates': '/build/ecs/templates',
-		'/guides/resources': '/build/ecs/resources',
-		'/guides/events': '/build/ecs/events',
-		'/guides/systems': '/build/game-loop/systems',
-		'/guides/systems/command-buffer': '/build/game-loop/systems/command-buffer',
-		'/guides/system-ordering': '/build/game-loop/system-ordering',
-		'/guides/timestep-pause-timescale': '/build/game-loop/timestep-pause-timescale',
-		'/engine/platform': '/build/game-loop/platform',
-		'/engine/renderer': '/build/rendering',
-		'/engine/renderer/sprites': '/build/rendering/sprites',
-		'/engine/renderer/meshes': '/build/rendering/meshes',
-		'/advanced/custom-rendering': '/build/rendering/custom-rendering',
-		'/engine/input': '/build/input',
-		'/advanced/input/multi-device': '/build/input/multi-device',
-		'/advanced/input/remapping': '/build/input/remapping',
-		'/engine/audio': '/build/audio',
-		'/engine/assets': '/build/assets',
-		'/guides/persistence': '/build/persistence',
-		'/guides/debugging': '/build/debugging',
-		'/advanced/change-tracking': '/understand/change-tracking',
-		'/getting-started': '/start-here/wyrd-in-10-minutes',
-	},
 	integrations: [
 		starlight({
 			title: 'Wyrd.Ecs',
