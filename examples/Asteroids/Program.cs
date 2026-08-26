@@ -1,12 +1,19 @@
+using System.Numerics;
 using SDL3;
 using Wyrd.Ecs;
 using Wyrd.Ecs.Examples.Asteroids;
+using Wyrd.Ecs.Examples.Asteroids.Components;
+using Wyrd.Ecs.Examples.Asteroids.Systems;
 using Wyrd.Ecs.Platform;
 using Wyrd.Ecs.Renderer;
 
 var world = new WorldBuilder()
     .AddWindow("Asteroids", 960, 720)
     .AddRenderer()
+    .AddTransformSystem()
+    .AddSystem<MovementSystem>()
+    .AddSystem<WraparoundSystem>()
+    .AddSystem<SpinSystem>()
     .Build();
 
 var renderer = world.GetSystem<RendererSystem>();
@@ -30,6 +37,23 @@ var ship = world.Commands.CreateEntity();
 world.Commands.AddComponent(ship, Transform.Identity);
 world.Commands.AddComponent(ship, new Sprite(SourceRect: null, Tint: Color.White));
 world.Commands.AddComponent(ship, new Material(ShaderKind.UnlitSprite, shipTexture));
+
+var testAsteroid1 = world.Commands.CreateEntity();
+world.Commands.AddComponent(testAsteroid1, new Transform { Position = new Vector3(-240f, 90f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Large.Scale() });
+world.Commands.AddComponent(testAsteroid1, new Velocity { Value = new Vector3(90f, -30f, 0f) });
+world.Commands.AddComponent(testAsteroid1, new Spin { RadiansPerSecond = 0.6f });
+world.Commands.AddComponent(testAsteroid1, new Asteroid { Size = AsteroidSize.Large });
+world.Commands.AddComponent(testAsteroid1, new Sprite(SourceRect: null, Tint: Color.White));
+world.Commands.AddComponent(testAsteroid1, new Material(ShaderKind.UnlitSprite, asteroidTexture));
+
+var testAsteroid2 = world.Commands.CreateEntity();
+world.Commands.AddComponent(testAsteroid2, new Transform { Position = new Vector3(180f, -150f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Small.Scale() });
+world.Commands.AddComponent(testAsteroid2, new Velocity { Value = new Vector3(-60f, 75f, 0f) });
+world.Commands.AddComponent(testAsteroid2, new Spin { RadiansPerSecond = -1.4f });
+world.Commands.AddComponent(testAsteroid2, new Asteroid { Size = AsteroidSize.Small });
+world.Commands.AddComponent(testAsteroid2, new Sprite(SourceRect: null, Tint: Color.White));
+world.Commands.AddComponent(testAsteroid2, new Material(ShaderKind.UnlitSprite, asteroidTexture));
+
 world.ApplyCommands();
 
 var platform = world.GetSystem<PlatformSystem>();
