@@ -67,4 +67,7 @@
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Wyrd.Ecs.Benchmarks/Wyrd.Ecs.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Asteroids/Wyrd.Ecs.Examples.Asteroids.csproj" />
+  </Folder>
 </Solution>

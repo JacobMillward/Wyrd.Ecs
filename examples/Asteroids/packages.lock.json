@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Microsoft.DotNet.PlatformAbstractions": {
+        "type": "Transitive",
+        "resolved": "3.1.6",
+        "contentHash": "jek4XYaQ/PGUwDKKhwR8K47Uh1189PFzMeLqO83mXrXQVIpARZCcfuDedH50YDTepBkfijCZN5U/vZi++erxtg=="
+      },
+      "Microsoft.Extensions.DependencyModel": {
+        "type": "Transitive",
+        "resolved": "9.0.9",
+        "contentHash": "fNGvKct2De8ghm0Bpfq0iWthtzIWabgOTi+gJhNOPhNJIowXNEUE2eZNW/zNCzrHVA3PXg2yZ+3cWZndC2IqYA=="
+      },
+      "SDL3-CS": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "o3X50ZpVw20wtCQZO/To9b5aesE22ZcYE9fL/2IOd4KCuT9q1DBsa8PHJJIcxt9sW4uHvjj8gP6n5KPMzzxeKA=="
+      },
+      "SDL3-CS.Linux": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "8nrQnkKPm0t48u659QEbYEpoJQ0puP1WlPX//NhbF48uZ2+ofOteKgZiXVS2iRLUEub15wWcyRs3QJDt+Hp0TQ=="
+      },
+      "SDL3-CS.MacOS": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "NmdjY4e583XljYhGoQ7YnvjjXNWCeOntfyRaOw85r7jfIAcjECenKMbG3QfWBdpiWFlJPkpKAMHiZlxNo5Dhdw=="
+      },
+      "SDL3-CS.Native.Mixer": {
+        "type": "Transitive",
+        "resolved": "3.2.0",
+        "contentHash": "Ki+Qc8Sm3sPi6YuUt3Y+Jm+nKO7Dc588tVKa7KtOjpenvDWlBUlRYuFGtx/OMR2IzuTekvNsddThq16rlxMvTg=="
+      },
+      "SDL3-CS.Windows": {
+        "type": "Transitive",
+        "resolved": "3.4.14.1",
+        "contentHash": "Be2vHp02n5wWJgX3CGicmohg5+QjleULdbJgQtCKis+2r53VaIwTdt0OYx8wCARYCuS17OSHXj8AMhoCo41qyA=="
+      },
+      "Silk.NET.Assimp": {
+        "type": "Transitive",
+        "resolved": "2.23.0",
+        "contentHash": "kr1H8TdDIG/9sYCSM1ZavqXqPc5LINVJiwhecEENASJjfGKknTrRQGxPqbPAWxN3t/zb130fmO+PGay71G8rlw==",
+        "dependencies": {
+          "Silk.NET.Core": "2.23.0",
+          "Silk.NET.Maths": "2.23.0",
+          "Ultz.Native.Assimp": "6.0.2"
+        }
+      },
+      "Silk.NET.Core": {
+        "type": "Transitive",
+        "resolved": "2.23.0",
+        "contentHash": "D7AT/nnwlB+4RZ84XY8QNGBZMJI5z9l4CSSETIJ1wCfRJzRt/341y3MRZ4HbnFz4r/IGaWOEZr86iE+0/65yyQ==",
+        "dependencies": {
+          "Microsoft.DotNet.PlatformAbstractions": "3.1.6",
+          "Microsoft.Extensions.DependencyModel": "9.0.9"
+        }
+      },
+      "Silk.NET.Maths": {
+        "type": "Transitive",
+        "resolved": "2.23.0",
+        "contentHash": "r8PdIVzME8EH0qAgbmRPO87I4GfgR2j8TofT7EMuRJDf1QluoQwnVypDoFJjQ2ZBSRsGYk5unYxxogI05Ogsmw=="
+      },
+      "StbImageSharp": {
+        "type": "Transitive",
+        "resolved": "2.30.15",
+        "contentHash": "7QqbupVhz2kcFUPTgMw4iHR9rYDHGundzzee19Mwmd1typ2Lnv8EVJcLJxlkeBM2+4ex0NwsMtdbGSJctp1XCQ=="
+      },
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "9.0.0",
+        "contentHash": "seeO8icDfED/Qwl9PDFUx2Gf/7xv7dPsMnw5PnRwNZuz4EWMpy0wIVohC4MfCcTIoJgp+KUrWG4WH3NPSusQOA=="
+      },
+      "Ultz.Native.Assimp": {
+        "type": "Transitive",
+        "resolved": "6.0.2",
+        "contentHash": "sLlr+PPldAB8+7Nfq/By/hm4lW0yfLD3JZf7Cy7sEPjt9yG6kBX86oftD1EnYauq6bpDQxrmMj9fziFwyegbcQ=="
+      },
+      "wyrd.ecs": {
+        "type": "Project"
+      },
+      "wyrd.ecs.assets": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.audio": {
+        "type": "Project",
+        "dependencies": {
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Native.Mixer": "[3.2.0, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Assets": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.engine": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Assets": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Audio": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Input": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Platform": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Renderer": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.input": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Persistence": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.persistence": {
+        "type": "Project",
+        "dependencies": {
+          "System.IO.Hashing": "[9.0.0, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.platform": {
+        "type": "Project",
+        "dependencies": {
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )"
+        }
+      },
+      "wyrd.ecs.renderer": {
+        "type": "Project",
+        "dependencies": {
+          "SDL3-CS": "[3.4.14.1, )",
+          "SDL3-CS.Linux": "[3.4.14.1, )",
+          "SDL3-CS.MacOS": "[3.4.14.1, )",
+          "SDL3-CS.Windows": "[3.4.14.1, )",
+          "Silk.NET.Assimp": "[2.23.0, )",
+          "StbImageSharp": "[2.30.15, )",
+          "Ultz.Native.Assimp": "[6.0.2, )",
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Assets": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Platform": "[0.1.0-alpha, )"
+        }
+      }
+    }
+  }
+}

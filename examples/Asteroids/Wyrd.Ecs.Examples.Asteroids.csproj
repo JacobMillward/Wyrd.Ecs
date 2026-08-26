@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Wyrd.Ecs.Examples.Asteroids</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
+    <ProjectReference Include="..\..\src\Platform\Wyrd.Ecs.Engine\Wyrd.Ecs.Engine.csproj" />
+  </ItemGroup>
+
+</Project>
