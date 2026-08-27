@@ -3,14 +3,14 @@ using Wyrd.Ecs.Internal;
 
 namespace Wyrd.Ecs.Tests;
 
-struct QccComp0 : IComponent { public int Value; }
-struct QccComp1 : IComponent { public int Value; }
-struct QccComp2 : IComponent { public int Value; }
-struct QccComp3 : IComponent { public int Value; }
-struct QccComp4 : IComponent { public int Value; }
-struct QccComp5 : IComponent { public int Value; }
-struct QccComp6 : IComponent { public int Value; }
-struct QccComp7 : IComponent { public int Value; }
+struct QccComp0 : IComponent;
+struct QccComp1 : IComponent;
+struct QccComp2 : IComponent;
+struct QccComp3 : IComponent;
+struct QccComp4 : IComponent;
+struct QccComp5 : IComponent;
+struct QccComp6 : IComponent;
+struct QccComp7 : IComponent;
 
 /// <summary>
 /// Parallel stages resolve the archetype-set caches concurrently when systems with different
@@ -138,7 +138,7 @@ public class QueryCacheConcurrencyTests
         foreach (var thread in threads) thread.Start();
         foreach (var thread in threads) thread.Join();
 
-        var failures = exceptions.Where(e => e is not null).ToList();
+        var failures = exceptions.OfType<Exception>().ToList();
         failures.Should().BeEmpty(
             $"every worker completed its bounded rounds without exception{Describe(failures)}");
         wrongResults.Should().AllBeEquivalentTo(0,
@@ -202,7 +202,7 @@ public class QueryCacheConcurrencyTests
         foreach (var thread in threads) thread.Start();
         foreach (var thread in threads) thread.Join();
 
-        var failures = exceptions.Where(e => e is not null).ToList();
+        var failures = exceptions.OfType<Exception>().ToList();
         failures.Should().BeEmpty(
             $"every worker completed its bounded rounds without exception{Describe(failures)}");
         wrongResults.Should().AllBeEquivalentTo(0,

@@ -102,7 +102,7 @@ public class EventChannelConcurrencyTests
         reader.Join();
         foreach (var writer in writers) writer.Join();
 
-        var failures = exceptions.Where(e => e is not null).ToList();
+        var failures = exceptions.OfType<Exception>().ToList();
         failures.Should().BeEmpty($"every write delivered exactly once, in order{Describe(failures)}");
         nextExpected.Should().AllBeEquivalentTo(WritesPerWriter, "every writer's full sequence was consumed");
     }

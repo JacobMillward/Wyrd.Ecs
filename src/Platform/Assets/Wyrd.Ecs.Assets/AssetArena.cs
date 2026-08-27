@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Wyrd.Ecs.Assets;
 
 /// <summary>The outcome of <see cref="AssetArena{TKey,TAsset}.MarkLoaded"/>/<see cref="AssetArena{TKey,TAsset}.MarkFailed"/>.</summary>
@@ -233,7 +235,7 @@ public sealed class AssetArena<TKey, TAsset>
     }
 
     /// <summary>Non-throwing counterpart to <see cref="GetSlotLocked"/>: false when the handle is stale or its slot was unloaded. The mark paths treat that as a benign lost race; the read paths still surface it as a caller bug via <see cref="GetSlotLocked"/>.</summary>
-    private bool TryGetSlotLocked(Handle<TAsset> handle, out Slot? slot)
+    private bool TryGetSlotLocked(Handle<TAsset> handle, [NotNullWhen(true)] out Slot? slot)
     {
         if (handle.Index >= _slots.Count || _slots[handle.Index] is not { } found || _generations[handle.Index] != handle.Generation)
         {

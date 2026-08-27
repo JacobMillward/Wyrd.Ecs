@@ -40,10 +40,9 @@ public sealed partial class RendererSystem
     /// mesh upload, not texture load, matching how a <see cref="Sprite"/>'s texture is allowed
     /// to still be <see cref="LoadState.Loading"/> when the entity is first drawn.
     /// Unload-during-load caveat: if a part's asset is unloaded before its upload lands, the
-    /// task still completes successfully but that part's handle is dead - read APIs
-    /// (<see cref="GetMeshLoadState"/>, <see cref="WaitForLoadAsync(Handle{Mesh})"/>) throw for
-    /// it. Callers must tolerate or filter such parts; the arena treats their uploads as
-    /// discarded work.
+    /// task still completes successfully but that part's handle is dead - <see cref="GetMeshLoadState"/>
+    /// throws for it. Callers must tolerate or filter such parts; the arena treats their
+    /// uploads as discarded work.
     /// </summary>
     public Task<IReadOnlyList<ModelPart>> LoadModelAsync(string path)
     {
