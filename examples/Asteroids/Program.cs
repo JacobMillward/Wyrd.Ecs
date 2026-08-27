@@ -2,6 +2,7 @@ using System.Numerics;
 using SDL3;
 using Wyrd.Ecs;
 using Wyrd.Ecs.Audio;
+using Wyrd.Ecs.Debug;
 using Wyrd.Ecs.Examples.Asteroids;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Examples.Asteroids.Systems;
@@ -98,14 +99,22 @@ for (var i = 0; i < 5; i++)
 
 world.ApplyCommands();
 
-var platform = world.GetSystem<PlatformSystem>();
-var clock = System.Diagnostics.Stopwatch.StartNew();
-var lastElapsed = clock.Elapsed;
-while (!platform.Events.Any(e => e.Type == (uint)SDL.EventType.Quit))
+var debugServer = args.Contains("--debug") ? world.WithDebugServer() : null;
+try
 {
-    var elapsed = clock.Elapsed;
-    world.Update(elapsed - lastElapsed);
-    lastElapsed = elapsed;
+    var platform = world.GetSystem<PlatformSystem>();
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    var lastElapsed = clock.Elapsed;
+    while (!platform.Events.Any(e => e.Type == (uint)SDL.EventType.Quit))
+    {
+        var elapsed = clock.Elapsed;
+        world.Update(elapsed - lastElapsed);
+        lastElapsed = elapsed;
+    }
+}
+finally
+{
+    debugServer?.Dispose();
 }
 
 static void WaitForLoads(World world, params Task[] tasks)

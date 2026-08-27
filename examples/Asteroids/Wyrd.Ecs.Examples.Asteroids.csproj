@@ -7,6 +7,10 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Wyrd.Ecs.Examples.Asteroids</RootNamespace>
     <IsPackable>false</IsPackable>
+    <!-- The debug server inspects every component regardless of [PersistenceIgnore], which
+         needs the ignored-types registration the JSON persistence generator only emits when
+         this is set. -->
+    <WyrdJsonRegisterIgnoredTypes>true</WyrdJsonRegisterIgnoredTypes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +21,8 @@
     <ProjectReference Include="..\..\src\Persistence\Json\Wyrd.Ecs.Persistence.Json\Wyrd.Ecs.Persistence.Json.csproj" />
     <ProjectReference Include="..\..\src\Persistence\Json\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\Persistence\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\Debug\Wyrd.Ecs.Debug\Wyrd.Ecs.Debug.csproj" />
+    <ProjectReference Include="..\..\src\Debug\Wyrd.Ecs.Debug.Generators\Wyrd.Ecs.Debug.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
