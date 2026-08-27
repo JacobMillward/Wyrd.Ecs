@@ -157,6 +157,7 @@ src/Platform/     Wyrd.Ecs.Platform (SDL3 window/lifecycle/event pump), Wyrd.Ecs
                   actions), Wyrd.Ecs.Audio (SDL_mixer), Wyrd.Ecs.Assets (the shared loading
                   arena), and the Wyrd.Ecs.Engine meta-package
 docs/             The Starlight docs site published at wyrd.millward.dev
+examples/         examples/Asteroids, a small complete game demonstrating the engine end to end
 benchmarks/       BenchmarkDotNet suites, including head-to-head comparisons against Friflo.Engine.ECS and fennecs
 ```
 
