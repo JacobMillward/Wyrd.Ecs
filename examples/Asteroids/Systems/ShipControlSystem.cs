@@ -1,4 +1,5 @@
 using System.Numerics;
+using Wyrd.Ecs.Audio;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Input;
 
@@ -13,6 +14,11 @@ public sealed partial class ShipControlSystem : QuerySystem
     private static readonly Angle TurnRate = Angle.Rad(3.2f);
 
     [Resource] public IntentState<GameAction> Input { get; private set; }
+    [Resource] public AudioPlayer Audio { get; private set; }
+    [Resource] public GameAssets Assets { get; private set; }
+
+    private Playback? _engineLoop;
+    private bool _wasThrusting;
 
     protected override IQuery DefineQuery(Query query) => query.With<Ship, Transform, Velocity>();
 
@@ -39,5 +45,11 @@ public sealed partial class ShipControlSystem : QuerySystem
             ref var flameTransform = ref world.GetComponent<Transform>(child);
             flameTransform.Scale = thrusting ? Vector3.One : Vector3.Zero;
         }
+
+        if (thrusting && !_wasThrusting)
+            _engineLoop = Audio.Play(Assets.EngineSound, Audio.CustomBus("Engine"), loop: true);
+        else if (!thrusting && _wasThrusting && _engineLoop is { } loop)
+            Audio.Stop(loop);
+        _wasThrusting = thrusting;
     }
 }

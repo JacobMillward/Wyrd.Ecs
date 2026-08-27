@@ -1,4 +1,5 @@
 using System.Numerics;
+using Wyrd.Ecs.Audio;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Input;
 
@@ -12,6 +13,7 @@ public sealed partial class WeaponSystem : QuerySystem
 
     [Resource] public IntentState<GameAction> Input { get; private set; }
     [Resource] public GameAssets Assets { get; private set; }
+    [Resource] public AudioPlayer Audio { get; private set; }
 
     protected override IQuery DefineQuery(Query query) => query.With<Transform, Velocity, Ship>();
 
@@ -23,5 +25,7 @@ public sealed partial class WeaponSystem : QuerySystem
         world.Commands.CreateEntity(Assets.BulletTemplate)
             .AddTransform(transform.Position + forward * NoseOffset, ship.Heading)
             .AddComponent(new Velocity { Value = velocity.Value + forward * BulletSpeed });
+
+        Audio.Play(Assets.LaserSound);
     }
 }

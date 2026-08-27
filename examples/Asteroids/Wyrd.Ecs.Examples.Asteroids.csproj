@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <None Include="Assets\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\*.wav" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

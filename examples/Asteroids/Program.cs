@@ -1,6 +1,7 @@
 using System.Numerics;
 using SDL3;
 using Wyrd.Ecs;
+using Wyrd.Ecs.Audio;
 using Wyrd.Ecs.Examples.Asteroids;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Examples.Asteroids.Systems;
@@ -13,6 +14,7 @@ var world = new WorldBuilder()
     .AddRenderer()
     .AddTransformSystem()
     .AddInput(Bindings.Default())
+    .AddAudio()
     .AddSystem<ShipControlSystem>()
     .AddSystem<WeaponSystem>()
     .AddSystem<MovementSystem>()
@@ -20,6 +22,7 @@ var world = new WorldBuilder()
     .AddSystem<SpinSystem>()
     .AddSystem<CollisionSystem>()
     .AddSystem<SplitSystem>()
+    .AddSystem<AudioCueSystem>()
     .AddSystem<LifetimeSystem>()
     .Build();
 
@@ -29,12 +32,20 @@ var asteroidTexture = renderer.LoadTexture(Path.Combine(AppContext.BaseDirectory
 var bulletTexture = renderer.LoadTexture(Path.Combine(AppContext.BaseDirectory, "Assets", "bullet.png"));
 var flameTexture = renderer.LoadTexture(Path.Combine(AppContext.BaseDirectory, "Assets", "flame.png"));
 
+var audio = world.GetResourceRef<AudioPlayer>();
+var laserSound = audio.LoadSound(Path.Combine(AppContext.BaseDirectory, "Assets", "laser.wav"));
+var explosionSound = audio.LoadSound(Path.Combine(AppContext.BaseDirectory, "Assets", "explosion.wav"));
+var engineSound = audio.LoadSound(Path.Combine(AppContext.BaseDirectory, "Assets", "engine.wav"));
+
 WaitForLoads(
     world,
     renderer.WaitForLoadAsync(shipTexture),
     renderer.WaitForLoadAsync(asteroidTexture),
     renderer.WaitForLoadAsync(bulletTexture),
-    renderer.WaitForLoadAsync(flameTexture));
+    renderer.WaitForLoadAsync(flameTexture),
+    audio.WaitForLoadAsync(laserSound),
+    audio.WaitForLoadAsync(explosionSound),
+    audio.WaitForLoadAsync(engineSound));
 
 var camera = world.Commands.CreateEntity();
 world.Commands.AddComponent(camera, Transform.Identity);
@@ -64,7 +75,7 @@ var asteroidTemplate = new EntityTemplate()
     .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
     .AddComponent(new Material(ShaderKind.UnlitSprite, asteroidTexture));
 
-world.AddResource(new GameAssets(bulletTemplate, asteroidTemplate));
+world.AddResource(new GameAssets(bulletTemplate, asteroidTemplate, laserSound, explosionSound, engineSound));
 
 var rng = new Random();
 for (var i = 0; i < 5; i++)
