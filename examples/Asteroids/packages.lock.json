@@ -124,6 +124,13 @@
           "Wyrd.Ecs": "[0.1.0-alpha, )"
         }
       },
+      "wyrd.ecs.persistence.json": {
+        "type": "Project",
+        "dependencies": {
+          "Wyrd.Ecs": "[0.1.0-alpha, )",
+          "Wyrd.Ecs.Persistence": "[0.1.0-alpha, )"
+        }
+      },
       "wyrd.ecs.platform": {
         "type": "Project",
         "dependencies": {

@@ -22,3 +22,8 @@ src/Debug/Wyrd.Ecs.Debug/frontend/node_modules/
 src/Debug/Wyrd.Ecs.Debug/frontend/src/generated/
 src/Debug/Wyrd.Ecs.Debug/wwwroot/js/
 src/Debug/Wyrd.Ecs.Debug/wwwroot/css/
+
+# examples/Asteroids' save file - relative to whatever the process's CWD was, so it can
+# land at the repo root, examples/Asteroids/, or the build output, depending on how it
+# was launched
+save.json

@@ -14,7 +14,21 @@ public sealed class GameOverSystem : EcsSystem
     private bool _triggered;
     private TimeSpan _slowMoRemaining;
 
+    /// <summary>True once a ship death has started the slow-mo/game-over sequence. PauseSystem
+    /// checks this so a player's own P press can never un-freeze a game-over world - only
+    /// <see cref="Reset"/> (via a load) does.</summary>
+    public bool HasTriggered => _triggered;
+
     public GameOverSystem(World world) => _shipDestroyed = world.CreateEventReader<ShipDestroyed>();
+
+    /// <summary>Clears in-memory game-over state after a <c>World.Load()</c>: persistence never
+    /// touches <see cref="World.IsPaused"/> or this system's own fields, so without this a loaded
+    /// save would stay frozen under the previous run's game-over state.</summary>
+    public void Reset()
+    {
+        _triggered = false;
+        _slowMoRemaining = TimeSpan.Zero;
+    }
 
     protected override void Execute(World world, Time time)
     {

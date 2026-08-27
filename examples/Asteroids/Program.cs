@@ -6,6 +6,7 @@ using Wyrd.Ecs.Examples.Asteroids;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Examples.Asteroids.Systems;
 using Wyrd.Ecs.Input;
+using Wyrd.Ecs.Persistence.Json;
 using Wyrd.Ecs.Platform;
 using Wyrd.Ecs.Renderer;
 
@@ -15,6 +16,7 @@ var world = new WorldBuilder()
     .AddTransformSystem()
     .AddInput(Bindings.Default())
     .AddAudio()
+    .AddJsonPersistence("save.json")
     .AddSystem<ShipControlSystem>()
     .AddSystem<WeaponSystem>()
     .AddSystem<MovementSystem>()
@@ -25,6 +27,8 @@ var world = new WorldBuilder()
     .AddSystem<AudioCueSystem>()
     .AddSystem<ScoreSystem>()
     .AddSystem<GameOverSystem>()
+    .AddSystem<PauseSystem>()
+    .AddSystem<SaveLoadSystem>()
     .AddSystem<LifetimeSystem>()
     .Build();
 
@@ -95,8 +99,14 @@ for (var i = 0; i < 5; i++)
 world.ApplyCommands();
 
 var platform = world.GetSystem<PlatformSystem>();
+var clock = System.Diagnostics.Stopwatch.StartNew();
+var lastElapsed = clock.Elapsed;
 while (!platform.Events.Any(e => e.Type == (uint)SDL.EventType.Quit))
-    world.Update(TimeSpan.FromMilliseconds(16));
+{
+    var elapsed = clock.Elapsed;
+    world.Update(elapsed - lastElapsed);
+    lastElapsed = elapsed;
+}
 
 static void WaitForLoads(World world, params Task[] tasks)
 {

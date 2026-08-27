@@ -13,11 +13,17 @@
     <ProjectReference Include="..\..\src\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\src\Platform\Wyrd.Ecs.Engine\Wyrd.Ecs.Engine.csproj" />
     <ProjectReference Include="..\..\src\Core\Wyrd.Ecs.Generators\Wyrd.Ecs.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\Persistence\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Persistence\Json\Wyrd.Ecs.Persistence.Json\Wyrd.Ecs.Persistence.Json.csproj" />
+    <ProjectReference Include="..\..\src\Persistence\Json\Wyrd.Ecs.Persistence.Json.Generators\Wyrd.Ecs.Persistence.Json.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\Persistence\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="Assets\*.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\*.wav" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Import Project="..\..\src\Persistence\Json\Wyrd.Ecs.Persistence.Json.Generators\build\Wyrd.Ecs.Persistence.Json.Generators.targets" />
 
 </Project>
