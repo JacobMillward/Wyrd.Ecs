@@ -23,6 +23,8 @@ var world = new WorldBuilder()
     .AddSystem<CollisionSystem>()
     .AddSystem<SplitSystem>()
     .AddSystem<AudioCueSystem>()
+    .AddSystem<ScoreSystem>()
+    .AddSystem<GameOverSystem>()
     .AddSystem<LifetimeSystem>()
     .Build();
 
@@ -64,6 +66,10 @@ var shipTemplate = new EntityTemplate()
         .AddTag<EngineFlame>());
 
 world.Commands.CreateEntity(shipTemplate);
+
+var gameState = world.Commands.CreateEntity();
+world.Commands.AddTag<Game>(gameState);
+world.Commands.AddComponent(gameState, new Score());
 
 var bulletTemplate = new EntityTemplate()
     .AddTag<Bullet>()
