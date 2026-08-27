@@ -14,9 +14,11 @@ var world = new WorldBuilder()
     .AddTransformSystem()
     .AddInput(Bindings.Default())
     .AddSystem<ShipControlSystem>()
+    .AddSystem<WeaponSystem>()
     .AddSystem<MovementSystem>()
     .AddSystem<WraparoundSystem>()
     .AddSystem<SpinSystem>()
+    .AddSystem<LifetimeSystem>()
     .Build();
 
 var renderer = world.GetSystem<RendererSystem>();
@@ -50,21 +52,29 @@ var shipTemplate = new EntityTemplate()
 
 world.Commands.CreateEntity(shipTemplate);
 
-var testAsteroid1 = world.Commands.CreateEntity();
-world.Commands.AddComponent(testAsteroid1, new Transform { Position = new Vector3(-240f, 90f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Large.Scale() });
-world.Commands.AddComponent(testAsteroid1, new Velocity { Value = new Vector3(90f, -30f, 0f) });
-world.Commands.AddComponent(testAsteroid1, new Spin { RadiansPerSecond = 0.6f });
-world.Commands.AddComponent(testAsteroid1, new Asteroid { Size = AsteroidSize.Large });
-world.Commands.AddComponent(testAsteroid1, new Sprite(SourceRect: null, Tint: Color.White));
-world.Commands.AddComponent(testAsteroid1, new Material(ShaderKind.UnlitSprite, asteroidTexture));
+var bulletTemplate = new EntityTemplate()
+    .AddTag<Bullet>()
+    .AddComponent(new Lifetime { SecondsRemaining = 1.1f })
+    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
+    .AddComponent(new Material(ShaderKind.UnlitSprite, bulletTexture));
 
-var testAsteroid2 = world.Commands.CreateEntity();
-world.Commands.AddComponent(testAsteroid2, new Transform { Position = new Vector3(180f, -150f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Small.Scale() });
-world.Commands.AddComponent(testAsteroid2, new Velocity { Value = new Vector3(-60f, 75f, 0f) });
-world.Commands.AddComponent(testAsteroid2, new Spin { RadiansPerSecond = -1.4f });
-world.Commands.AddComponent(testAsteroid2, new Asteroid { Size = AsteroidSize.Small });
-world.Commands.AddComponent(testAsteroid2, new Sprite(SourceRect: null, Tint: Color.White));
-world.Commands.AddComponent(testAsteroid2, new Material(ShaderKind.UnlitSprite, asteroidTexture));
+var asteroidTemplate = new EntityTemplate()
+    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
+    .AddComponent(new Material(ShaderKind.UnlitSprite, asteroidTexture));
+
+world.AddResource(new GameAssets(bulletTemplate, asteroidTemplate));
+
+world.Commands.CreateEntity(asteroidTemplate)
+    .AddComponent(new Transform { Position = new Vector3(-240f, 90f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Large.Scale() })
+    .AddComponent(new Velocity { Value = new Vector3(90f, -30f, 0f) })
+    .AddComponent(new Spin { RadiansPerSecond = 0.6f })
+    .AddComponent(new Asteroid { Size = AsteroidSize.Large });
+
+world.Commands.CreateEntity(asteroidTemplate)
+    .AddComponent(new Transform { Position = new Vector3(180f, -150f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Small.Scale() })
+    .AddComponent(new Velocity { Value = new Vector3(-60f, 75f, 0f) })
+    .AddComponent(new Spin { RadiansPerSecond = -1.4f })
+    .AddComponent(new Asteroid { Size = AsteroidSize.Small });
 
 world.ApplyCommands();
 
