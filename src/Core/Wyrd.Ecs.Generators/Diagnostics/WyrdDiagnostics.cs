@@ -21,21 +21,6 @@ internal static class WyrdDiagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// Two <c>.ForEach</c>/<c>.ParallelForEach</c> call sites (or a <c>QuerySystem</c> and a
-    /// call site) share the exact same <c>Query&lt;TShape&gt;</c> closed type but resolve a
-    /// different <c>ref</c>/<c>in</c> for the same component. Reachable because
-    /// <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, so two
-    /// otherwise-unrelated queries with the same <c>.With&lt;T&gt;()</c> set can collide.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor ConflictingAccessForSameShape = new(
-        id: "WYRD003",
-        title: "Two query terminals disagree on read/write access for the same shape",
-        messageFormat: "Multiple '.ForEach'/'.ParallelForEach' call sites (or QuerySystems) share the shape '{0}' but resolve different ref/in access for one or more components. Give at least one of them a different '.With<T>()' set so they no longer share an identical Query<TShape> type.",
-        category: "Wyrd.Ecs.QueryChain",
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
-
-    /// <summary>
     /// A `file`-scoped type (C# 11 `file` modifier) was used as a query component. This can
     /// never work: the generator's `.ForEach`/`.ParallelForEach` extensions (and
     /// `QuerySystem` glue) are emitted into a separate generated source file, which cannot

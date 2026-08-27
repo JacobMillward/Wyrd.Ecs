@@ -196,12 +196,8 @@ public class QuerySystemGeneratorTests
 
                 world.RunOnce(new MoveSystem(), TimeSpan.Zero);
 
-                // Read back directly (not via another .ForEach over Query<(Position, Nil)>):
-                // that would be a second, independent read-only call site sharing MoveSystem's
-                // exact shape while wanting `in` instead of `ref` for Position, which is exactly
-                // the WYRD003 conflict (see QueryChainGenerator.DeduplicateShapes). GetComponent
-                // sidesteps it entirely, and is what this test actually needs: a direct value
-                // check, not another generated query terminal.
+                // Read back directly via GetComponent: this test needs a direct value check,
+                // not another generated query terminal.
                 return world.GetComponent<Position>(alive).X + world.GetComponent<Position>(dead).X;
             }
         }
