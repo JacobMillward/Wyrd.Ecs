@@ -3,7 +3,7 @@ using Wyrd.Ecs.Internal;
 namespace Wyrd.Ecs;
 
 /// <summary>
-/// The archetypes matching one <see cref="ArchetypeQuery.Resolve"/> call, each wrapped as
+/// The archetypes matching one <see cref="ArchetypeQuery.Resolve(World)"/> call, each wrapped as
 /// an <see cref="ArchetypeChunk"/>. A plain struct enumerator (no <c>IEnumerable&lt;T&gt;</c>),
 /// so `foreach` over this never pays for interface dispatch or boxing.
 /// </summary>
