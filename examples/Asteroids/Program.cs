@@ -4,6 +4,7 @@ using Wyrd.Ecs;
 using Wyrd.Ecs.Examples.Asteroids;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Examples.Asteroids.Systems;
+using Wyrd.Ecs.Input;
 using Wyrd.Ecs.Platform;
 using Wyrd.Ecs.Renderer;
 
@@ -11,6 +12,8 @@ var world = new WorldBuilder()
     .AddWindow("Asteroids", 960, 720)
     .AddRenderer()
     .AddTransformSystem()
+    .AddInput(Bindings.Default())
+    .AddSystem<ShipControlSystem>()
     .AddSystem<MovementSystem>()
     .AddSystem<WraparoundSystem>()
     .AddSystem<SpinSystem>()
@@ -33,10 +36,19 @@ var camera = world.Commands.CreateEntity();
 world.Commands.AddComponent(camera, Transform.Identity);
 world.Commands.AddComponent(camera, new OrthographicCamera(Order: 0, ClearOnBegin: true, Size: Playfield.HalfHeight, Near: 0.1f, Far: 100f));
 
-var ship = world.Commands.CreateEntity();
-world.Commands.AddComponent(ship, Transform.Identity);
-world.Commands.AddComponent(ship, new Sprite(SourceRect: null, Tint: Color.White));
-world.Commands.AddComponent(ship, new Material(ShaderKind.UnlitSprite, shipTexture));
+var shipTemplate = new EntityTemplate()
+    .AddTransform(Vector3.Zero)
+    .AddComponent(new Velocity())
+    .AddComponent(new Ship())
+    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
+    .AddComponent(new Material(ShaderKind.UnlitSprite, shipTexture))
+    .AddChild(new EntityTemplate()
+        .AddTransform(new Transform { Position = new Vector3(-28f, 0f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.Zero })
+        .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
+        .AddComponent(new Material(ShaderKind.UnlitSprite, flameTexture))
+        .AddTag<EngineFlame>());
+
+world.Commands.CreateEntity(shipTemplate);
 
 var testAsteroid1 = world.Commands.CreateEntity();
 world.Commands.AddComponent(testAsteroid1, new Transform { Position = new Vector3(-240f, 90f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Large.Scale() });
