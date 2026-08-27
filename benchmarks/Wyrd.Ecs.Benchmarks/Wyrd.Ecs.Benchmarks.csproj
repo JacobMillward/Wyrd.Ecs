@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Wyrd.Ecs.Benchmarks</RootNamespace>
+    <!-- ProjectReference (below) doesn't import Wyrd.Ecs's packed build/Wyrd.Ecs.props,
+         which sets this automatically for a real PackageReference consumer; see
+         Wyrd.Ecs.PackagingTests. Set explicitly for this in-repo consumer instead. -->
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Wyrd.Ecs</InterceptorsNamespaces>
   </PropertyGroup>
 
   <ItemGroup>
