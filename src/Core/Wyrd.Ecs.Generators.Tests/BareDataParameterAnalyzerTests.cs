@@ -88,6 +88,80 @@ public class BareDataParameterAnalyzerTests
     }
 
     [Fact]
+    public void ForEachLambda_LeadingEntityView_ReportsNothing()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, EntityView entity, ref Position p) => { });
+            }
+            """);
+
+        diagnostics.Should().NotContain(d => d.Id == "WYRD001");
+    }
+
+    [Fact]
+    public void ForEachLambda_NoUniformOverload_LeadingEntityView_ReportsNothing()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach((EntityView entity, ref Position p) => { });
+            }
+            """);
+
+        diagnostics.Should().NotContain(d => d.Id == "WYRD001");
+    }
+
+    [Fact]
+    public void ForEachLambda_BareParameterAfterEntityView_ReportsWYRD001()
+    {
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, EntityView entity, Position p) => { });
+            }
+            """);
+
+        diagnostics.Should().ContainSingle(d => d.Id == "WYRD001");
+    }
+
+    [Fact]
+    public void ForEachLambda_EntityViewNotInLeadingPosition_StillFlaggedAsBare()
+    {
+        // EntityView is only recognized immediately after the uniform-state parameters; here
+        // it trails a data parameter instead, so it's just another bare parameter.
+        var diagnostics = RunAnalyzer("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, ref Position p, EntityView entity) => { });
+            }
+            """);
+
+        diagnostics.Should().ContainSingle(d => d.Id == "WYRD001");
+    }
+
+    [Fact]
     public void QuerySystemUpdate_BareParameter_ReportsWYRD001()
     {
         var diagnostics = RunAnalyzer("""

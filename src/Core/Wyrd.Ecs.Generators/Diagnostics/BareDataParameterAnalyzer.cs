@@ -46,7 +46,16 @@ public sealed class BareDataParameterAnalyzer : DiagnosticAnalyzer
         var skipCount = invocation.ArgumentList.Arguments.Count - 1;
         if (lambda.ParameterList.Parameters.Count < skipCount) return;
 
-        foreach (var parameter in lambda.ParameterList.Parameters.Skip(skipCount))
+        // A leading EntityView parameter right after the uniform-state parameters is a
+        // recognized identity slot, not a data component -- see ChainWalker.TryExtractShape's
+        // matching skip. Only that exact position is exempt; a bare EntityView anywhere else
+        // is still flagged, same as any other bare parameter.
+        var dataStartIndex = skipCount < lambda.ParameterList.Parameters.Count
+            && ChainWalker.IsEntityViewParameter(lambda.ParameterList.Parameters[skipCount], context.SemanticModel, context.CancellationToken)
+            ? skipCount + 1
+            : skipCount;
+
+        foreach (var parameter in lambda.ParameterList.Parameters.Skip(dataStartIndex))
         {
             if (parameter.Modifiers.Any(SyntaxKind.RefKeyword) || parameter.Modifiers.Any(SyntaxKind.InKeyword)) continue;
 
