@@ -19,6 +19,15 @@ internal static class GeneratorTestHost
             .Append(MetadataReference.CreateFromFile(typeof(IComponent).Assembly.Location))
             .ToArray();
 
+    /// <summary>
+    /// Matches this repo's real packaging requirement (a consumer must set
+    /// <c>&lt;InterceptorsNamespaces&gt;</c> to <c>Wyrd.Ecs</c>, normally supplied by the
+    /// packed <c>build/Wyrd.Ecs.props</c>) -- there's no <c>.csproj</c> here for that to
+    /// come from, so it's set directly on parse options instead.
+    /// </summary>
+    private static readonly CSharpParseOptions ParseOptions =
+        new CSharpParseOptions().WithFeatures([new KeyValuePair<string, string>("InterceptorsNamespaces", "Wyrd.Ecs")]);
+
     public static CSharpCompilation Compile(string source) => Compile([source]);
 
     /// <summary>
@@ -30,14 +39,18 @@ internal static class GeneratorTestHost
     public static CSharpCompilation Compile(params string[] sources) =>
         CSharpCompilation.Create(
             assemblyName: "GeneratorsTestAssembly",
-            syntaxTrees: sources.Select((s, i) => CSharpSyntaxTree.ParseText(s, path: $"File{i}.cs")),
+            syntaxTrees: sources.Select((s, i) => CSharpSyntaxTree.ParseText(s, ParseOptions, path: $"File{i}.cs")),
             references: References,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
     public static GeneratorDriverRunResult Run(IIncrementalGenerator generator, Compilation compilation, bool trackSteps = false)
     {
+        // parseOptions must match Compile(...)'s: the driver otherwise creates its own
+        // generated-source trees under default parse options, and Roslyn rejects mixing
+        // trees with inconsistent "features" (InterceptorsNamespaces here) in one compilation.
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
             generators: [generator.AsSourceGenerator()],
+            parseOptions: ParseOptions,
             driverOptions: new GeneratorDriverOptions(trackIncrementalGeneratorSteps: trackSteps));
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out _);
         return driver.GetRunResult();
@@ -51,7 +64,7 @@ internal static class GeneratorTestHost
     /// </summary>
     public static System.Reflection.Assembly CompileAndLoad(IIncrementalGenerator generator, Compilation compilation)
     {
-        GeneratorDriver driver = CSharpGeneratorDriver.Create(generators: [generator.AsSourceGenerator()]);
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generators: [generator.AsSourceGenerator()], parseOptions: ParseOptions);
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var updatedCompilation, out var diagnostics);
 
         var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();

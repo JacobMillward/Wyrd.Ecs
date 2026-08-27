@@ -233,6 +233,118 @@ internal static class QueryChainEmitter
         sb.AppendLine("    }");
     }
 
+    /// <summary>
+    /// One non-extension method sharing <paramref name="canonical"/>'s exact action-delegate
+    /// type, whose Process loop walks <paramref name="variant"/>'s own backend (correct
+    /// Mut/Ref accessor per component) instead of the pessimistic all-Mut canonical one. A
+    /// Reads-marked component's `ref readonly` result is widened to `ref` via `Unsafe.AsRef`
+    /// to satisfy the shared delegate's `ref` parameter -- sound because `Ref&lt;T&gt;`
+    /// indexing (`Ref.cs`) never marks dirty regardless of which reference kind reads it, and
+    /// the delegate's real target was written with an `in` parameter by the original caller
+    /// (ref/in are calling-convention-identical at the CLR level; only the source compiler's
+    /// readonly enforcement differs). Called only for a variant with at least one Reads
+    /// marker -- an all-Writes variant already *is* canonical and needs no separate target.
+    /// </summary>
+    internal static string RenderInterceptorTarget(QueryShape canonical, QueryShape variant)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb);
+        var canonicalHash = ExactShapeHash(canonical);
+        var variantHash = variant.HashName();
+        var ownElements = variant.OwnDataElements();
+        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()").ToList();
+
+        sb.AppendLine($"internal static class QueryChainInterceptorTarget_{ExactShapeHash(variant)}");
+        sb.AppendLine("{");
+        AppendInterceptorTargetMethod(sb, variant, canonicalHash, variantHash, ownElements, accessArgs, uniform: true);
+        sb.AppendLine();
+        AppendInterceptorTargetMethod(sb, variant, canonicalHash, variantHash, ownElements, accessArgs, uniform: false);
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>Non-extension counterpart of <see cref="AppendMethod"/>: same receiver (no `this`), but the delegate parameter is the shared canonical delegate, not one derived from <paramref name="variant"/>'s own markers.</summary>
+    private static void AppendInterceptorTargetMethod(
+        StringBuilder sb, QueryShape variant, string canonicalHash, string variantHash,
+        ImmutableArray<MarkerElement> ownElements, List<string> accessArgs, bool uniform)
+    {
+        var typeParam = uniform ? "<TState>" : "";
+        var actionParamDecl = uniform
+            ? $"in TState state, QueryChainActionOwn_{canonicalHash}<TState> action"
+            : $"QueryChainAction_{canonicalHash} action";
+
+        sb.AppendLine($"    internal static void ForEach{typeParam}({variant.ExactShapeTypeName} query, {actionParamDecl})");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{variantHash}.Cached.Resolve(query.World, query.Filter))");
+        var leading = uniform ? new[] { "state", "action", "chunk.Count" } : new[] { "action", "chunk.Count" };
+        sb.AppendLine($"            Process({string.Join(", ", leading.Concat(accessArgs))});");
+        sb.AppendLine();
+
+        var processLeading = uniform
+            ? new[] { "in TState state", $"QueryChainActionOwn_{canonicalHash}<TState> action", "int count" }
+            : new[] { $"QueryChainAction_{canonicalHash} action", "int count" };
+        var processParams = string.Join(", ", processLeading.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
+        sb.AppendLine($"        static void Process({processParams})");
+        sb.AppendLine("        {");
+        sb.AppendLine("            for (var i = 0; i < count; i++)");
+
+        var actionLeading = uniform ? new[] { "state" } : System.Array.Empty<string>();
+        var actionCallArgs = string.Join(", ", actionLeading.Concat(ownElements.Select(e =>
+            e.Kind == MarkerKind.Writes
+                ? $"ref {ParamName(e)}[i]"
+                : $"ref global::System.Runtime.CompilerServices.Unsafe.AsRef(in {ParamName(e)}[i])")));
+        sb.AppendLine($"                action({actionCallArgs});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// One `[InterceptsLocation]` method for a single call site, matching the canonical
+    /// overload's exact signature and forwarding straight through to the shared
+    /// per-variant target -- no conversion needed, since both declare the identical
+    /// canonical delegate type. Deliberately **not** named `ForEach`: interceptors are
+    /// matched to their call site by location, not by name, and a same-named extension
+    /// method with an identical signature to the canonical overload becomes a second
+    /// candidate for *every* ordinary call site sharing this receiver type -- reproducing
+    /// the exact CS0121 ambiguity this whole design exists to avoid. Confirmed empirically:
+    /// naming it `ForEach` breaks every other call site on the same shape; a unique name
+    /// does not. <paramref name="uniqueSuffix"/> keeps both the class and method name
+    /// distinct from every other interceptor's, since these are ordinary (non-`partial`)
+    /// static classes, one per generated file.
+    /// </summary>
+    internal static string RenderInterceptor(QueryShape canonical, QueryShape variant, string interceptsLocationAttributeSyntax, bool uniform, string uniqueSuffix)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb);
+        var canonicalHash = ExactShapeHash(canonical);
+        var variantHash = ExactShapeHash(variant);
+        var typeParam = uniform ? "<TState>" : "";
+        var actionParamDecl = uniform
+            ? $"in TState state, QueryChainActionOwn_{canonicalHash}<TState> action"
+            : $"QueryChainAction_{canonicalHash} action";
+        var forwardArgs = uniform ? "query, state, action" : "query, action";
+
+        sb.AppendLine($"internal static class QueryChainInterceptor_{uniqueSuffix}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    {interceptsLocationAttributeSyntax}");
+        sb.AppendLine($"    internal static void Intercepted{typeParam}(this {canonical.ExactShapeTypeName} query, {actionParamDecl}) =>");
+        sb.AppendLine($"        QueryChainInterceptorTarget_{variantHash}.ForEach{typeParam}({forwardArgs});");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>The .NET SDK does not ship `System.Runtime.CompilerServices.InterceptsLocationAttribute` in corelib, so every generator that emits interceptors has to supply its own definition, once per consuming compilation.</summary>
+    internal static string RenderInterceptsLocationAttributeSource() => """
+        namespace System.Runtime.CompilerServices
+        {
+            [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+            internal sealed class InterceptsLocationAttribute : Attribute
+            {
+                public InterceptsLocationAttribute(int version, string data) { }
+            }
+        }
+        """;
+
     /// <summary>Emits the <c>SystemRegistry</c> registry the static-parallel-scheduler plan's scheduler consumes.</summary>
     internal static string RenderSystemAccessRegistry(
         IReadOnlyList<(string SystemTypeName, List<string> Reads, List<string> Writes)> systems,
