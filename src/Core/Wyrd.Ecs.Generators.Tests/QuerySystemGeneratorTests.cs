@@ -216,4 +216,52 @@ public class QuerySystemGeneratorTests
 
         result.Should().Be(102f, "alive: 1f, +1 from MoveSystem's own Update = 2f; dead: untouched, since Without<Dead> excludes it from MoveSystem's query, so it stays 100f; 2 + 100 = 102");
     }
+
+    private const string SharedShapeDifferentAccessHarness = """
+        using System;
+        using Wyrd.Ecs;
+
+        public struct Score : IComponent { public int Value; }
+
+        public sealed partial class WriterSystem : QuerySystem
+        {
+            protected override IQuery DefineQuery(Query query) => query.With<Score>();
+
+            public void Update(Time time, ref Score score) => score.Value += 1;
+        }
+
+        public sealed partial class ReaderSystem : QuerySystem
+        {
+            public static int LastSeen;
+
+            protected override IQuery DefineQuery(Query query) => query.With<Score>();
+
+            public void Update(Time time, in Score score) => LastSeen = score.Value;
+        }
+
+        public static class Harness
+        {
+            public static int Run()
+            {
+                var world = new World();
+                world.Commands.CreateEntity(new Score { Value = 5 });
+                world.ApplyCommands();
+
+                world.RunOnce(new WriterSystem(), TimeSpan.Zero);
+                world.RunOnce(new ReaderSystem(), TimeSpan.Zero);
+
+                return ReaderSystem.LastSeen;
+            }
+        }
+        """;
+
+    [Fact]
+    public void TwoQuerySystems_SameShape_DifferentAccess_BothCompileAndRun()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(SharedShapeDifferentAccessHarness));
+
+        var result = (int)assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
+
+        result.Should().Be(6, "WriterSystem's ref Score increments 5 to 6 before ReaderSystem's in Score reads it -- same query shape, different access, no WYRD003 collision");
+    }
 }

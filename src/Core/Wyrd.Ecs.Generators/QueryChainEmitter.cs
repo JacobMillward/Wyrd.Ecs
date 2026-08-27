@@ -393,42 +393,35 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// Emits `Execute` for a shape whose `Update` does not declare `EntityView`, routed
-    /// through the shape's `.ForEach&lt;TState&gt;()` extension. When `World` alone is
-    /// declared, widens `TState` from bare `Time` to `(Time Time, World World)`, so this
-    /// still shares the same `Process`/backend codegen unchanged.
+    /// Emits `Execute` for a shape whose `Update` does not declare `EntityView`. Walks
+    /// `QueryChainBackend_&lt;hash&gt;` directly, the same as
+    /// <see cref="AppendEntityViewExecute"/> already does, rather than routing through the
+    /// public `.ForEach&lt;TState&gt;()` extension: since that extension's delegate is now
+    /// the canonical all-`ref` one (see `QueryChainGenerator.DeduplicateShapes`), an
+    /// `in`-declared `Update` parameter would otherwise fall back to the pessimistic
+    /// all-`Mut` backend and need its own interceptor for no reason -- this is generated
+    /// code the generator already fully controls, so it can use `Update`'s own real
+    /// `ref`/`in` modifiers (via `RefKind`) directly against the correct backend instead.
     /// </summary>
     private static void AppendStateExecute(StringBuilder sb, QuerySystemCandidate candidate, ImmutableArray<MarkerElement> dataElements)
     {
-        // Calling a ref/in parameter requires the same modifier at the call site
-        // (RefKind(e), not a bare ParamName(e)). The state parameter is prepended before
-        // joining, not appended by string concatenation, since that would leave a
-        // trailing comma when dataElements is empty (a filter-only shape).
-        string dispatchExpr;
-        if (candidate.HasWorldParameter)
-        {
-            var lambdaParams = string.Join(", ", new[] { "in (Time Time, World World) s" }.Concat(dataElements.Select(ParamDecl)));
-            var updateCallArgs = string.Join(", ", new[] { "s.Time", "s.World" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            dispatchExpr = $"(({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach((time, world), ({lambdaParams}) => Update({updateCallArgs}))";
-        }
-        else
-        {
-            var lambdaParams = string.Join(", ", new[] { "in Time t" }.Concat(dataElements.Select(ParamDecl)));
-            var updateCallArgs = string.Join(", ", new[] { "t" }.Concat(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}")));
-            dispatchExpr = $"(({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query())).ForEach(time, ({lambdaParams}) => Update({updateCallArgs}))";
-        }
+        var hash = candidate.Shape.HashName();
 
-        if (candidate.ResourceProperties.IsEmpty)
-        {
-            sb.AppendLine("    protected override void Execute(World world, Time time) =>");
-            sb.AppendLine($"        {dispatchExpr};");
-            return;
-        }
+        var updateArgs = new List<string> { "time" };
+        if (candidate.HasWorldParameter) updateArgs.Add("world");
+        updateArgs.AddRange(dataElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]"));
 
         sb.AppendLine("    protected override void Execute(World world, Time time)");
         sb.AppendLine("    {");
         AppendResourceFetch(sb, candidate.ResourceProperties);
-        sb.AppendLine($"        {dispatchExpr};");
+        sb.AppendLine($"        var query = ({candidate.Shape.ExactShapeTypeName})DefineQuery(world.Query());");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(world, query.Filter))");
+        sb.AppendLine("        {");
+        foreach (var e in dataElements)
+            sb.AppendLine($"            var {ParamName(e)} = chunk.Access<{AccessorType(e)}>();");
+        sb.AppendLine("            for (var i = 0; i < chunk.Count; i++)");
+        sb.AppendLine($"                Update({string.Join(", ", updateArgs)});");
+        sb.AppendLine("        }");
         AppendResourceWriteback(sb, candidate.ResourceProperties);
         sb.AppendLine("    }");
     }
