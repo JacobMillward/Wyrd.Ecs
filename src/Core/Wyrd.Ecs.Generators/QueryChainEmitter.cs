@@ -55,35 +55,39 @@ internal static class QueryChainEmitter
         string NoUniformDelegateName,
         string ProcessReturnType,
         bool IsParallel,
+        bool IncludesEntityView,
         bool IsExtension = true,
         bool ForceRefWidening = false)
     {
-        internal static TerminalSpec Action(string overloadHash) => new(
+        internal static TerminalSpec Action(string overloadHash, bool includesEntityView) => new(
             ClassSuffix: "Terminals",
             MethodName: "ForEach",
             OwnDelegateName: $"QueryChainActionOwn_{overloadHash}",
             NoUniformDelegateName: $"QueryChainAction_{overloadHash}",
             ProcessReturnType: "void",
-            IsParallel: false);
+            IsParallel: false,
+            IncludesEntityView: includesEntityView);
 
-        internal static TerminalSpec Predicate(string overloadHash) => new(
+        internal static TerminalSpec Predicate(string overloadHash, bool includesEntityView) => new(
             ClassSuffix: "PredicateTerminals",
             MethodName: "ForEach",
             OwnDelegateName: $"QueryChainPredicateOwn_{overloadHash}",
             NoUniformDelegateName: $"QueryChainPredicate_{overloadHash}",
             ProcessReturnType: "bool",
-            IsParallel: false);
+            IsParallel: false,
+            IncludesEntityView: includesEntityView);
 
         // Reuses Action's delegate names: .ParallelForEach shares the plain .ForEach's
         // per-entity signature (only dispatch differs), so it declares no delegates of
         // its own; see RenderParallelForEachOverload.
-        internal static TerminalSpec Parallel(string overloadHash) => new(
+        internal static TerminalSpec Parallel(string overloadHash, bool includesEntityView) => new(
             ClassSuffix: "ParallelTerminals",
             MethodName: "ParallelForEach",
             OwnDelegateName: $"QueryChainActionOwn_{overloadHash}",
             NoUniformDelegateName: $"QueryChainAction_{overloadHash}",
             ProcessReturnType: "void",
-            IsParallel: true);
+            IsParallel: true,
+            IncludesEntityView: includesEntityView);
 
         /// <summary>
         /// A colliding variant's target for <paramref name="baseSpec"/>'s terminal kind: a
@@ -111,33 +115,33 @@ internal static class QueryChainEmitter
     /// order; the body adapts between the two when calling into the backend, so a caller
     /// never needs to match the backend's internal ordering.
     /// </summary>
-    internal static string RenderForEachOverload(QueryShape shape)
+    internal static string RenderForEachOverload(QueryShape shape, bool includesEntityView)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        var spec = TerminalSpec.Action(ExactShapeHash(shape));
+        var spec = TerminalSpec.Action(ExactShapeHash(shape, includesEntityView), includesEntityView);
         AppendDelegates(sb, shape, spec);
         AppendTerminalClass(sb, shape, spec);
         return sb.ToString();
     }
 
     /// <summary>The predicate-delegate `.ForEach` overload. Same own-order/adapter rules as <see cref="RenderForEachOverload"/>.</summary>
-    internal static string RenderPredicateForEachOverload(QueryShape shape)
+    internal static string RenderPredicateForEachOverload(QueryShape shape, bool includesEntityView)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        var spec = TerminalSpec.Predicate(ExactShapeHash(shape));
+        var spec = TerminalSpec.Predicate(ExactShapeHash(shape, includesEntityView), includesEntityView);
         AppendDelegates(sb, shape, spec);
         AppendTerminalClass(sb, shape, spec);
         return sb.ToString();
     }
 
     /// <summary>The `.ParallelForEach` overload. Same own-order/adapter rules as <see cref="RenderForEachOverload"/>. Declares no delegates of its own; see <see cref="TerminalSpec.Parallel"/>.</summary>
-    internal static string RenderParallelForEachOverload(QueryShape shape)
+    internal static string RenderParallelForEachOverload(QueryShape shape, bool includesEntityView)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        AppendTerminalClass(sb, shape, TerminalSpec.Parallel(ExactShapeHash(shape)));
+        AppendTerminalClass(sb, shape, TerminalSpec.Parallel(ExactShapeHash(shape, includesEntityView), includesEntityView));
         return sb.ToString();
     }
 
@@ -153,12 +157,13 @@ internal static class QueryChainEmitter
     private static void AppendDelegates(StringBuilder sb, QueryShape shape, TerminalSpec spec)
     {
         var ownElements = shape.OwnDataElements();
+        var entityParam = spec.IncludesEntityView ? new[] { "EntityView entity" } : System.Array.Empty<string>();
 
-        var ownParams = string.Join(", ", new[] { "in TState state" }.Concat(ownElements.Select(ParamDecl)));
+        var ownParams = string.Join(", ", new[] { "in TState state" }.Concat(entityParam).Concat(ownElements.Select(ParamDecl)));
         sb.AppendLine($"internal delegate {spec.ProcessReturnType} {spec.OwnDelegateName}<TState>({ownParams});");
         sb.AppendLine();
 
-        var noUniformParams = string.Join(", ", ownElements.Select(ParamDecl));
+        var noUniformParams = string.Join(", ", entityParam.Concat(ownElements.Select(ParamDecl)));
         sb.AppendLine($"internal delegate {spec.ProcessReturnType} {spec.NoUniformDelegateName}({noUniformParams});");
         sb.AppendLine();
     }
@@ -168,7 +173,7 @@ internal static class QueryChainEmitter
         var ownElements = shape.OwnDataElements();
         var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()").ToList();
 
-        sb.AppendLine($"internal static class QueryChain{spec.ClassSuffix}_{ExactShapeHash(shape)}");
+        sb.AppendLine($"internal static class QueryChain{spec.ClassSuffix}_{ExactShapeHash(shape, spec.IncludesEntityView)}");
         sb.AppendLine("{");
         AppendMethod(sb, shape, spec, ownElements, accessArgs, uniform: true);
         sb.AppendLine();
@@ -202,6 +207,8 @@ internal static class QueryChainEmitter
         sb.AppendLine($"    internal static void {spec.MethodName}{typeParam}({receiverKeyword}{shape.ExactShapeTypeName} query, {actionParamDecl})");
         sb.AppendLine("    {");
 
+        var entityCallArgs = spec.IncludesEntityView ? new[] { "query.World", "chunk.Entities" } : System.Array.Empty<string>();
+
         if (spec.IsParallel)
         {
             sb.AppendLine("        var chunks = new System.Collections.Generic.List<ArchetypeChunk>();");
@@ -215,14 +222,14 @@ internal static class QueryChainEmitter
                 sb.AppendLine("        var capturedState = state;");
             }
             sb.AppendLine("        System.Threading.Tasks.Parallel.ForEach(chunks, chunk =>");
-            var leading = uniform ? new[] { "capturedState", "action", "chunk.Count" } : ["action", "chunk.Count"];
+            var leading = (uniform ? new[] { "capturedState", "action", "chunk.Count" } : new[] { "action", "chunk.Count" }).Concat(entityCallArgs);
             var callArgs = string.Join(", ", leading.Concat(accessArgs));
             sb.AppendLine($"            Process({callArgs}));");
         }
         else
         {
             sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter))");
-            var leading = uniform ? new[] { "state", "action", "chunk.Count" } : ["action", "chunk.Count"];
+            var leading = (uniform ? new[] { "state", "action", "chunk.Count" } : new[] { "action", "chunk.Count" }).Concat(entityCallArgs);
             var callArgs = string.Join(", ", leading.Concat(accessArgs));
             var callStatement = spec.ProcessReturnType == "bool" ? $"if (!Process({callArgs})) return;" : $"Process({callArgs});";
             sb.AppendLine($"            {callStatement}");
@@ -230,15 +237,19 @@ internal static class QueryChainEmitter
 
         sb.AppendLine();
 
-        var processLeading = uniform
+        var entityParamDecls = spec.IncludesEntityView ? new[] { "World world", "System.ReadOnlySpan<Entity> entities" } : System.Array.Empty<string>();
+        var processLeading = (uniform
             ? new[] { "in TState state", $"{spec.OwnDelegateName}<TState> action", "int count" }
-            : [$"{spec.NoUniformDelegateName} action", "int count"];
+            : new[] { $"{spec.NoUniformDelegateName} action", "int count" })
+            .Concat(entityParamDecls);
         var processParams = string.Join(", ", processLeading.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
         sb.AppendLine($"        static {spec.ProcessReturnType} Process({processParams})");
         sb.AppendLine("        {");
         sb.AppendLine("            for (var i = 0; i < count; i++)");
 
-        var actionLeading = uniform ? new[] { "state" } : System.Array.Empty<string>();
+        var actionLeading = new List<string>();
+        if (uniform) actionLeading.Add("state");
+        if (spec.IncludesEntityView) actionLeading.Add("world[entities[i]]");
         var actionCallArgs = string.Join(", ", actionLeading.Concat(ownElements.Select(e => ActionCallArg(e, spec.ForceRefWidening))));
         if (spec.ProcessReturnType == "bool")
         {
@@ -263,11 +274,11 @@ internal static class QueryChainEmitter
     /// terminal kind needs. `Parallel` reuses `Action`'s delegate names by design (see
     /// <see cref="TerminalSpec.Parallel"/>); `Predicate` has its own.
     /// </summary>
-    private static TerminalSpec BaseTerminalSpec(QueryChainGenerator.ChainTerminalKind terminalKind, string canonicalHash) => terminalKind switch
+    private static TerminalSpec BaseTerminalSpec(QueryChainGenerator.ChainTerminalKind terminalKind, string canonicalHash, bool includesEntityView) => terminalKind switch
     {
-        QueryChainGenerator.ChainTerminalKind.Predicate => TerminalSpec.Predicate(canonicalHash),
-        QueryChainGenerator.ChainTerminalKind.Parallel => TerminalSpec.Parallel(canonicalHash),
-        _ => TerminalSpec.Action(canonicalHash),
+        QueryChainGenerator.ChainTerminalKind.Predicate => TerminalSpec.Predicate(canonicalHash, includesEntityView),
+        QueryChainGenerator.ChainTerminalKind.Parallel => TerminalSpec.Parallel(canonicalHash, includesEntityView),
+        _ => TerminalSpec.Action(canonicalHash, includesEntityView),
     };
 
     /// <summary>
@@ -287,11 +298,11 @@ internal static class QueryChainEmitter
     /// variant with at least one Reads marker -- an all-Writes variant already *is*
     /// canonical and needs no separate target.
     /// </summary>
-    internal static string RenderInterceptorTarget(QueryShape canonical, QueryShape variant, QueryChainGenerator.ChainTerminalKind terminalKind)
+    internal static string RenderInterceptorTarget(QueryShape canonical, QueryShape variant, QueryChainGenerator.ChainTerminalKind terminalKind, bool includesEntityView)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        var baseSpec = BaseTerminalSpec(terminalKind, ExactShapeHash(canonical));
+        var baseSpec = BaseTerminalSpec(terminalKind, ExactShapeHash(canonical, includesEntityView), includesEntityView);
         AppendTerminalClass(sb, variant, TerminalSpec.InterceptorTargetFor(baseSpec));
         return sb.ToString();
     }
@@ -311,12 +322,12 @@ internal static class QueryChainEmitter
     /// and method name distinct from every other interceptor's, since these are ordinary
     /// (non-`partial`) static classes, one per generated file.
     /// </summary>
-    internal static string RenderInterceptor(QueryShape canonical, QueryShape variant, QueryChainGenerator.ChainTerminalKind terminalKind, string interceptsLocationAttributeSyntax, bool uniform, string uniqueSuffix)
+    internal static string RenderInterceptor(QueryShape canonical, QueryShape variant, QueryChainGenerator.ChainTerminalKind terminalKind, string interceptsLocationAttributeSyntax, bool uniform, string uniqueSuffix, bool includesEntityView)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        var variantHash = ExactShapeHash(variant);
-        var baseSpec = BaseTerminalSpec(terminalKind, ExactShapeHash(canonical));
+        var variantHash = ExactShapeHash(variant, includesEntityView);
+        var baseSpec = BaseTerminalSpec(terminalKind, ExactShapeHash(canonical, includesEntityView), includesEntityView);
         var targetClassName = $"QueryChain{baseSpec.ClassSuffix}InterceptorTarget_{variantHash}";
         var typeParam = uniform ? "<TState>" : "";
         var actionParamDecl = uniform
@@ -593,7 +604,7 @@ internal static class QueryChainEmitter
     /// markers for the same component (see <c>QueryChainGenerator.DeduplicateShapes</c>'s own
     /// doc comment), so hashing the type name alone would collide their generated class names.
     /// </summary>
-    internal static string ExactShapeHash(QueryShape shape)
+    internal static string ExactShapeHash(QueryShape shape, bool includesEntityView)
     {
         var hash = 2166136261u;
         foreach (var c in shape.ExactShapeTypeName)
@@ -609,6 +620,12 @@ internal static class QueryChainEmitter
                 hash *= 16777619u;
             }
         }
+        if (includesEntityView)
+            foreach (var c in "|EntityView")
+            {
+                hash ^= c;
+                hash *= 16777619u;
+            }
         return hash.ToString("x8");
     }
 

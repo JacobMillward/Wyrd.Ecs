@@ -464,9 +464,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     {
         foreach (var shape in byExactShape)
         {
-            spc.AddSource($"QueryChainForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderForEachOverload(shape));
-            spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape));
-            spc.AddSource($"QueryChainParallelForEach.{QueryChainEmitter.ExactShapeHash(shape)}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape));
+            spc.AddSource($"QueryChainForEach.{QueryChainEmitter.ExactShapeHash(shape, false)}.g.cs", QueryChainEmitter.RenderForEachOverload(shape, false));
+            spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape, false)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape, false));
+            spc.AddSource($"QueryChainParallelForEach.{QueryChainEmitter.ExactShapeHash(shape, false)}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape, false));
         }
     }
 
@@ -498,16 +498,16 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             if (shape.Equals(canonicalShape)) continue; // this call site's own variant already is canonical: no collision, nothing to intercept
             if (location is null) continue; // no interceptable location resolved -- nothing to attach to
 
-            var variantHash = QueryChainEmitter.ExactShapeHash(shape);
+            var variantHash = QueryChainEmitter.ExactShapeHash(shape, false);
             if (emittedTargets.Add((terminalKind, variantHash)))
-                spc.AddSource($"QueryChainInterceptorTarget.{terminalKind}.{variantHash}.g.cs", QueryChainEmitter.RenderInterceptorTarget(canonicalShape, shape, terminalKind));
+                spc.AddSource($"QueryChainInterceptorTarget.{terminalKind}.{variantHash}.g.cs", QueryChainEmitter.RenderInterceptorTarget(canonicalShape, shape, terminalKind, false));
 
 #pragma warning disable RSEXPERIMENTAL002
             var attributeSyntax = location.GetInterceptsLocationAttributeSyntax();
 #pragma warning restore RSEXPERIMENTAL002
             var uniqueSuffix = $"{variantHash}_{interceptorIndex++}";
             spc.AddSource($"QueryChainInterceptor.{uniqueSuffix}.g.cs",
-                QueryChainEmitter.RenderInterceptor(canonicalShape, shape, terminalKind, attributeSyntax, uniform, uniqueSuffix));
+                QueryChainEmitter.RenderInterceptor(canonicalShape, shape, terminalKind, attributeSyntax, uniform, uniqueSuffix, false));
         }
     }
 
