@@ -166,6 +166,31 @@ public class AudioSystemPlaybackTests
     }
 
     [Fact]
+    public async Task Play_Looping_SurvivesPastTheSoundsOwnDuration()
+    {
+        // WriteTinyTestWav is 800 samples at 8000Hz = 100ms.
+        var path = WriteTinyTestWav();
+        var world = BuildWorldWithPlatform();
+        var audio = world.GetSystem<AudioSystem>();
+        var handle = audio.LoadSound(path);
+        await audio.WaitForLoadAsync(handle);
+
+        var playback = audio.Play(handle, loop: true);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(400);
+        while (DateTime.UtcNow < deadline)
+        {
+            world.Update(TimeSpan.FromMilliseconds(16));
+            await Task.Delay(16);
+        }
+
+        audio.IsPlaying(playback).Should().BeTrue();
+        var act = () => audio.Stop(playback);
+        act.Should().NotThrow();
+        File.Delete(path);
+    }
+
+    [Fact]
     public void SetVolume_DoesNotThrow()
     {
         var path = WriteTinyTestWav();

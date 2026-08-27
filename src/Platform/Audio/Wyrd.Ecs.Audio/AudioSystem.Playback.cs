@@ -62,11 +62,17 @@ public sealed partial class AudioSystem
 
     private readonly System.Collections.Concurrent.ConcurrentQueue<Playback> _finishedPending = new();
 
+    // MIX_SetTrackLoops's own docs: "This has no effect on a track that is stopped... Stopped
+    // tracks can specify a loop count while starting via MIX_PROP_PLAY_LOOPS_NUMBER. This
+    // function is intended to alter that count in the middle of playback" - so a freshly created,
+    // not-yet-playing track's loop count has to go through MIX_PlayTrack's properties, not
+    // MIX_SetTrackLoops (which would silently no-op here).
+    private const string PropPlayLoopsNumber = "SDL_mixer.play.loops";
+
     private Playback StartTrack(IntPtr track, IntPtr mixer, AudioBus bus, float volume, bool loop, System.Numerics.Vector3? position)
     {
         Mixer.TagTrack(track, bus.Tag);
         Mixer.SetTrackGain(track, Math.Clamp(volume, 0f, 1f));
-        Mixer.SetTrackLoops(track, loop ? -1 : 0);
 
         var freeIndex = _playbacks.FindIndex(s => s is null);
         int index, generation;
@@ -107,8 +113,17 @@ public sealed partial class AudioSystem
         _playbacks[index] = new PlaybackSlot { Track = track, Mixer = mixer, CallbackHandle = callbackHandle };
         Mixer.SetTrackStoppedCallback(track, callback, IntPtr.Zero);
 
-        if (!Mixer.PlayTrack(track, options: 0))
-            throw new InvalidOperationException($"MIX_PlayTrack failed: {SDL.GetError()}");
+        var playOptions = SDL.CreateProperties();
+        try
+        {
+            SDL.SetNumberProperty(playOptions, PropPlayLoopsNumber, loop ? -1 : 0);
+            if (!Mixer.PlayTrack(track, playOptions))
+                throw new InvalidOperationException($"MIX_PlayTrack failed: {SDL.GetError()}");
+        }
+        finally
+        {
+            SDL.DestroyProperties(playOptions);
+        }
         return playback;
     }
 
