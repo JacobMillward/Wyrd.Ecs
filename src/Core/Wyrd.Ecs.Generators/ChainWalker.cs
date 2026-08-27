@@ -7,27 +7,65 @@ namespace Wyrd.Ecs.Generators;
 
 internal static class ChainWalker
 {
-    internal static QueryShape? TryExtractShape(InvocationExpressionSyntax terminal, SemanticModel semanticModel, CancellationToken ct)
+    internal static QueryShape? TryExtractShape(InvocationExpressionSyntax terminal, SemanticModel semanticModel, CancellationToken ct, out bool includesEntityView)
     {
+        includesEntityView = false;
+
         if (terminal.Expression is not MemberAccessExpressionSyntax { Expression: var receiverExpr }) return null;
         if (semanticModel.GetTypeInfo(receiverExpr, ct).Type is not INamedTypeSymbol receiverType) return null;
 
         var raw = TryExtractShapeFromQueryType(receiverType, ct);
         if (raw is null) return null;
-        if (raw.PendingDataElements.IsEmpty) return raw; // filter-only shape, e.g. .Has<T>() alone
 
-        if (terminal.ArgumentList.Arguments is not [.., var lastArgument]) return null;
         // Every argument before the lambda is a leading uniform/state value the lambda
         // receives as its own leading parameter(s): the uniform overload passes one
         // (`ForEach(state, action)`, lambda takes `(in TState, ...)`), the no-uniform
         // overload passes none (`ForEach(action)`, lambda's first parameter is already a
         // real data component). Skip exactly that many of the lambda's own parameters
-        // before treating the rest as data.
+        // before treating the rest as data -- and, ahead of that, one more if it's a
+        // recognized leading EntityView parameter.
+        if (terminal.ArgumentList.Arguments is not [.., var lastArgument])
+            return raw.PendingDataElements.IsEmpty ? raw : null;
+
         var skipCount = terminal.ArgumentList.Arguments.Count - 1;
-        var refKinds = TryGetLambdaDataRefKinds(lastArgument, skipCount);
+        var lambda = lastArgument.Expression as ParenthesizedLambdaExpressionSyntax;
+
+        if (raw.PendingDataElements.IsEmpty)
+        {
+            if (lambda is not null) includesEntityView = IsEntityViewParameterAt(lambda, skipCount, semanticModel, ct);
+            return raw; // filter-only shape, e.g. .Has<T>() alone -- optionally with a solo EntityView parameter
+        }
+
+        if (lambda is null) return null;
+        includesEntityView = IsEntityViewParameterAt(lambda, skipCount, semanticModel, ct);
+
+        var refKinds = TryGetLambdaDataRefKinds(lastArgument, skipCount + (includesEntityView ? 1 : 0));
         if (refKinds is null) return null;
 
         return ResolveAccessKinds(raw, refKinds.Value);
+    }
+
+    /// <summary>True if <paramref name="lambda"/> has a parameter at <paramref name="index"/> and it's a recognized <see cref="IsEntityViewParameter"/>.</summary>
+    private static bool IsEntityViewParameterAt(ParenthesizedLambdaExpressionSyntax lambda, int index, SemanticModel semanticModel, CancellationToken ct) =>
+        index < lambda.ParameterList.Parameters.Count && IsEntityViewParameter(lambda.ParameterList.Parameters[index], semanticModel, ct);
+
+    /// <summary>
+    /// True if <paramref name="parameter"/> is a plain (no `ref`/`in` modifier), explicitly-typed
+    /// `Wyrd.Ecs.EntityView` parameter -- the fluent chain's equivalent of
+    /// `QuerySystemUpdateShape.Classify`'s `EntityView` recognition. Shared by
+    /// <see cref="TryExtractShape"/>'s entity-parameter detection and
+    /// `Diagnostics.BareDataParameterAnalyzer`'s WYRD001 check, so the two can never
+    /// independently drift on what counts as a recognized leading `EntityView` parameter.
+    /// Resolved through the semantic model, not string-matched: an explicit parameter type's
+    /// semantic type is knowable independent of which overload the invocation itself resolves
+    /// to, unlike a lambda body's return type (see `QueryChainGenerator.ClassifyTerminalKind`).
+    /// </summary>
+    internal static bool IsEntityViewParameter(ParameterSyntax parameter, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (parameter.Modifiers.Any(SyntaxKind.RefKeyword) || parameter.Modifiers.Any(SyntaxKind.InKeyword)) return false;
+        if (parameter.Type is not { } typeSyntax) return false;
+        var type = semanticModel.GetTypeInfo(typeSyntax, ct).Type;
+        return type is { Name: "EntityView", ContainingNamespace.Name: "Ecs" } && type.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs";
     }
 
     /// <summary>

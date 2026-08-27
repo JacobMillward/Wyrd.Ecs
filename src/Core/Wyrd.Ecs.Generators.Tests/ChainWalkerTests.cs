@@ -29,7 +29,7 @@ public class ChainWalkerTests
         var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
         var model = compilation.GetSemanticModel(terminal.SyntaxTree);
 
-        var shape = ChainWalker.TryExtractShape(terminal, model, default);
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out _);
 
         shape.Should().NotBeNull();
         shape!.Markers.Should().BeEquivalentTo(new[]
@@ -59,7 +59,7 @@ public class ChainWalkerTests
         var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
         var model = compilation.GetSemanticModel(terminal.SyntaxTree);
 
-        ChainWalker.TryExtractShape(terminal, model, default).Should().BeNull();
+        ChainWalker.TryExtractShape(terminal, model, default, out _).Should().BeNull();
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class ChainWalkerTests
         var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
         var model = compilation.GetSemanticModel(terminal.SyntaxTree);
 
-        var shape = ChainWalker.TryExtractShape(terminal, model, default);
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out _);
 
         shape.Should().NotBeNull(".Has/.Without/.Any never touch TShape, so the walked shape only ever reflects .With<T>() data elements regardless of how many filter calls were chained in between or around them");
         shape!.Markers.Should().BeEquivalentTo(new[]
@@ -118,7 +118,7 @@ public class ChainWalkerTests
         var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
         var model = compilation.GetSemanticModel(terminal.SyntaxTree);
 
-        var shape = ChainWalker.TryExtractShape(terminal, model, default);
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out _);
 
         shape.Should().NotBeNull();
         shape!.Markers.Should().BeEmpty();
@@ -139,7 +139,7 @@ public class ChainWalkerTests
         var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
         var model = compilation.GetSemanticModel(terminal.SyntaxTree);
 
-        var shape = ChainWalker.TryExtractShape(terminal, model, default);
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out _);
 
         shape.Should().BeNull();
     }
@@ -168,8 +168,8 @@ public class ChainWalkerTests
             .Where(inv => inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ForEach" })
             .ToList();
 
-        var shape1 = ChainWalker.TryExtractShape(terminals[0], model, default);
-        var shape2 = ChainWalker.TryExtractShape(terminals[1], model, default);
+        var shape1 = ChainWalker.TryExtractShape(terminals[0], model, default, out _);
+        var shape2 = ChainWalker.TryExtractShape(terminals[1], model, default, out _);
 
         shape1.Should().NotBeNull();
         shape2.Should().NotBeNull();
@@ -203,8 +203,8 @@ public class ChainWalkerTests
             .Where(inv => inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ForEach" })
             .ToList();
 
-        var shape1 = ChainWalker.TryExtractShape(terminals[0], model, default);
-        var shape2 = ChainWalker.TryExtractShape(terminals[1], model, default);
+        var shape1 = ChainWalker.TryExtractShape(terminals[0], model, default, out _);
+        var shape2 = ChainWalker.TryExtractShape(terminals[1], model, default, out _);
 
         // .Without<Dead>() and .Any<BuffA, BuffB>() both apply to Filter, never TShape, so
         // these two chains, differing only in which filter calls they made, resolve to the
@@ -214,5 +214,130 @@ public class ChainWalkerTests
         shape2.Should().NotBeNull();
         shape1!.ExactShapeTypeName.Should().Be(shape2!.ExactShapeTypeName);
         shape1.HashName().Should().Be(shape2.HashName());
+    }
+
+    [Fact]
+    public void LeadingEntityViewParameter_ReportsIncludesEntityView()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, EntityView entity, ref Position p) => { });
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out var includesEntityView);
+
+        shape.Should().NotBeNull();
+        includesEntityView.Should().BeTrue();
+        shape!.Markers.Should().BeEquivalentTo(new[] { new MarkerElement(MarkerKind.Writes, "Position") });
+    }
+
+    [Fact]
+    public void NoUniformOverload_LeadingEntityViewParameter_ReportsIncludesEntityView()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach((EntityView entity, ref Position p) => { });
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out var includesEntityView);
+
+        shape.Should().NotBeNull();
+        includesEntityView.Should().BeTrue();
+    }
+
+    [Fact]
+    public void NoEntityViewParameter_ReportsIncludesEntityViewFalse()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, ref Position p) => { });
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out var includesEntityView);
+
+        shape.Should().NotBeNull();
+        includesEntityView.Should().BeFalse();
+    }
+
+    [Fact]
+    public void FilterOnlyShape_SoloEntityViewParameter_ReportsIncludesEntityView()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Frozen : ITag;
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().Has<Frozen>().ForEach(0, (in int _, EntityView entity) => { });
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out var includesEntityView);
+
+        shape.Should().NotBeNull(".Has<T>() alone is a filter-only shape with zero data elements -- a solo EntityView parameter must still be recognized");
+        includesEntityView.Should().BeTrue();
+        shape!.Markers.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EntityViewNotInLeadingPosition_IsNotRecognized_WholeShapeFailsToResolve()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using Wyrd.Ecs;
+
+            public struct Position : IComponent { public float X; }
+
+            public class C
+            {
+                public void M(World world) =>
+                    world.Query().With<Position>().ForEach(0, (in int _, ref Position p, EntityView entity) => { });
+            }
+            """);
+
+        var terminal = FindForEachCall(compilation.SyntaxTrees[0]);
+        var model = compilation.GetSemanticModel(terminal.SyntaxTree);
+
+        // EntityView here is the second data parameter, not the recognized leading slot: it has
+        // no ref/in modifier and isn't a real component, so ResolveAccessKinds rejects it and
+        // the whole shape fails to resolve, same as any other malformed data parameter.
+        var shape = ChainWalker.TryExtractShape(terminal, model, default, out var includesEntityView);
+
+        shape.Should().BeNull();
+        includesEntityView.Should().BeFalse();
     }
 }

@@ -317,7 +317,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
     private readonly record struct ChainCandidateResult(
         QueryShape? Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation,
-        bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation, Diagnostic? Diagnostic);
+        bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation, Diagnostic? Diagnostic,
+        bool IncludesEntityView);
 
     /// <summary>One resolved chain call site, threaded from <see cref="Initialize"/> through <see cref="DeduplicateShapes"/>, <see cref="EmitInterceptorsAndTargets"/>, and <see cref="ComputeSystemAccess"/>.</summary>
     private readonly record struct ChainEntry(
@@ -334,13 +335,13 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             && semanticModel.GetTypeInfo(receiverExpr, ct).Type is INamedTypeSymbol receiverType
             && ChainWalker.TryFindFileLocalComponentType(receiverType, ct) is { } fileLocalTypeName)
         {
-            return new ChainCandidateResult(null, null, null, false, ChainTerminalKind.Action, Location.None, Diagnostic.Create(WyrdDiagnostics.FileLocalComponentType, invocation.GetLocation(), fileLocalTypeName));
+            return new ChainCandidateResult(null, null, null, false, ChainTerminalKind.Action, Location.None, Diagnostic.Create(WyrdDiagnostics.FileLocalComponentType, invocation.GetLocation(), fileLocalTypeName), false);
         }
 
-        var shape = ChainWalker.TryExtractShape(invocation, semanticModel, ct);
+        var shape = ChainWalker.TryExtractShape(invocation, semanticModel, ct, out var includesEntityView);
         var systemTypeName = shape is null ? null : ChainWalker.TryFindEnclosingSystemType(invocation, semanticModel, ct);
 
-        if (shape is null) return new ChainCandidateResult(null, systemTypeName, null, false, ChainTerminalKind.Action, Location.None, null);
+        if (shape is null) return new ChainCandidateResult(null, systemTypeName, null, false, ChainTerminalKind.Action, Location.None, null, false);
 
 #pragma warning disable RSEXPERIMENTAL002
         var interceptableLocation = semanticModel.GetInterceptableLocation(invocation, ct);
@@ -348,7 +349,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var uniform = invocation.ArgumentList.Arguments.Count > 1;
         var terminalKind = ClassifyTerminalKind(invocation, semanticModel, ct);
 
-        return new ChainCandidateResult(shape, systemTypeName, interceptableLocation, uniform, terminalKind, invocation.GetLocation(), null);
+        return new ChainCandidateResult(shape, systemTypeName, interceptableLocation, uniform, terminalKind, invocation.GetLocation(), null, includesEntityView);
     }
 
     /// <summary>
