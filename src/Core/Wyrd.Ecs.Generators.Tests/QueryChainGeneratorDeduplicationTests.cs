@@ -34,7 +34,12 @@ public class QueryChainGeneratorDeduplicationTests
             .Distinct()
             .ToList();
 
-        backendClassNames.Should().ContainSingle("both call sites declare the same logical shape, just in a different order, and must share one backend");
+        // Two, not one: SiteA/SiteB's own real access variant (ref Position, in Velocity)
+        // is order-independent and shares one backend, exactly as before -- but this shape
+        // has a Reads marker, so a second, synthesized all-Writes canonical backend also
+        // exists (the public overload's pessimistic fallback). If order-sharing broke,
+        // this would be 3, not 2.
+        backendClassNames.Should().HaveCount(2, "the real variant backend is still shared across declaration order, plus one canonical all-Writes fallback backend for this shape");
     }
 
     [Fact]
@@ -72,7 +77,7 @@ public class QueryChainGeneratorDeduplicationTests
     }
 
     [Fact]
-    public void SameExactShapeTypeName_ConflictingRefInResolution_ReportsWYRD003()
+    public void SameExactShapeTypeName_ConflictingRefInResolution_NoDiagnostic_BothCallSitesCompile()
     {
         // Both call sites declare the identical .With<Position>() set (so the identical
         // Query<(Position, Nil)> closed type), but one writes it and one only reads it.
@@ -97,6 +102,6 @@ public class QueryChainGeneratorDeduplicationTests
 
         var result = GeneratorTestHost.Run(new QueryChainGenerator(), compilation);
 
-        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD003");
+        result.Diagnostics.Where(d => d.Id == "WYRD003").Should().BeEmpty();
     }
 }

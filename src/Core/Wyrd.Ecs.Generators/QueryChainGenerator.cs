@@ -77,10 +77,10 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 .Select(s => s.Candidate!)
                 .ToImmutableArray();
 
-            var (byExactShape, byDedupKey) = DeduplicateShapes(spc, chains, querySystems);
+            var (allVariants, canonical, byDedupKey) = DeduplicateShapes(chains, querySystems);
 
             EmitBackends(spc, byDedupKey);
-            EmitOverloads(spc, byExactShape);
+            EmitOverloads(spc, canonical);
             EmitQuerySystemGlue(spc, querySystems);
 
             // Unsupported is silently skipped here, not diagnosed: unlike a bare AddSystem<T>()
@@ -333,42 +333,48 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     }
 
     /// <summary>
-    /// Two-level grouping: chains/querySystems collapse to one shape per distinct
-    /// <see cref="QueryShape.ExactShapeTypeName"/> (one overload each), nested inside one
-    /// per distinct <see cref="QueryShapeExtensions.DedupKey"/> (one shared backend each).
+    /// Groups every discovered shape by <see cref="QueryShape.ExactShapeTypeName"/>.
     /// Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, two
     /// otherwise-unrelated queries can share the exact same closed <c>Query&lt;TShape&gt;</c>
-    /// type while resolving different ref/in markers for it. Emitting both as separate
-    /// overloads compiles but produces a hard-to-diagnose CS0121 "ambiguous call" at every
-    /// consumer call site, since C# reports both as equally applicable rather than
-    /// rejecting the wrong one. So conflicting groups are reported via
-    /// <see cref="WyrdDiagnostics.ConflictingAccessForSameShape"/> instead, keeping only
-    /// the first shape encountered per <see cref="QueryShape.ExactShapeTypeName"/>.
+    /// type while resolving different ref/in markers for it. Rather than erroring on that
+    /// (the old WYRD003 behavior), every distinct variant is kept (<c>AllVariants</c>, for
+    /// interceptor targeting) alongside one synthesized all-<c>Writes</c> "canonical" shape
+    /// per exact type name (<c>Canonical</c>) -- the single public overload every call site
+    /// binds to, since an `in`-lambda legally converts to a `ref` delegate but not vice
+    /// versa. <c>ByDedupKey</c> feeds <see cref="EmitBackends"/> and now covers every real
+    /// variant plus each canonical fallback, so the pessimistic all-`Mut` backend a
+    /// non-intercepted canonical call would use is always available.
     /// </summary>
-    private static (List<QueryShape> ByExactShape, List<QueryShape> ByDedupKey) DeduplicateShapes(
-        SourceProductionContext spc,
+    private static (List<QueryShape> AllVariants, List<QueryShape> Canonical, List<QueryShape> ByDedupKey) DeduplicateShapes(
         ImmutableArray<(QueryShape Shape, string? SystemTypeName)> chains,
         ImmutableArray<QuerySystemCandidate> querySystems)
     {
         var allShapes = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape));
 
-        var byExactShape = new List<QueryShape>();
+        var allVariants = new List<QueryShape>();
+        var canonical = new List<QueryShape>();
         foreach (var group in allShapes.GroupBy(s => s.ExactShapeTypeName))
         {
             var distinctShapes = group.Distinct().ToList();
-            if (distinctShapes.Count > 1)
-                spc.ReportDiagnostic(Diagnostic.Create(WyrdDiagnostics.ConflictingAccessForSameShape, Location.None, group.Key));
-
-            byExactShape.Add(distinctShapes[0]);
+            allVariants.AddRange(distinctShapes);
+            canonical.Add(AllWrites(distinctShapes[0]));
         }
 
-        var byDedupKey = byExactShape
+        var byDedupKey = allVariants.Concat(canonical)
             .GroupBy(s => s.DedupKey())
             .Select(g => g.First())
             .ToList();
 
-        return (byExactShape, byDedupKey);
+        return (allVariants, canonical, byDedupKey);
     }
+
+    /// <summary>The all-<see cref="MarkerKind.Writes"/> variant of <paramref name="shape"/>: same exact type and component order, every marker forced to Writes. This is the shape every public `.ForEach` overload's delegate is generated from.</summary>
+    private static QueryShape AllWrites(QueryShape shape) => new()
+    {
+        ExactShapeTypeName = shape.ExactShapeTypeName,
+        Markers = shape.Markers.Select(m => m with { Kind = MarkerKind.Writes }).ToImmutableArray(),
+        PendingDataElements = shape.PendingDataElements,
+    };
 
     private static void EmitBackends(SourceProductionContext spc, IEnumerable<QueryShape> byDedupKey)
     {

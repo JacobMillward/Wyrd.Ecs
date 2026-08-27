@@ -79,6 +79,11 @@ public class FileLocalComponentTypeTests
         result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD004");
 
         var allSources = string.Join("\n---\n", result.Results[0].GeneratedSources.Select(s => s.SourceText.ToString()));
-        allSources.Should().Contain("in Position p", "SiteA's read-only shape must still be generated correctly, unaffected by SiteB's rejected file-scoped type");
+        // SiteA's own real access variant is read-only (in Position); its backend must
+        // still build a Ref<Position> accessor, not a Mut<Position> one, unaffected by
+        // SiteB's rejected file-scoped type. (The public overload's own delegate is
+        // always the canonical all-ref shape now, so checking for "in Position p" in a
+        // delegate signature would no longer distinguish this.)
+        allSources.Should().Contain("Access<Ref<Position>>()", "SiteA's read-only shape must still be generated correctly, unaffected by SiteB's rejected file-scoped type");
     }
 }
