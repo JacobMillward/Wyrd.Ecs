@@ -69,7 +69,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
             var chains = chainResults
                 .Where(c => c.Shape is not null)
-                .Select(c => new ChainEntry(c.Shape!, c.SystemTypeName, c.InterceptableLocation, c.Uniform, c.TerminalKind, c.CallSiteLocation))
+                .Select(c => new ChainEntry(c.Shape!, c.SystemTypeName, c.InterceptableLocation, c.Uniform, c.TerminalKind, c.CallSiteLocation, c.IncludesEntityView))
                 .ToImmutableArray();
             var querySystems = querySystemResults
                 .Where(s => s.Candidate is not null)
@@ -323,7 +323,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// <summary>One resolved chain call site, threaded from <see cref="Initialize"/> through <see cref="DeduplicateShapes"/>, <see cref="EmitInterceptorsAndTargets"/>, and <see cref="ComputeSystemAccess"/>.</summary>
     private readonly record struct ChainEntry(
         QueryShape Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation,
-        bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation);
+        bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation, bool IncludesEntityView);
 
     private static ChainCandidateResult ExtractChainCandidate(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
     {
@@ -413,27 +413,32 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// synthesized ones, not every canonical shape, avoids re-grouping the common
     /// non-colliding case's shape twice (it's already in the "every real variant" set).
     /// </summary>
-    private static (List<QueryShape> Canonical, List<QueryShape> ByDedupKey) DeduplicateShapes(
+    private static (List<(QueryShape Shape, bool IncludesEntityView)> Canonical, List<QueryShape> ByDedupKey) DeduplicateShapes(
         ImmutableArray<ChainEntry> chains,
         ImmutableArray<QuerySystemCandidate> querySystems)
     {
-        var allShapes = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape));
+        // QuerySystemCandidate always contributes false here: a QuerySystem's own EntityView
+        // handling (AppendEntityViewExecute) never routes through the terminal-class family
+        // this grouping controls, so it must never be mistaken for a chain-side
+        // entity-inclusive variant.
+        var allShapes = chains.Select(c => (c.Shape, c.IncludesEntityView))
+            .Concat(querySystems.Select(s => (s.Shape, IncludesEntityView: false)));
 
         var allVariants = new List<QueryShape>();
-        var canonical = new List<QueryShape>();
+        var canonical = new List<(QueryShape Shape, bool IncludesEntityView)>();
         var synthesizedCanonical = new List<QueryShape>();
-        foreach (var group in allShapes.GroupBy(s => s.ExactShapeTypeName))
+        foreach (var group in allShapes.GroupBy(s => (s.Shape.ExactShapeTypeName, s.IncludesEntityView)))
         {
-            var distinctShapes = group.Distinct().ToList();
+            var distinctShapes = group.Select(g => g.Shape).Distinct().ToList();
             allVariants.AddRange(distinctShapes);
             if (distinctShapes.Count == 1)
             {
-                canonical.Add(distinctShapes[0]);
+                canonical.Add((distinctShapes[0], group.Key.IncludesEntityView));
             }
             else
             {
                 var synthesized = AllWrites(distinctShapes[0]);
-                canonical.Add(synthesized);
+                canonical.Add((synthesized, group.Key.IncludesEntityView));
                 synthesizedCanonical.Add(synthesized);
             }
         }
@@ -460,13 +465,14 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             spc.AddSource($"QueryChainBackend.{shape.HashName()}.g.cs", QueryChainEmitter.RenderBackend(shape));
     }
 
-    private static void EmitOverloads(SourceProductionContext spc, IEnumerable<QueryShape> byExactShape)
+    private static void EmitOverloads(SourceProductionContext spc, IEnumerable<(QueryShape Shape, bool IncludesEntityView)> canonical)
     {
-        foreach (var shape in byExactShape)
+        foreach (var (shape, includesEntityView) in canonical)
         {
-            spc.AddSource($"QueryChainForEach.{QueryChainEmitter.ExactShapeHash(shape, false)}.g.cs", QueryChainEmitter.RenderForEachOverload(shape, false));
-            spc.AddSource($"QueryChainPredicateForEach.{QueryChainEmitter.ExactShapeHash(shape, false)}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape, false));
-            spc.AddSource($"QueryChainParallelForEach.{QueryChainEmitter.ExactShapeHash(shape, false)}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape, false));
+            var hash = QueryChainEmitter.ExactShapeHash(shape, includesEntityView);
+            spc.AddSource($"QueryChainForEach.{hash}.g.cs", QueryChainEmitter.RenderForEachOverload(shape, includesEntityView));
+            spc.AddSource($"QueryChainPredicateForEach.{hash}.g.cs", QueryChainEmitter.RenderPredicateForEachOverload(shape, includesEntityView));
+            spc.AddSource($"QueryChainParallelForEach.{hash}.g.cs", QueryChainEmitter.RenderParallelForEachOverload(shape, includesEntityView));
         }
     }
 
@@ -485,29 +491,29 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// </summary>
     private static void EmitInterceptorsAndTargets(
         SourceProductionContext spc,
-        List<QueryShape> canonical,
+        List<(QueryShape Shape, bool IncludesEntityView)> canonical,
         ImmutableArray<ChainEntry> chains)
     {
-        var canonicalByExactShapeTypeName = canonical.ToDictionary(s => s.ExactShapeTypeName);
+        var canonicalByKey = canonical.ToDictionary(c => (c.Shape.ExactShapeTypeName, c.IncludesEntityView), c => c.Shape);
         var emittedTargets = new HashSet<(ChainTerminalKind TerminalKind, string VariantHash)>();
         var interceptorIndex = 0;
 
-        foreach (var (shape, _, location, uniform, terminalKind, _) in chains)
+        foreach (var (shape, _, location, uniform, terminalKind, _, includesEntityView) in chains)
         {
-            var canonicalShape = canonicalByExactShapeTypeName[shape.ExactShapeTypeName];
+            var canonicalShape = canonicalByKey[(shape.ExactShapeTypeName, includesEntityView)];
             if (shape.Equals(canonicalShape)) continue; // this call site's own variant already is canonical: no collision, nothing to intercept
             if (location is null) continue; // no interceptable location resolved -- nothing to attach to
 
-            var variantHash = QueryChainEmitter.ExactShapeHash(shape, false);
+            var variantHash = QueryChainEmitter.ExactShapeHash(shape, includesEntityView);
             if (emittedTargets.Add((terminalKind, variantHash)))
-                spc.AddSource($"QueryChainInterceptorTarget.{terminalKind}.{variantHash}.g.cs", QueryChainEmitter.RenderInterceptorTarget(canonicalShape, shape, terminalKind, false));
+                spc.AddSource($"QueryChainInterceptorTarget.{terminalKind}.{variantHash}.g.cs", QueryChainEmitter.RenderInterceptorTarget(canonicalShape, shape, terminalKind, includesEntityView));
 
 #pragma warning disable RSEXPERIMENTAL002
             var attributeSyntax = location.GetInterceptsLocationAttributeSyntax();
 #pragma warning restore RSEXPERIMENTAL002
             var uniqueSuffix = $"{variantHash}_{interceptorIndex++}";
             spc.AddSource($"QueryChainInterceptor.{uniqueSuffix}.g.cs",
-                QueryChainEmitter.RenderInterceptor(canonicalShape, shape, terminalKind, attributeSyntax, uniform, uniqueSuffix, false));
+                QueryChainEmitter.RenderInterceptor(canonicalShape, shape, terminalKind, attributeSyntax, uniform, uniqueSuffix, includesEntityView));
         }
     }
 
