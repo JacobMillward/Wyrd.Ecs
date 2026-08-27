@@ -18,6 +18,8 @@ var world = new WorldBuilder()
     .AddSystem<MovementSystem>()
     .AddSystem<WraparoundSystem>()
     .AddSystem<SpinSystem>()
+    .AddSystem<CollisionSystem>()
+    .AddSystem<SplitSystem>()
     .AddSystem<LifetimeSystem>()
     .Build();
 
@@ -64,17 +66,14 @@ var asteroidTemplate = new EntityTemplate()
 
 world.AddResource(new GameAssets(bulletTemplate, asteroidTemplate));
 
-world.Commands.CreateEntity(asteroidTemplate)
-    .AddComponent(new Transform { Position = new Vector3(-240f, 90f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Large.Scale() })
-    .AddComponent(new Velocity { Value = new Vector3(90f, -30f, 0f) })
-    .AddComponent(new Spin { RadiansPerSecond = 0.6f })
-    .AddComponent(new Asteroid { Size = AsteroidSize.Large });
-
-world.Commands.CreateEntity(asteroidTemplate)
-    .AddComponent(new Transform { Position = new Vector3(180f, -150f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.One * AsteroidSize.Small.Scale() })
-    .AddComponent(new Velocity { Value = new Vector3(-60f, 75f, 0f) })
-    .AddComponent(new Spin { RadiansPerSecond = -1.4f })
-    .AddComponent(new Asteroid { Size = AsteroidSize.Small });
+var rng = new Random();
+for (var i = 0; i < 5; i++)
+{
+    var angle = (float)(rng.NextDouble() * MathF.Tau);
+    var distance = 150f + (float)rng.NextDouble() * 200f;
+    var position = new Vector3(MathF.Cos(angle) * distance, MathF.Sin(angle) * distance, 0f);
+    AsteroidSpawner.Spawn(world.Commands, asteroidTemplate, AsteroidSize.Large, position, rng);
+}
 
 world.ApplyCommands();
 
