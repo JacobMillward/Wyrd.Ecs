@@ -312,7 +312,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     }
 
     /// <summary>Which overload kind a `.ForEach`/`.ParallelForEach` call site resolves to -- determines which interceptor emission path (if any) applies. Only <see cref="Action"/> call sites are eligible for interception today; see <see cref="QueryChainGenerator.EmitInterceptorsAndTargets"/>.</summary>
-    private enum ChainTerminalKind { Action, Predicate, Parallel }
+    internal enum ChainTerminalKind { Action, Predicate, Parallel }
 
     /// <summary>One <c>.ForEach</c>/<c>.ParallelForEach</c> syntax node's extraction result: either a real <see cref="QueryShape"/>, or a <see cref="Diagnostic"/> explaining why one could not be produced (currently only <see cref="WyrdDiagnostics.FileLocalComponentType"/> reaches this path deliberately; every other unrecognized shape stays silent, since it is not this generator's job to explain every possible reason a chain does not resolve).</summary>
     private readonly record struct ChainCandidateResult(
@@ -473,13 +473,14 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// For every chain call site whose own shape doesn't structurally equal its group's
     /// canonical shape (see <see cref="DeduplicateShapes"/> -- only possible when a genuine
     /// collision synthesized an all-Writes canonical distinct from this real variant),
-    /// emits a shared per-variant target method (once per distinct variant) and a
-    /// `[InterceptsLocation]` method for that exact call site forwarding to it. A
-    /// non-colliding shape's only variant always *is* its own canonical, so this is a
-    /// no-op for the common case -- no interceptor, no precision loss, unchanged from
-    /// today. `ChainTerminalKind.Action` is the only kind this covers; a colliding
-    /// Predicate or Parallel call site instead gets
-    /// <see cref="WyrdDiagnostics.UnsupportedAccessVariantInterception"/>.
+    /// emits a shared per-(variant, terminal kind) target method and a `[InterceptsLocation]`
+    /// method for that exact call site forwarding to it. A non-colliding shape's only
+    /// variant always *is* its own canonical, so this is a no-op for the common case -- no
+    /// interceptor, no precision loss, unchanged from today. Keyed by terminal kind as well
+    /// as variant hash: a Predicate call site needs a bool-returning target sharing the
+    /// canonical Predicate overload's own delegate, and a Parallel one needs
+    /// `Parallel.ForEach` dispatch, even when it shares an exact variant with an ordinary
+    /// Action call site elsewhere (see <see cref="QueryChainEmitter.BaseTerminalSpec"/>).
     /// </summary>
     private static void EmitInterceptorsAndTargets(
         SourceProductionContext spc,
@@ -487,34 +488,25 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         ImmutableArray<ChainEntry> chains)
     {
         var canonicalByExactShapeTypeName = canonical.ToDictionary(s => s.ExactShapeTypeName);
-        var emittedTargets = new HashSet<string>();
+        var emittedTargets = new HashSet<(ChainTerminalKind TerminalKind, string VariantHash)>();
         var interceptorIndex = 0;
 
-        foreach (var (shape, _, location, uniform, terminalKind, callSiteLocation) in chains)
+        foreach (var (shape, _, location, uniform, terminalKind, _) in chains)
         {
             var canonicalShape = canonicalByExactShapeTypeName[shape.ExactShapeTypeName];
             if (shape.Equals(canonicalShape)) continue; // this call site's own variant already is canonical: no collision, nothing to intercept
-
-            if (terminalKind != ChainTerminalKind.Action)
-            {
-                var readsMarkers = shape.Markers.Where(m => m.Kind == MarkerKind.Reads).ToList();
-                var componentNames = string.Join(", ", readsMarkers.Select(m => m.ComponentTypeName));
-                spc.ReportDiagnostic(Diagnostic.Create(WyrdDiagnostics.UnsupportedAccessVariantInterception, callSiteLocation, componentNames));
-                continue;
-            }
-
             if (location is null) continue; // no interceptable location resolved -- nothing to attach to
 
             var variantHash = QueryChainEmitter.ExactShapeHash(shape);
-            if (emittedTargets.Add(variantHash))
-                spc.AddSource($"QueryChainInterceptorTarget.{variantHash}.g.cs", QueryChainEmitter.RenderInterceptorTarget(canonicalShape, shape));
+            if (emittedTargets.Add((terminalKind, variantHash)))
+                spc.AddSource($"QueryChainInterceptorTarget.{terminalKind}.{variantHash}.g.cs", QueryChainEmitter.RenderInterceptorTarget(canonicalShape, shape, terminalKind));
 
 #pragma warning disable RSEXPERIMENTAL002
             var attributeSyntax = location.GetInterceptsLocationAttributeSyntax();
 #pragma warning restore RSEXPERIMENTAL002
             var uniqueSuffix = $"{variantHash}_{interceptorIndex++}";
             spc.AddSource($"QueryChainInterceptor.{uniqueSuffix}.g.cs",
-                QueryChainEmitter.RenderInterceptor(canonicalShape, shape, attributeSyntax, uniform, uniqueSuffix));
+                QueryChainEmitter.RenderInterceptor(canonicalShape, shape, terminalKind, attributeSyntax, uniform, uniqueSuffix));
         }
     }
 

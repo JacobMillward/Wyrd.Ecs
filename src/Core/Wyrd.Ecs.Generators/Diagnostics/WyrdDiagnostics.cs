@@ -83,20 +83,4 @@ internal static class WyrdDiagnostics
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
 
-    /// <summary>
-    /// A `.ForEach` call using a predicate delegate, or a `.ParallelForEach` call, resolves
-    /// a component read-only (`in`) on a shape that also has a `ref`/write call site
-    /// elsewhere. Read-only access-variant routing (see
-    /// `QueryChainGenerator.EmitInterceptorsAndTargets`) is only built for the plain
-    /// action `.ForEach` overload today; a predicate/parallel call site in this position
-    /// would otherwise silently resolve through the pessimistic all-`Mut` fallback instead
-    /// of the correct read-only backend.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor UnsupportedAccessVariantInterception = new(
-        id: "WYRD010",
-        title: "Read-only access-variant routing is not yet supported for a predicate ForEach or ParallelForEach",
-        messageFormat: "This call site reads '{0}' via 'in', but another call site elsewhere writes it via 'ref' on the same shape. That's normally resolved automatically, but not yet for a predicate '.ForEach' or '.ParallelForEach' call. Give this call site's shape a different '.With<T>()' set, or use the chunk API (ArchetypeQuery/ArchetypeChunk) instead.",
-        category: "Wyrd.Ecs.QueryChain",
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
 }

@@ -86,23 +86,22 @@ internal static class QueryChainEmitter
             IsParallel: true);
 
         /// <summary>
-        /// A colliding variant's target: a plain (non-extension) method reusing
-        /// <paramref name="canonicalHash"/>'s already-declared delegates (the canonical
-        /// all-`ref` overload's own, emitted separately by <see cref="RenderForEachOverload"/>
-        /// -- this spec must never also call <see cref="AppendDelegates"/>, or they'd be
-        /// declared twice), with <see cref="ForceRefWidening"/> so a Reads-marked element's
-        /// `ref readonly` result widens to `ref` via `Unsafe.AsRef` instead of using its own
-        /// natural <see cref="RefKind"/> -- see <see cref="RenderInterceptorTarget"/>.
+        /// A colliding variant's target for <paramref name="baseSpec"/>'s terminal kind: a
+        /// plain (non-extension) method reusing <paramref name="baseSpec"/>'s
+        /// already-declared delegates (the canonical all-`ref`/predicate overload's own,
+        /// emitted separately by <see cref="RenderForEachOverload"/>/
+        /// <see cref="RenderPredicateForEachOverload"/> -- this spec must never also call
+        /// <see cref="AppendDelegates"/>, or they'd be declared twice), with
+        /// <see cref="ForceRefWidening"/> so a Reads-marked element's `ref readonly` result
+        /// widens to `ref` via `Unsafe.AsRef` instead of using its own natural
+        /// <see cref="RefKind"/> -- see <see cref="RenderInterceptorTarget"/>.
         /// </summary>
-        internal static TerminalSpec InterceptorTarget(string canonicalHash) => new(
-            ClassSuffix: "InterceptorTarget",
-            MethodName: "ForEach",
-            OwnDelegateName: $"QueryChainActionOwn_{canonicalHash}",
-            NoUniformDelegateName: $"QueryChainAction_{canonicalHash}",
-            ProcessReturnType: "void",
-            IsParallel: false,
-            IsExtension: false,
-            ForceRefWidening: true);
+        internal static TerminalSpec InterceptorTargetFor(TerminalSpec baseSpec) => baseSpec with
+        {
+            ClassSuffix = baseSpec.ClassSuffix + "InterceptorTarget",
+            IsExtension = false,
+            ForceRefWidening = true,
+        };
     }
 
     /// <summary>
@@ -256,57 +255,80 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// A colliding variant's target: shares <see cref="AppendMethod"/>'s rendering with the
-    /// public overloads (same chunk-walk, same <c>Process</c> local function shape), just
-    /// with <see cref="TerminalSpec.InterceptorTarget"/>'s no-`this`/force-widening spec
-    /// instead of one of the three public <c>TerminalSpec</c> factories. A Reads-marked
-    /// component's `ref readonly` result is widened to `ref` via `Unsafe.AsRef` to satisfy
-    /// the shared canonical delegate's `ref` parameter -- sound because `Ref&lt;T&gt;`
-    /// indexing (`Ref.cs`) never marks dirty regardless of which reference kind reads it, and
-    /// the delegate's real target was written with an `in` parameter by the original caller
-    /// (ref/in are calling-convention-identical at the CLR level; only the source compiler's
-    /// readonly enforcement differs). Called only for a variant with at least one Reads
-    /// marker -- an all-Writes variant already *is* canonical and needs no separate target.
+    /// The public overload's own <see cref="TerminalSpec"/> for <paramref name="terminalKind"/>
+    /// and <paramref name="canonicalHash"/> -- shared by <see cref="RenderInterceptorTarget"/>
+    /// (wrapped via <see cref="TerminalSpec.InterceptorTargetFor"/>) and
+    /// <see cref="RenderInterceptor"/> (used directly, for its delegate names/method name),
+    /// so the two can never disagree about which delegate type or target method a given
+    /// terminal kind needs. `Parallel` reuses `Action`'s delegate names by design (see
+    /// <see cref="TerminalSpec.Parallel"/>); `Predicate` has its own.
     /// </summary>
-    internal static string RenderInterceptorTarget(QueryShape canonical, QueryShape variant)
+    private static TerminalSpec BaseTerminalSpec(QueryChainGenerator.ChainTerminalKind terminalKind, string canonicalHash) => terminalKind switch
+    {
+        QueryChainGenerator.ChainTerminalKind.Predicate => TerminalSpec.Predicate(canonicalHash),
+        QueryChainGenerator.ChainTerminalKind.Parallel => TerminalSpec.Parallel(canonicalHash),
+        _ => TerminalSpec.Action(canonicalHash),
+    };
+
+    /// <summary>
+    /// A colliding variant's target for <paramref name="terminalKind"/>: shares
+    /// <see cref="AppendMethod"/>'s rendering with the public overloads (same chunk-walk,
+    /// same <c>Process</c> local function shape, same `Parallel.ForEach`/`capturedState`
+    /// handling when <paramref name="terminalKind"/> is <c>Parallel</c>, same bool-returning
+    /// early-exit when it's <c>Predicate</c>), just with
+    /// <see cref="TerminalSpec.InterceptorTargetFor"/>'s no-`this`/force-widening spec
+    /// instead of one of the three public <c>TerminalSpec</c> factories directly. A
+    /// Reads-marked component's `ref readonly` result is widened to `ref` via
+    /// `Unsafe.AsRef` to satisfy the shared canonical delegate's `ref` parameter -- sound
+    /// because `Ref&lt;T&gt;` indexing (`Ref.cs`) never marks dirty regardless of which
+    /// reference kind reads it, and the delegate's real target was written with an `in`
+    /// parameter by the original caller (ref/in are calling-convention-identical at the CLR
+    /// level; only the source compiler's readonly enforcement differs). Called only for a
+    /// variant with at least one Reads marker -- an all-Writes variant already *is*
+    /// canonical and needs no separate target.
+    /// </summary>
+    internal static string RenderInterceptorTarget(QueryShape canonical, QueryShape variant, QueryChainGenerator.ChainTerminalKind terminalKind)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        AppendTerminalClass(sb, variant, TerminalSpec.InterceptorTarget(ExactShapeHash(canonical)));
+        var baseSpec = BaseTerminalSpec(terminalKind, ExactShapeHash(canonical));
+        AppendTerminalClass(sb, variant, TerminalSpec.InterceptorTargetFor(baseSpec));
         return sb.ToString();
     }
 
     /// <summary>
     /// One `[InterceptsLocation]` method for a single call site, matching the canonical
-    /// overload's exact signature and forwarding straight through to the shared
-    /// per-variant target -- no conversion needed, since both declare the identical
-    /// canonical delegate type. Deliberately **not** named `ForEach`: interceptors are
-    /// matched to their call site by location, not by name, and a same-named extension
-    /// method with an identical signature to the canonical overload becomes a second
-    /// candidate for *every* ordinary call site sharing this receiver type -- reproducing
-    /// the exact CS0121 ambiguity this whole design exists to avoid. Confirmed empirically:
-    /// naming it `ForEach` breaks every other call site on the same shape; a unique name
-    /// does not. <paramref name="uniqueSuffix"/> keeps both the class and method name
-    /// distinct from every other interceptor's, since these are ordinary (non-`partial`)
-    /// static classes, one per generated file.
+    /// overload's exact signature for <paramref name="terminalKind"/> and forwarding
+    /// straight through to the shared per-(variant, terminal kind) target -- no conversion
+    /// needed, since both declare the identical canonical delegate type (see
+    /// <see cref="BaseTerminalSpec"/>). Deliberately **not** named `ForEach`/`ParallelForEach`:
+    /// interceptors are matched to their call site by location, not by name, and a
+    /// same-named extension method with an identical signature to the canonical overload
+    /// becomes a second candidate for *every* ordinary call site sharing this receiver type
+    /// -- reproducing the exact CS0121 ambiguity this whole design exists to avoid.
+    /// Confirmed empirically: naming it `ForEach` breaks every other call site on the same
+    /// shape; a unique name does not. <paramref name="uniqueSuffix"/> keeps both the class
+    /// and method name distinct from every other interceptor's, since these are ordinary
+    /// (non-`partial`) static classes, one per generated file.
     /// </summary>
-    internal static string RenderInterceptor(QueryShape canonical, QueryShape variant, string interceptsLocationAttributeSyntax, bool uniform, string uniqueSuffix)
+    internal static string RenderInterceptor(QueryShape canonical, QueryShape variant, QueryChainGenerator.ChainTerminalKind terminalKind, string interceptsLocationAttributeSyntax, bool uniform, string uniqueSuffix)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        var canonicalHash = ExactShapeHash(canonical);
         var variantHash = ExactShapeHash(variant);
+        var baseSpec = BaseTerminalSpec(terminalKind, ExactShapeHash(canonical));
+        var targetClassName = $"QueryChain{baseSpec.ClassSuffix}InterceptorTarget_{variantHash}";
         var typeParam = uniform ? "<TState>" : "";
         var actionParamDecl = uniform
-            ? $"in TState state, QueryChainActionOwn_{canonicalHash}<TState> action"
-            : $"QueryChainAction_{canonicalHash} action";
+            ? $"in TState state, {baseSpec.OwnDelegateName}<TState> action"
+            : $"{baseSpec.NoUniformDelegateName} action";
         var forwardArgs = uniform ? "query, state, action" : "query, action";
 
         sb.AppendLine($"internal static class QueryChainInterceptor_{uniqueSuffix}");
         sb.AppendLine("{");
         sb.AppendLine($"    {interceptsLocationAttributeSyntax}");
         sb.AppendLine($"    internal static void Intercepted{typeParam}(this {canonical.ExactShapeTypeName} query, {actionParamDecl}) =>");
-        sb.AppendLine($"        QueryChainInterceptorTarget_{variantHash}.ForEach{typeParam}({forwardArgs});");
+        sb.AppendLine($"        {targetClassName}.{baseSpec.MethodName}{typeParam}({forwardArgs});");
         sb.AppendLine("}");
         return sb.ToString();
     }

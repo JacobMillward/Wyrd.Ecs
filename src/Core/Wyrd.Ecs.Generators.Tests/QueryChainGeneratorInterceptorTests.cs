@@ -89,31 +89,91 @@ public class QueryChainGeneratorInterceptorTests
         result.Should().Be((2, 2, 2, 2));
     }
 
-    [Theory]
-    [InlineData("world.Query().With<Score>().ParallelForEach(0, (in int _, in Score s) => { });")]
-    [InlineData("world.Query().With<Score>().ForEach(0, (in int _, in Score s) => s.Value < 100);")]
-    public void CollidingReadOnlySite_UnsupportedByInterception_ReportsWYRD010(string siteBTerminal)
+    [Fact]
+    public void CollidingPredicateForEach_ReadObservesWrite_AndStopsEarlyOnFalse()
     {
-        var compilation = GeneratorTestHost.Compile($$"""
+        var compilation = GeneratorTestHost.Compile("""
             using Wyrd.Ecs;
 
             public struct Score : IComponent { public int Value; }
 
-            public static class SiteA
+            public static class Harness
             {
-                public static void Write(World world) =>
-                    world.Query().With<Score>().ForEach(0, (in int _, ref Score s) => { s.Value += 1; });
-            }
+                public static (int Observed, int Visited) Run()
+                {
+                    var world = new World();
+                    world.Commands.CreateEntity(new Score { Value = 5 });
+                    world.Commands.CreateEntity(new Score { Value = 6 });
+                    world.ApplyCommands();
+                    world.AdvanceTick();
 
-            public static class SiteB
-            {
-                public static void Read(World world) =>
-                    {{siteBTerminal}}
+                    // Colliding writer, same shape as the predicate reader below.
+                    world.Query().With<Score>().ForEach(0, (in int _, ref Score s) => { s.Value += 10; });
+
+                    var observed = 0;
+                    var visited = 0;
+                    world.Query().With<Score>().ForEach(0, (in int _, in Score s) =>
+                    {
+                        visited++;
+                        observed = s.Value;
+                        return false; // stop after the first entity
+                    });
+
+                    return (observed, visited);
+                }
             }
             """);
 
-        var result = GeneratorTestHost.Run(new QueryChainGenerator(), compilation);
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), compilation);
+        var method = assembly.GetType("Harness")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
 
-        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD010");
+        var (observed, visited) = ((int, int))method.Invoke(null, null)!;
+
+        observed.Should().Be(15, "the predicate's in-only read must observe the ref writer's update, same as the plain ForEach case");
+        visited.Should().Be(1, "returning false must still stop iteration early through the intercepted read-only backend");
+    }
+
+    [Fact]
+    public void CollidingParallelForEach_ReadObservesWrite_VisitsEveryMatchingEntity()
+    {
+        var compilation = GeneratorTestHost.Compile("""
+            using System.Threading;
+            using Wyrd.Ecs;
+
+            public struct Score : IComponent { public int Value; }
+
+            public static class Harness
+            {
+                public static (int Sum, int Visited) Run()
+                {
+                    var world = new World();
+                    for (var i = 0; i < 50; i++)
+                        world.Commands.CreateEntity(new Score { Value = 1 });
+                    world.ApplyCommands();
+                    world.AdvanceTick();
+
+                    // Colliding writer, same shape as the parallel reader below.
+                    world.Query().With<Score>().ForEach(0, (in int _, ref Score s) => { s.Value += 1; });
+
+                    var sum = 0;
+                    var visited = 0;
+                    world.Query().With<Score>().ParallelForEach(0, (in int _, in Score s) =>
+                    {
+                        Interlocked.Add(ref sum, s.Value);
+                        Interlocked.Increment(ref visited);
+                    });
+
+                    return (sum, visited);
+                }
+            }
+            """);
+
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), compilation);
+        var method = assembly.GetType("Harness")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        var (sum, visited) = ((int, int))method.Invoke(null, null)!;
+
+        visited.Should().Be(50);
+        sum.Should().Be(100, "every entity's Score.Value must have been bumped by the ref writer (1 -> 2) before the intercepted parallel read observes it");
     }
 }
