@@ -89,10 +89,12 @@ public class QueryChainGeneratorInterceptorTests
         result.Should().Be((2, 2, 2, 2));
     }
 
-    [Fact]
-    public void ColludingParallelForEach_ReportsWYRD010_NotSilentPrecisionLoss()
+    [Theory]
+    [InlineData("world.Query().With<Score>().ParallelForEach(0, (in int _, in Score s) => { });")]
+    [InlineData("world.Query().With<Score>().ForEach(0, (in int _, in Score s) => s.Value < 100);")]
+    public void CollidingReadOnlySite_UnsupportedByInterception_ReportsWYRD010(string siteBTerminal)
     {
-        var compilation = GeneratorTestHost.Compile("""
+        var compilation = GeneratorTestHost.Compile($$"""
             using Wyrd.Ecs;
 
             public struct Score : IComponent { public int Value; }
@@ -106,33 +108,7 @@ public class QueryChainGeneratorInterceptorTests
             public static class SiteB
             {
                 public static void Read(World world) =>
-                    world.Query().With<Score>().ParallelForEach(0, (in int _, in Score s) => { });
-            }
-            """);
-
-        var result = GeneratorTestHost.Run(new QueryChainGenerator(), compilation);
-
-        result.Diagnostics.Should().ContainSingle(d => d.Id == "WYRD010");
-    }
-
-    [Fact]
-    public void ColludingPredicateForEach_ReportsWYRD010_NotSilentPrecisionLoss()
-    {
-        var compilation = GeneratorTestHost.Compile("""
-            using Wyrd.Ecs;
-
-            public struct Score : IComponent { public int Value; }
-
-            public static class SiteA
-            {
-                public static void Write(World world) =>
-                    world.Query().With<Score>().ForEach(0, (in int _, ref Score s) => { s.Value += 1; });
-            }
-
-            public static class SiteB
-            {
-                public static void Read(World world) =>
-                    world.Query().With<Score>().ForEach(0, (in int _, in Score s) => s.Value < 100);
+                    {{siteBTerminal}}
             }
             """);
 

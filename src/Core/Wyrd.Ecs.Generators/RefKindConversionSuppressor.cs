@@ -27,20 +27,27 @@ public sealed class RefKindConversionSuppressor : DiagnosticSuppressor
 
     public override void ReportSuppressions(SuppressionAnalysisContext context)
     {
-        foreach (var diagnostic in context.ReportedDiagnostics)
+        // Grouped by tree so a file with several colliding call sites fetches its semantic
+        // model once, not once per diagnostic.
+        var byTree = context.ReportedDiagnostics
+            .Where(d => d.Id == "CS9198" && d.Location.SourceTree is not null)
+            .GroupBy(d => d.Location.SourceTree!);
+
+        foreach (var group in byTree)
         {
-            if (diagnostic.Id != "CS9198") continue;
-            if (!IsWyrdQueryTerminalArgument(diagnostic, context)) continue;
-            context.ReportSuppression(Suppression.Create(Rule, diagnostic));
+            var model = context.GetSemanticModel(group.Key);
+            var root = group.Key.GetRoot(context.CancellationToken);
+
+            foreach (var diagnostic in group)
+            {
+                if (!IsWyrdQueryTerminalArgument(diagnostic, root, model, context.CancellationToken)) continue;
+                context.ReportSuppression(Suppression.Create(Rule, diagnostic));
+            }
         }
     }
 
-    private static bool IsWyrdQueryTerminalArgument(Diagnostic diagnostic, SuppressionAnalysisContext context)
+    private static bool IsWyrdQueryTerminalArgument(Diagnostic diagnostic, SyntaxNode root, SemanticModel model, System.Threading.CancellationToken ct)
     {
-        var tree = diagnostic.Location.SourceTree;
-        if (tree is null) return false;
-
-        var root = tree.GetRoot(context.CancellationToken);
         var node = root.FindNode(diagnostic.Location.SourceSpan);
         // CS9198's reported span sometimes resolves (via FindNode) to the whole argument
         // wrapping the lambda -- a parent, not an ancestor-or-self match -- rather than a
@@ -56,10 +63,10 @@ public sealed class RefKindConversionSuppressor : DiagnosticSuppressor
         // reflects the interceptor (deliberately not named ForEach/ParallelForEach -- see
         // QueryChainEmitter.RenderInterceptor's doc comment), not the source text the
         // user actually wrote.
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: "ForEach" or "ParallelForEach" } }) return false;
+        if (ChainWalker.TryGetInvokedMethodName(invocation) is not { } methodName) return false;
+        if (!ChainWalker.IsChainTerminalMethodName(methodName)) return false;
 
-        var model = context.GetSemanticModel(tree);
-        if (model.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method) return false;
+        if (model.GetSymbolInfo(invocation, ct).Symbol is not IMethodSymbol method) return false;
 
         return method.ContainingType?.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs";
     }

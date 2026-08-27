@@ -27,13 +27,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             ctx.AddSource("InterceptsLocationAttribute.g.cs", QueryChainEmitter.RenderInterceptsLocationAttributeSource()));
 
         var chainCandidates = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is InvocationExpressionSyntax
-                {
-                    Expression: MemberAccessExpressionSyntax
-                    {
-                        Name: IdentifierNameSyntax { Identifier.ValueText: "ForEach" or "ParallelForEach" }
-                    }
-                },
+                predicate: static (node, _) => node is InvocationExpressionSyntax invocation
+                    && ChainWalker.TryGetInvokedMethodName(invocation) is { } name
+                    && ChainWalker.IsChainTerminalMethodName(name),
                 transform: static (ctx, ct) => ExtractChainCandidate((InvocationExpressionSyntax)ctx.Node, ctx.SemanticModel, ct))
             .Where(static c => c.Shape is not null || c.Diagnostic is not null)
             .WithTrackingName("QueryChainShape");
@@ -73,14 +69,14 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
 
             var chains = chainResults
                 .Where(c => c.Shape is not null)
-                .Select(c => (Shape: c.Shape!, c.SystemTypeName, c.InterceptableLocation, c.Uniform, c.TerminalKind, c.CallSiteLocation))
+                .Select(c => new ChainEntry(c.Shape!, c.SystemTypeName, c.InterceptableLocation, c.Uniform, c.TerminalKind, c.CallSiteLocation))
                 .ToImmutableArray();
             var querySystems = querySystemResults
                 .Where(s => s.Candidate is not null)
                 .Select(s => s.Candidate!)
                 .ToImmutableArray();
 
-            var (allVariants, canonical, byDedupKey) = DeduplicateShapes(chains, querySystems);
+            var (canonical, byDedupKey) = DeduplicateShapes(chains, querySystems);
 
             EmitBackends(spc, byDedupKey);
             EmitOverloads(spc, canonical);
@@ -323,6 +319,11 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         QueryShape? Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation,
         bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation, Diagnostic? Diagnostic);
 
+    /// <summary>One resolved chain call site, threaded from <see cref="Initialize"/> through <see cref="DeduplicateShapes"/>, <see cref="EmitInterceptorsAndTargets"/>, and <see cref="ComputeSystemAccess"/>.</summary>
+    private readonly record struct ChainEntry(
+        QueryShape Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation,
+        bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation);
+
     private static ChainCandidateResult ExtractChainCandidate(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
     {
         // Checked before ChainWalker.TryExtractShape: a file-local component type must
@@ -367,14 +368,21 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// </summary>
     private static ChainTerminalKind ClassifyTerminalKind(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
     {
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: var methodName } }) return ChainTerminalKind.Action;
+        if (ChainWalker.TryGetInvokedMethodName(invocation) is not { } methodName) return ChainTerminalKind.Action;
         if (methodName == "ParallelForEach") return ChainTerminalKind.Parallel;
         if (invocation.ArgumentList.Arguments is not [.., { Expression: ParenthesizedLambdaExpressionSyntax lambda }]) return ChainTerminalKind.Action;
 
         bool IsBool(ExpressionSyntax e) => semanticModel.GetTypeInfo(e, ct).Type?.SpecialType == SpecialType.System_Boolean;
 
         if (lambda.ExpressionBody is { } exprBody) return IsBool(exprBody) ? ChainTerminalKind.Predicate : ChainTerminalKind.Action;
-        if (lambda.Block is { } block && block.DescendantNodes().OfType<ReturnStatementSyntax>().Any(r => r.Expression is not null && IsBool(r.Expression))) return ChainTerminalKind.Predicate;
+        // Stop descending at a nested lambda/local function: a `return <boolExpr>;` inside
+        // one of those belongs to that inner scope, not this outer lambda, and must not be
+        // mistaken for this lambda's own return.
+        if (lambda.Block is { } block && block
+                .DescendantNodes(n => n is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                .OfType<ReturnStatementSyntax>()
+                .Any(r => r.Expression is not null && IsBool(r.Expression)))
+            return ChainTerminalKind.Predicate;
 
         return ChainTerminalKind.Action;
     }
@@ -384,8 +392,8 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, two
     /// otherwise-unrelated queries can share the exact same closed <c>Query&lt;TShape&gt;</c>
     /// type while resolving different ref/in markers for it. Rather than erroring on that
-    /// (the old WYRD003 behavior), every distinct variant is kept (<c>AllVariants</c>, for
-    /// interceptor targeting).
+    /// (the old WYRD003 behavior), every distinct variant is kept, for interceptor
+    /// targeting (an internal detail of this method -- see below for why it isn't returned).
     ///
     /// <c>Canonical</c> is the single public overload every call site for that exact type
     /// name binds to. **When only one distinct variant exists for a type name (the common,
@@ -399,30 +407,42 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// downstream: a call site whose own shape doesn't equal its group's canonical shape.
     ///
     /// <c>ByDedupKey</c> feeds <see cref="EmitBackends"/> and covers every real variant plus
-    /// each synthesized canonical, so the pessimistic all-`Mut` backend a non-intercepted
-    /// synthesized-canonical call would use is always available.
+    /// each *synthesized* canonical, so the pessimistic all-`Mut` backend a non-intercepted
+    /// synthesized-canonical call would use is always available. Concatenating only the
+    /// synthesized ones, not every canonical shape, avoids re-grouping the common
+    /// non-colliding case's shape twice (it's already in the "every real variant" set).
     /// </summary>
-    private static (List<QueryShape> AllVariants, List<QueryShape> Canonical, List<QueryShape> ByDedupKey) DeduplicateShapes(
-        ImmutableArray<(QueryShape Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation, bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation)> chains,
+    private static (List<QueryShape> Canonical, List<QueryShape> ByDedupKey) DeduplicateShapes(
+        ImmutableArray<ChainEntry> chains,
         ImmutableArray<QuerySystemCandidate> querySystems)
     {
         var allShapes = chains.Select(c => c.Shape).Concat(querySystems.Select(s => s.Shape));
 
         var allVariants = new List<QueryShape>();
         var canonical = new List<QueryShape>();
+        var synthesizedCanonical = new List<QueryShape>();
         foreach (var group in allShapes.GroupBy(s => s.ExactShapeTypeName))
         {
             var distinctShapes = group.Distinct().ToList();
             allVariants.AddRange(distinctShapes);
-            canonical.Add(distinctShapes.Count == 1 ? distinctShapes[0] : AllWrites(distinctShapes[0]));
+            if (distinctShapes.Count == 1)
+            {
+                canonical.Add(distinctShapes[0]);
+            }
+            else
+            {
+                var synthesized = AllWrites(distinctShapes[0]);
+                canonical.Add(synthesized);
+                synthesizedCanonical.Add(synthesized);
+            }
         }
 
-        var byDedupKey = allVariants.Concat(canonical)
+        var byDedupKey = allVariants.Concat(synthesizedCanonical)
             .GroupBy(s => s.DedupKey())
             .Select(g => g.First())
             .ToList();
 
-        return (allVariants, canonical, byDedupKey);
+        return (canonical, byDedupKey);
     }
 
     /// <summary>The all-<see cref="MarkerKind.Writes"/> variant of <paramref name="shape"/>: same exact type and component order, every marker forced to Writes. This is the shape every public `.ForEach` overload's delegate is generated from.</summary>
@@ -464,7 +484,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     private static void EmitInterceptorsAndTargets(
         SourceProductionContext spc,
         List<QueryShape> canonical,
-        ImmutableArray<(QueryShape Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation, bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation)> chains)
+        ImmutableArray<ChainEntry> chains)
     {
         var canonicalByExactShapeTypeName = canonical.ToDictionary(s => s.ExactShapeTypeName);
         var emittedTargets = new HashSet<string>();
@@ -513,7 +533,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// for the emitted registry), rather than each recomputing its own copy.
     /// </summary>
     private static List<(string SystemTypeName, List<string> Reads, List<string> Writes)> ComputeSystemAccess(
-        ImmutableArray<(QueryShape Shape, string? SystemTypeName, InterceptableLocation? InterceptableLocation, bool Uniform, ChainTerminalKind TerminalKind, Location CallSiteLocation)> chains,
+        ImmutableArray<ChainEntry> chains,
         ImmutableArray<QuerySystemCandidate> querySystems)
     {
         var accessFromChains = chains

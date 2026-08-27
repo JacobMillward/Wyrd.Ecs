@@ -43,10 +43,10 @@ internal static class QueryChainEmitter
     /// <summary>
     /// One generated terminal's shape: which delegate names it uses, what its shared
     /// <c>Process</c> local function returns, and whether it dispatches sequentially or
-    /// via <c>Parallel.ForEach</c>. Drives <see cref="AppendTerminalClass"/> so the three
-    /// ForEach/PredicateForEach/ParallelForEach renderers share one implementation. Only
-    /// three instances are ever constructed: a predicate-parallel combination is never
-    /// emitted.
+    /// via <c>Parallel.ForEach</c>. Drives <see cref="AppendTerminalClass"/> so the four
+    /// ForEach/PredicateForEach/ParallelForEach/InterceptorTarget renderers share one
+    /// implementation. Only four instances are ever constructed: a predicate-parallel
+    /// combination is never emitted.
     /// </summary>
     private readonly record struct TerminalSpec(
         string ClassSuffix,
@@ -54,7 +54,9 @@ internal static class QueryChainEmitter
         string OwnDelegateName,
         string NoUniformDelegateName,
         string ProcessReturnType,
-        bool IsParallel)
+        bool IsParallel,
+        bool IsExtension = true,
+        bool ForceRefWidening = false)
     {
         internal static TerminalSpec Action(string overloadHash) => new(
             ClassSuffix: "Terminals",
@@ -82,6 +84,25 @@ internal static class QueryChainEmitter
             NoUniformDelegateName: $"QueryChainAction_{overloadHash}",
             ProcessReturnType: "void",
             IsParallel: true);
+
+        /// <summary>
+        /// A colliding variant's target: a plain (non-extension) method reusing
+        /// <paramref name="canonicalHash"/>'s already-declared delegates (the canonical
+        /// all-`ref` overload's own, emitted separately by <see cref="RenderForEachOverload"/>
+        /// -- this spec must never also call <see cref="AppendDelegates"/>, or they'd be
+        /// declared twice), with <see cref="ForceRefWidening"/> so a Reads-marked element's
+        /// `ref readonly` result widens to `ref` via `Unsafe.AsRef` instead of using its own
+        /// natural <see cref="RefKind"/> -- see <see cref="RenderInterceptorTarget"/>.
+        /// </summary>
+        internal static TerminalSpec InterceptorTarget(string canonicalHash) => new(
+            ClassSuffix: "InterceptorTarget",
+            MethodName: "ForEach",
+            OwnDelegateName: $"QueryChainActionOwn_{canonicalHash}",
+            NoUniformDelegateName: $"QueryChainAction_{canonicalHash}",
+            ProcessReturnType: "void",
+            IsParallel: false,
+            IsExtension: false,
+            ForceRefWidening: true);
     }
 
     /// <summary>
@@ -178,7 +199,8 @@ internal static class QueryChainEmitter
             ? $"in TState state, {spec.OwnDelegateName}<TState> action"
             : $"{spec.NoUniformDelegateName} action";
 
-        sb.AppendLine($"    internal static void {spec.MethodName}{typeParam}(this {shape.ExactShapeTypeName} query, {actionParamDecl})");
+        var receiverKeyword = spec.IsExtension ? "this " : "";
+        sb.AppendLine($"    internal static void {spec.MethodName}{typeParam}({receiverKeyword}{shape.ExactShapeTypeName} query, {actionParamDecl})");
         sb.AppendLine("    {");
 
         if (spec.IsParallel)
@@ -218,7 +240,7 @@ internal static class QueryChainEmitter
         sb.AppendLine("            for (var i = 0; i < count; i++)");
 
         var actionLeading = uniform ? new[] { "state" } : System.Array.Empty<string>();
-        var actionCallArgs = string.Join(", ", actionLeading.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}[i]")));
+        var actionCallArgs = string.Join(", ", actionLeading.Concat(ownElements.Select(e => ActionCallArg(e, spec.ForceRefWidening))));
         if (spec.ProcessReturnType == "bool")
         {
             sb.AppendLine($"                if (!action({actionCallArgs})) return false;");
@@ -234,11 +256,12 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
-    /// One non-extension method sharing <paramref name="canonical"/>'s exact action-delegate
-    /// type, whose Process loop walks <paramref name="variant"/>'s own backend (correct
-    /// Mut/Ref accessor per component) instead of the pessimistic all-Mut canonical one. A
-    /// Reads-marked component's `ref readonly` result is widened to `ref` via `Unsafe.AsRef`
-    /// to satisfy the shared delegate's `ref` parameter -- sound because `Ref&lt;T&gt;`
+    /// A colliding variant's target: shares <see cref="AppendMethod"/>'s rendering with the
+    /// public overloads (same chunk-walk, same <c>Process</c> local function shape), just
+    /// with <see cref="TerminalSpec.InterceptorTarget"/>'s no-`this`/force-widening spec
+    /// instead of one of the three public <c>TerminalSpec</c> factories. A Reads-marked
+    /// component's `ref readonly` result is widened to `ref` via `Unsafe.AsRef` to satisfy
+    /// the shared canonical delegate's `ref` parameter -- sound because `Ref&lt;T&gt;`
     /// indexing (`Ref.cs`) never marks dirty regardless of which reference kind reads it, and
     /// the delegate's real target was written with an `in` parameter by the original caller
     /// (ref/in are calling-convention-identical at the CLR level; only the source compiler's
@@ -249,53 +272,8 @@ internal static class QueryChainEmitter
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
-        var canonicalHash = ExactShapeHash(canonical);
-        var variantHash = variant.HashName();
-        var ownElements = variant.OwnDataElements();
-        var accessArgs = ownElements.Select(e => $"chunk.Access<{AccessorType(e)}>()").ToList();
-
-        sb.AppendLine($"internal static class QueryChainInterceptorTarget_{ExactShapeHash(variant)}");
-        sb.AppendLine("{");
-        AppendInterceptorTargetMethod(sb, variant, canonicalHash, variantHash, ownElements, accessArgs, uniform: true);
-        sb.AppendLine();
-        AppendInterceptorTargetMethod(sb, variant, canonicalHash, variantHash, ownElements, accessArgs, uniform: false);
-        sb.AppendLine("}");
+        AppendTerminalClass(sb, variant, TerminalSpec.InterceptorTarget(ExactShapeHash(canonical)));
         return sb.ToString();
-    }
-
-    /// <summary>Non-extension counterpart of <see cref="AppendMethod"/>: same receiver (no `this`), but the delegate parameter is the shared canonical delegate, not one derived from <paramref name="variant"/>'s own markers.</summary>
-    private static void AppendInterceptorTargetMethod(
-        StringBuilder sb, QueryShape variant, string canonicalHash, string variantHash,
-        ImmutableArray<MarkerElement> ownElements, List<string> accessArgs, bool uniform)
-    {
-        var typeParam = uniform ? "<TState>" : "";
-        var actionParamDecl = uniform
-            ? $"in TState state, QueryChainActionOwn_{canonicalHash}<TState> action"
-            : $"QueryChainAction_{canonicalHash} action";
-
-        sb.AppendLine($"    internal static void ForEach{typeParam}({variant.ExactShapeTypeName} query, {actionParamDecl})");
-        sb.AppendLine("    {");
-        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{variantHash}.Cached.Resolve(query.World, query.Filter))");
-        var leading = uniform ? new[] { "state", "action", "chunk.Count" } : new[] { "action", "chunk.Count" };
-        sb.AppendLine($"            Process({string.Join(", ", leading.Concat(accessArgs))});");
-        sb.AppendLine();
-
-        var processLeading = uniform
-            ? new[] { "in TState state", $"QueryChainActionOwn_{canonicalHash}<TState> action", "int count" }
-            : new[] { $"QueryChainAction_{canonicalHash} action", "int count" };
-        var processParams = string.Join(", ", processLeading.Concat(ownElements.Select(e => $"{AccessorType(e)} {ParamName(e)}")));
-        sb.AppendLine($"        static void Process({processParams})");
-        sb.AppendLine("        {");
-        sb.AppendLine("            for (var i = 0; i < count; i++)");
-
-        var actionLeading = uniform ? new[] { "state" } : System.Array.Empty<string>();
-        var actionCallArgs = string.Join(", ", actionLeading.Concat(ownElements.Select(e =>
-            e.Kind == MarkerKind.Writes
-                ? $"ref {ParamName(e)}[i]"
-                : $"ref global::System.Runtime.CompilerServices.Unsafe.AsRef(in {ParamName(e)}[i])")));
-        sb.AppendLine($"                action({actionCallArgs});");
-        sb.AppendLine("        }");
-        sb.AppendLine("    }");
     }
 
     /// <summary>
@@ -615,6 +593,21 @@ internal static class QueryChainEmitter
     private static string AccessorType(MarkerElement e) => $"{(e.Kind == MarkerKind.Writes ? "Mut" : "Ref")}<{e.ComponentTypeName}>";
     private static string RefKind(MarkerElement e) => e.Kind == MarkerKind.Writes ? "ref" : "in";
     private static string ParamDecl(MarkerElement e) => $"{RefKind(e)} {e.ComponentTypeName} {ParamName(e)}";
+
+    /// <summary>
+    /// A `Process`-local element's argument to the caller's `action` delegate.
+    /// <paramref name="forceRefWidening"/> (see <see cref="TerminalSpec.InterceptorTarget"/>)
+    /// forces `ref` for every element regardless of its own kind, widening a Reads element's
+    /// `ref readonly` result via `Unsafe.AsRef` to match the shared canonical delegate's
+    /// `ref` parameter. Otherwise each element uses its own natural <see cref="RefKind"/>.
+    /// </summary>
+    private static string ActionCallArg(MarkerElement e, bool forceRefWidening)
+    {
+        if (!forceRefWidening) return $"{RefKind(e)} {ParamName(e)}[i]";
+        return e.Kind == MarkerKind.Writes
+            ? $"ref {ParamName(e)}[i]"
+            : $"ref global::System.Runtime.CompilerServices.Unsafe.AsRef(in {ParamName(e)}[i])";
+    }
 
     private static string ParamName(MarkerElement e)
     {

@@ -219,6 +219,13 @@ internal static class ChainWalker
         return original.Name == "Query" && original.Arity is 0 or 1 && original.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs";
     }
 
+    /// <summary>The invoked method's simple name, for an invocation shaped `receiver.Name(...)`, or <c>null</c> for any other call shape.</summary>
+    internal static string? TryGetInvokedMethodName(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: var name } } ? name : null;
+
+    /// <summary>The chain-terminal method names this generator recognizes. Centralized so the syntax-provider predicate, terminal-kind classification, and the CS9198 suppressor's own call-site check can't drift apart.</summary>
+    internal static bool IsChainTerminalMethodName(string name) => name is "ForEach" or "ParallelForEach";
+
     private static bool IsNil(INamedTypeSymbol type)
     {
         var original = type.OriginalDefinition;
