@@ -52,6 +52,7 @@ public sealed partial class RendererSystem : EcsSystem
             throw new InvalidOperationException($"SDL_ClaimWindowForGPUDevice failed: {error}");
         }
 
+        DepthStencilFormat = ChooseDepthStencilFormat(Device);
         PlaceholderTexture = CreatePlaceholderTexture();
         PlaceholderMesh = CreatePlaceholderMesh();
         CreateSpritePipeline();
