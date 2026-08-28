@@ -316,7 +316,7 @@ public sealed partial class RendererSystem
         };
         var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
 
-        SDL.BindGPUGraphicsPipeline(renderPass, MeshPipeline);
+        SDL.BindGPUGraphicsPipeline(renderPass, GetOrCreatePipeline(new PipelineKey(ShaderKind.UnlitMesh, BlendMode.Opaque)));
         var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
         SDL.SetGPUViewport(renderPass, in viewport);
         SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1);
@@ -336,7 +336,7 @@ public sealed partial class RendererSystem
             var indexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuIndexBuffer, Offset = 0 };
             SDL.BindGPUIndexBuffer(renderPass, in indexBinding, SDL.GPUIndexElementSize.IndexElementSize32Bit);
 
-            var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = MeshSampler };
+            var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = _samplers[ShaderKind.UnlitMesh] };
             SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
 
             var batchUniforms = new MeshBatchUniforms((uint)_meshBatchInstanceBases[i]);

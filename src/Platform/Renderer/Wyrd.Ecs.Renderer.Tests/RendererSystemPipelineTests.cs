@@ -8,7 +8,7 @@ namespace Wyrd.Ecs.Renderer.Tests;
 public class RendererSystemPipelineTests
 {
     [Fact]
-    public void SpritePipelineAndSampler_AreCreatedEagerly()
+    public void AllKnownShaderKindAndBlendModeCombinations_AreCreatedEagerly()
     {
         var world = new WorldBuilder()
             .AddWindow("Renderer Pipeline Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
@@ -16,8 +16,43 @@ public class RendererSystemPipelineTests
             .Build();
         var renderer = world.GetSystem<RendererSystem>();
 
-        renderer.SpritePipeline.Should().NotBe(IntPtr.Zero);
-        renderer.SpriteSampler.Should().NotBe(IntPtr.Zero);
+        // 2 ShaderKinds (UnlitSprite, UnlitMesh) x 2 BlendModes (Opaque, Transparent) = 4,
+        // all created by the constructor. No draw call happens before this assertion.
+        renderer.PipelineCount.Should().Be(4);
+    }
+
+    [Theory]
+    [InlineData(BlendMode.Opaque)]
+    [InlineData(BlendMode.Transparent)]
+    public void GetOrCreatePipeline_SameKeyTwice_ReturnsSamePipeline(BlendMode blendMode)
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Pipeline Cache Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+        var renderer = world.GetSystem<RendererSystem>();
+        var key = new PipelineKey(ShaderKind.UnlitSprite, blendMode);
+
+        var first = renderer.GetOrCreatePipeline(key);
+        var second = renderer.GetOrCreatePipeline(key);
+
+        second.Should().Be(first);
+        first.Should().NotBe(IntPtr.Zero);
+    }
+
+    [Fact]
+    public void GetOrCreatePipeline_DifferentShaderKinds_ReturnDifferentPipelines()
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Pipeline Distinct Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+        var renderer = world.GetSystem<RendererSystem>();
+
+        var sprite = renderer.GetOrCreatePipeline(new PipelineKey(ShaderKind.UnlitSprite, BlendMode.Opaque));
+        var mesh = renderer.GetOrCreatePipeline(new PipelineKey(ShaderKind.UnlitMesh, BlendMode.Opaque));
+
+        sprite.Should().NotBe(mesh);
     }
 
     [Fact]

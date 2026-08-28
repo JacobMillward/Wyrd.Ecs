@@ -55,8 +55,7 @@ public sealed partial class RendererSystem : EcsSystem
         DepthStencilFormat = ChooseDepthStencilFormat(Device);
         PlaceholderTexture = CreatePlaceholderTexture();
         PlaceholderMesh = CreatePlaceholderMesh();
-        CreateSpritePipeline();
-        CreateMeshPipeline();
+        CreatePipelines();
 
         world.AddResource(new RenderAssets(this));
     }
@@ -109,10 +108,10 @@ public sealed partial class RendererSystem : EcsSystem
         foreach (var completion in _modelLoadCompletions)
             completion.TrySetException(teardownException);
 
-        SDL.ReleaseGPUGraphicsPipeline(Device, SpritePipeline);
-        SDL.ReleaseGPUSampler(Device, SpriteSampler);
-        SDL.ReleaseGPUGraphicsPipeline(Device, MeshPipeline);
-        SDL.ReleaseGPUSampler(Device, MeshSampler);
+        foreach (var pipeline in _pipelines.Values)
+            SDL.ReleaseGPUGraphicsPipeline(Device, pipeline);
+        foreach (var sampler in _samplers.Values)
+            SDL.ReleaseGPUSampler(Device, sampler);
         SDL.ReleaseWindowFromGPUDevice(Device, _platform.Window);
         SDL.DestroyGPUDevice(Device);
     }
