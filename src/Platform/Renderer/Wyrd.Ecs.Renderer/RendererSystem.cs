@@ -112,6 +112,8 @@ public sealed partial class RendererSystem : EcsSystem
             SDL.ReleaseGPUGraphicsPipeline(Device, pipeline);
         foreach (var sampler in _samplers.Values)
             SDL.ReleaseGPUSampler(Device, sampler);
+        if (_depthStencilTexture != IntPtr.Zero)
+            SDL.ReleaseGPUTexture(Device, _depthStencilTexture);
         SDL.ReleaseWindowFromGPUDevice(Device, _platform.Window);
         SDL.DestroyGPUDevice(Device);
     }

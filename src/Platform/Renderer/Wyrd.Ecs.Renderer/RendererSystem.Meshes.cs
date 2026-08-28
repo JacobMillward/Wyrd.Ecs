@@ -19,9 +19,10 @@ public sealed partial class RendererSystem
     private readonly Dictionary<Entity, int> _meshScratchIndex = new();
     private readonly InstanceBuffer<MeshInstanceData>?[] _meshInstanceBuffersBySlot = new InstanceBuffer<MeshInstanceData>?[FrameInFlightTracker.FramesInFlight];
     private readonly MeshBatcher _meshBatcher = new();
-    private readonly List<(Entity Entity, Material Material, Handle<Mesh> Mesh)> _meshSurvivorScratch = [];
+    private readonly List<(Entity Entity, Material Material, Handle<Mesh> Mesh)> _opaqueMeshScratch = [];
     private readonly List<MeshInstanceData> _meshInstanceScratch = [];
     private readonly List<int> _meshBatchInstanceBases = [];
+    private readonly List<int> _transparentBatchInstanceBases = [];
     private readonly List<TaskCompletionSource<IReadOnlyList<ModelPart>>> _modelLoadCompletions = [];
 
     [StructLayout(LayoutKind.Sequential)]
@@ -276,76 +277,34 @@ public sealed partial class RendererSystem
         }
     }
 
-    /// <summary>Culls, batches, and draws every <see cref="_meshScratch"/> entry surviving <paramref name="viewProjection"/>'s frustum. Called once per active <see cref="PerspectiveCamera"/>.</summary>
-    private void DrawMeshes(World world, IntPtr commandBuffer, IntPtr swapchainTexture, bool clearOnBegin, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight)
+    /// <summary>Appends every entity in <paramref name="entities"/> (the whole list) already-resolved mesh instance data to <see cref="_meshInstanceScratch"/>, in order. Shared by both phases.</summary>
+    private void AppendMeshInstances(IReadOnlyList<Entity> entities) => AppendMeshInstances(entities, 0, entities.Count);
+
+    /// <summary>Range overload for the transparent phase. See <see cref="AppendSpriteInstances(IReadOnlyList{Entity}, int, int)"/>'s equivalent for why.</summary>
+    private void AppendMeshInstances(IReadOnlyList<Entity> entities, int start, int count)
     {
-        _meshSurvivorScratch.Clear();
-        foreach (var candidate in _meshScratch)
+        for (var i = start; i < start + count; i++)
         {
-            if (FrustumCulling.IsInsideFrustum(candidate.Bounds, viewProjection))
-                _meshSurvivorScratch.Add((candidate.Entity, candidate.Material, candidate.MeshRenderer.Mesh));
+            var resolved = _meshScratch[_meshScratchIndex[entities[i]]];
+            _meshInstanceScratch.Add(new MeshInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.MeshRenderer.Tint));
         }
+    }
 
-        var batches = _meshBatcher.Batch(_meshSurvivorScratch);
+    /// <summary>Binds the pipeline/instance-buffer/sampler common to any batch (<see cref="BindCommonBatchState"/>), plus the mesh-specific vertex/index buffers, then draws it. Independent per call, same reasoning as <see cref="DrawSpriteBatch"/>.</summary>
+    private void DrawMeshBatch(IntPtr renderPass, IntPtr commandBuffer, IntPtr instanceBuffer, int instanceBase, Material material, Handle<Mesh> meshHandle, int entityCount)
+    {
+        BindCommonBatchState(renderPass, instanceBuffer, material); // resolved texture unused here: MeshBatchUniforms carries no texture-size field, unlike sprite's
 
-        _meshInstanceScratch.Clear();
-        _meshBatchInstanceBases.Clear();
-        foreach (var batch in batches)
-        {
-            _meshBatchInstanceBases.Add(_meshInstanceScratch.Count);
-            foreach (var batchEntity in batch.Entities)
-            {
-                var resolved = _meshScratch[_meshScratchIndex[batchEntity]];
-                _meshInstanceScratch.Add(new MeshInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.MeshRenderer.Tint));
-            }
-        }
+        var mesh = ResolveMesh(meshHandle);
+        var vertexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuVertexBuffer, Offset = 0 };
+        SDL.BindGPUVertexBuffers(renderPass, 0, [vertexBinding], 1);
+        var indexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuIndexBuffer, Offset = 0 };
+        SDL.BindGPUIndexBuffer(renderPass, in indexBinding, SDL.GPUIndexElementSize.IndexElementSize32Bit);
 
-        var slot = FrameInFlight.SlotIndex;
-        var instanceBuffer = _meshInstanceBuffersBySlot[slot] ??= new InstanceBuffer<MeshInstanceData>(Device, DeferredDestroy, initialCapacity: 256);
+        var batchUniforms = new MeshBatchUniforms((uint)instanceBase);
+        var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<MeshBatchUniforms>(in batchUniforms));
+        SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
 
-        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
-        var gpuInstanceBuffer = instanceBuffer.Write(CollectionsMarshal.AsSpan(_meshInstanceScratch), FrameInFlight.CurrentFrame, copyPass);
-        SDL.EndGPUCopyPass(copyPass);
-
-        var colorTarget = new SDL.GPUColorTargetInfo
-        {
-            Texture = swapchainTexture,
-            ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
-            LoadOp = clearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
-            StoreOp = SDL.GPUStoreOp.Store,
-        };
-        var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
-
-        SDL.BindGPUGraphicsPipeline(renderPass, GetOrCreatePipeline(new PipelineKey(ShaderKind.UnlitMesh, BlendMode.Opaque)));
-        var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
-        SDL.SetGPUViewport(renderPass, in viewport);
-        SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1);
-
-        var cameraUniforms = new CameraUniforms(viewProjection);
-        var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
-        SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length);
-
-        for (var i = 0; i < batches.Count; i++)
-        {
-            var batch = batches[i];
-            var mesh = ResolveMesh(batch.Mesh);
-            var texture = ResolveTexture(batch.Material);
-
-            var vertexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuVertexBuffer, Offset = 0 };
-            SDL.BindGPUVertexBuffers(renderPass, 0, [vertexBinding], 1);
-            var indexBinding = new SDL.GPUBufferBinding { Buffer = mesh.GpuIndexBuffer, Offset = 0 };
-            SDL.BindGPUIndexBuffer(renderPass, in indexBinding, SDL.GPUIndexElementSize.IndexElementSize32Bit);
-
-            var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = _samplers[ShaderKind.UnlitMesh] };
-            SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
-
-            var batchUniforms = new MeshBatchUniforms((uint)_meshBatchInstanceBases[i]);
-            var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<MeshBatchUniforms>(in batchUniforms));
-            SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
-
-            SDL.DrawGPUIndexedPrimitives(renderPass, mesh.IndexCount, (uint)batch.Entities.Count, 0, 0, 0); // firstInstance always 0, see MeshBatchUniforms.InstanceBase
-        }
-
-        SDL.EndGPURenderPass(renderPass);
+        SDL.DrawGPUIndexedPrimitives(renderPass, mesh.IndexCount, (uint)entityCount, 0, 0, 0); // firstInstance always 0, see MeshBatchUniforms.InstanceBase
     }
 }

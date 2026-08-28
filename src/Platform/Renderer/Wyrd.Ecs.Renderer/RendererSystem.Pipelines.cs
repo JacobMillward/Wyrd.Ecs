@@ -142,6 +142,19 @@ public sealed partial class RendererSystem
         return pipeline;
     }
 
+    /// <summary>Binds the pipeline, instance storage buffer, and resolved texture's sampler: the state every batch draw needs regardless of family. Returns the resolved texture so a sprite-family caller can pull its pixel size for <c>BatchUniforms</c>; a mesh-family caller ignores the return value.</summary>
+    private Texture BindCommonBatchState(IntPtr renderPass, IntPtr instanceBuffer, Material material)
+    {
+        var pipeline = GetOrCreatePipeline(new PipelineKey(material.ShaderKind, material.BlendMode));
+        SDL.BindGPUGraphicsPipeline(renderPass, pipeline);
+        SDL.BindGPUVertexStorageBuffers(renderPass, 0, [instanceBuffer], 1);
+
+        var texture = ResolveTexture(material);
+        var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = _samplers[material.ShaderKind] };
+        SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
+        return texture;
+    }
+
     /// <summary>Pure, no GPU device needed. See <c>PipelineStateTests</c> for direct coverage: this test project has no pixel-readback path, so this is where "is blending actually correct" is actually verified.</summary>
     internal static SDL.GPUColorTargetBlendState BuildBlendState(BlendMode blendMode) => blendMode switch
     {

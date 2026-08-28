@@ -180,4 +180,134 @@ public class RendererSystemDrawTests
 
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Update_MeshUnderOrthographicCamera_DoesNotThrow()
+    {
+        // Regression test for the removed ortho-draws-sprites-only hardcoding.
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Camera Agnostic Mesh Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+
+        var cameraEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(cameraEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(cameraEntity, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
+
+        var meshEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(meshEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(meshEntity, new MeshRenderer(default, Color.White));
+        world.Commands.AddComponent(meshEntity, new Material(ShaderKind.UnlitMesh, Texture: null));
+        world.ApplyCommands();
+
+        var act = () => world.Update(TimeSpan.FromMilliseconds(16));
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Update_SpriteUnderPerspectiveCamera_DoesNotThrow()
+    {
+        // Regression test for the removed perspective-draws-meshes-only hardcoding.
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Camera Agnostic Sprite Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+
+        var cameraEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(cameraEntity, new Wyrd.Ecs.Transform { Position = new System.Numerics.Vector3(0, 0, -5), Rotation = System.Numerics.Quaternion.Identity, Scale = System.Numerics.Vector3.One });
+        world.Commands.AddComponent(cameraEntity, new PerspectiveCamera(0, true, Angle.Rad(MathF.PI / 4f), 0.1f, 100f));
+
+        var spriteEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(spriteEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(spriteEntity, new Sprite(SourceRect: null, Tint: Color.White));
+        world.Commands.AddComponent(spriteEntity, new Material(ShaderKind.UnlitSprite, Texture: null));
+        world.ApplyCommands();
+
+        var act = () => world.Update(TimeSpan.FromMilliseconds(16));
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Update_TransparentSpriteAndTransparentMesh_InterleavedPipelines_DoesNotThrow()
+    {
+        // Both entities are Transparent and overlap in depth, so the transparent phase's sorted
+        // batch loop must alternate between the sprite and mesh pipelines/instance buffers
+        // within one render pass.
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Interleaved Transparent Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+
+        var cameraEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(cameraEntity, new Wyrd.Ecs.Transform { Position = new System.Numerics.Vector3(0, 0, -5), Rotation = System.Numerics.Quaternion.Identity, Scale = System.Numerics.Vector3.One });
+        world.Commands.AddComponent(cameraEntity, new PerspectiveCamera(0, true, Angle.Rad(MathF.PI / 4f), 0.1f, 100f));
+
+        var spriteEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(spriteEntity, new Wyrd.Ecs.Transform { Position = new System.Numerics.Vector3(0, 0, 0), Rotation = System.Numerics.Quaternion.Identity, Scale = System.Numerics.Vector3.One });
+        world.Commands.AddComponent(spriteEntity, new Sprite(SourceRect: null, Tint: new Color(1, 1, 1, 0.5f)));
+        world.Commands.AddComponent(spriteEntity, new Material(ShaderKind.UnlitSprite, Texture: null, BlendMode.Transparent));
+
+        var meshEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(meshEntity, new Wyrd.Ecs.Transform { Position = new System.Numerics.Vector3(0, 0, 1), Rotation = System.Numerics.Quaternion.Identity, Scale = System.Numerics.Vector3.One });
+        world.Commands.AddComponent(meshEntity, new MeshRenderer(default, new Color(1, 1, 1, 0.5f)));
+        world.Commands.AddComponent(meshEntity, new Material(ShaderKind.UnlitMesh, Texture: null, BlendMode.Transparent));
+        world.ApplyCommands();
+
+        var act = () =>
+        {
+            for (var i = 0; i < 5; i++)
+                world.Update(TimeSpan.FromMilliseconds(16));
+        };
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Update_TransparentMaterialWithUnloadedTexture_RendersPlaceholderWithoutThrowing()
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Transparent Placeholder Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+        var renderer = world.GetSystem<RendererSystem>();
+
+        var cameraEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(cameraEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(cameraEntity, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
+
+        var handle = renderer.LoadTexture("this-path-does-not-exist.png"); // stays Loading, then Failed; ResolveTexture returns the placeholder for either
+        var spriteEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(spriteEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(spriteEntity, new Sprite(SourceRect: null, Tint: Color.White));
+        world.Commands.AddComponent(spriteEntity, new Material(ShaderKind.UnlitSprite, handle, BlendMode.Transparent));
+        world.ApplyCommands();
+
+        var act = () => world.Update(TimeSpan.FromMilliseconds(16));
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Update_ResizedViewport_RecreatesDepthTextureWithoutThrowing()
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Renderer Depth Resize Test Window", 320, 240, SDL.WindowFlags.Hidden | SDL.WindowFlags.Vulkan)
+            .AddRenderer()
+            .Build();
+
+        var cameraEntity = world.Commands.CreateEntity();
+        world.Commands.AddComponent(cameraEntity, Wyrd.Ecs.Transform.Identity);
+        world.Commands.AddComponent(cameraEntity, new OrthographicCamera(0, true, 10f, 0.1f, 100f));
+        world.ApplyCommands();
+
+        var act = () =>
+        {
+            for (var i = 0; i < 10; i++)
+                world.Update(TimeSpan.FromMilliseconds(16));
+        };
+
+        act.Should().NotThrow();
+    }
 }

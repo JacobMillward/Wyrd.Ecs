@@ -19,17 +19,16 @@ public sealed partial class RendererSystem
     private readonly SpriteBatcher _spriteBatcher = new();
     private readonly List<(Entity Entity, WorldTransform Transform, Sprite Sprite, Material Material, BoundingSphere Bounds)> _spriteScratch = [];
     private readonly Dictionary<Entity, int> _spriteScratchIndex = new();
-    private readonly List<(Entity Entity, Material Material)> _survivorScratch = [];
-    private readonly List<SpriteInstanceData> _instanceScratch = [];
-    private readonly List<int> _batchInstanceBases = [];
-
-    [StructLayout(LayoutKind.Sequential)]
-    private readonly record struct CameraUniforms(Matrix4x4 ViewProjection);
+    private readonly List<(Entity Entity, Material Material)> _opaqueSpriteScratch = [];
+    private readonly List<(Entity Entity, PipelineKey PipelineKey, Material Material, Handle<Mesh>? Mesh, float ViewSpaceDepth)> _transparentScratch = [];
+    private readonly List<SpriteInstanceData> _spriteInstanceScratch = [];
+    private readonly List<int> _spriteBatchInstanceBases = [];
+    private readonly TransparentDrawableBatcher _transparentDrawableBatcher = new();
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct BatchUniforms(Vector2 TextureSizePixels, uint InstanceBase, uint Padding = 0);
 
-    /// <summary>Resolves every active <c>(Transform, Sprite, Material)</c> entity's world transform and bounds once per frame, into <see cref="_spriteScratch"/>, so <see cref="DrawSprites"/> never repeats <see cref="World.GetInterpolatedWorldTransform"/> per camera. Called once from <see cref="DrawFrame"/>, before the per-camera loop.</summary>
+    /// <summary>Resolves every active <c>(Transform, Sprite, Material)</c> entity's world transform and bounds once per frame, into <see cref="_spriteScratch"/>, so <see cref="DrawCamera"/> never repeats <see cref="World.GetInterpolatedWorldTransform"/> per camera. Called once from <see cref="DrawFrame"/>, before the per-camera loop.</summary>
     private void ResolveSprites(World world)
     {
         _spriteScratch.Clear();
@@ -54,77 +53,30 @@ public sealed partial class RendererSystem
         }
     }
 
-    /// <summary>
-    /// Culls, batches, and draws every <see cref="_spriteScratch"/> entry surviving
-    /// <paramref name="viewProjection"/>'s frustum, in its own copy-pass-then-render-pass pair
-    /// (see <see cref="DrawFrame"/>'s doc comment for why each camera gets its own pass). Called
-    /// once per active <see cref="OrthographicCamera"/>.
-    /// </summary>
-    private void DrawSprites(World world, IntPtr commandBuffer, IntPtr swapchainTexture, bool clearOnBegin, Matrix4x4 viewProjection, int viewportWidth, int viewportHeight)
+    /// <summary>Appends every entity in <paramref name="entities"/> (the whole list) already-resolved sprite instance data to <see cref="_spriteInstanceScratch"/>, in order. Shared by both phases: one instance buffer write per family covers batches from both.</summary>
+    private void AppendSpriteInstances(IReadOnlyList<Entity> entities) => AppendSpriteInstances(entities, 0, entities.Count);
+
+    /// <summary>Range overload for the transparent phase, which indexes a slice of <see cref="TransparentDrawableBatcher.Entities"/> rather than owning its own list per batch. See <see cref="TransparentBatch"/>'s doc comment.</summary>
+    private void AppendSpriteInstances(IReadOnlyList<Entity> entities, int start, int count)
     {
-        _survivorScratch.Clear();
-        foreach (var candidate in _spriteScratch)
+        for (var i = start; i < start + count; i++)
         {
-            if (FrustumCulling.IsInsideFrustum(candidate.Bounds, viewProjection))
-                _survivorScratch.Add((candidate.Entity, candidate.Material));
+            var resolved = _spriteScratch[_spriteScratchIndex[entities[i]]];
+            var sourceRect = resolved.Sprite.SourceRect is { } r ? new Vector4(r.X, r.Y, r.Width, r.Height) : Vector4.Zero;
+            _spriteInstanceScratch.Add(new SpriteInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.Sprite.Tint, sourceRect));
         }
+    }
 
-        var batches = _spriteBatcher.Batch(_survivorScratch);
+    /// <summary>Binds the pipeline/instance-buffer/sampler common to any sprite batch, then draws it. Independent per call (not "bind once per camera") so opaque and transparent phase batches, and within the transparent phase sprite and mesh batches interleaved in sorted order, can each rebind whatever they individually need. Shares <see cref="BindCommonBatchState"/> with <see cref="DrawMeshBatch"/>: the only sprite-specific piece here is <see cref="BatchUniforms"/>'s extra <c>TextureSizePixels</c> field and the non-indexed draw call.</summary>
+    private void DrawSpriteBatch(IntPtr renderPass, IntPtr commandBuffer, IntPtr instanceBuffer, int instanceBase, Material material, int entityCount)
+    {
+        var texture = BindCommonBatchState(renderPass, instanceBuffer, material);
 
-        _instanceScratch.Clear();
-        _batchInstanceBases.Clear();
-        foreach (var batch in batches)
-        {
-            _batchInstanceBases.Add(_instanceScratch.Count);
-            foreach (var batchEntity in batch.Entities)
-            {
-                var resolved = _spriteScratch[_spriteScratchIndex[batchEntity]]; // already computed once above, no second GetInterpolatedWorldTransform walk
-                var sourceRect = resolved.Sprite.SourceRect is { } r ? new Vector4(r.X, r.Y, r.Width, r.Height) : Vector4.Zero;
-                _instanceScratch.Add(new SpriteInstanceData(resolved.Transform.Position, resolved.Transform.Rotation, resolved.Transform.Scale, resolved.Sprite.Tint, sourceRect));
-            }
-        }
+        var batchUniforms = new BatchUniforms(new Vector2(texture.PixelWidth, texture.PixelHeight), (uint)instanceBase);
+        var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<BatchUniforms>(in batchUniforms));
+        SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
 
-        var slot = FrameInFlight.SlotIndex;
-        var instanceBuffer = _instanceBuffersBySlot[slot] ??= new InstanceBuffer<SpriteInstanceData>(Device, DeferredDestroy, initialCapacity: 1024);
-
-        var copyPass = SDL.BeginGPUCopyPass(commandBuffer);
-        var gpuInstanceBuffer = instanceBuffer.Write(CollectionsMarshal.AsSpan(_instanceScratch), FrameInFlight.CurrentFrame, copyPass);
-        SDL.EndGPUCopyPass(copyPass);
-
-        var colorTarget = new SDL.GPUColorTargetInfo
-        {
-            Texture = swapchainTexture,
-            ClearColor = new SDL.FColor { R = 0f, G = 0f, B = 0f, A = 1f },
-            LoadOp = clearOnBegin ? SDL.GPULoadOp.Clear : SDL.GPULoadOp.Load,
-            StoreOp = SDL.GPUStoreOp.Store,
-        };
-        var renderPass = SDL.BeginGPURenderPass(commandBuffer, [colorTarget], 1, IntPtr.Zero);
-
-        SDL.BindGPUGraphicsPipeline(renderPass, GetOrCreatePipeline(new PipelineKey(ShaderKind.UnlitSprite, BlendMode.Opaque)));
-        var viewport = new SDL.GPUViewport { X = 0, Y = 0, W = viewportWidth, H = viewportHeight, MinDepth = 0, MaxDepth = 1 };
-        SDL.SetGPUViewport(renderPass, in viewport);
-        SDL.BindGPUVertexStorageBuffers(renderPass, 0, [gpuInstanceBuffer], 1); // once per camera, same buffer for every batch under it
-
-        var cameraUniforms = new CameraUniforms(viewProjection);
-        var cameraUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<CameraUniforms>(in cameraUniforms));
-        SDL.PushGPUVertexUniformData(commandBuffer, 0, cameraUniformBytes, (uint)cameraUniformBytes.Length); // once per camera, unchanging across its batches
-
-        for (var i = 0; i < batches.Count; i++)
-        {
-            var batch = batches[i];
-            var texture = ResolveTexture(batch.Material);
-
-            var samplerBinding = new SDL.GPUTextureSamplerBinding { Texture = texture.GpuTexture, Sampler = _samplers[ShaderKind.UnlitSprite] };
-            SDL.BindGPUFragmentSamplers(renderPass, 0, [samplerBinding], 1);
-
-            var batchUniforms = new BatchUniforms(new Vector2(texture.PixelWidth, texture.PixelHeight), (uint)_batchInstanceBases[i]);
-            var batchUniformBytes = MemoryMarshal.AsBytes(new ReadOnlySpan<BatchUniforms>(in batchUniforms));
-            SDL.PushGPUVertexUniformData(commandBuffer, 1, batchUniformBytes, (uint)batchUniformBytes.Length);
-
-            SDL.DrawGPUPrimitives(renderPass, 4, (uint)batch.Entities.Count, 0, 0); // firstInstance always 0. BatchUniforms.InstanceBase carries the real offset (see UnlitSprite.vert.hlsl)
-        }
-
-        SDL.EndGPURenderPass(renderPass);
+        SDL.DrawGPUPrimitives(renderPass, 4, (uint)entityCount, 0, 0); // firstInstance always 0. BatchUniforms.InstanceBase carries the real offset (see UnlitSprite.vert.hlsl)
     }
 
     private Texture ResolveTexture(Material material) =>
