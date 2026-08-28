@@ -10,5 +10,7 @@ struct VertexOutput
 
 float4 main(VertexOutput input) : SV_Target0
 {
-    return SpriteTexture.Sample(SpriteSampler, input.UV) * input.Tint;
+    float4 color = SpriteTexture.Sample(SpriteSampler, input.UV) * input.Tint;
+    color.rgb *= color.a; // premultiplied alpha, pairs with BuildBlendState's One/OneMinusSrcAlpha factors
+    return color;
 }
