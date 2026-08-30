@@ -49,11 +49,11 @@ var bulletTemplate = new EntityTemplate()
     .AddTag<Bullet>()
     .AddComponent(new Lifetime { SecondsRemaining = 1.1f })
     .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
-    .AddComponent(new Material(ShaderKind.UnlitSprite, bulletTexture));
+    .AddComponent(new Material(ShaderKind.UnlitSprite, bulletTexture, BlendMode.Transparent));
 
 var asteroidTemplate = new EntityTemplate()
     .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
-    .AddComponent(new Material(ShaderKind.UnlitSprite, asteroidTexture));
+    .AddComponent(new Material(ShaderKind.UnlitSprite, asteroidTexture, BlendMode.Transparent));
 
 // Handles above are usable immediately (LoadTexture/LoadSound return them synchronously);
 // registering GameAssets before WaitForLoads lets WeaponSystem (Variable cadence, so it
@@ -80,7 +80,7 @@ var shipTemplate = new EntityTemplate()
     .AddComponent(new Velocity())
     .AddComponent(new Ship())
     .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
-    .AddComponent(new Material(ShaderKind.UnlitSprite, shipTexture))
+    .AddComponent(new Material(ShaderKind.UnlitSprite, shipTexture, BlendMode.Transparent))
     .AddChild(new EntityTemplate()
         .AddTransform(new Vector3(-28f, 0f, 0f))
         .AddComponent(new Sprite(SourceRect: null, Tint: Color.White with { A = 0f }))
