@@ -75,4 +75,18 @@ internal static class WyrdDiagnostics
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
 
+    /// <summary>
+    /// The call-site equivalent of <see cref="UnusedResourceWriteAccess"/> (WYRD009) for a
+    /// `world.GetResourceRef&lt;T&gt;()` call: every such call is tracked as write access to
+    /// the scheduler by default, but a call whose returned reference is only ever read (never
+    /// assigned through) should use `GetResource&lt;T&gt;()` instead, or it reports a false
+    /// write dependency that can block otherwise-legal scheduling parallelism.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor UnusedResourceRefWriteAccess = new(
+        id: "WYRD012",
+        title: "GetResourceRef<T>() call never assigns through the returned reference",
+        messageFormat: "This GetResourceRef<{0}>() call's returned reference is never assigned through, declaring write access to the scheduler for a value that's only read. Use GetResource<{0}>() instead unless a write is intended.",
+        category: "Wyrd.Ecs.QueryChain",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

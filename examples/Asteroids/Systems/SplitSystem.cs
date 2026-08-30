@@ -15,7 +15,7 @@ public sealed class SplitSystem : EcsSystem
         var destroyed = _destroyed.Read();
         if (destroyed.Count == 0) return;
 
-        var assets = world.GetResourceRef<GameAssets>();
+        var assets = world.GetResource<GameAssets>();
         foreach (var e in destroyed)
         {
             if (e.Size.Smaller() is not { } smaller) continue;

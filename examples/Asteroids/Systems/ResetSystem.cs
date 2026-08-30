@@ -12,22 +12,19 @@ public sealed class ResetSystem : EcsSystem
 
     protected override void Execute(World world, Time time)
     {
-        var input = world.GetResourceRef<IntentState<GameAction>>();
+        var input = world.GetResource<IntentState<GameAction>>();
         if (!input[GameAction.Reset].JustPressed) return;
 
         world.Query().Has<Bullet>().ForEach((EntityView entity) => entity.DestroyEntity());
         world.Query().Has<Asteroid>().ForEach((EntityView entity) => entity.DestroyEntity());
-
-        world.Query().With<Transform, Velocity, Ship>().ForEach((ref Transform transform, ref Velocity velocity, ref Ship ship) =>
-        {
-            transform = Transform.Identity;
-            velocity = default;
-            ship.Heading = default;
-        });
+        // The ship may already be gone (collision) or still alive (R pressed mid-run).
+        // Destroy-then-recreate covers both without needing to distinguish them.
+        world.Query().Has<Ship>().ForEach((EntityView entity) => entity.DestroyEntity());
 
         world.Query().With<Score>().ForEach((ref Score score) => score.Value = 0);
 
-        var assets = world.GetResourceRef<GameAssets>();
+        var assets = world.GetResource<GameAssets>();
+        world.Commands.CreateEntity(assets.ShipTemplate);
         AsteroidSpawner.SpawnInitialWave(world.Commands, assets.AsteroidTemplate, _rng);
 
         world.GetSystem<GameOverSystem>().Reset();

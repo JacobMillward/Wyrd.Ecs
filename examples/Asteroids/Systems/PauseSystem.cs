@@ -8,7 +8,7 @@ public sealed class PauseSystem : EcsSystem
     {
         if (world.GetSystem<GameOverSystem>().HasTriggered) return;
 
-        var input = world.GetResourceRef<IntentState<GameAction>>();
+        var input = world.GetResource<IntentState<GameAction>>();
         if (!input[GameAction.Pause].JustPressed) return;
 
         if (world.IsPaused) world.Resume();

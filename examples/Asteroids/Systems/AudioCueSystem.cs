@@ -20,8 +20,8 @@ public sealed class AudioCueSystem : EcsSystem
         var shipDestroyedCount = _shipDestroyed.Read().Count;
         if (asteroidDestroyedCount == 0 && shipDestroyedCount == 0) return;
 
-        var audio = world.GetResourceRef<AudioPlayer>();
-        var assets = world.GetResourceRef<GameAssets>();
+        var audio = world.GetResource<AudioPlayer>();
+        var assets = world.GetResource<GameAssets>();
 
         for (var i = 0; i < asteroidDestroyedCount; i++) audio.Play(assets.ExplosionSound);
         for (var i = 0; i < shipDestroyedCount; i++) audio.Play(assets.ExplosionSound);
