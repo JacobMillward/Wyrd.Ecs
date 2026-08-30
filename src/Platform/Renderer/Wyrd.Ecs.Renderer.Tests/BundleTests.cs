@@ -27,12 +27,37 @@ public class BundleTests
         var customShader = new ShaderKind("Custom");
         var customTint = new Color(1f, 0f, 0f, 1f);
 
-        var entity = world.Commands.CreateEntity().Add(new SpriteBundle(texture, sourceRect, customTint, customShader));
+        var entity = world.Commands.CreateEntity().Add(new SpriteBundle(texture, sourceRect, customTint, customShader, BlendMode.Opaque));
         world.ApplyCommands();
 
         world.GetComponent<Sprite>(entity).SourceRect.Should().Be(sourceRect);
         world.GetComponent<Sprite>(entity).Tint.Should().Be(customTint);
         world.GetComponent<Material>(entity).ShaderKind.Should().Be(customShader);
+        world.GetComponent<Material>(entity).BlendMode.Should().Be(BlendMode.Opaque);
+    }
+
+    [Fact]
+    public void SpriteBundle_Defaults_ProduceTransparentBlendMode()
+    {
+        var world = new WorldBuilder().Build();
+        var texture = new Handle<Texture>(0, 0);
+
+        var entity = world.Commands.CreateEntity().Add(new SpriteBundle(texture));
+        world.ApplyCommands();
+
+        world.GetComponent<Material>(entity).BlendMode.Should().Be(BlendMode.Transparent, "2D sprite art almost always has meaningful alpha at its edges, unlike a generic 3D Material");
+    }
+
+    [Fact]
+    public void MeshBundle_Defaults_ProduceOpaqueBlendMode()
+    {
+        var world = new WorldBuilder().Build();
+        var mesh = new Handle<Mesh>(0, 0);
+
+        var entity = world.Commands.CreateEntity().Add(new MeshBundle(mesh));
+        world.ApplyCommands();
+
+        world.GetComponent<Material>(entity).BlendMode.Should().Be(BlendMode.Opaque, "solid 3D geometry is the common case; blending is the exception, unlike 2D sprites");
     }
 
     [Fact]
