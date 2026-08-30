@@ -52,15 +52,27 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Where(static c => c is not null)
             .WithTrackingName("ConstructorShape");
 
+        // [Resource] on a plain EcsSystem (not QuerySystem, which already owns its [Resource]
+        // properties via QuerySystemCandidate/RenderQuerySystemGlue's fetch-once/writeback-once
+        // path): generates partial-property accessor bodies forwarding to CurrentWorld instead,
+        // since there's no generator-owned Execute to inject fetch/writeback statements into.
+        var ecsSystemResourceCandidates = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is ClassDeclarationSyntax { BaseList.Types.Count: > 0 },
+                transform: static (ctx, ct) => TryExtractEcsSystemResourceGlue((ClassDeclarationSyntax)ctx.Node, ctx.SemanticModel, ct))
+            .Where(static c => c is not null)
+            .Select(static (c, _) => c!)
+            .WithTrackingName("EcsSystemResourceCandidate");
+
         var collectedChains = chainCandidates.Collect();
         var collectedQuerySystems = querySystemCandidates.Collect();
         var collectedEdges = edgeCandidates.Collect();
         var collectedConstructors = constructorCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(context.CompilationProvider);
+        var collectedEcsSystemResources = ecsSystemResourceCandidates.Collect();
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(context.CompilationProvider);
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var ((((chainResults, querySystemResults), edgeResults), constructorResults), compilation) = input;
+            var (((((chainResults, querySystemResults), edgeResults), constructorResults), ecsSystemResourceResults), compilation) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -82,6 +94,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             EmitOverloads(spc, canonical);
             EmitInterceptorsAndTargets(spc, canonical, chains);
             EmitQuerySystemGlue(spc, querySystems);
+            EmitEcsSystemResourceGlue(spc, ecsSystemResourceResults);
 
             // Unsupported is silently skipped here, not diagnosed: unlike a bare AddSystem<T>()
             // call site (which doesn't exist as a concept until the AddSystem<T>() extension
@@ -695,4 +708,47 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         }
         return result.ToImmutable();
     }
+
+    private static EcsSystemResourceCandidate? TryExtractEcsSystemResourceGlue(ClassDeclarationSyntax classDecl, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return null;
+        if (classSymbol.ContainingType is not null) return null; // nested classes not supported, same reason as QuerySystemCandidate
+        if (!InheritsFromEcsSystem(classSymbol)) return null;
+        // QuerySystem already owns its own [Resource] properties via the fetch-once/writeback-once
+        // path in RenderQuerySystemGlue -- skip it here so the two glue emissions never collide.
+        if (classSymbol.BaseType is { Name: "QuerySystem" } qs && qs.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs") return null;
+
+        var resourceProperties = ExtractResourceProperties(classSymbol);
+        if (resourceProperties.IsEmpty) return null;
+
+        var namespaceName = classSymbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
+        return new EcsSystemResourceCandidate { Namespace = namespaceName, ClassName = classSymbol.Name, ResourceProperties = resourceProperties };
+    }
+
+    private static void EmitEcsSystemResourceGlue(SourceProductionContext spc, ImmutableArray<EcsSystemResourceCandidate> candidates)
+    {
+        foreach (var candidate in candidates)
+            spc.AddSource($"EcsSystemResource.{candidate.Namespace}.{candidate.ClassName}.g.cs", QueryChainEmitter.RenderEcsSystemResourceGlue(candidate));
+    }
+}
+
+/// <summary>
+/// One `EcsSystem` subclass (not `QuerySystem`, which already owns its `[Resource]`
+/// properties via <see cref="QuerySystemCandidate"/>) with one or more `[Resource]`
+/// properties, needing generated partial-property accessor bodies. See
+/// <see cref="QueryChainEmitter.RenderEcsSystemResourceGlue"/>.
+/// </summary>
+internal sealed class EcsSystemResourceCandidate : IEquatable<EcsSystemResourceCandidate>
+{
+    public required string Namespace { get; init; }
+    public required string ClassName { get; init; }
+    public required ImmutableArray<ResourcePropertyInfo> ResourceProperties { get; init; }
+
+    public bool Equals(EcsSystemResourceCandidate? other) =>
+        other is not null && Namespace == other.Namespace && ClassName == other.ClassName && ResourceProperties.SequenceEqual(other.ResourceProperties);
+
+    public override bool Equals(object? obj) => obj is EcsSystemResourceCandidate other && Equals(other);
+
+    public override int GetHashCode() =>
+        StableHashCode.Start(Namespace).Add(ClassName).AddEach(ResourceProperties);
 }

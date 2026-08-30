@@ -516,6 +516,42 @@ internal static class QueryChainEmitter
     }
 
     /// <summary>
+    /// Emits the `partial` class part supplying accessor bodies for a plain `EcsSystem`
+    /// subclass's (not `QuerySystem`'s -- see <see cref="RenderQuerySystemGlue"/>)
+    /// `[Resource]` partial properties. Unlike `QuerySystem`'s fetch-once/writeback-once
+    /// `Execute`, there's no generator-owned `Execute` to inject fetch/writeback statements
+    /// into here, so each property reads/writes <c>CurrentWorld</c> live on every access
+    /// instead.
+    /// </summary>
+    internal static string RenderEcsSystemResourceGlue(EcsSystemResourceCandidate candidate)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("using Wyrd.Ecs;");
+        sb.AppendLine();
+
+        var hasNamespace = candidate.Namespace.Length > 0;
+        if (hasNamespace)
+        {
+            sb.AppendLine($"namespace {candidate.Namespace};");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"partial class {candidate.ClassName}");
+        sb.AppendLine("{");
+        foreach (var r in candidate.ResourceProperties)
+        {
+            sb.AppendLine($"    public partial {r.ResourceTypeName} {r.PropertyName}");
+            sb.AppendLine("    {");
+            sb.AppendLine($"        get => CurrentWorld.GetResource<{r.ResourceTypeName}>();");
+            if (r.IsWrite)
+                sb.AppendLine($"        set => CurrentWorld.GetResourceRef<{r.ResourceTypeName}>() = value;");
+            sb.AppendLine("    }");
+        }
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Emits `Execute` for a shape whose `Update` does not declare `EntityView`. Walks
     /// `QueryChainBackend_&lt;hash&gt;` directly, the same as
     /// <see cref="AppendEntityViewExecute"/> already does, rather than routing through the
