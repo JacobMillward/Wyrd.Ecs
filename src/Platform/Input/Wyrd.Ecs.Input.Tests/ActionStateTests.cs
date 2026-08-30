@@ -30,4 +30,22 @@ public class ActionStateTests
     [Fact]
     public void UnrecognizedSdlByte_FromSdlButtonReturnsNull() =>
         MouseButtonExtensions.FromSdlButton(200).Should().BeNull();
+
+    [Fact]
+    public void TickFields_DefaultToFalse_WhenConstructedWithTheOriginalFourArgs()
+    {
+        var state = new ActionState(IsHeld: true, JustPressed: true, JustReleased: false, Value: Vector2.UnitX);
+
+        state.TickJustPressed.Should().BeFalse();
+        state.TickJustReleased.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TickFields_RoundTripThroughConstruction()
+    {
+        var state = new ActionState(IsHeld: true, JustPressed: false, JustReleased: false, Value: Vector2.Zero, TickJustPressed: true, TickJustReleased: true);
+
+        state.TickJustPressed.Should().BeTrue();
+        state.TickJustReleased.Should().BeTrue();
+    }
 }
