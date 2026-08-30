@@ -7,11 +7,11 @@ namespace Wyrd.Ecs.Input;
 /// <summary>
 /// Drains <see cref="PlatformSystem"/>'s pumped SDL events into a per-tick
 /// <c>IntentState&lt;TAction&gt;</c> resource, resolving <see cref="Bindings"/>' current
-/// contents fresh every tick - a hand-written <see cref="EcsSystem"/>, not a
+/// contents fresh every tick. A hand-written <see cref="EcsSystem"/>, not a
 /// <see cref="QuerySystem"/>, since it must run exactly once per tick regardless of
-/// entity count. Carries no <c>[Phase]</c>/<c>[RunBefore]</c>/<c>[RunAfter]</c> itself - a
+/// entity count. Carries no <c>[Phase]</c>/<c>[RunBefore]</c>/<c>[RunAfter]</c> itself: a
 /// generic EcsSystem can't be discovered by the query-chain generator at all (it emits a
-/// registry entry keyed by the class's own open type parameter, which doesn't compile) -
+/// registry entry keyed by the class's own open type parameter, which doesn't compile), so
 /// <c>WorldBuilderInputExtensions.AddInput</c> applies the
 /// <see cref="Phase.PreUpdate"/>/<see cref="PlatformSystem"/> ordering via
 /// <c>SystemRegistration.Phase()</c>/<c>.After&lt;T&gt;()</c> instead, at the closed-generic
@@ -22,8 +22,10 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
     private readonly PlatformSystem _platform;
     private readonly EventReader<DeviceChange> _deviceChanges;
     private readonly Dictionary<(TAction Action, ProfileId Profile), bool> _previousHeld = [];
+    private readonly HashSet<(TAction Action, ProfileId Profile)> _boundKeysThisTick = [];
+    private readonly List<(TAction Action, ProfileId Profile)> _staleKeys = [];
 
-    /// <summary>The live binding table this system resolves every tick - mutate it (or its overrides) and the change applies on the very next tick.</summary>
+    /// <summary>The live binding table this system resolves every tick. Mutate it (or its overrides) and the change applies on the very next tick.</summary>
     public BindingTable<TAction> Bindings { get; }
 
     /// <summary>Registers this system's <c>IntentState&lt;TAction&gt;</c> resource on <paramref name="world"/> immediately.</summary>
@@ -47,16 +49,36 @@ public sealed partial class IntentSystem<TAction> : EcsSystem where TAction : st
 
         ApplyDeviceChanges();
 
-        state.States.Clear();
+        _boundKeysThisTick.Clear();
         foreach (var (profile, action, kind) in Bindings.BoundActions())
         {
+            var key = (action, profile);
+            _boundKeysThisTick.Add(key);
+
             var value = kind == BindingTable<TAction>.Kind.Axis2D
                 ? ResolveAxis(profile, action)
                 : (ResolveDigital(profile, action) ? Vector2.UnitX : Vector2.Zero);
             var isHeld = value != Vector2.Zero;
-            var wasHeld = _previousHeld.GetValueOrDefault((action, profile));
-            state.States[(action, profile)] = new ActionState(isHeld, isHeld && !wasHeld, !isHeld && wasHeld, value);
-            _previousHeld[(action, profile)] = isHeld;
+            var wasHeld = _previousHeld.GetValueOrDefault(key);
+            var justPressed = isHeld && !wasHeld;
+            var justReleased = !isHeld && wasHeld;
+
+            state.States.TryGetValue(key, out var previous);
+            state.States[key] = new ActionState(
+                isHeld, justPressed, justReleased, value,
+                previous.TickJustPressed || justPressed,
+                previous.TickJustReleased || justReleased);
+            _previousHeld[key] = isHeld;
+        }
+
+        _staleKeys.Clear();
+        foreach (var key in state.States.Keys)
+            if (!_boundKeysThisTick.Contains(key))
+                _staleKeys.Add(key);
+        foreach (var key in _staleKeys)
+        {
+            state.States.Remove(key);
+            _previousHeld.Remove(key);
         }
     }
 
