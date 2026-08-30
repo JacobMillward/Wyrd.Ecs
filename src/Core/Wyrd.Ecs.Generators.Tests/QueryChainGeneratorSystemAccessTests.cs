@@ -11,6 +11,7 @@ public class QueryChainGeneratorSystemAccessTests
         public struct Position : IComponent { public float X; }
         public struct Velocity : IComponent { public float X; }
         public struct Health : IComponent { public float Current; }
+        public struct Score : IResource { public int Value; }
 
         public sealed class MovementSystem : EcsSystem
         {
@@ -65,10 +66,38 @@ public class QueryChainGeneratorSystemAccessTests
                 world.Query().With<Health>().ForEach(time, (in Time t, ref Health h) => { });
         }
 
+        public sealed partial class DeclaredResourceSystem : EcsSystem
+        {
+            [Resource] public partial Score Score { get; set; }
+            protected override void Execute(World world, Time time) { }
+        }
+
+        public sealed class AdHocResourceSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time) => world.GetResourceRef<Score>().Value = 1;
+        }
+
+        public sealed class AdHocReadOnlyResourceSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time)
+            {
+                var score = world.GetResource<Score>();
+            }
+        }
+
         public static class Harness
         {
             public static Type[] HelperMethodWrites() =>
                 new List<Type>(SystemRegistry.Access[typeof(HelperMethodSystem)].Writes).ToArray();
+
+            public static Type[] DeclaredResourceWrites() =>
+                new List<Type>(SystemRegistry.Access[typeof(DeclaredResourceSystem)].Writes).ToArray();
+
+            public static Type[] AdHocResourceWrites() =>
+                new List<Type>(SystemRegistry.Access[typeof(AdHocResourceSystem)].Writes).ToArray();
+
+            public static Type[] AdHocReadOnlyResourceReads() =>
+                new List<Type>(SystemRegistry.Access[typeof(AdHocReadOnlyResourceSystem)].Reads).ToArray();
 
             public static (Type[] Keys, Type[] MovementReads, Type[] MovementWrites, Type[] MultiReads, Type[] MultiWrites) Run()
             {
@@ -86,7 +115,7 @@ public class QueryChainGeneratorSystemAccessTests
             {
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
-                return SystemRegistry.Access.Count == 3; // only MovementSystem, MultiQuerySystem, HelperMethodSystem: this ad-hoc call adds nothing
+                return SystemRegistry.Access.Count == 6; // MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem: this ad-hoc call adds nothing
             }
 
             public static (Type[] Before, Type[] After) Edges()
@@ -125,7 +154,7 @@ public class QueryChainGeneratorSystemAccessTests
         var result = assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
         var tuple = (System.Runtime.CompilerServices.ITuple)result;
 
-        ((Type[])tuple[0]!).Should().HaveCount(3, "MovementSystem, MultiQuerySystem, HelperMethodSystem");
+        ((Type[])tuple[0]!).Should().HaveCount(6, "MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem");
         ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("Velocity")]);
         ((Type[])tuple[2]!).Should().BeEquivalentTo([assembly.GetType("Position")]);
     }
@@ -150,6 +179,36 @@ public class QueryChainGeneratorSystemAccessTests
         var result = (Type[])assembly.GetType("Harness")!.GetMethod("HelperMethodWrites")!.Invoke(null, null)!;
 
         result.Should().BeEquivalentTo([assembly.GetType("Health")], "the .ForEach() call is inside Step(), called from Execute, not directly inside Execute itself");
+    }
+
+    [Fact]
+    public void ResourcePartialProperty_IsTrackedAsWriteAccess()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (Type[])assembly.GetType("Harness")!.GetMethod("DeclaredResourceWrites")!.Invoke(null, null)!;
+
+        result.Should().BeEquivalentTo([assembly.GetType("Score")], "the property has a public setter, same rule as [Resource] on QuerySystem");
+    }
+
+    [Fact]
+    public void GetResourceRefCall_IsTrackedAsWriteAccess()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (Type[])assembly.GetType("Harness")!.GetMethod("AdHocResourceWrites")!.Invoke(null, null)!;
+
+        result.Should().BeEquivalentTo([assembly.GetType("Score")]);
+    }
+
+    [Fact]
+    public void GetResourceCall_IsTrackedAsReadAccess()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (Type[])assembly.GetType("Harness")!.GetMethod("AdHocReadOnlyResourceReads")!.Invoke(null, null)!;
+
+        result.Should().BeEquivalentTo([assembly.GetType("Score")]);
     }
 
     [Fact]

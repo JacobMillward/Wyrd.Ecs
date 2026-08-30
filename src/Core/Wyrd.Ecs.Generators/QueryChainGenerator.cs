@@ -63,16 +63,28 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Select(static (c, _) => c!)
             .WithTrackingName("EcsSystemResourceCandidate");
 
+        // Ad-hoc world.GetResource<T>()/GetResourceRef<T>() calls anywhere in an EcsSystem
+        // subclass: tracked into ComputeSystemAccess the same way ad-hoc .ForEach() calls
+        // already are, closing the asymmetry where only [Resource]-declared access was
+        // tracked and a manual GetResourceRef<T>() call was invisible to the scheduler.
+        var resourceCallCandidates = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: GenericNameSyntax { Identifier.Text: "GetResource" or "GetResourceRef" } } },
+                transform: static (ctx, ct) => TryExtractResourceCall((InvocationExpressionSyntax)ctx.Node, ctx.SemanticModel, ct))
+            .Where(static c => c is not null)
+            .Select(static (c, _) => c!.Value)
+            .WithTrackingName("ResourceCallCandidate");
+
         var collectedChains = chainCandidates.Collect();
         var collectedQuerySystems = querySystemCandidates.Collect();
         var collectedEdges = edgeCandidates.Collect();
         var collectedConstructors = constructorCandidates.Collect();
         var collectedEcsSystemResources = ecsSystemResourceCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(context.CompilationProvider);
+        var collectedResourceCalls = resourceCallCandidates.Collect();
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(collectedResourceCalls).Combine(context.CompilationProvider);
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var (((((chainResults, querySystemResults), edgeResults), constructorResults), ecsSystemResourceResults), compilation) = input;
+            var ((((((chainResults, querySystemResults), edgeResults), constructorResults), ecsSystemResourceResults), resourceCallResults), compilation) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -110,7 +122,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 .Select(c => (c!.Value.SystemTypeName, c.Value.TakesWorld, c.Value.Resources))
                 .ToList();
 
-            var bySystemType = ComputeSystemAccess(chains, querySystems);
+            var bySystemType = ComputeSystemAccess(chains, querySystems, ecsSystemResourceResults, resourceCallResults);
             var writesBySystemType = bySystemType.ToDictionary(s => s.SystemTypeName, s => s.Writes);
 
             // Symbol-based, not syntax-based: [RequiresSnapshotBefore] is baked into
@@ -546,7 +558,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// </summary>
     private static List<(string SystemTypeName, List<string> Reads, List<string> Writes)> ComputeSystemAccess(
         ImmutableArray<ChainEntry> chains,
-        ImmutableArray<QuerySystemCandidate> querySystems)
+        ImmutableArray<QuerySystemCandidate> querySystems,
+        ImmutableArray<EcsSystemResourceCandidate> ecsSystemResources,
+        ImmutableArray<ResourceCallCandidate> resourceCalls)
     {
         var accessFromChains = chains
             .Where(c => c.SystemTypeName is not null)
@@ -566,18 +580,42 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 r.IsWrite)))
             .ToLookup(r => r.SystemTypeName);
 
-        return accessFromChains.Concat(accessFromQuerySystems)
-            .GroupBy(c => c.SystemTypeName)
-            .Select(g =>
+        // [Resource] partial properties on a plain EcsSystem: the equivalent of
+        // resourceAccessFromQuerySystems above, for EcsSystemResourceCandidate instead of
+        // QuerySystemCandidate. Merged into the same lookup key space so a system's declared
+        // [Resource] access reads the same way regardless of which glue path produced it.
+        var resourceAccessFromEcsSystems = ecsSystemResources
+            .SelectMany(s => s.ResourceProperties.Select(r => (
+                SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName,
+                r.ResourceTypeName,
+                r.IsWrite)))
+            .ToLookup(r => r.SystemTypeName);
+
+        var resourceCallsByType = resourceCalls.ToLookup(c => c.SystemTypeName);
+
+        var systemTypeNames = accessFromChains.Select(c => c.SystemTypeName)
+            .Concat(accessFromQuerySystems.Select(s => s.SystemTypeName))
+            .Concat(resourceAccessFromEcsSystems.Select(g => g.Key))
+            .Concat(resourceCallsByType.Select(g => g.Key))
+            .Distinct();
+
+        var accessByType = accessFromChains.Concat(accessFromQuerySystems).ToLookup(c => c.SystemTypeName);
+
+        return systemTypeNames
+            .Select(systemTypeName =>
             {
-                var resourceEntries = resourceAccessFromQuerySystems[g.Key];
-                var reads = g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName))
+                var shapeEntries = accessByType[systemTypeName];
+                var resourceEntries = resourceAccessFromQuerySystems[systemTypeName].Concat(resourceAccessFromEcsSystems[systemTypeName]);
+                var callEntries = resourceCallsByType[systemTypeName];
+                var reads = shapeEntries.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName))
                     .Concat(resourceEntries.Where(r => !r.IsWrite).Select(r => r.ResourceTypeName))
+                    .Concat(callEntries.Where(c => !c.IsWrite).Select(c => c.ResourceTypeName))
                     .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
-                var writes = g.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName))
+                var writes = shapeEntries.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName))
                     .Concat(resourceEntries.Where(r => r.IsWrite).Select(r => r.ResourceTypeName))
+                    .Concat(callEntries.Where(c => c.IsWrite).Select(c => c.ResourceTypeName))
                     .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
-                return (SystemTypeName: g.Key, Reads: reads, Writes: writes);
+                return (SystemTypeName: systemTypeName, Reads: reads, Writes: writes);
             })
             .ToList();
     }
@@ -729,6 +767,28 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     {
         foreach (var candidate in candidates)
             spc.AddSource($"EcsSystemResource.{candidate.Namespace}.{candidate.ClassName}.g.cs", QueryChainEmitter.RenderEcsSystemResourceGlue(candidate));
+    }
+
+    /// <summary>
+    /// One <c>world.GetResource&lt;T&gt;()</c>/<c>GetResourceRef&lt;T&gt;()</c> call site
+    /// found anywhere in an <c>EcsSystem</c> subclass's own methods. <c>GetResource</c> is a
+    /// read; <c>GetResourceRef</c> is treated as a write by default (see WYRD012, which flags
+    /// a <c>GetResourceRef</c> call that never actually assigns through the returned
+    /// reference -- that's a separate analyzer, not this extraction's job).
+    /// </summary>
+    private readonly record struct ResourceCallCandidate(string SystemTypeName, string ResourceTypeName, bool IsWrite);
+
+    private static ResourceCallCandidate? TryExtractResourceCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax generic } memberAccess) return null;
+        if (semanticModel.GetSymbolInfo(invocation, ct).Symbol is not IMethodSymbol method) return null;
+        if (method.ContainingType is not { Name: "World", ContainingNamespace.Name: "Ecs" } worldType || worldType.ContainingNamespace.ToDisplayString() != "Wyrd.Ecs") return null;
+        if (method.TypeArguments is not [var resourceType]) return null;
+
+        var systemTypeName = ChainWalker.TryFindEnclosingSystemType(invocation, semanticModel, ct);
+        if (systemTypeName is null) return null;
+
+        return new ResourceCallCandidate(systemTypeName, resourceType.ToDisplayString(), IsWrite: generic.Identifier.Text == "GetResourceRef");
     }
 }
 
