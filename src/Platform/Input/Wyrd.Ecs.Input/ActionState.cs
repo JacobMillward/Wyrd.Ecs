@@ -14,7 +14,7 @@ namespace Wyrd.Ecs.Input;
 /// <see cref="SystemCadence.Fixed"/> system needing edge-triggered input should read
 /// <see cref="TickJustPressed"/>/<see cref="TickJustReleased"/> instead. Those are
 /// accumulated across however many real calls occur with no fixed step, and cleared
-/// exactly once per fixed step by <c>IntentTickResetSystem&lt;TAction&gt;</c>.
+/// exactly once per fixed step by <see cref="IntentTickResetSystem{TAction}"/>.
 /// </summary>
 public readonly record struct ActionState(
     bool IsHeld, bool JustPressed, bool JustReleased, Vector2 Value,
