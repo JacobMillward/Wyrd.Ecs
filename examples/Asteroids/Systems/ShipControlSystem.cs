@@ -2,6 +2,7 @@ using System.Numerics;
 using Wyrd.Ecs.Audio;
 using Wyrd.Ecs.Examples.Asteroids.Components;
 using Wyrd.Ecs.Input;
+using Wyrd.Ecs.Renderer;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
@@ -42,8 +43,8 @@ public sealed partial class ShipControlSystem : QuerySystem
         foreach (var child in entity.Children())
         {
             if (!world.HasTag<EngineFlame>(child)) continue;
-            ref var flameTransform = ref world.GetComponent<Transform>(child);
-            flameTransform.Scale = thrusting ? Vector3.One : Vector3.Zero;
+            ref var flameSprite = ref world.GetComponent<Sprite>(child);
+            flameSprite = flameSprite with { Tint = flameSprite.Tint with { A = thrusting ? 1f : 0f } };
         }
 
         if (thrusting && !_wasThrusting)

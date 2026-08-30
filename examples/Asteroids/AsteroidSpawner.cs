@@ -5,6 +5,20 @@ namespace Wyrd.Ecs.Examples.Asteroids;
 
 internal static class AsteroidSpawner
 {
+    private const int InitialWaveCount = 5;
+
+    /// <summary>Spawns the game's opening wave: <see cref="InitialWaveCount"/> large asteroids at random positions around the playfield's edge.</summary>
+    public static void SpawnInitialWave(CommandBuffer commands, EntityTemplate template, Random rng)
+    {
+        for (var i = 0; i < InitialWaveCount; i++)
+        {
+            var angle = (float)(rng.NextDouble() * MathF.Tau);
+            var distance = 150f + (float)rng.NextDouble() * 200f;
+            var position = new Vector3(MathF.Cos(angle) * distance, MathF.Sin(angle) * distance, 0f);
+            Spawn(commands, template, AsteroidSize.Large, position, rng);
+        }
+    }
+
     public static void Spawn(CommandBuffer commands, EntityTemplate template, AsteroidSize size, Vector3 position, Random rng)
     {
         var angle = (float)(rng.NextDouble() * MathF.Tau);

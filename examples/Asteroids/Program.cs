@@ -30,6 +30,7 @@ var world = new WorldBuilder()
     .AddSystem<GameOverSystem>()
     .AddSystem<PauseSystem>()
     .AddSystem<SaveLoadSystem>()
+    .AddSystem<ResetSystem>()
     .AddSystem<LifetimeSystem>()
     .Build();
 
@@ -43,6 +44,22 @@ var audio = world.GetResourceRef<AudioPlayer>();
 var laserSound = audio.LoadSound(Path.Combine(AppContext.BaseDirectory, "Assets", "laser.wav"));
 var explosionSound = audio.LoadSound(Path.Combine(AppContext.BaseDirectory, "Assets", "explosion.wav"));
 var engineSound = audio.LoadSound(Path.Combine(AppContext.BaseDirectory, "Assets", "engine.wav"));
+
+var bulletTemplate = new EntityTemplate()
+    .AddTag<Bullet>()
+    .AddComponent(new Lifetime { SecondsRemaining = 1.1f })
+    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
+    .AddComponent(new Material(ShaderKind.UnlitSprite, bulletTexture));
+
+var asteroidTemplate = new EntityTemplate()
+    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
+    .AddComponent(new Material(ShaderKind.UnlitSprite, asteroidTexture));
+
+// Handles above are usable immediately (LoadTexture/LoadSound return them synchronously);
+// registering GameAssets before WaitForLoads lets WeaponSystem (Variable cadence, so it
+// runs during WaitForLoads' own world.Update calls too) find the resource on its very
+// first tick, before the ship entity even exists to make its query match anything.
+world.AddResource(new GameAssets(bulletTemplate, asteroidTemplate, laserSound, explosionSound, engineSound));
 
 WaitForLoads(
     world,
@@ -65,9 +82,9 @@ var shipTemplate = new EntityTemplate()
     .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
     .AddComponent(new Material(ShaderKind.UnlitSprite, shipTexture))
     .AddChild(new EntityTemplate()
-        .AddTransform(new Transform { Position = new Vector3(-28f, 0f, 0f), Rotation = Quaternion.Identity, Scale = Vector3.Zero })
-        .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
-        .AddComponent(new Material(ShaderKind.UnlitSprite, flameTexture))
+        .AddTransform(new Vector3(-28f, 0f, 0f))
+        .AddComponent(new Sprite(SourceRect: null, Tint: Color.White with { A = 0f }))
+        .AddComponent(new Material(ShaderKind.UnlitSprite, flameTexture, BlendMode.Transparent))
         .AddTag<EngineFlame>());
 
 world.Commands.CreateEntity(shipTemplate);
@@ -76,26 +93,7 @@ var gameState = world.Commands.CreateEntity();
 world.Commands.AddTag<Game>(gameState);
 world.Commands.AddComponent(gameState, new Score());
 
-var bulletTemplate = new EntityTemplate()
-    .AddTag<Bullet>()
-    .AddComponent(new Lifetime { SecondsRemaining = 1.1f })
-    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
-    .AddComponent(new Material(ShaderKind.UnlitSprite, bulletTexture));
-
-var asteroidTemplate = new EntityTemplate()
-    .AddComponent(new Sprite(SourceRect: null, Tint: Color.White))
-    .AddComponent(new Material(ShaderKind.UnlitSprite, asteroidTexture));
-
-world.AddResource(new GameAssets(bulletTemplate, asteroidTemplate, laserSound, explosionSound, engineSound));
-
-var rng = new Random();
-for (var i = 0; i < 5; i++)
-{
-    var angle = (float)(rng.NextDouble() * MathF.Tau);
-    var distance = 150f + (float)rng.NextDouble() * 200f;
-    var position = new Vector3(MathF.Cos(angle) * distance, MathF.Sin(angle) * distance, 0f);
-    AsteroidSpawner.Spawn(world.Commands, asteroidTemplate, AsteroidSize.Large, position, rng);
-}
+AsteroidSpawner.SpawnInitialWave(world.Commands, asteroidTemplate, new Random());
 
 world.ApplyCommands();
 

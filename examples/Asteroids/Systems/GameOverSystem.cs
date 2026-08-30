@@ -8,7 +8,6 @@ namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 public sealed class GameOverSystem : EcsSystem
 {
     private static readonly TimeSpan SlowMoDuration = TimeSpan.FromSeconds(1.2);
-    private static readonly ArchetypeQuery Scores = ArchetypeQuery.Empty.Access<Ref<Score>>();
 
     private readonly EventReader<ShipDestroyed> _shipDestroyed;
     private bool _triggered;
@@ -50,11 +49,7 @@ public sealed class GameOverSystem : EcsSystem
         world.Pause();
 
         var score = 0;
-        foreach (var chunk in Scores.Resolve(world))
-        {
-            var scores = chunk.Access<Ref<Score>>();
-            if (chunk.Count > 0) score = scores[0].Value;
-        }
+        world.Query().With<Score>().ForEach((in Score s) => score = s.Value);
         SDL.SetWindowTitle(world.GetSystem<PlatformSystem>().Window, $"Asteroids - Game Over - Score {score} - L to reload a save");
     }
 }

@@ -9,4 +9,5 @@ public enum GameAction
     Pause,
     Save,
     Load,
+    Reset,
 }

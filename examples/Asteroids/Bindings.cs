@@ -12,5 +12,6 @@ internal static class Bindings
         .Bind(GameAction.Fire, SDL.Scancode.Space)
         .Bind(GameAction.Pause, SDL.Scancode.P)
         .Bind(GameAction.Save, SDL.Scancode.S)
-        .Bind(GameAction.Load, SDL.Scancode.L);
+        .Bind(GameAction.Load, SDL.Scancode.L)
+        .Bind(GameAction.Reset, SDL.Scancode.R);
 }

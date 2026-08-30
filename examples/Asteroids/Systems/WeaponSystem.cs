@@ -5,7 +5,6 @@ using Wyrd.Ecs.Input;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-[FixedTimestep]
 public sealed partial class WeaponSystem : QuerySystem
 {
     private const float BulletSpeed = 600f;
