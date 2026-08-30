@@ -58,8 +58,18 @@ public class QueryChainGeneratorSystemAccessTests
             protected override void Execute(World world, Time time) { }
         }
 
+        public sealed class HelperMethodSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time) => Step(world, time);
+            private void Step(World world, Time time) =>
+                world.Query().With<Health>().ForEach(time, (in Time t, ref Health h) => { });
+        }
+
         public static class Harness
         {
+            public static Type[] HelperMethodWrites() =>
+                new List<Type>(SystemRegistry.Access[typeof(HelperMethodSystem)].Writes).ToArray();
+
             public static (Type[] Keys, Type[] MovementReads, Type[] MovementWrites, Type[] MultiReads, Type[] MultiWrites) Run()
             {
                 var keys = new List<Type>(SystemRegistry.Access.Keys).ToArray();
@@ -76,7 +86,7 @@ public class QueryChainGeneratorSystemAccessTests
             {
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
-                return SystemRegistry.Access.Count == 2; // only MovementSystem and MultiQuerySystem: this ad-hoc call adds nothing
+                return SystemRegistry.Access.Count == 3; // only MovementSystem, MultiQuerySystem, HelperMethodSystem: this ad-hoc call adds nothing
             }
 
             public static (Type[] Before, Type[] After) Edges()
@@ -115,7 +125,7 @@ public class QueryChainGeneratorSystemAccessTests
         var result = assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
         var tuple = (System.Runtime.CompilerServices.ITuple)result;
 
-        ((Type[])tuple[0]!).Should().HaveCount(2, "MovementSystem, MultiQuerySystem");
+        ((Type[])tuple[0]!).Should().HaveCount(3, "MovementSystem, MultiQuerySystem, HelperMethodSystem");
         ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("Velocity")]);
         ((Type[])tuple[2]!).Should().BeEquivalentTo([assembly.GetType("Position")]);
     }
@@ -130,6 +140,16 @@ public class QueryChainGeneratorSystemAccessTests
 
         ((Type[])tuple[3]!).Should().BeEquivalentTo([assembly.GetType("Position")]);
         ((Type[])tuple[4]!).Should().BeEquivalentTo([assembly.GetType("Health")]);
+    }
+
+    [Fact]
+    public void ForEachCallInPrivateHelperMethod_IsAttributedToTheSystem()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (Type[])assembly.GetType("Harness")!.GetMethod("HelperMethodWrites")!.Invoke(null, null)!;
+
+        result.Should().BeEquivalentTo([assembly.GetType("Health")], "the .ForEach() call is inside Step(), called from Execute, not directly inside Execute itself");
     }
 
     [Fact]

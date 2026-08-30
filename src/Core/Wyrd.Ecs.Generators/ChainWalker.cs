@@ -217,24 +217,23 @@ internal static class ChainWalker
     }
 
     /// <summary>
-    /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass whose
-    /// <c>Execute</c> override directly contains <paramref name="terminal"/>, or
-    /// <c>null</c> if it isn't inside one. Walks the override chain, not just the
-    /// method name, so a same-named method that isn't actually an <c>EcsSystem</c>
-    /// override never matches.
+    /// The fully qualified name of the <see cref="Wyrd.Ecs.EcsSystem"/> subclass containing
+    /// <paramref name="terminal"/>, or <c>null</c> if it isn't inside one. Any method of the
+    /// class counts, not only a literal <c>Execute</c> override directly containing the call
+    /// -- a call factored into a private helper method that <c>Execute</c> calls is still
+    /// attributed to the system.
     /// </summary>
     internal static string? TryFindEnclosingSystemType(InvocationExpressionSyntax terminal, SemanticModel semanticModel, CancellationToken ct)
     {
-        var methodDecl = terminal.FirstAncestorOrSelf<MethodDeclarationSyntax>();
-        if (methodDecl is null) return null;
-        if (semanticModel.GetDeclaredSymbol(methodDecl, ct) is not IMethodSymbol method) return null;
-        if (method.Name != "Execute" || !method.IsOverride) return null;
+        var containingClass = terminal.FirstAncestorOrSelf<ClassDeclarationSyntax>();
+        if (containingClass is null) return null;
+        if (semanticModel.GetDeclaredSymbol(containingClass, ct) is not INamedTypeSymbol classSymbol) return null;
 
-        for (var overridden = method.OverriddenMethod; overridden is not null; overridden = overridden.OverriddenMethod)
+        for (var current = classSymbol.BaseType; current is not null; current = current.BaseType)
         {
             ct.ThrowIfCancellationRequested();
-            if (overridden.ContainingType.Name == "EcsSystem" && overridden.ContainingType.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs")
-                return method.ContainingType.ToDisplayString();
+            if (current.Name == "EcsSystem" && current.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs")
+                return classSymbol.ToDisplayString();
         }
 
         return null;
