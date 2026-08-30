@@ -33,22 +33,4 @@ public class ResourceShapeAnalyzerTests
 
         diagnostics.Should().ContainSingle(d => d.Id == "WYRD006");
     }
-
-    [Fact]
-    public void ResourcePropertyOnPlainEcsSystem_ReportsWYRD007()
-    {
-        var diagnostics = RunAnalyzer("""
-            using Wyrd.Ecs;
-
-            public struct Score : IResource { public int Value; }
-
-            public sealed class BadSystem : EcsSystem
-            {
-                [Resource] public Score Score { get; private set; }
-                protected override void Execute(World world, Time time) { }
-            }
-            """);
-
-        diagnostics.Should().ContainSingle(d => d.Id == "WYRD007");
-    }
 }

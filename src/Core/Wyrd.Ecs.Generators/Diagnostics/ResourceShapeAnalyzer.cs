@@ -5,12 +5,12 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Wyrd.Ecs.Generators.Diagnostics;
 
-/// <summary>Flags a `[Resource]` property whose type isn't `IResource` (WYRD006), or that sits on a non-`QuerySystem` `EcsSystem` (WYRD007).</summary>
+/// <summary>Flags a `[Resource]` property whose type isn't `IResource` (WYRD006). `[Resource]` is legal on any `EcsSystem`, not only `QuerySystem` — see `QuerySystem`'s generator-owned `Execute` vs. a plain `EcsSystem`'s generated `partial` property accessors.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ResourceShapeAnalyzer : DiagnosticAnalyzer
 {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
-        [WyrdDiagnostics.ResourcePropertyWrongType, WyrdDiagnostics.ResourceOnNonQuerySystem];
+        [WyrdDiagnostics.ResourcePropertyWrongType];
 
     public override void Initialize(AnalysisContext context)
     {
@@ -22,7 +22,6 @@ public sealed class ResourceShapeAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        var isQuerySystem = type.BaseType is { Name: "QuerySystem", ContainingNamespace.Name: "Ecs" } qs && qs.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs";
 
         foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
         {
@@ -30,12 +29,6 @@ public sealed class ResourceShapeAnalyzer : DiagnosticAnalyzer
             if (resourceAttribute is null) continue;
             if (property.DeclaringSyntaxReferences is not [var syntaxRef, ..]) continue;
             var location = syntaxRef.GetSyntax(context.CancellationToken).GetLocation();
-
-            if (!isQuerySystem)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(WyrdDiagnostics.ResourceOnNonQuerySystem, location, property.Name, type.ToDisplayString()));
-                continue;
-            }
 
             var isResource = property.Type.TypeKind == TypeKind.Struct
                 && property.Type.AllInterfaces.Any(i => i is { Name: "IResource", ContainingNamespace.Name: "Ecs" } && i.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");

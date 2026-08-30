@@ -8,12 +8,13 @@ namespace Wyrd.Ecs.Generators.Diagnostics;
 
 /// <summary>
 /// Flags a `[Resource]` property with a public setter (declared write access, which the
-/// scheduler treats as a write dependency) that no method on the containing `QuerySystem`
+/// scheduler treats as a write dependency) that no method on the containing `EcsSystem`
 /// ever actually assigns to, as WYRD009. Scans every method on the type, not just `Update`,
 /// so a write performed via a helper method `Update` calls still counts. Constructors are
 /// excluded: assigning a `[Resource]` property there is already WYRD008's concern (it has
 /// no effect, since the generator overwrites the property before every `Execute`), not a
-/// legitimate write this check should credit.
+/// legitimate write this check should credit. Applies to `[Resource]` on any `EcsSystem`,
+/// not only `QuerySystem` — `[Resource]` is legal on both (see `ResourceShapeAnalyzer`).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class UnusedResourceWriteAnalyzer : DiagnosticAnalyzer
@@ -30,8 +31,7 @@ public sealed class UnusedResourceWriteAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        var isQuerySystem = type.BaseType is { Name: "QuerySystem", ContainingNamespace.Name: "Ecs" } qs && qs.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs";
-        if (!isQuerySystem) return; // WYRD007 already covers [Resource] on a non-QuerySystem; no need to also analyze its usage here
+        if (!InheritsFromEcsSystem(type)) return;
 
         var writableResourceProperties = type.GetMembers().OfType<IPropertySymbol>()
             .Where(p => HasResourceAttribute(p) && p.SetMethod is { DeclaredAccessibility: Accessibility.Public })
@@ -64,4 +64,12 @@ public sealed class UnusedResourceWriteAnalyzer : DiagnosticAnalyzer
 
     private static bool HasResourceAttribute(IPropertySymbol property) =>
         property.GetAttributes().Any(a => a.AttributeClass is { Name: "ResourceAttribute", ContainingNamespace.Name: "Ecs" } ac && ac.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");
+
+    private static bool InheritsFromEcsSystem(INamedTypeSymbol type)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+            if (current is { Name: "EcsSystem", ContainingNamespace.Name: "Ecs" } && current.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
+                return true;
+        return false;
+    }
 }
