@@ -17,6 +17,16 @@ public abstract class EcsSystem : SchedulableSystem
     public bool Enabled { get; set; } = true;
 
     /// <summary>
+    /// The <see cref="World"/> passed to this system's most recent <see cref="Execute"/> call.
+    /// Set by <see cref="InvokeExecute"/> before <see cref="Execute"/> runs. A property
+    /// getter/setter takes no parameters, so generated <c>[Resource]</c> accessors for a
+    /// plain <see cref="EcsSystem"/> (one that isn't a <see cref="QuerySystem"/>, which owns
+    /// its entire generated <see cref="Execute"/> and reads <see cref="World"/> from that
+    /// method's own parameter instead) read this to reach the current <see cref="World"/>.
+    /// </summary>
+    protected World CurrentWorld { get; private set; } = null!;
+
+    /// <summary>
     /// Runs one iteration. <paramref name="time"/> is built by <see cref="World.Update"/>/
     /// <see cref="World.RunOnce"/> from the caller-supplied delta. It's unrelated to
     /// <see cref="World.CurrentTick"/>, the separate internal counter change-tracking
@@ -31,7 +41,11 @@ public abstract class EcsSystem : SchedulableSystem
     /// override modifier for a <c>protected internal</c> member depends on whether the
     /// overriding assembly has an <c>InternalsVisibleTo</c> grant.
     /// </summary>
-    internal void InvokeExecute(World world, Time time) => Execute(world, time);
+    internal void InvokeExecute(World world, Time time)
+    {
+        CurrentWorld = world;
+        Execute(world, time);
+    }
 
     /// <summary>
     /// Called exactly once, by <see cref="World.RemoveSystem(EcsSystem)"/>, when this

@@ -8,6 +8,12 @@ sealed class DestroyRecordingSystem : EcsSystem
     public void InvokeDestroyForTest() => InvokeOnDestroy();
 }
 
+sealed class CurrentWorldProbeSystem : EcsSystem
+{
+    public World? ObservedWorld { get; private set; }
+    protected override void Execute(World world, Time time) => ObservedWorld = CurrentWorld;
+}
+
 public class EcsSystemTests
 {
     [Fact]
@@ -18,5 +24,16 @@ public class EcsSystemTests
         system.InvokeDestroyForTest();
 
         system.OnDestroyCallCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void CurrentWorld_ReflectsTheWorldPassedToExecute()
+    {
+        var world = new World();
+        var system = new CurrentWorldProbeSystem();
+
+        system.InvokeExecute(world, default);
+
+        system.ObservedWorld.Should().BeSameAs(world);
     }
 }
