@@ -1,0 +1,62 @@
+<Project>
+
+  <!-- Every feature package below ships as a NuGet package with its own source generator
+       packed into analyzers/dotnet/cs/, so a PackageReference consumer gets the generator
+       for free. ProjectReference doesn't carry that Analyzer wiring transitively, so any
+       leaf project in this repo (Tests/Benchmarks/AotSmokeTest/examples) that plainly
+       references one of these feature packages gets the matching generator wired in here
+       instead of every consumer having to know it exists and add it by hand.
+
+       Gated to IsPackable != true: a packable feature package applying one of these
+       generators to ITSELF (rather than to a leaf consumer) risks a hard collision -
+       Wyrd.Ecs.Generators emits an internal, fixed-named Wyrd.Ecs.Generated.SystemRegistry
+       unconditionally per compilation, and two compilations in the same reference chain
+       both applying it (with one visible to the other via InternalsVisibleTo, which nearly
+       every feature package grants to its own *.Tests project) collide with CS0436. Today
+       only Wyrd.Ecs.Renderer and Wyrd.Ecs.Platform deliberately self-apply
+       Wyrd.Ecs.Generators despite being packable (they define their own shippable systems);
+       both keep their existing manual wiring, untouched by this file. -->
+
+  <!-- Wyrd.Ecs.Renderer and Wyrd.Ecs.Platform are excluded on the consumer side too: a
+       project referencing either of those already sees a compiled SystemRegistry through
+       the InternalsVisibleTo grant every *.Tests project gets from its own feature package,
+       so auto-wiring Wyrd.Ecs.Generators onto it as well would collide (CS0436) with the one
+       Renderer/Platform already carry. -->
+  <ItemGroup Condition="'$(IsPackable)' != 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs'))' == 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Generators'))' == 'false' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Renderer'))' == 'false' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Platform'))' == 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Core/Wyrd.Ecs.Generators/Wyrd.Ecs.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Triggered by Persistence.Json or Persistence.Binary too, not just Persistence itself:
+       both of their own generators emit code that references
+       Wyrd.Ecs.Persistence.Generated.* (the auto-registration Persistence.Generators
+       produces), so a consumer of either needs Persistence.Generators applied even when it
+       never plainly references Wyrd.Ecs.Persistence.csproj itself (only transitively). -->
+  <ItemGroup Condition="'$(IsPackable)' != 'true' and ('@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence'))' == 'true' or '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Json'))' == 'true' or '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Binary'))' == 'true') and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Generators'))' == 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Persistence/Wyrd.Ecs.Persistence.Generators/Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Persistence.Json's generator also ships as an MSBuild task (JsonContextEmitTask) that
+       emits WyrdJsonPersistenceContext.g.cs, not just an analyzer, so referencing it needs
+       both the Analyzer ProjectReference and the task's .targets Import. The ProjectReference
+       half auto-wires like the others below; the Import half doesn't: an Import element's
+       Condition can't be reliably gated on item-list-derived state - confirmed empirically,
+       not just documented (MSB4099 blocks a direct item-list reference; routing the check
+       through an item-conditioned marker plus a plain property assignment compiles, but the
+       property silently evaluates empty at Import-condition time and the Import fires
+       unconditionally regardless, which broke Wyrd.Ecs.csproj's own build). So a consumer
+       that needs AddJsonPersistence(path)'s zero-config context still adds this one Import by
+       hand, same as before: Import the build/Wyrd.Ecs.Persistence.Json.Generators.targets
+       file from Wyrd.Ecs.Persistence.Json.Generators. -->
+  <ItemGroup Condition="'$(IsPackable)' != 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Json'))' == 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Json.Generators'))' == 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Persistence/Json/Wyrd.Ecs.Persistence.Json.Generators/Wyrd.Ecs.Persistence.Json.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Binary'))' == 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Persistence.Binary.Generators'))' == 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Persistence/Binary/Wyrd.Ecs.Persistence.Binary.Generators/Wyrd.Ecs.Persistence.Binary.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Debug'))' == 'true' and '@(ProjectReference->AnyHaveMetadataValue('Filename', 'Wyrd.Ecs.Debug.Generators'))' == 'false'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Debug/Wyrd.Ecs.Debug.Generators/Wyrd.Ecs.Debug.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

@@ -18,8 +18,6 @@
     <ProjectReference Include="..\..\..\Core\Wyrd.Ecs\Wyrd.Ecs.csproj" />
     <ProjectReference Include="..\..\Wyrd.Ecs.Persistence\Wyrd.Ecs.Persistence.csproj" />
     <ProjectReference Include="..\Wyrd.Ecs.Persistence.Binary\Wyrd.Ecs.Persistence.Binary.csproj" />
-    <ProjectReference Include="..\Wyrd.Ecs.Persistence.Binary.Generators\Wyrd.Ecs.Persistence.Binary.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
-    <ProjectReference Include="..\..\Wyrd.Ecs.Persistence.Generators\Wyrd.Ecs.Persistence.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>
