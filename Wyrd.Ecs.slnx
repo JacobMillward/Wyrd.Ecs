@@ -53,6 +53,8 @@
     <Project Path="src/Platform/Renderer/Wyrd.Ecs.Renderer.Benchmarks/Wyrd.Ecs.Renderer.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/Platform/Input/">
+    <Project Path="src/Platform/Input/Wyrd.Ecs.Input.Generators.Tests/Wyrd.Ecs.Input.Generators.Tests.csproj" />
+    <Project Path="src/Platform/Input/Wyrd.Ecs.Input.Generators/Wyrd.Ecs.Input.Generators.csproj" />
     <Project Path="src/Platform/Input/Wyrd.Ecs.Input.Tests/Wyrd.Ecs.Input.Tests.csproj" />
     <Project Path="src/Platform/Input/Wyrd.Ecs.Input/Wyrd.Ecs.Input.csproj" />
   </Folder>
