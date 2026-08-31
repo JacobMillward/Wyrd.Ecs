@@ -32,6 +32,16 @@ var world = new WorldBuilder()
 A slow frame doesn't cause a spiral of catch-up steps. `maxSubstepsPerUpdate` (default 5) caps how many fixed steps one `Update` call can run, any backlog beyond that is dropped, not deferred to the next call.
 :::
 
+## Clamping a runaway delta
+
+```csharp
+var world = new WorldBuilder()
+    .WithMaxDelta(TimeSpan.FromMilliseconds(250)) // the default
+    .Build();
+```
+
+`WithMaxDelta` bounds the raw delta any `Update` call passes on, before it reaches the fixed-step accumulator or `World.RealTime`. A debugger breakpoint or a window drag-resize stall can otherwise hand gameplay code one multi-second `Time.Delta`, `WithMaxDelta` caps it at the wall clock instead. Applies to every `Update` caller, including [`World.Run`](/build/game-loop/platform/#running-the-game-loop).
+
 ## Reading Time correctly
 
 `Time.Delta`/`Time.Elapsed` is the *virtual* clock: scaled by `TimeScale`, frozen at zero delta while paused. `World.RealTime` is the wall-clock counterpart, unaffected by either. Use it for anything that needs to keep moving through a pause, a pause menu's own countdown, for instance.

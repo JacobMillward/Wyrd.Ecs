@@ -56,6 +56,31 @@ public sealed partial class DeviceLogSystem(World world) : QuerySystem
 `DeviceKind` covers `Keyboard` and `Mouse` today. `Wyrd.Ecs.Input` already reacts to `DeviceChange` for you, see [Input](/build/input/) and, for assigning specific devices to profiles, [Multi-Device](/build/input/multi-device/).
 :::
 
+## Running the game loop
+
+```csharp
+world.Run();
+```
+
+`Run` blocks the calling thread, calling `world.Update(...)` once per iteration with the real elapsed time since the last call, until an `Exit` event stops it. Call `Update` directly to embed your own loop, a host application or a test harness.
+
+```csharp
+world.Run(targetFrameTime: TimeSpan.FromSeconds(1.0 / 60));
+```
+
+A windowed app leaves `targetFrameTime` at its default of `null`, the renderer's swapchain vsync paces the loop. A headless world passes a target to sleep between iterations instead of spinning a core at 100%.
+
+### Stopping the loop
+
+```csharp
+world.RequestExit();  // clean shutdown, code 0
+world.RequestExit(1); // a non-zero exit code
+```
+
+`RequestExit` emits an `Exit` event; `Run` returns on the next iteration that observes one. Call it from any system, or from outside the tick loop entirely, a watchdog, a host process's own shutdown signal.
+
+Closing the window emits one too: `PlatformSystem` calls `RequestExit` on `SDL.EventType.Quit`, read off the same event pump [above](#reading-the-window-and-events).
+
 ## Next
 
 [Renderer](/build/rendering/) and [Input](/build/input/) both build on the window `AddWindow` opens.

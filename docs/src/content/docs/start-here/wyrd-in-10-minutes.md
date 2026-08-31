@@ -66,6 +66,10 @@ Call `world.Update(...)` once per tick, and every registered system runs, in par
 world.Update(TimeSpan.FromSeconds(1.0 / 60));
 ```
 
+:::tip
+This calls `Update` once, enough to see it work. A real game calls it every frame, `world.Run()` does exactly that, see [Platform](/build/game-loop/platform/#running-the-game-loop).
+:::
+
 ### Running a single system without registering it
 
 ```csharp

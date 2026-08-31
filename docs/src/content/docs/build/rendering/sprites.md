@@ -19,7 +19,7 @@ world.ApplyCommands();
 `SourceRect` is `null` for the whole texture, or a pixel-space `Rect` for one frame of a spritesheet. `Tint` multiplies the texture's own colors, `Color.White` leaves them unchanged, and `Tint`'s own alpha fades the sprite when `BlendMode` is `Transparent`.
 
 :::tip
-Sprite art usually has real alpha at its edges, so most sprites want `BlendMode.Transparent`. See [BlendMode](/build/rendering/#blendmode) for what it changes.
+Sprite art usually has real alpha at its edges, so most sprites want `BlendMode.Transparent`. See [BlendMode](/build/rendering/#blendmode) for what each value does.
 :::
 
 :::note
