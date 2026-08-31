@@ -3,14 +3,12 @@ using Wyrd.Ecs.Examples.Asteroids.Events;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-public sealed partial class SplitSystem : EcsSystem
+public sealed partial class SplitSystem(World world) : EcsSystem
 {
     [Resource] public partial GameAssets Assets { get; }
 
-    private readonly EventReader<AsteroidDestroyed> _destroyed;
+    private readonly EventReader<AsteroidDestroyed> _destroyed = world.CreateEventReader<AsteroidDestroyed>();
     private readonly Random _rng = new();
-
-    public SplitSystem(World world) => _destroyed = world.CreateEventReader<AsteroidDestroyed>();
 
     protected override void Execute(World world, Time time)
     {

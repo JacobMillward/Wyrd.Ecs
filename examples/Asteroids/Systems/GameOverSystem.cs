@@ -5,11 +5,11 @@ using Wyrd.Ecs.Platform;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-public sealed class GameOverSystem : EcsSystem
+public sealed class GameOverSystem(World world) : EcsSystem
 {
     private static readonly TimeSpan SlowMoDuration = TimeSpan.FromSeconds(1.2);
 
-    private readonly EventReader<ShipDestroyed> _shipDestroyed;
+    private readonly EventReader<ShipDestroyed> _shipDestroyed = world.CreateEventReader<ShipDestroyed>();
     private bool _triggered;
     private TimeSpan _slowMoRemaining;
 
@@ -17,8 +17,6 @@ public sealed class GameOverSystem : EcsSystem
     /// checks this so a player's own P press can never un-freeze a game-over world: only
     /// <see cref="Reset"/> (via a load) does.</summary>
     public bool HasTriggered => _triggered;
-
-    public GameOverSystem(World world) => _shipDestroyed = world.CreateEventReader<ShipDestroyed>();
 
     /// <summary>Clears in-memory game-over state after a <c>World.Load()</c>: persistence never
     /// touches <see cref="World.IsPaused"/> or this system's own fields, so without this a loaded

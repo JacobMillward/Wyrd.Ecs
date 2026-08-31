@@ -5,11 +5,9 @@ using Wyrd.Ecs.Platform;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-public sealed partial class ScoreSystem : QuerySystem
+public sealed partial class ScoreSystem(World world) : QuerySystem
 {
-    private readonly EventReader<AsteroidDestroyed> _destroyed;
-
-    public ScoreSystem(World world) => _destroyed = world.CreateEventReader<AsteroidDestroyed>();
+    private readonly EventReader<AsteroidDestroyed> _destroyed = world.CreateEventReader<AsteroidDestroyed>();
 
     protected override IQuery DefineQuery(Query query) => query.With<Score>().Has<Game>();
 

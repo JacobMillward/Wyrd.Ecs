@@ -12,7 +12,7 @@ namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 // system's query match) is gone. A hand-written Execute always runs, same as CollisionSystem.
 [FixedTimestep]
 [RunBefore(typeof(MovementSystem))]
-public sealed partial class ShipControlSystem : EcsSystem
+public sealed partial class ShipControlSystem(World world) : EcsSystem
 {
     private const float ThrustAcceleration = 420f;
     private const float MaxSpeed = 280f;
@@ -22,12 +22,10 @@ public sealed partial class ShipControlSystem : EcsSystem
     [Resource] public partial IntentState<GameAction> Input { get; }
     [Resource] public partial GameAssets Assets { get; }
 
-    private readonly EventReader<ShipDestroyed> _shipDestroyed;
+    private readonly EventReader<ShipDestroyed> _shipDestroyed = world.CreateEventReader<ShipDestroyed>();
 
     private Playback? _engineLoop;
     private bool _wasThrusting;
-
-    public ShipControlSystem(World world) => _shipDestroyed = world.CreateEventReader<ShipDestroyed>();
 
     protected override void Execute(World world, Time time)
     {
