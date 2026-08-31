@@ -251,7 +251,7 @@ public sealed class WorldBuilder
     /// itself (Unity's <c>Time.maximumDeltaTime</c> only bounds fixed-step catch-up). Protects
     /// a debugger breakpoint, a window drag-resize stall, or any other multi-second hitch from
     /// reaching gameplay code as one enormous <see cref="Time.Delta"/> - applies to every
-    /// caller of <see cref="World.Update"/>, not just <c>World.Run</c>.
+    /// caller of <see cref="World.Update"/>, not just <see cref="World.Run"/>.
     /// </summary>
     public WorldBuilder WithMaxDelta(TimeSpan maxDelta)
     {
