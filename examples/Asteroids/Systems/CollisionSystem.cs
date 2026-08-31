@@ -24,8 +24,18 @@ public sealed class CollisionSystem : EcsSystem
             _bulletPositions.Add(transform.Position);
         });
 
+        Entity? shipEntity = null;
         Vector3? shipPosition = null;
-        world.Query().With<Transform>().Has<Ship>().ForEach((in Transform transform) => shipPosition = transform.Position);
+        world.Query().With<Transform>().Has<Ship>().ForEach((EntityView entity, in Transform transform) =>
+        {
+            shipEntity = entity.Entity;
+            shipPosition = transform.Position;
+        });
+
+        // One ship, one life: guards against a single tick finding more than one asteroid
+        // already overlapping the ship (e.g. two halves of a just-split pair) and queuing a
+        // second DestroyEntity(ship)/ShipDestroyed for an already-dead ship.
+        var shipHit = false;
 
         world.Query().With<Transform>().With<Asteroid>().ForEach((EntityView entity, in Transform transform, in Asteroid asteroid) =>
         {
@@ -46,12 +56,19 @@ public sealed class CollisionSystem : EcsSystem
                 world.Commands.DestroyEntity(_bulletEntities[hitBulletIndex]);
                 world.Commands.DestroyEntity(entity.Entity);
                 world.Emit(new AsteroidDestroyed(size, position));
+                // A bullet can only kill once: without removing it here, a still-alive bullet
+                // sitting on top of a freshly-split, co-located pair could match both asteroids
+                // in this same loop and double its kill count.
+                _bulletEntities.RemoveAt(hitBulletIndex);
+                _bulletPositions.RemoveAt(hitBulletIndex);
                 return;
             }
 
-            if (shipPosition is { } ship && Vector3.DistanceSquared(position, ship) <= MathF.Pow(size.Radius() + ShipRadius, 2))
+            if (!shipHit && shipPosition is { } ship && Vector3.DistanceSquared(position, ship) <= MathF.Pow(size.Radius() + ShipRadius, 2))
             {
+                shipHit = true;
                 world.Commands.DestroyEntity(entity.Entity);
+                world.Commands.DestroyEntity(shipEntity!.Value);
                 world.Emit(new AsteroidDestroyed(size, position));
                 world.Emit(new ShipDestroyed());
             }

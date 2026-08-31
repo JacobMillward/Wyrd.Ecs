@@ -24,12 +24,18 @@ internal static class AsteroidSpawner
     {
         var angle = (float)(rng.NextDouble() * MathF.Tau);
         var speed = 40f + (float)rng.NextDouble() * 60f;
-        var velocity = new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f) * speed;
+        var direction = new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f);
         var spin = (float)(rng.NextDouble() * 2 - 1);
 
+        // SplitSystem spawns both children at their parent's exact death position. Offsetting
+        // along each one's own outward direction keeps a split pair from starting exactly
+        // co-located, which let a single lingering bullet clip both in the same tick and chain
+        // into more splits before either had moved away.
+        var spawnPosition = position + direction * size.Radius();
+
         commands.CreateEntity(template)
-            .AddComponent(new Transform { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One * size.Scale() })
-            .AddComponent(new Velocity { Value = velocity })
+            .AddComponent(new Transform { Position = spawnPosition, Rotation = Quaternion.Identity, Scale = Vector3.One * size.Scale() })
+            .AddComponent(new Velocity { Value = direction * speed })
             .AddComponent(new Spin { RadiansPerSecond = spin })
             .AddComponent(new Asteroid { Size = size })
             .AddComponent(new Sprite(SourceRect: null, Tint: size.Tint()));
