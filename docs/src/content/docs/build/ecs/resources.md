@@ -87,7 +87,7 @@ Declaring a public setter and then never assigning to it also warns (WYRD009). W
 
 ### On a plain EcsSystem
 
-`[Resource]` works on any `EcsSystem`, not only `QuerySystem`. Declare the property `partial` instead of a plain auto-property:
+On a plain `EcsSystem` subclass, declare a `partial` property:
 
 ```csharp
 public sealed partial class ShipControlSystem(World world) : EcsSystem

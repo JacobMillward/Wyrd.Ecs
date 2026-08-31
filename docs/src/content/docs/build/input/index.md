@@ -48,6 +48,31 @@ public sealed partial class MovementSystem : QuerySystem
 
 `IntentState<TAction>` is a resource, `IntentSystem<TAction>` (registered by `AddInput`) republishes it fresh every tick. `ActionState` carries `IsHeld`, `JustPressed`, `JustReleased`, and `Value` (the resolved `Vector2`, `UnitX` for a held digital action, the composite for an axis). `TryGet` returns `false` for an action nothing ever bound, the indexer (`Input[PlayerAction.Move]`) throws instead, use whichever fits the call site.
 
+### Reading edges from a fixed-timestep system
+
+`JustPressed`/`JustReleased` are recomputed fresh on every real `world.Update()` call, safe from a system running at the default cadence but not a `[FixedTimestep]` one, a fixed step doesn't line up one-to-one with real calls, so it can miss an edge or double-count it. Use `TickJustPressed`/`TickJustReleased` instead, from a `[FixedTimestep]` system:
+
+```csharp
+[FixedTimestep]
+public sealed partial class JumpSystem : QuerySystem
+{
+    [Resource] public IntentState<PlayerAction> Input { get; private set; }
+
+    protected override IQuery DefineQuery(Query query) => query.With<Velocity>();
+
+    public void Update(Time time, ref Velocity velocity)
+    {
+        if (Input[PlayerAction.Jump].TickJustPressed) velocity.Y = JumpSpeed;
+    }
+}
+```
+
+They accumulate across however many real calls land inside one fixed step, then clear exactly once per step, so a fast frame's burst of real calls before the next fixed step still registers the press.
+
+:::caution
+Reading `JustPressed`/`JustReleased` from a `[FixedTimestep]` system is a compile error (WYRD011), naming `TickJustPressed`/`TickJustReleased` as the fix.
+:::
+
 ## Mouse
 
 ```csharp
