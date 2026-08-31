@@ -94,11 +94,25 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         var collectedEcsSystemResources = ecsSystemResourceCandidates.Collect();
         var collectedResourceCalls = resourceCallCandidates.Collect();
         var collectedTrySingles = trySingleCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(collectedResourceCalls).Combine(collectedTrySingles).Combine(context.CompilationProvider);
+
+        // .Combine() only nests pairwise -- there's no wider-arity overload -- so adding a
+        // pipeline always means inserting one more .Combine() link here and one more field in
+        // the flattening .Select() below, both places, in matching order. That's an
+        // unavoidable cost of the API's shape; what this .Select() buys is confining the
+        // resulting parenthesis-depth bookkeeping to this one spot, instead of leaving it
+        // smeared across RegisterSourceOutput's own opening line (which would otherwise need
+        // a matching nested-tuple destructuring pattern every time a pipeline is added).
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(collectedResourceCalls).Combine(collectedTrySingles).Combine(context.CompilationProvider)
+            .Select(static (nested, _) =>
+            {
+                var (((((((chains, querySystems), edges), constructors), ecsSystemResources), resourceCalls), trySingles), compilation) = nested;
+                return (ChainResults: chains, QuerySystemResults: querySystems, EdgeResults: edges, ConstructorResults: constructors,
+                    EcsSystemResourceResults: ecsSystemResources, ResourceCallResults: resourceCalls, TrySingleResults: trySingles, Compilation: compilation);
+            });
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var (((((((chainResults, querySystemResults), edgeResults), constructorResults), ecsSystemResourceResults), resourceCallResults), trySingleResults), compilation) = input;
+            var (chainResults, querySystemResults, edgeResults, constructorResults, ecsSystemResourceResults, resourceCallResults, trySingleResults, compilation) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -223,7 +237,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         if (classSymbol.IsAbstract) return null;
         if (classSymbol.IsFileLocal) return null; // same reasoning as ExtractEdges: a file-local type can never be referenced from the separate generated file Construct lives in
         if (classSymbol.ContainingType is not null) return null; // nested classes not supported, same restriction and reason as QuerySystemCandidate: a private/protected nested type is inaccessible from the separate generated file Construct lives in
-        if (!InheritsFromEcsSystem(classSymbol)) return null;
+        if (!ChainWalker.InheritsFromEcsSystem(classSymbol)) return null;
 
         var location = classDecl.Identifier.GetLocation();
         var systemTypeName = classSymbol.ToDisplayString();
@@ -270,15 +284,6 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     private static bool ImplementsIResource(ITypeSymbol type) =>
         type.TypeKind == TypeKind.Struct
         && type.AllInterfaces.Any(i => i is { Name: "IResource", ContainingNamespace.Name: "Ecs" } && i.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");
-
-    /// <summary>True if <paramref name="type"/> derives (directly or transitively) from <c>Wyrd.Ecs.EcsSystem</c>.</summary>
-    private static bool InheritsFromEcsSystem(INamedTypeSymbol type)
-    {
-        for (var current = type.BaseType; current is not null; current = current.BaseType)
-            if (current is { Name: "EcsSystem", ContainingNamespace.Name: "Ecs" } && current.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
-                return true;
-        return false;
-    }
 
     /// <summary>One class declaration's discovered <c>[RunBefore]</c>/<c>[RunAfter]</c>/<c>[Phase]</c>/<c>[FixedTimestep]</c> edges/cadence, or <c>default</c> (filtered out by the <c>.Where</c> below) if it declares none.</summary>
     private readonly record struct EdgeResult(string? SystemTypeName, List<string> Before, List<string> After, bool IsFixedTimestep);
@@ -578,63 +583,45 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         ImmutableArray<ResourceCallCandidate> resourceCalls,
         ImmutableArray<TrySingleCandidate> trySingles)
     {
-        var accessFromChains = chains
+        // Every source flattened up front into one (SystemTypeName, TypeName, IsWrite) shape,
+        // then a single GroupBy/partition pass below -- rather than building several parallel
+        // lookups and re-deriving both the set of system names and each group's Reads/Writes
+        // from them separately. TypeName is null only for a QuerySystemCandidate whose shape
+        // has zero data elements and zero [Resource] properties (an edge case, but one that
+        // must still surface an entry with an empty Reads/Writes pair): filtered out below,
+        // after it's done its job of keeping that system's name in the grouping.
+        string QuerySystemName(QuerySystemCandidate s) => s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName;
+        string EcsSystemResourceName(EcsSystemResourceCandidate s) => s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName;
+
+        var fromChains = chains
             .Where(c => c.SystemTypeName is not null)
-            .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape))
-            .Concat(trySingles
-                .Where(c => c.SystemTypeName is not null)
-                .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape)));
-        var accessFromQuerySystems = querySystems
-            .Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape));
+            .Concat(trySingles.Where(c => c.SystemTypeName is not null).Select(c => new ChainEntry(c.Shape, c.SystemTypeName, null, false, ChainTerminalKind.Action, Location.None, false)))
+            .SelectMany(c => c.Shape.DataElements().Select(m => (SystemTypeName: c.SystemTypeName!, TypeName: (string?)m.ComponentTypeName, IsWrite: m.Kind == MarkerKind.Writes)));
 
-        // Every QuerySystemCandidate already contributes exactly one entry above, even one
-        // whose shape has zero data elements (an empty query with only [Resource]
-        // properties), so every QuerySystem lands in the GroupBy below with at least an
-        // empty Reads/Writes pair - resource access only needs a lookup merged into the
-        // existing Select, not a second pass for systems the grouping might otherwise miss.
-        var resourceAccessFromQuerySystems = querySystems
-            .SelectMany(s => s.ResourceProperties.Select(r => (
-                SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName,
-                r.ResourceTypeName,
-                r.IsWrite)))
-            .ToLookup(r => r.SystemTypeName);
+        var fromQuerySystemShapes = querySystems
+            .SelectMany(s => s.Shape.DataElements().DefaultIfEmpty()
+                .Select(m => (SystemTypeName: QuerySystemName(s), TypeName: (string?)m.ComponentTypeName, IsWrite: m.Kind == MarkerKind.Writes)));
 
-        // [Resource] partial properties on a plain EcsSystem: the equivalent of
-        // resourceAccessFromQuerySystems above, for EcsSystemResourceCandidate instead of
-        // QuerySystemCandidate. Merged into the same lookup key space so a system's declared
-        // [Resource] access reads the same way regardless of which glue path produced it.
-        var resourceAccessFromEcsSystems = ecsSystemResources
-            .SelectMany(s => s.ResourceProperties.Select(r => (
-                SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName,
-                r.ResourceTypeName,
-                r.IsWrite)))
-            .ToLookup(r => r.SystemTypeName);
+        var fromQuerySystemResources = querySystems
+            .SelectMany(s => s.ResourceProperties.Select(r => (SystemTypeName: QuerySystemName(s), TypeName: (string?)r.ResourceTypeName, r.IsWrite)));
 
-        var resourceCallsByType = resourceCalls.ToLookup(c => c.SystemTypeName);
+        var fromEcsSystemResources = ecsSystemResources
+            .SelectMany(s => s.ResourceProperties.Select(r => (SystemTypeName: EcsSystemResourceName(s), TypeName: (string?)r.ResourceTypeName, r.IsWrite)));
 
-        var systemTypeNames = accessFromChains.Select(c => c.SystemTypeName)
-            .Concat(accessFromQuerySystems.Select(s => s.SystemTypeName))
-            .Concat(resourceAccessFromEcsSystems.Select(g => g.Key))
-            .Concat(resourceCallsByType.Select(g => g.Key))
-            .Distinct();
+        var fromResourceCalls = resourceCalls
+            .Select(c => (SystemTypeName: c.SystemTypeName, TypeName: (string?)c.ResourceTypeName, c.IsWrite));
 
-        var accessByType = accessFromChains.Concat(accessFromQuerySystems).ToLookup(c => c.SystemTypeName);
-
-        return systemTypeNames
-            .Select(systemTypeName =>
+        return fromChains.Concat(fromQuerySystemShapes).Concat(fromQuerySystemResources).Concat(fromEcsSystemResources).Concat(fromResourceCalls)
+            .GroupBy(e => e.SystemTypeName)
+            .Select(g =>
             {
-                var shapeEntries = accessByType[systemTypeName];
-                var resourceEntries = resourceAccessFromQuerySystems[systemTypeName].Concat(resourceAccessFromEcsSystems[systemTypeName]);
-                var callEntries = resourceCallsByType[systemTypeName];
-                var reads = shapeEntries.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Reads).Select(m => m.ComponentTypeName))
-                    .Concat(resourceEntries.Where(r => !r.IsWrite).Select(r => r.ResourceTypeName))
-                    .Concat(callEntries.Where(c => !c.IsWrite).Select(c => c.ResourceTypeName))
-                    .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
-                var writes = shapeEntries.SelectMany(c => c.Shape.DataElements().Where(m => m.Kind == MarkerKind.Writes).Select(m => m.ComponentTypeName))
-                    .Concat(resourceEntries.Where(r => r.IsWrite).Select(r => r.ResourceTypeName))
-                    .Concat(callEntries.Where(c => c.IsWrite).Select(c => c.ResourceTypeName))
-                    .Distinct().OrderBy(n => n, System.StringComparer.Ordinal).ToList();
-                return (SystemTypeName: systemTypeName, Reads: reads, Writes: writes);
+                var reads = new List<string>();
+                var writes = new List<string>();
+                foreach (var (typeName, isWrite) in g.Where(e => e.TypeName is not null).Select(e => (e.TypeName!, e.IsWrite)).Distinct())
+                    (isWrite ? writes : reads).Add(typeName);
+                reads.Sort(System.StringComparer.Ordinal);
+                writes.Sort(System.StringComparer.Ordinal);
+                return (SystemTypeName: g.Key, Reads: reads, Writes: writes);
             })
             .ToList();
     }
@@ -770,7 +757,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     {
         if (semanticModel.GetDeclaredSymbol(classDecl, ct) is not INamedTypeSymbol classSymbol) return null;
         if (classSymbol.ContainingType is not null) return null; // nested classes not supported, same reason as QuerySystemCandidate
-        if (!InheritsFromEcsSystem(classSymbol)) return null;
+        if (!ChainWalker.InheritsFromEcsSystem(classSymbol)) return null;
         // QuerySystem already owns its own [Resource] properties via the fetch-once/writeback-once
         // path in RenderQuerySystemGlue -- skip it here so the two glue emissions never collide.
         if (classSymbol.BaseType is { Name: "QuerySystem" } qs && qs.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs") return null;

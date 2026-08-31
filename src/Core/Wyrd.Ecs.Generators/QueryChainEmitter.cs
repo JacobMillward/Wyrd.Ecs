@@ -207,6 +207,27 @@ internal static class QueryChainEmitter
         sb.AppendLine();
     }
 
+    /// <summary>
+    /// Opens a `partial class {className}` part supplying generated glue for a
+    /// consumer-declared class -- shared by <see cref="RenderQuerySystemGlue"/> and
+    /// <see cref="RenderEcsSystemResourceGlue"/>, whose only difference is what goes inside
+    /// the braces. Caller still owns closing `sb.AppendLine("}")`.
+    /// </summary>
+    private static void AppendPartialClassHeader(StringBuilder sb, string ns, string className)
+    {
+        sb.AppendLine("using Wyrd.Ecs;");
+        sb.AppendLine();
+
+        if (ns.Length > 0)
+        {
+            sb.AppendLine($"namespace {ns};");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"partial class {className}");
+        sb.AppendLine("{");
+    }
+
     /// <summary>Declares <paramref name="spec"/>'s own/no-uniform delegate pair. Not called for <see cref="TerminalSpec.Parallel"/>: it reuses <see cref="TerminalSpec.Action"/>'s delegates, declared by whichever <see cref="RenderForEachOverload"/> call ran for this shape.</summary>
     private static void AppendDelegates(StringBuilder sb, QueryShape shape, TerminalSpec spec)
     {
@@ -547,18 +568,7 @@ internal static class QueryChainEmitter
         var dataElements = candidate.Shape.OwnDataElements();
 
         var sb = new StringBuilder();
-        sb.AppendLine("using Wyrd.Ecs;");
-        sb.AppendLine();
-
-        var hasNamespace = candidate.Namespace.Length > 0;
-        if (hasNamespace)
-        {
-            sb.AppendLine($"namespace {candidate.Namespace};");
-            sb.AppendLine();
-        }
-
-        sb.AppendLine($"partial class {candidate.ClassName}");
-        sb.AppendLine("{");
+        AppendPartialClassHeader(sb, candidate.Namespace, candidate.ClassName);
 
         if (candidate.HasEntityViewParameter)
             AppendEntityViewExecute(sb, candidate, dataElements);
@@ -580,18 +590,7 @@ internal static class QueryChainEmitter
     internal static string RenderEcsSystemResourceGlue(EcsSystemResourceCandidate candidate)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("using Wyrd.Ecs;");
-        sb.AppendLine();
-
-        var hasNamespace = candidate.Namespace.Length > 0;
-        if (hasNamespace)
-        {
-            sb.AppendLine($"namespace {candidate.Namespace};");
-            sb.AppendLine();
-        }
-
-        sb.AppendLine($"partial class {candidate.ClassName}");
-        sb.AppendLine("{");
+        AppendPartialClassHeader(sb, candidate.Namespace, candidate.ClassName);
         foreach (var r in candidate.ResourceProperties)
         {
             sb.AppendLine($"    public partial {r.ResourceTypeName} {r.PropertyName}");

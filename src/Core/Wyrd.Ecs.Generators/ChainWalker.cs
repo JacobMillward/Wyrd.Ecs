@@ -256,6 +256,20 @@ internal static class ChainWalker
         return original.Name == "Query" && original.Arity is 0 or 1 && original.ContainingNamespace?.ToDisplayString() == "Wyrd.Ecs";
     }
 
+    /// <summary>
+    /// True if <paramref name="type"/> derives (directly or transitively) from
+    /// <c>Wyrd.Ecs.EcsSystem</c>. Shared by the generator's own candidate extraction (e.g.
+    /// constructor-shape/resource-glue discovery) and the diagnostics analyzers that need the
+    /// same check (e.g. <c>UnusedResourceWriteAnalyzer</c>) -- one walk, not one per caller.
+    /// </summary>
+    internal static bool InheritsFromEcsSystem(INamedTypeSymbol type)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+            if (current is { Name: "EcsSystem", ContainingNamespace.Name: "Ecs" } && current.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
+                return true;
+        return false;
+    }
+
     /// <summary>The invoked method's simple name, for an invocation shaped `receiver.Name(...)`, or <c>null</c> for any other call shape.</summary>
     internal static string? TryGetInvokedMethodName(InvocationExpressionSyntax invocation) =>
         invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: var name } } ? name : null;

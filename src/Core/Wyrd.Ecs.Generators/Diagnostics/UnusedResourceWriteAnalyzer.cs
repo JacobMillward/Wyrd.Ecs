@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Wyrd.Ecs.Generators;
 
 namespace Wyrd.Ecs.Generators.Diagnostics;
 
@@ -31,7 +32,7 @@ public sealed class UnusedResourceWriteAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (!InheritsFromEcsSystem(type)) return;
+        if (!ChainWalker.InheritsFromEcsSystem(type)) return;
 
         var writableResourceProperties = type.GetMembers().OfType<IPropertySymbol>()
             .Where(p => HasResourceAttribute(p) && p.SetMethod is { DeclaredAccessibility: Accessibility.Public })
@@ -64,12 +65,4 @@ public sealed class UnusedResourceWriteAnalyzer : DiagnosticAnalyzer
 
     private static bool HasResourceAttribute(IPropertySymbol property) =>
         property.GetAttributes().Any(a => a.AttributeClass is { Name: "ResourceAttribute", ContainingNamespace.Name: "Ecs" } ac && ac.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs");
-
-    private static bool InheritsFromEcsSystem(INamedTypeSymbol type)
-    {
-        for (var current = type.BaseType; current is not null; current = current.BaseType)
-            if (current is { Name: "EcsSystem", ContainingNamespace.Name: "Ecs" } && current.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs")
-                return true;
-        return false;
-    }
 }
