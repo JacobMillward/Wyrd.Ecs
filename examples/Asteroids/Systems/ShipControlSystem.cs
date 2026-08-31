@@ -40,33 +40,28 @@ public sealed partial class ShipControlSystem : EcsSystem
 
         var dt = (float)time.Delta.TotalSeconds;
 
-        world.Query().With<Ship, Transform, Velocity>().ForEach((EntityView entity, ref Ship ship, ref Transform transform, ref Velocity velocity) =>
+        if (!world.Query().WithMut<Ship, Transform, Velocity>().TrySingle(out var row)) return;
+
+        var turn = (Input[GameAction.TurnRight].IsHeld ? 1f : 0f) - (Input[GameAction.TurnLeft].IsHeld ? 1f : 0f);
+        row.Ship.Heading += TurnRate * turn * dt;
+        row.Transform.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, row.Ship.Heading.Radians);
+
+        var thrusting = Input[GameAction.Thrust].IsHeld;
+        if (thrusting)
         {
-            var turn = (Input[GameAction.TurnRight].IsHeld ? 1f : 0f) - (Input[GameAction.TurnLeft].IsHeld ? 1f : 0f);
-            ship.Heading += TurnRate * turn * dt;
-            transform.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, ship.Heading.Radians);
+            var forward = new Vector3(MathF.Cos(row.Ship.Heading.Radians), MathF.Sin(row.Ship.Heading.Radians), 0f);
+            row.Velocity.Value += forward * ThrustAcceleration * dt;
+            if (row.Velocity.Value.LengthSquared() > MaxSpeed * MaxSpeed)
+                row.Velocity.Value = Vector3.Normalize(row.Velocity.Value) * MaxSpeed;
+        }
 
-            var thrusting = Input[GameAction.Thrust].IsHeld;
-            if (thrusting)
-            {
-                var forward = new Vector3(MathF.Cos(ship.Heading.Radians), MathF.Sin(ship.Heading.Radians), 0f);
-                velocity.Value += forward * ThrustAcceleration * dt;
-                if (velocity.Value.LengthSquared() > MaxSpeed * MaxSpeed)
-                    velocity.Value = Vector3.Normalize(velocity.Value) * MaxSpeed;
-            }
+        if (world.Query().WithMut<Sprite>().Has<EngineFlame>().TrySingle(out var flameRow))
+            flameRow.Sprite = flameRow.Sprite with { Tint = flameRow.Sprite.Tint with { A = thrusting ? 1f : 0f } };
 
-            foreach (var child in entity.Children())
-            {
-                if (!world.HasTag<EngineFlame>(child)) continue;
-                ref var flameSprite = ref world.GetComponent<Sprite>(child);
-                flameSprite = flameSprite with { Tint = flameSprite.Tint with { A = thrusting ? 1f : 0f } };
-            }
-
-            if (thrusting && !_wasThrusting)
-                _engineLoop = Audio.Play(Assets.EngineSound, Audio.CustomBus("Engine"), loop: true);
-            else if (!thrusting && _wasThrusting && _engineLoop is { } loop)
-                Audio.Stop(loop);
-            _wasThrusting = thrusting;
-        });
+        if (thrusting && !_wasThrusting)
+            _engineLoop = Audio.Play(Assets.EngineSound, Audio.CustomBus("Engine"), loop: true);
+        else if (!thrusting && _wasThrusting && _engineLoop is { } loop)
+            Audio.Stop(loop);
+        _wasThrusting = thrusting;
     }
 }
