@@ -460,9 +460,9 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// Groups every discovered shape by <see cref="QueryShape.ExactShapeTypeName"/>.
     /// Since <c>.Without</c>/<c>.Has</c>/<c>.Any</c> don't affect <c>TShape</c>, two
     /// otherwise-unrelated queries can share the exact same closed <c>Query&lt;TShape&gt;</c>
-    /// type while resolving different ref/in markers for it. Rather than erroring on that
-    /// (the old WYRD003 behavior), every distinct variant is kept, for interceptor
-    /// targeting (an internal detail of this method -- see below for why it isn't returned).
+    /// type while resolving different ref/in markers for it. Rather than erroring on that,
+    /// every distinct variant is kept, for interceptor targeting (an internal detail of
+    /// this method -- see below for why it isn't returned).
     ///
     /// <c>Canonical</c> is the single public overload every call site for that exact type
     /// name binds to. **When only one distinct variant exists for a type name (the common,
