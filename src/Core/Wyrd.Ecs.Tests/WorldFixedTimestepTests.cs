@@ -23,7 +23,7 @@ public class WorldFixedTimestepTests
     [Fact]
     public void ConfiguredFixedTimestep_StepsTheExpectedNumberOfTimes()
     {
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(0.1));
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(0.1)).WithMaxDelta(TimeSpan.FromSeconds(1));
         builder.AddSystemCore(typeof(FixedStepCountingSystem), access: null, _ => new FixedStepCountingSystem(), [], [], cadence: SystemCadence.Fixed);
         var world = builder.Build();
 
@@ -36,7 +36,11 @@ public class WorldFixedTimestepTests
     [Fact]
     public void OversizedDelta_ClampsToMaxSubstepsPerUpdate_AndDoesNotBacklogAcrossCalls()
     {
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(0.1), maxSubstepsPerUpdate: 3);
+        // WithMaxDelta(10s): this test proves maxSubstepsPerUpdate is what clamps the
+        // oversized delta, so the max-delta clamp (World.Update's own first line) must not
+        // be the one doing the clamping here instead - it needs enough headroom to pass the
+        // full 10s through untouched.
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(0.1), maxSubstepsPerUpdate: 3).WithMaxDelta(TimeSpan.FromSeconds(10));
         builder.AddSystemCore(typeof(FixedStepCountingSystem), access: null, _ => new FixedStepCountingSystem(), [], [], cadence: SystemCadence.Fixed);
         var world = builder.Build();
 

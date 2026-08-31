@@ -47,7 +47,7 @@ public class TransformSnapshotOrderingTests
         // AddSystem<T>() returns SystemRegistration (for further .Before<T>()/.After<T>()
         // chaining), not WorldBuilder, so it can't chain directly into AddTransformSystem();
         // registering as two statements against the same builder instance instead.
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).WithMaxDelta(TimeSpan.FromSeconds(1));
         builder.AddSystem<MovesTransformEachFixedStep>();
         var world = builder.AddTransformSystem().Build();
         var entity = world.Commands.CreateEntity().AddTransform(Transform.Identity);

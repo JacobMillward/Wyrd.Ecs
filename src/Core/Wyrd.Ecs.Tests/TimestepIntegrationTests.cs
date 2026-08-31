@@ -49,7 +49,7 @@ public class TimestepIntegrationTests
     [Fact]
     public void FixedCadenceSystem_RunsUnderTheDefaultBuilderWithNoOrderingEdgesAtAll()
     {
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).AddSystem<TimestepIntegrationFixedPhysicsSystem>();
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).WithMaxDelta(TimeSpan.FromSeconds(1)).AddSystem<TimestepIntegrationFixedPhysicsSystem>();
         var world = builder.Build();
 
         world.Update(TimeSpan.FromSeconds(1));

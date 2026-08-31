@@ -49,7 +49,7 @@ public class TeleportTests
     [Fact]
     public void Teleport_ThenGetInterpolatedWorldTransform_RendersTheNewValueExactlyWithNoBlend()
     {
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).WithMaxDelta(TimeSpan.FromSeconds(3));
         builder.AddSystem<MovesTransformEachFixedStep>();
         var world = builder.AddTransformSystem().Build();
         var entity = world.Commands.CreateEntity().AddTransform(Transform.Identity);

@@ -33,17 +33,19 @@ public sealed partial class World
 {
     private readonly CommandBuffer _commands;
 
-    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/> and a default 1/60s fixed timestep. Use <see cref="WorldBuilder"/> to configure it.</summary>
-    public World() : this(DefaultArchetypeCapacity, new ParallelSystemScheduler(1000), TimeSpan.FromSeconds(1.0 / 60.0), 5) { }
+    /// <summary>Creates a new, empty world with <see cref="DefaultArchetypeCapacity"/>, a default 1/60s fixed timestep, and a default 250ms max delta. Use <see cref="WorldBuilder"/> to configure it.</summary>
+    public World() : this(DefaultArchetypeCapacity, new ParallelSystemScheduler(1000), TimeSpan.FromSeconds(1.0 / 60.0), 5, TimeSpan.FromMilliseconds(250)) { }
 
-    internal World(int archetypeCapacity, ISystemScheduler executor, TimeSpan fixedStep, int maxSubstepsPerUpdate)
+    internal World(int archetypeCapacity, ISystemScheduler executor, TimeSpan fixedStep, int maxSubstepsPerUpdate, TimeSpan maxDelta)
     {
-        // Both callers already validate these; checked again here since the invariant belongs
+        // All callers already validate these; checked again here since the invariant belongs
         // on the constructor, not on trusting every call site.
         if (fixedStep <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(fixedStep), fixedStep, "Fixed timestep must be positive.");
         if (maxSubstepsPerUpdate <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxSubstepsPerUpdate), maxSubstepsPerUpdate, "maxSubstepsPerUpdate must be positive.");
+        if (maxDelta <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(maxDelta), maxDelta, "Max delta must be positive.");
 
         _archetypeCapacity = archetypeCapacity;
         _emptyArchetype = new Archetype(TypeBitSet.Empty, archetypeCapacity);
@@ -52,6 +54,7 @@ public sealed partial class World
         _executor = executor;
         _fixedStep = fixedStep;
         _maxSubstepsPerUpdate = maxSubstepsPerUpdate;
+        _maxDelta = maxDelta;
     }
 
     /// <summary>The built-in deferred-mutation buffer for structural changes. See <see cref="CommandBuffer"/>.</summary>

@@ -44,6 +44,7 @@ public class SnapshotOrderingTests
                 // if the auto-injected edge actually overrides that tie-break.
                 var world = new WorldBuilder()
                     .WithFixedTimestep(TimeSpan.FromSeconds(1))
+                    .WithMaxDelta(TimeSpan.FromSeconds(1))
                     .AddSystem<WriterSystem>()
                     .AddSystem<SnapshotSystem>()
                     .Build();

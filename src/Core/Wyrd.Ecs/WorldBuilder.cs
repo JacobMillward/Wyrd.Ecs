@@ -19,6 +19,7 @@ public sealed class WorldBuilder
     private bool _built;
     private TimeSpan _fixedStep = TimeSpan.FromSeconds(1.0 / 60.0);
     private int _maxSubstepsPerUpdate = 5;
+    private TimeSpan _maxDelta = TimeSpan.FromMilliseconds(250);
 
     /// <summary>
     /// Sets the entity capacity every archetype's dense arrays start at and never shrink
@@ -59,7 +60,7 @@ public sealed class WorldBuilder
         var sortedPending = SortByConstructionDependency(_pending);
 
         var scheduler = _scheduler ?? new ParallelSystemScheduler(_parallelThreshold);
-        var world = new World(_archetypeCapacity, scheduler, _fixedStep, _maxSubstepsPerUpdate);
+        var world = new World(_archetypeCapacity, scheduler, _fixedStep, _maxSubstepsPerUpdate, _maxDelta);
         foreach (var (_, apply) in _pendingResources) apply(world);
         scheduler.InitialRegister(sortedPending, world);
 
@@ -239,6 +240,26 @@ public sealed class WorldBuilder
 
         _fixedStep = step;
         _maxSubstepsPerUpdate = maxSubstepsPerUpdate;
+        return this;
+    }
+
+    /// <summary>
+    /// Bounds the raw delta any call to <see cref="World.Update"/> can pass on to the
+    /// fixed-step accumulator and <see cref="World.RealTime"/> alike, clamped before either
+    /// sees it. Defaults to <c>250ms</c>, matching Bevy's <c>Time&lt;Virtual&gt;::set_max_delta</c>
+    /// default - the only documented default among the surveyed engines that clamp raw delta
+    /// itself (Unity's <c>Time.maximumDeltaTime</c> only bounds fixed-step catch-up). Protects
+    /// a debugger breakpoint, a window drag-resize stall, or any other multi-second hitch from
+    /// reaching gameplay code as one enormous <see cref="Time.Delta"/> - applies to every
+    /// caller of <see cref="World.Update"/>, not just <c>World.Run</c>.
+    /// </summary>
+    public WorldBuilder WithMaxDelta(TimeSpan maxDelta)
+    {
+        ThrowIfAlreadyBuilt();
+        if (maxDelta <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(maxDelta), maxDelta, "Max delta must be positive.");
+
+        _maxDelta = maxDelta;
         return this;
     }
 

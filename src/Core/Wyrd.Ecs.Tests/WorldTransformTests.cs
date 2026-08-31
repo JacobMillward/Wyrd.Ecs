@@ -56,7 +56,7 @@ public class WorldTransformTests
         // auto-injected edge, not a lucky tie-break. AddSystem<T>() returns
         // SystemRegistration, not WorldBuilder, so it can't chain directly into
         // AddTransformSystem(); registering as two statements instead.
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).WithMaxDelta(TimeSpan.FromSeconds(3));
         builder.AddSystem<MovesTransformEachFixedStep>();
         var world = builder.AddTransformSystem().Build();
         var entity = world.Commands.CreateEntity().AddTransform(Transform.Identity);
@@ -96,7 +96,7 @@ public class WorldTransformTests
     [Fact]
     public void GetInterpolatedWorldTransform_StaticChildOfAMovingDynamicParent_OnlyTheParentLinkInterpolates()
     {
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).WithMaxDelta(TimeSpan.FromSeconds(3));
         builder.AddSystem<MovesDynamicTransformEachFixedStep>();
         var world = builder.AddTransformSystem().Build();
 
@@ -119,7 +119,7 @@ public class WorldTransformTests
     [Fact]
     public void GetInterpolatedWorldTransform_DynamicChildOfAStaticParent_OnlyTheChildLinkInterpolates()
     {
-        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1));
+        var builder = new WorldBuilder().WithFixedTimestep(TimeSpan.FromSeconds(1)).WithMaxDelta(TimeSpan.FromSeconds(3));
         builder.AddSystem<MovesDynamicTransformEachFixedStep>();
         var world = builder.AddTransformSystem().Build();
 

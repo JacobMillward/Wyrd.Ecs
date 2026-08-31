@@ -18,7 +18,7 @@ public class ParallelSystemSchedulerCadenceTests
     public void FixedAndVariableEntries_ArePlacedInIndependentStagePartitions()
     {
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5, TimeSpan.FromMilliseconds(250));
 
         var fixedEntry = new SystemEntry { SystemType = typeof(SchedulerFixedProbeSystem), Construct = w => new SchedulerFixedProbeSystem(), Cadence = SystemCadence.Fixed };
         var variableEntry = new SystemEntry { SystemType = typeof(SchedulerVariableProbeSystem), Construct = w => new SchedulerVariableProbeSystem(), Cadence = SystemCadence.Variable };
@@ -44,7 +44,7 @@ public class ParallelSystemSchedulerCadenceTests
     public void RunStages_WithFixedCadence_OnlyInvokesFixedCadenceSystems()
     {
         var scheduler = new ParallelSystemScheduler(parallelThreshold: 1000);
-        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5);
+        var world = new World(World.DefaultArchetypeCapacity, scheduler, TimeSpan.FromSeconds(1.0 / 60.0), 5, TimeSpan.FromMilliseconds(250));
 
         var fixedEntry = new SystemEntry { SystemType = typeof(SchedulerFixedProbeSystem), Construct = w => new SchedulerFixedProbeSystem(), Cadence = SystemCadence.Fixed };
         var variableEntry = new SystemEntry { SystemType = typeof(SchedulerVariableProbeSystem), Construct = w => new SchedulerVariableProbeSystem(), Cadence = SystemCadence.Variable };

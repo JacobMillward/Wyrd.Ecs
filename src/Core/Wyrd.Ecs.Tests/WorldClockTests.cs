@@ -9,10 +9,12 @@ public class WorldClockTests
         world.Pause();
         world.TimeScale = 0.5;
 
-        world.Update(TimeSpan.FromSeconds(1));
-        world.Update(TimeSpan.FromSeconds(2));
+        // Deltas kept under the default 250ms max delta (see Update_DefaultMaxDelta_ below):
+        // this test is about Pause/TimeScale not affecting RealTime, not about the clamp.
+        world.Update(TimeSpan.FromMilliseconds(100));
+        world.Update(TimeSpan.FromMilliseconds(150));
 
-        world.RealTime.Elapsed.Should().Be(TimeSpan.FromSeconds(3));
+        world.RealTime.Elapsed.Should().Be(TimeSpan.FromMilliseconds(250));
     }
 
     [Fact]
@@ -64,5 +66,35 @@ public class WorldClockTests
         // is that concurrent access never throws and TimeScale always reads back one of the
         // values actually written, never a torn/corrupted one.
         new[] { 1.0, 2.0, 3.0, 4.0, 5.0 }.Should().Contain(world.TimeScale);
+    }
+
+    [Fact]
+    public void Update_ClampsAnOversizedDeltaToTheConfiguredMaxDelta()
+    {
+        var world = new WorldBuilder().WithMaxDelta(TimeSpan.FromMilliseconds(250)).Build();
+
+        world.Update(TimeSpan.FromSeconds(10));
+
+        world.RealTime.Elapsed.Should().Be(TimeSpan.FromMilliseconds(250));
+    }
+
+    [Fact]
+    public void Update_DefaultMaxDelta_ClampsAtTwoHundredFiftyMilliseconds()
+    {
+        var world = new World();
+
+        world.Update(TimeSpan.FromSeconds(10));
+
+        world.RealTime.Elapsed.Should().Be(TimeSpan.FromMilliseconds(250));
+    }
+
+    [Fact]
+    public void Update_BelowMaxDelta_PassesThroughUnclamped()
+    {
+        var world = new WorldBuilder().WithMaxDelta(TimeSpan.FromMilliseconds(250)).Build();
+
+        world.Update(TimeSpan.FromMilliseconds(16));
+
+        world.RealTime.Elapsed.Should().Be(TimeSpan.FromMilliseconds(16));
     }
 }

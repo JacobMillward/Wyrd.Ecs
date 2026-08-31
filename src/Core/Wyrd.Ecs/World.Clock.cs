@@ -14,6 +14,7 @@ public sealed partial class World
 
     private readonly TimeSpan _fixedStep;
     private readonly int _maxSubstepsPerUpdate;
+    private readonly TimeSpan _maxDelta;
     private TimeSpan _accumulator;
     private TimeSpan _virtualElapsed;
 
@@ -98,6 +99,7 @@ public sealed partial class World
     /// </summary>
     public void Update(TimeSpan delta)
     {
+        delta = Min(delta, _maxDelta);
         AdvanceTick();
         RealTime = new Time(delta, RealTime.Elapsed + delta);
 

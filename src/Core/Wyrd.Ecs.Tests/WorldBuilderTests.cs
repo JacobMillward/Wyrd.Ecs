@@ -69,6 +69,27 @@ public class WorldBuilderTests
     }
 
     [Fact]
+    public void WithMaxDelta_NonPositive_Throws()
+    {
+        var builder = new WorldBuilder();
+
+        var act = () => builder.WithMaxDelta(TimeSpan.Zero);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void WithMaxDelta_AfterBuild_Throws()
+    {
+        var builder = new WorldBuilder();
+        builder.Build();
+
+        var act = () => builder.WithMaxDelta(TimeSpan.FromMilliseconds(100));
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*already built*");
+    }
+
+    [Fact]
     public void OnBuilt_IsInvokedOnceWithTheConstructedWorld_AfterBuildReturns()
     {
         var builder = new WorldBuilder();
