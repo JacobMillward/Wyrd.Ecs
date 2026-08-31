@@ -17,11 +17,11 @@ public sealed partial class ResetSystem : EcsSystem
     {
         if (!Input[GameAction.Reset].JustPressed) return;
 
-        world.Query().Has<Bullet>().ForEach((EntityView entity) => entity.DestroyEntity());
-        world.Query().Has<Asteroid>().ForEach((EntityView entity) => entity.DestroyEntity());
+        foreach (var row in world.Query().Has<Bullet>()) row.DestroyEntity();
+        foreach (var row in world.Query().Has<Asteroid>()) row.DestroyEntity();
         // The ship may already be gone (collision) or still alive (R pressed mid-run).
         // Destroy-then-recreate covers both without needing to distinguish them.
-        world.Query().Has<Ship>().ForEach((EntityView entity) => entity.DestroyEntity());
+        foreach (var row in world.Query().Has<Ship>()) row.DestroyEntity();
 
         world.Query().With<Score>().ForEach((ref Score score) => score.Value = 0);
 

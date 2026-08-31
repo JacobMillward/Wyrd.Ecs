@@ -18,29 +18,23 @@ public sealed class CollisionSystem : EcsSystem
     {
         _bulletEntities.Clear();
         _bulletPositions.Clear();
-        world.Query().With<Transform>().Has<Bullet>().ForEach((EntityView entity, in Transform transform) =>
+        foreach (var row in world.Query().With<Transform>().Has<Bullet>())
         {
-            _bulletEntities.Add(entity.Entity);
-            _bulletPositions.Add(transform.Position);
-        });
+            _bulletEntities.Add(row.Entity);
+            _bulletPositions.Add(row.Transform.Position);
+        }
 
-        Entity? shipEntity = null;
-        Vector3? shipPosition = null;
-        world.Query().With<Transform>().Has<Ship>().ForEach((EntityView entity, in Transform transform) =>
-        {
-            shipEntity = entity.Entity;
-            shipPosition = transform.Position;
-        });
+        var hasShip = world.Query().With<Transform>().Has<Ship>().TrySingle(out var shipRow);
 
         // One ship, one life: guards against a single tick finding more than one asteroid
         // already overlapping the ship (e.g. two halves of a just-split pair) and queuing a
         // second DestroyEntity(ship)/ShipDestroyed for an already-dead ship.
         var shipHit = false;
 
-        world.Query().With<Transform>().With<Asteroid>().ForEach((EntityView entity, in Transform transform, in Asteroid asteroid) =>
+        foreach (var row in world.Query().With<Transform>().With<Asteroid>())
         {
-            var position = transform.Position;
-            var size = asteroid.Size;
+            var position = row.Transform.Position;
+            var size = row.Asteroid.Size;
             var hitRadiusSquared = MathF.Pow(size.Radius() + BulletRadius, 2);
 
             var hitBulletIndex = -1;
@@ -54,24 +48,24 @@ public sealed class CollisionSystem : EcsSystem
             if (hitBulletIndex >= 0)
             {
                 world.Commands.DestroyEntity(_bulletEntities[hitBulletIndex]);
-                world.Commands.DestroyEntity(entity.Entity);
+                row.DestroyEntity();
                 world.Emit(new AsteroidDestroyed(size, position));
                 // A bullet can only kill once: without removing it here, a still-alive bullet
                 // sitting on top of a freshly-split, co-located pair could match both asteroids
                 // in this same loop and double its kill count.
                 _bulletEntities.RemoveAt(hitBulletIndex);
                 _bulletPositions.RemoveAt(hitBulletIndex);
-                return;
+                continue;
             }
 
-            if (!shipHit && shipPosition is { } ship && Vector3.DistanceSquared(position, ship) <= MathF.Pow(size.Radius() + ShipRadius, 2))
+            if (!shipHit && hasShip && Vector3.DistanceSquared(position, shipRow.Transform.Position) <= MathF.Pow(size.Radius() + ShipRadius, 2))
             {
                 shipHit = true;
-                world.Commands.DestroyEntity(entity.Entity);
-                world.Commands.DestroyEntity(shipEntity!.Value);
+                row.DestroyEntity();
+                shipRow.DestroyEntity();
                 world.Emit(new AsteroidDestroyed(size, position));
                 world.Emit(new ShipDestroyed());
             }
-        });
+        }
     }
 }
