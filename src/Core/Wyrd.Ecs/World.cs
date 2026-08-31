@@ -24,6 +24,7 @@ namespace Wyrd.Ecs;
 /// <item><c>World.Transform.cs</c> — transform propagation</item>
 /// <item><c>World.Resources.cs</c> — resource storage</item>
 /// <item><c>World.Debug.cs</c> — debug introspection</item>
+/// <item><c>World.Run.cs</c> — the Exit event, RequestExit, and the Run main loop</item>
 /// </list>
 /// Each partial owns the fields only it gives meaning to; cross-concern access stays legal
 /// (one class) but a concern's state lives in its concern's file.
