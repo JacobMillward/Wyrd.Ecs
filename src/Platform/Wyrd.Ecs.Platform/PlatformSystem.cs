@@ -55,6 +55,9 @@ public sealed class PlatformSystem : EcsSystem
             _events.Add(ev);
             switch ((SDL.EventType)ev.Type)
             {
+                case SDL.EventType.Quit:
+                    world.RequestExit();
+                    break;
                 case SDL.EventType.KeyboardAdded:
                     world.Emit(new DeviceChange(new DeviceId(ev.KDevice.Which), DeviceKind.Keyboard, DeviceChangeKind.Connected));
                     connected._devicesById[new DeviceId(ev.KDevice.Which)] = DeviceKind.Keyboard;

@@ -102,6 +102,21 @@ public class PlatformSystemTests
         reader.Read().Should().ContainSingle(c => c.DeviceId == new DeviceId(77) && c.DeviceKind == expectedKind && c.Change == expectedChange);
     }
 
+    [Fact]
+    public void Update_OnSdlQuitEvent_RequestsExit()
+    {
+        var world = new WorldBuilder()
+            .AddWindow("Test Window", 320, 240, SDL.WindowFlags.Hidden)
+            .Build();
+        var reader = world.CreateEventReader<Exit>();
+        var pushed = new SDL.Event { Type = (uint)SDL.EventType.Quit };
+        SDL.PushEvent(ref pushed);
+
+        world.Update(TimeSpan.Zero);
+
+        reader.Read().Should().ContainSingle(e => e.Code == 0);
+    }
+
     [Theory]
     [InlineData(SDL.EventType.AudioDeviceAdded, DeviceChangeKind.Connected)]
     [InlineData(SDL.EventType.AudioDeviceRemoved, DeviceChangeKind.Disconnected)]
