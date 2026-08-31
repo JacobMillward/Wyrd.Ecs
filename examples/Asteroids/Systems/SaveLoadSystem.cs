@@ -24,8 +24,7 @@ public sealed partial class SaveLoadSystem : EcsSystem
             // The title bar is the game's only score readout. ScoreSystem only refreshes it on
             // AsteroidDestroyed events, and Load doesn't emit any, so without this it would keep
             // showing whatever it said pre-load (a stale score, or stale "Game Over" text).
-            var score = 0;
-            world.Query().With<Score>().ForEach((in Score s) => score = s.Value);
+            var score = world.Query().With<Score>().TrySingle(out var row) ? row.Score.Value : 0;
             SDL.SetWindowTitle(world.GetSystem<PlatformSystem>().Window, $"Asteroids - Score {score}");
         }
     }

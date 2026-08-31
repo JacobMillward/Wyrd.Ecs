@@ -48,8 +48,7 @@ public sealed class GameOverSystem : EcsSystem
         world.TimeScale = 1.0;
         world.Pause();
 
-        var score = 0;
-        world.Query().With<Score>().ForEach((in Score s) => score = s.Value);
+        var score = world.Query().With<Score>().TrySingle(out var row) ? row.Score.Value : 0;
         SDL.SetWindowTitle(world.GetSystem<PlatformSystem>().Window, $"Asteroids - Game Over - Score {score} - L to reload a save");
     }
 }
