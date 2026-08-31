@@ -85,10 +85,24 @@ public class QueryChainGeneratorSystemAccessTests
             }
         }
 
+        // Position is also used via MultiQuerySystem's .ForEach() above: this shares that
+        // shape's backend rather than needing its own, exercising the guard in
+        // EmitTrySingleOverloads that skips re-emitting an already-covered backend.
+        public sealed class TrySinglePositionSystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time)
+            {
+                if (world.Query().With<Position>().TrySingle(out var position)) { }
+            }
+        }
+
         public static class Harness
         {
             public static Type[] HelperMethodWrites() =>
                 new List<Type>(SystemRegistry.Access[typeof(HelperMethodSystem)].Writes).ToArray();
+
+            public static Type[] TrySinglePositionReads() =>
+                new List<Type>(SystemRegistry.Access[typeof(TrySinglePositionSystem)].Reads).ToArray();
 
             public static Type[] DeclaredResourceWrites() =>
                 new List<Type>(SystemRegistry.Access[typeof(DeclaredResourceSystem)].Writes).ToArray();
@@ -115,7 +129,7 @@ public class QueryChainGeneratorSystemAccessTests
             {
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
-                return SystemRegistry.Access.Count == 6; // MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem: this ad-hoc call adds nothing
+                return SystemRegistry.Access.Count == 7; // MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem, TrySinglePositionSystem: this ad-hoc call adds nothing
             }
 
             public static (Type[] Before, Type[] After) Edges()
@@ -154,7 +168,7 @@ public class QueryChainGeneratorSystemAccessTests
         var result = assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
         var tuple = (System.Runtime.CompilerServices.ITuple)result;
 
-        ((Type[])tuple[0]!).Should().HaveCount(6, "MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem");
+        ((Type[])tuple[0]!).Should().HaveCount(7, "MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem, TrySinglePositionSystem");
         ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("Velocity")]);
         ((Type[])tuple[2]!).Should().BeEquivalentTo([assembly.GetType("Position")]);
     }
@@ -209,6 +223,16 @@ public class QueryChainGeneratorSystemAccessTests
         var result = (Type[])assembly.GetType("Harness")!.GetMethod("AdHocReadOnlyResourceReads")!.Invoke(null, null)!;
 
         result.Should().BeEquivalentTo([assembly.GetType("Score")]);
+    }
+
+    [Fact]
+    public void TrySingleCall_IsTrackedAsReadAccess_AndSharesAnExistingBackend()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (Type[])assembly.GetType("Harness")!.GetMethod("TrySinglePositionReads")!.Invoke(null, null)!;
+
+        result.Should().BeEquivalentTo([assembly.GetType("Position")], "TrySingle can only ever resolve to Reads, since there's no lambda to read ref/in from");
     }
 
     [Fact]

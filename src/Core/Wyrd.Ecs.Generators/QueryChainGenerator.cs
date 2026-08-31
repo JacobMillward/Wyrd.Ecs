@@ -74,17 +74,31 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Select(static (c, _) => c!.Value)
             .WithTrackingName("ResourceCallCandidate");
 
+        // .TrySingle() call sites: a deliberately independent pipeline, not routed through
+        // chainCandidates/TryExtractShape (which requires a trailing lambda to resolve ref/in
+        // from -- TrySingle has none) and not fed into DeduplicateShapes/
+        // EmitInterceptorsAndTargets (built around a delegate-based terminal). Every
+        // component resolves as Reads: the only access mode `.With<T>()` alone can express
+        // with no lambda present.
+        var trySingleCandidates = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.Text: "TrySingle" } } },
+                transform: static (ctx, ct) => TryExtractTrySingleCandidate((InvocationExpressionSyntax)ctx.Node, ctx.SemanticModel, ct))
+            .Where(static c => c is not null)
+            .Select(static (c, _) => c!.Value)
+            .WithTrackingName("TrySingleCandidate");
+
         var collectedChains = chainCandidates.Collect();
         var collectedQuerySystems = querySystemCandidates.Collect();
         var collectedEdges = edgeCandidates.Collect();
         var collectedConstructors = constructorCandidates.Collect();
         var collectedEcsSystemResources = ecsSystemResourceCandidates.Collect();
         var collectedResourceCalls = resourceCallCandidates.Collect();
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(collectedResourceCalls).Combine(context.CompilationProvider);
+        var collectedTrySingles = trySingleCandidates.Collect();
+        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(collectedResourceCalls).Combine(collectedTrySingles).Combine(context.CompilationProvider);
 
         context.RegisterSourceOutput(combined, static (spc, input) =>
         {
-            var ((((((chainResults, querySystemResults), edgeResults), constructorResults), ecsSystemResourceResults), resourceCallResults), compilation) = input;
+            var (((((((chainResults, querySystemResults), edgeResults), constructorResults), ecsSystemResourceResults), resourceCallResults), trySingleResults), compilation) = input;
 
             foreach (var result in chainResults)
                 if (result.Diagnostic is not null) spc.ReportDiagnostic(result.Diagnostic);
@@ -107,6 +121,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             EmitInterceptorsAndTargets(spc, canonical, chains);
             EmitQuerySystemGlue(spc, querySystems);
             EmitEcsSystemResourceGlue(spc, ecsSystemResourceResults);
+            EmitTrySingleOverloads(spc, trySingleResults, byDedupKey);
 
             // Unsupported is silently skipped here, not diagnosed: unlike a bare AddSystem<T>()
             // call site (which doesn't exist as a concept until the AddSystem<T>() extension
@@ -122,7 +137,7 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
                 .Select(c => (c!.Value.SystemTypeName, c.Value.TakesWorld, c.Value.Resources))
                 .ToList();
 
-            var bySystemType = ComputeSystemAccess(chains, querySystems, ecsSystemResourceResults, resourceCallResults);
+            var bySystemType = ComputeSystemAccess(chains, querySystems, ecsSystemResourceResults, resourceCallResults, trySingleResults);
             var writesBySystemType = bySystemType.ToDictionary(s => s.SystemTypeName, s => s.Writes);
 
             // Symbol-based, not syntax-based: [RequiresSnapshotBefore] is baked into
@@ -560,11 +575,15 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         ImmutableArray<ChainEntry> chains,
         ImmutableArray<QuerySystemCandidate> querySystems,
         ImmutableArray<EcsSystemResourceCandidate> ecsSystemResources,
-        ImmutableArray<ResourceCallCandidate> resourceCalls)
+        ImmutableArray<ResourceCallCandidate> resourceCalls,
+        ImmutableArray<TrySingleCandidate> trySingles)
     {
         var accessFromChains = chains
             .Where(c => c.SystemTypeName is not null)
-            .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape));
+            .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape))
+            .Concat(trySingles
+                .Where(c => c.SystemTypeName is not null)
+                .Select(c => (SystemTypeName: c.SystemTypeName!, c.Shape)));
         var accessFromQuerySystems = querySystems
             .Select(s => (SystemTypeName: s.Namespace.Length > 0 ? $"{s.Namespace}.{s.ClassName}" : s.ClassName, s.Shape));
 
@@ -789,6 +808,77 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
         if (systemTypeName is null) return null;
 
         return new ResourceCallCandidate(systemTypeName, resourceType.ToDisplayString(), IsWrite: generic.Identifier.Text == "GetResourceRef");
+    }
+
+    /// <summary>
+    /// One <c>.TrySingle()</c> call site's resolved shape (always all-<see cref="MarkerKind.Reads"/>
+    /// -- see <see cref="TryExtractTrySingleCandidate"/>), whether it requested an
+    /// <c>EntityView</c>, and which <c>EcsSystem</c> subclass contains it (<c>null</c> if
+    /// outside any, same as <see cref="ChainEntry.SystemTypeName"/>).
+    /// </summary>
+    private readonly record struct TrySingleCandidate(QueryShape Shape, bool IncludesEntityView, string? SystemTypeName);
+
+    private static TrySingleCandidate? TryExtractTrySingleCandidate(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Expression: var receiverExpr }) return null;
+        if (semanticModel.GetTypeInfo(receiverExpr, ct).Type is not INamedTypeSymbol receiverType) return null;
+        if (!ChainWalker.IsQueryOfShape(receiverType)) return null;
+
+        var raw = ChainWalker.TryExtractShapeFromQueryType(receiverType, ct);
+        if (raw is null) return null;
+
+        // No lambda exists at a TrySingle call site to resolve ref/in from (unlike
+        // .ForEach()'s ChainWalker.TryExtractShape) -- Reads is the only access mode
+        // .With<T>() alone can express with no lambda present, so every component resolves
+        // that way here, unconditionally.
+        var allReads = ImmutableArray.CreateRange(raw.PendingDataElements.Select(_ => RefKind.In));
+        var shape = ChainWalker.ResolveAccessKinds(raw, allReads);
+        if (shape is null) return null;
+
+        var includesEntityView = TrySingleCallIncludesEntityView(invocation, semanticModel, ct);
+        var systemTypeName = ChainWalker.TryFindEnclosingSystemType(invocation, semanticModel, ct);
+
+        return new TrySingleCandidate(shape, includesEntityView, systemTypeName);
+    }
+
+    /// <summary>
+    /// True if <paramref name="invocation"/>'s first argument is an <c>out</c> argument whose
+    /// type is <c>EntityView</c> -- covers both an inline declaration (<c>out var entity</c>/
+    /// <c>out EntityView entity</c>) and a pre-declared variable (<c>out entity</c>), since
+    /// <see cref="SemanticModel.GetTypeInfo(SyntaxNode, CancellationToken)"/> on the argument
+    /// expression resolves either shape uniformly.
+    /// </summary>
+    private static bool TrySingleCallIncludesEntityView(InvocationExpressionSyntax invocation, SemanticModel semanticModel, CancellationToken ct)
+    {
+        if (invocation.ArgumentList.Arguments is not [var firstArg, ..]) return false;
+        if (!firstArg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)) return false;
+        var type = semanticModel.GetTypeInfo(firstArg.Expression, ct).Type;
+        return type is { Name: "EntityView", ContainingNamespace.Name: "Ecs" } && type.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs";
+    }
+
+    private static void EmitTrySingleOverloads(SourceProductionContext spc, ImmutableArray<TrySingleCandidate> candidates, List<QueryShape> byDedupKey)
+    {
+        // TrySingle deliberately never joins DeduplicateShapes's output (see the pipeline's
+        // own comment in Initialize), so a shape used ONLY via .TrySingle() -- never via
+        // .ForEach()/DefineQuery elsewhere -- has no shared backend (QueryChainBackend_<hash>)
+        // emitted for it yet; RenderTrySingleOverload's generated code depends on one
+        // existing. Emit it here for exactly the dedup keys byDedupKey doesn't already cover,
+        // so a shape used both ways never gets QueryChainBackend_<hash> defined twice.
+        var backendHashesAlreadyEmitted = new HashSet<string>(byDedupKey.Select(s => s.HashName()));
+
+        // Multiple call sites commonly share one exact shape (e.g. two systems both looking
+        // up "the" Ship) -- emit each distinct generated class once, not once per call site.
+        var seenExactHashes = new HashSet<string>();
+        foreach (var candidate in candidates)
+        {
+            var backendHash = candidate.Shape.HashName();
+            if (backendHashesAlreadyEmitted.Add(backendHash))
+                spc.AddSource($"QueryChainBackend.TrySingle.{backendHash}.g.cs", QueryChainEmitter.RenderBackend(candidate.Shape));
+
+            var exactHash = QueryChainEmitter.ExactShapeHash(candidate.Shape, candidate.IncludesEntityView);
+            if (!seenExactHashes.Add(exactHash)) continue;
+            spc.AddSource($"QueryChainTrySingle.{exactHash}.g.cs", QueryChainEmitter.RenderTrySingleOverload(candidate.Shape, candidate.IncludesEntityView));
+        }
     }
 }
 

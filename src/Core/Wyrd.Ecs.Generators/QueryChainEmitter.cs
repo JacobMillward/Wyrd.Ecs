@@ -145,6 +145,60 @@ internal static class QueryChainEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    /// The `.TrySingle()` terminal: `false` for zero matches, `true` with every component
+    /// (and, when the shape includes it, an <c>EntityView</c>) written to its `out` parameter
+    /// for exactly one match, and an <see cref="InvalidOperationException"/> for more than
+    /// one -- a real bug (e.g. a duplicate singleton spawn), not a state worth silently
+    /// treating the same as zero matches. Doesn't route through <see cref="AppendMethod"/>'s
+    /// delegate-callback shape at all: there's no callback here, results come back through
+    /// `out` parameters directly. Throws as soon as a second match is seen, without scanning
+    /// the rest of the query, so the reported count in the exception message is exactly 2,
+    /// not the true total.
+    /// </summary>
+    internal static string RenderTrySingleOverload(QueryShape shape, bool includesEntityView)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb);
+        var hash = shape.HashName();
+        var exactHash = ExactShapeHash(shape, includesEntityView);
+        var ownElements = shape.OwnDataElements();
+
+        var outParamParts = new List<string>();
+        if (includesEntityView) outParamParts.Add("out EntityView entity");
+        outParamParts.AddRange(ownElements.Select(e => $"out {e.ComponentTypeName} {ParamName(e)}"));
+        var outParams = outParamParts.Count > 0 ? ", " + string.Join(", ", outParamParts) : "";
+
+        sb.AppendLine($"internal static class QueryChainTrySingleTerminals_{exactHash}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    internal static bool TrySingle(this {shape.ExactShapeTypeName} query{outParams})");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var matchCount = 0;");
+        foreach (var e in ownElements)
+            sb.AppendLine($"        {e.ComponentTypeName} last{ParamName(e)} = default!;");
+        if (includesEntityView) sb.AppendLine("        Entity lastEntity = default;");
+        sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter))");
+        sb.AppendLine("        {");
+        foreach (var e in ownElements)
+            sb.AppendLine($"            var {ParamName(e)}Accessor = chunk.Access<{AccessorType(e)}>();");
+        sb.AppendLine("            for (var i = 0; i < chunk.Count; i++)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                matchCount++;");
+        sb.AppendLine("                if (matchCount > 1) throw new System.InvalidOperationException($\"Query matched {matchCount} entities; TrySingle() requires at most one.\");");
+        foreach (var e in ownElements)
+            sb.AppendLine($"                last{ParamName(e)} = {ParamName(e)}Accessor[i];");
+        if (includesEntityView) sb.AppendLine("                lastEntity = chunk.Entities[i];");
+        sb.AppendLine("            }");
+        sb.AppendLine("        }");
+        foreach (var e in ownElements)
+            sb.AppendLine($"        {ParamName(e)} = last{ParamName(e)};");
+        if (includesEntityView) sb.AppendLine("        entity = query.World[lastEntity];");
+        sb.AppendLine("        return matchCount == 1;");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
     private static void AppendHeader(StringBuilder sb)
     {
         sb.AppendLine("using Wyrd.Ecs;");
