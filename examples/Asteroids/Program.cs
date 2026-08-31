@@ -1,4 +1,3 @@
-using SDL3;
 using Wyrd.Ecs;
 using Wyrd.Ecs.Audio;
 using Wyrd.Ecs.Debug;
@@ -79,23 +78,8 @@ AsteroidSpawner.SpawnInitialWave(world.Commands, asteroidTemplate, new Random())
 
 world.ApplyCommands();
 
-var debugServer = args.Contains("--debug") ? world.WithDebugServer() : null;
-try
-{
-    var platform = world.GetSystem<PlatformSystem>();
-    var clock = System.Diagnostics.Stopwatch.StartNew();
-    var lastElapsed = clock.Elapsed;
-    while (!platform.Events.Any(e => e.Type == (uint)SDL.EventType.Quit))
-    {
-        var elapsed = clock.Elapsed;
-        world.Update(elapsed - lastElapsed);
-        lastElapsed = elapsed;
-    }
-}
-finally
-{
-    debugServer?.Dispose();
-}
+using var debugServer = args.Contains("--debug") ? world.WithDebugServer() : null;
+world.Run();
 
 static void WaitForLoads(World world, params Task[] tasks)
 {
