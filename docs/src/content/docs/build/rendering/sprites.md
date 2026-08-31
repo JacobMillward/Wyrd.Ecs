@@ -22,8 +22,12 @@ world.ApplyCommands();
 Sprite art usually has real alpha at its edges, so most sprites want `BlendMode.Transparent`. See [BlendMode](/build/rendering/#blendmode) for what each value does.
 :::
 
+:::caution
+A `Tint` alpha below 1 under `BlendMode.Opaque` darkens the sprite instead of fading it, the shader still premultiplies `Tint`'s alpha into the color, but the opaque pipeline writes that dimmer color straight to the frame with no blending to make it translucent. Use `BlendMode.Transparent` wherever `Tint.A` varies.
+:::
+
 :::note
-`Tint` lives on `Sprite`, not `Material`. Two sprites sharing one `Material` with different tints still batch into the same draw call, only the shader and texture have to match.
+`Tint` lives on `Sprite`, not `Material`. Two sprites sharing one `Material` with different tints still batch into the same draw call, only the shader, texture, and blend mode have to match.
 :::
 
 ## Loading textures

@@ -47,7 +47,7 @@ public sealed partial class DeathCheckSystem : QuerySystem
 
 ## Registering systems
 
-A single system you want to run once, without registering it, uses `world.RunOnce(...)` directly (see [Wyrd in 10 minutes](/start-here/wyrd-in-10-minutes/#running-a-single-system-without-registering-it)). For a real game loop, register systems with `WorldBuilder` and run every tick with `world.Update(...)`:
+A single system you want to run once, without registering it, uses `world.RunOnce(...)` directly (see [Wyrd in 10 minutes](/start-here/wyrd-in-10-minutes/#running-a-single-system-without-registering-it)). For a real game loop, register systems with `WorldBuilder`, then drive `world.Update(...)` every tick, `world.Run()` does exactly that, see [Platform](/build/game-loop/platform/#running-the-game-loop):
 
 ```csharp
 var world = new WorldBuilder()

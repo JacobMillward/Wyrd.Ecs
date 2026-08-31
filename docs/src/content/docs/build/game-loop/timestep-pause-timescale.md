@@ -40,7 +40,7 @@ var world = new WorldBuilder()
     .Build();
 ```
 
-`WithMaxDelta` bounds the raw delta any `Update` call passes on, before it reaches the fixed-step accumulator or `World.RealTime`. A debugger breakpoint or a window drag-resize stall can otherwise hand gameplay code one multi-second `Time.Delta`, `WithMaxDelta` caps it at the wall clock instead. Applies to every `Update` caller, including [`World.Run`](/build/game-loop/platform/#running-the-game-loop).
+`WithMaxDelta` bounds the raw delta any `Update` call passes on, before it reaches the fixed-step accumulator or `World.RealTime`. A debugger breakpoint or a window drag-resize stall can otherwise hand gameplay code one multi-second `Time.Delta`, `WithMaxDelta` caps it at the configured bound instead, 250ms by default. Applies to every `Update` caller, including [`World.Run`](/build/game-loop/platform/#running-the-game-loop).
 
 ## Reading Time correctly
 
