@@ -37,6 +37,10 @@ world.TryGetResource<Score>(out var score); // no throw when absent
 
 `GetResource` hands back a copy, mutating it changes nothing the world can see. `GetResourceRef` returns a `ref T` into the world's own storage, writes through it are visible to every later reader. `RemoveResource<T>()` takes one out again.
 
+:::caution
+Every `GetResourceRef<T>()` call declares write access to the scheduler, whether or not you actually write through it. A call that only reads the returned reference blocks scheduling parallelism for no reason, and warns (WYRD012). Use `GetResource<T>()` for a read.
+:::
+
 ## Injecting into systems
 
 A `[Resource]` property on a `QuerySystem` is refreshed from the world automatically:
@@ -81,7 +85,26 @@ The property's value is only valid inside `Update`. Copying it into a field capt
 Declaring a public setter and then never assigning to it also warns (WYRD009). Write access costs scheduling freedom, so an unused one is treated as probably unintended - drop the public setter unless writes are real.
 :::
 
-`[Resource]` is a `QuerySystem` feature. A plain `EcsSystem` reads resources through `world.GetResource<T>()`/`GetResourceRef<T>()` inside `Execute`.
+### On a plain EcsSystem
+
+`[Resource]` works on any `EcsSystem`, not only `QuerySystem`. Declare the property `partial` instead of a plain auto-property:
+
+```csharp
+public sealed partial class ShipControlSystem(World world) : EcsSystem
+{
+    [Resource] public partial AudioPlayer Audio { get; }
+    [Resource] public partial GameAssets Assets { get; }
+
+    protected override void Execute(World world, Time time)
+    {
+        Audio.Play(Assets.EngineSound);
+    }
+}
+```
+
+Add a `set` accessor (`{ get; set; }`) for write access, same read/write-from-accessibility rule as `QuerySystem` above. The difference is timing: `QuerySystem` fetches once and writes back once around its generated `Execute`, a plain `EcsSystem`'s partial property instead reads and writes `CurrentWorld` live on every access, there's no generator-owned `Execute` to inject a fetch/writeback step into.
+
+An ad hoc `world.GetResource<T>()`/`GetResourceRef<T>()` call works too, anywhere inside `Execute`, without declaring a property at all, and is tracked into the scheduler's access table the same as a `[Resource]` property would be.
 
 ## Next
 

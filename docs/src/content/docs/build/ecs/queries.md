@@ -21,6 +21,16 @@ matches every entity that has both a `Position` and a `Velocity`. `.With<A, B, C
 `With` only accepts `IComponent` types, it binds each one to a `ForEach` parameter, and a tag has no data to bind. `With<SomeTag>()` won't compile. Filter on tags with [`Without`](#without), [`Has`](#has), or [`Any`](#any) instead, see the table below.
 :::
 
+### WithMut
+
+`.WithMut<TComponent>()` is `With`'s mutable counterpart, for [`TrySingle`](#trysingle) and [`foreach`](#foreach-1) below, not for `ForEach`. A `.ForEach()` terminal always reads write-vs-read from its own lambda's `ref`/`in` parameter modifiers, so `WithMut` and `With` make no difference there:
+
+```csharp
+world.Query().WithMut<Ship, Transform, Velocity>()
+```
+
+matches the same entities as `With<Ship, Transform, Velocity>()` would, but `TrySingle`'s and `foreach`'s row fields come back mutable instead of read-only. Same arity cap and multi-type collapsing as `With`.
+
 ## Running work
 
 ### ForEach
@@ -35,6 +45,20 @@ world.Query().With<Position, Velocity>()
 ```
 
 Whether a component is read-only or mutable comes from `ref`/`in` on the callback's parameters themselves, in the same order as the `With` calls that requested them.
+
+### Reading the matched entity
+
+Add a leading `EntityView entity` parameter to get the matched entity alongside its components:
+
+```csharp
+world.Query().With<Position>()
+    .ForEach((EntityView entity, ref Position position) =>
+    {
+        if (position.Y < 0f) entity.DestroyEntity();
+    });
+```
+
+`EntityView` carries the same mutation methods you'd use inside a system's `Update`, `AddComponent`, `RemoveComponent`, `AddTag`, `DestroyEntity`, queued through the command buffer. Works on `ParallelForEach` too.
 
 ### ParallelForEach
 
@@ -53,6 +77,36 @@ Your callback runs concurrently across threads. Mutating shared state, like `tot
 :::tip
 For how the underlying archetypes get sliced across threads, see [Parallel Execution](/understand/parallel-execution/).
 :::
+
+### TrySingle
+
+For the common "there's exactly one entity like this" case, a singleton ship, a scoreboard, `.TrySingle(out row)` skips the per-entity lambda entirely:
+
+```csharp
+if (!world.Query().WithMut<Ship, Transform, Velocity>().TrySingle(out var row)) return;
+
+row.Transform.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, row.Ship.Heading.Radians);
+```
+
+`row` exposes each matched component by its type name (`row.Transform`, `row.Ship`, ...), the matched `row.Entity`, and the same mutation methods as `EntityView`. `TrySingle` returns `false` for zero matches, `true` with `row` populated for exactly one, and throws `InvalidOperationException` for more than one, a duplicate singleton is a real bug, not a state worth silently picking one.
+
+:::caution
+A component's field on `row` is read-only unless the query built it with [`WithMut`](#withmut) instead of `With`.
+:::
+
+### foreach
+
+`Query<TShape>` is directly `foreach`-able, for a body that needs to return early, accumulate into local state first, or otherwise doesn't fit a single `ForEach` lambda:
+
+```csharp
+foreach (var row in world.Query().With<Transform>().Has<Bullet>())
+{
+    bulletEntities.Add(row.Entity);
+    bulletPositions.Add(row.Transform.Position);
+}
+```
+
+Same row shape as `TrySingle`: named component fields, `.Entity`, and command-buffer-queued mutation methods.
 
 ## Conditional filters
 
