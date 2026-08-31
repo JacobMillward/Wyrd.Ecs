@@ -1,3 +1,5 @@
+using Wyrd.Ecs.Renderer;
+
 namespace Wyrd.Ecs.Examples.Asteroids.Components;
 
 public enum AsteroidSize : byte { Large, Medium, Small }
@@ -38,5 +40,15 @@ public static class AsteroidSizeInfo
         AsteroidSize.Large => AsteroidSize.Medium,
         AsteroidSize.Medium => AsteroidSize.Small,
         _ => null,
+    };
+
+    /// <summary>A per-size tint over the shared template's white default: cool for Large,
+    /// neutral for Medium, hot for Small. Reads as an at-a-glance threat gradient.</summary>
+    public static Color Tint(this AsteroidSize size) => size switch
+    {
+        AsteroidSize.Large => new Color(0.72f, 0.82f, 1f, 1f),
+        AsteroidSize.Medium => Color.White,
+        AsteroidSize.Small => new Color(1f, 0.55f, 0.45f, 1f),
+        _ => Color.White,
     };
 }

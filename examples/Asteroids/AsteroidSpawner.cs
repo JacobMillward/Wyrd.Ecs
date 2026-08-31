@@ -1,5 +1,6 @@
 using System.Numerics;
 using Wyrd.Ecs.Examples.Asteroids.Components;
+using Wyrd.Ecs.Renderer;
 
 namespace Wyrd.Ecs.Examples.Asteroids;
 
@@ -30,6 +31,7 @@ internal static class AsteroidSpawner
             .AddComponent(new Transform { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One * size.Scale() })
             .AddComponent(new Velocity { Value = velocity })
             .AddComponent(new Spin { RadiansPerSecond = spin })
-            .AddComponent(new Asteroid { Size = size });
+            .AddComponent(new Asteroid { Size = size })
+            .AddComponent(new Sprite(SourceRect: null, Tint: size.Tint()));
     }
 }
