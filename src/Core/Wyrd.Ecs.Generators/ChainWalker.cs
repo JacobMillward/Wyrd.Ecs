@@ -14,7 +14,7 @@ internal static class ChainWalker
         if (terminal.Expression is not MemberAccessExpressionSyntax { Expression: var receiverExpr }) return null;
         if (semanticModel.GetTypeInfo(receiverExpr, ct).Type is not INamedTypeSymbol receiverType) return null;
 
-        var raw = TryExtractShapeFromQueryType(receiverType, ct);
+        var raw = TryExtractShapeFromQueryType(receiverType, ct, out _); // access mode comes from the lambda below, not from With/WithMut
         if (raw is null) return null;
 
         // Every argument before the lambda is a leading uniform/state value the lambda
@@ -141,13 +141,23 @@ internal static class ChainWalker
     /// nested-tuple <c>TShape</c>. Shared by <see cref="TryExtractShape"/> (a chain
     /// terminal's receiver expression type) and <c>QuerySystem</c> recognition (a
     /// <c>Build</c> method's declared return type): both start from a resolved
-    /// <c>Query&lt;TShape&gt;</c> symbol, just obtained differently.
+    /// <c>Query&lt;TShape&gt;</c> symbol, just obtained differently. <paramref name="refKinds"/>
+    /// is populated in the same declaration order as the returned shape's
+    /// <see cref="QueryShape.PendingDataElements"/> -- <see cref="RefKind.Ref"/> where the
+    /// tuple slot was <c>WriteMarker&lt;T&gt;</c> (a <c>.WithMut&lt;T&gt;()</c> call),
+    /// <see cref="RefKind.In"/> where it was bare <c>T</c> (a <c>.With&lt;T&gt;()</c> call).
+    /// Both callers above ignore it: they resolve access mode their own way instead (a
+    /// terminal's lambda parameters, for <see cref="TryExtractShape"/>; `Update`'s parameters,
+    /// for `QuerySystem`) -- `TrySingle`/a foreach-consumed query's discovery is what actually
+    /// reads this, since neither has a lambda to resolve access mode from at all.
     /// </summary>
-    internal static QueryShape? TryExtractShapeFromQueryType(INamedTypeSymbol queryType, CancellationToken ct)
+    internal static QueryShape? TryExtractShapeFromQueryType(INamedTypeSymbol queryType, CancellationToken ct, out ImmutableArray<RefKind> refKinds)
     {
+        refKinds = ImmutableArray<RefKind>.Empty;
         if (!IsQueryOfShape(queryType)) return null;
 
         var pendingData = ImmutableArray.CreateBuilder<string>();
+        var refKindsBuilder = ImmutableArray.CreateBuilder<RefKind>();
 
         // The non-generic `Query` (arity 0) is the chain's entry point, already the empty
         // shape: no `TShape` to walk. Only `Query<TShape>` (arity 1) has a tuple to unpack.
@@ -167,7 +177,7 @@ internal static class ChainWalker
                 var element = named.TupleElements[0].Type;
                 var rest = named.TupleElements[1].Type;
 
-                if (!TryClassifyElement(element, pendingData)) return null;
+                if (!TryClassifyElement(element, pendingData, refKindsBuilder)) return null;
 
                 current = rest;
             }
@@ -176,8 +186,11 @@ internal static class ChainWalker
         // The walk above visits `.With<A>().With<B>()`'s nested-tuple type `(B, (A, Nil))`
         // outer-first, i.e. last-declared-first: the reverse of declaration order. Reverse
         // once, here, so QueryShape.PendingDataElements is in declaration order everywhere
-        // downstream (OwnDataElements, ResolveAccessKinds, every caller-facing parameter list).
+        // downstream (OwnDataElements, ResolveAccessKinds, every caller-facing parameter list)
+        // -- refKindsBuilder gets the same treatment, to stay lined up with it index-for-index.
         pendingData.Reverse();
+        refKindsBuilder.Reverse();
+        refKinds = refKindsBuilder.ToImmutable();
 
         return new QueryShape
         {
@@ -239,14 +252,28 @@ internal static class ChainWalker
         return null;
     }
 
-    private static bool TryClassifyElement(ITypeSymbol element, ImmutableArray<string>.Builder pendingData)
+    private static bool TryClassifyElement(ITypeSymbol element, ImmutableArray<string>.Builder pendingData, ImmutableArray<RefKind>.Builder refKinds)
     {
-        if (element is not INamedTypeSymbol) return false;
+        if (element is not INamedTypeSymbol named) return false;
 
-        // Every tuple element is a bare data component: .Without/.Has/.Any never touch
-        // TShape. Its Reads/Writes kind isn't known until the terminal is read, after this
-        // whole tuple walk finishes. See ChainWalker.ResolveAccessKinds.
+        // A .WithMut<T>() call wraps its component in WriteMarker<T> instead of placing it
+        // bare (see WriteMarker<T>'s own doc comment) -- unwrap it here so downstream code
+        // (PendingDataElements) always sees the real component name either way, and record
+        // Ref (Writes) for it. A bare element (.With<T>()) records In (Reads). Neither
+        // TryExtractShape nor QuerySystem recognition reads this second signal today -- both
+        // resolve access mode their own way -- but it costs them nothing to have it computed
+        // regardless, and TrySingle/foreach-consumed-query discovery is what actually uses it.
+        if (named is { OriginalDefinition.Name: "WriteMarker", ContainingNamespace.Name: "Ecs" } && named.ContainingNamespace.ToDisplayString() == "Wyrd.Ecs" && named.TypeArguments is [var wrapped])
+        {
+            pendingData.Add(wrapped.ToDisplayString());
+            refKinds.Add(RefKind.Ref);
+            return true;
+        }
+
+        // Every other tuple element is a bare data component: .Without/.Has/.Any never touch
+        // TShape.
         pendingData.Add(element.ToDisplayString());
+        refKinds.Add(RefKind.In);
         return true;
     }
 

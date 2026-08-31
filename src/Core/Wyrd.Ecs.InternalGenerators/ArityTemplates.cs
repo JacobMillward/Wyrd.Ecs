@@ -278,7 +278,7 @@ internal static class ArityTemplates
         var tp = TypeParams(n);
         var where = WhereClausesInline(n);
         var nestedType = "TShape";
-        for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
+        for (var i = 0; i < n; i++) nestedType = $"(WriteMarker<T{i}>, {nestedType})";
 
         var sb = new StringBuilder();
         sb.AppendLine(n == 2
@@ -354,7 +354,7 @@ internal static class ArityTemplates
         var tp = TypeParams(n);
         var where = WhereClausesInline(n);
         var nestedType = "Nil";
-        for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
+        for (var i = 0; i < n; i++) nestedType = $"(WriteMarker<T{i}>, {nestedType})";
 
         var sb = new StringBuilder();
         sb.AppendLine(n == 2

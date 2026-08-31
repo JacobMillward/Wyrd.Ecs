@@ -53,7 +53,7 @@ public sealed class GenerateUpdateStubCodeFixProvider : CodeFixProvider
             if (syntaxRef.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax { ExpressionBody.Expression: var returnExpr }) continue;
             if (semanticModel.GetTypeInfo(returnExpr, context.CancellationToken).Type is not INamedTypeSymbol returnType) continue;
 
-            var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken);
+            var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken, out _); // access mode comes from Update's own parameters, not from With/WithMut
             if (shape is null) continue;
             var declaredComponents = shape.PendingDataElements; // already declaration order; see ChainWalker.TryExtractShapeFromQueryType
 

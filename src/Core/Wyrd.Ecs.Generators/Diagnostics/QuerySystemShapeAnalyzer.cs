@@ -44,7 +44,7 @@ public sealed class QuerySystemShapeAnalyzer : DiagnosticAnalyzer
         var defineQuerySemanticModel = context.Compilation.GetSemanticModel(defineQuerySyntaxRef.SyntaxTree);
         if (defineQuerySemanticModel.GetTypeInfo(returnExpr, context.CancellationToken).Type is not INamedTypeSymbol returnType) return;
 
-        var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken);
+        var shape = ChainWalker.TryExtractShapeFromQueryType(returnType, context.CancellationToken, out _); // access mode comes from Update's own parameters, not from With/WithMut
         if (shape is null) return;
 
         var declaredComponents = shape.PendingDataElements; // already declaration order; see ChainWalker.TryExtractShapeFromQueryType

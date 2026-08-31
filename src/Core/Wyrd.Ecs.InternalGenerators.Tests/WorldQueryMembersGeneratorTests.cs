@@ -25,18 +25,18 @@ public class WorldQueryMembersGeneratorTests
     }
 
     [Fact]
-    public void Query_DeclaresWithMutAtArity2AndMaxArity_SameNestingAsWith()
+    public void Query_DeclaresWithMutAtArity2AndMaxArity_EachComponentWrappedInWriteMarker()
     {
         var sources = Run();
-        sources.Should().Contain(s => s.Contains("public Query<(T1, (T0, TShape))> WithMut<T0, T1>()"), "same T{n-1}-outermost/T0-innermost nesting .With<T0,T1>() uses, so ChainWalker's declaration-order recovery needs no WithMut-specific handling");
-        sources.Should().Contain(s => s.Contains("public Query<(T7, (T6, (T5, (T4, (T3, (T2, (T1, (T0, TShape))))))))> WithMut<T0, T1, T2, T3, T4, T5, T6, T7>()"));
+        sources.Should().Contain(s => s.Contains("public Query<(WriteMarker<T1>, (WriteMarker<T0>, TShape))> WithMut<T0, T1>()"), "same T{n-1}-outermost/T0-innermost nesting .With<T0,T1>() uses, wrapped in WriteMarker<T> so it never collides with the equivalent .With<T0,T1>() shape");
+        sources.Should().Contain(s => s.Contains("public Query<(WriteMarker<T7>, (WriteMarker<T6>, (WriteMarker<T5>, (WriteMarker<T4>, (WriteMarker<T3>, (WriteMarker<T2>, (WriteMarker<T1>, (WriteMarker<T0>, TShape))))))))> WithMut<T0, T1, T2, T3, T4, T5, T6, T7>()"));
     }
 
     [Fact]
     public void QueryEntry_DeclaresWithMutAtArity2()
     {
         var sources = Run();
-        sources.Should().Contain(s => s.Contains("public Query<(T1, (T0, Nil))> WithMut<T0, T1>()"));
+        sources.Should().Contain(s => s.Contains("public Query<(WriteMarker<T1>, (WriteMarker<T0>, Nil))> WithMut<T0, T1>()"));
     }
 
     [Fact]

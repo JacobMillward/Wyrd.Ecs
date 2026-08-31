@@ -42,15 +42,17 @@ public class QueryChainTests
     }
 
     [Fact]
-    public void WithMut_ProducesTheSameShapeTypeAsWith()
+    public void WithMut_WrapsTheComponentInWriteMarker_ADifferentTypeThanWith()
     {
         var world = new World();
 
         var chain = world.Query().WithMut<ChainPosition>();
 
-        // Same runtime shape as .With<ChainPosition>() -- With/WithMut are told apart by the
-        // generator reading the chain's own call-site syntax, not by anything this type carries.
-        chain.Should().BeOfType<Query<(ChainPosition, Nil)>>();
+        // Deliberately NOT the same type as .With<ChainPosition>() -- see WriteMarker<T>'s own
+        // doc comment for why: two colliding TrySingle()/foreach-consumed-query call sites for
+        // the same component, one read-only and one mutable, need genuinely different closed
+        // Query<TShape> types to stay unambiguous, not the same type reached two ways.
+        chain.Should().BeOfType<Query<(WriteMarker<ChainPosition>, Nil)>>();
     }
 
     [Fact]
@@ -60,7 +62,7 @@ public class QueryChainTests
 
         var chain = world.Query().With<ChainPosition>().WithMut<ChainVelocity>();
 
-        chain.Should().BeOfType<Query<(ChainVelocity, (ChainPosition, Nil))>>();
+        chain.Should().BeOfType<Query<(WriteMarker<ChainVelocity>, (ChainPosition, Nil))>>();
     }
 
     [Fact]

@@ -11,6 +11,7 @@ public class QueryChainGeneratorSystemAccessTests
         public struct Position : IComponent { public float X; }
         public struct Velocity : IComponent { public float X; }
         public struct Health : IComponent { public float Current; }
+        public struct Rotation : IComponent { public float Degrees; }
         public struct Score : IResource { public int Value; }
 
         public sealed class MovementSystem : EcsSystem
@@ -92,7 +93,16 @@ public class QueryChainGeneratorSystemAccessTests
         {
             protected override void Execute(World world, Time time)
             {
-                if (world.Query().With<Position>().TrySingle(out var position)) { }
+                if (world.Query().With<Position>().TrySingle(out var row)) { }
+            }
+        }
+
+        public sealed class ForeachQuerySystem : EcsSystem
+        {
+            protected override void Execute(World world, Time time)
+            {
+                foreach (var row in world.Query().WithMut<Rotation>())
+                    row.Rotation.Degrees += 1f;
             }
         }
 
@@ -100,6 +110,9 @@ public class QueryChainGeneratorSystemAccessTests
         {
             public static Type[] HelperMethodWrites() =>
                 new List<Type>(SystemRegistry.Access[typeof(HelperMethodSystem)].Writes).ToArray();
+
+            public static Type[] ForeachQueryWrites() =>
+                new List<Type>(SystemRegistry.Access[typeof(ForeachQuerySystem)].Writes).ToArray();
 
             public static Type[] TrySinglePositionReads() =>
                 new List<Type>(SystemRegistry.Access[typeof(TrySinglePositionSystem)].Reads).ToArray();
@@ -129,7 +142,7 @@ public class QueryChainGeneratorSystemAccessTests
             {
                 var world = new World();
                 world.Query().With<Position>().ForEach(0, (in int _, in Position p) => { });
-                return SystemRegistry.Access.Count == 7; // MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem, TrySinglePositionSystem: this ad-hoc call adds nothing
+                return SystemRegistry.Access.Count == 8; // MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem, TrySinglePositionSystem, ForeachQuerySystem: this ad-hoc call adds nothing
             }
 
             public static (Type[] Before, Type[] After) Edges()
@@ -168,7 +181,7 @@ public class QueryChainGeneratorSystemAccessTests
         var result = assembly.GetType("Harness")!.GetMethod("Run")!.Invoke(null, null)!;
         var tuple = (System.Runtime.CompilerServices.ITuple)result;
 
-        ((Type[])tuple[0]!).Should().HaveCount(7, "MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem, TrySinglePositionSystem");
+        ((Type[])tuple[0]!).Should().HaveCount(8, "MovementSystem, MultiQuerySystem, HelperMethodSystem, DeclaredResourceSystem, AdHocResourceSystem, AdHocReadOnlyResourceSystem, TrySinglePositionSystem, ForeachQuerySystem");
         ((Type[])tuple[1]!).Should().BeEquivalentTo([assembly.GetType("Velocity")]);
         ((Type[])tuple[2]!).Should().BeEquivalentTo([assembly.GetType("Position")]);
     }
@@ -232,7 +245,17 @@ public class QueryChainGeneratorSystemAccessTests
 
         var result = (Type[])assembly.GetType("Harness")!.GetMethod("TrySinglePositionReads")!.Invoke(null, null)!;
 
-        result.Should().BeEquivalentTo([assembly.GetType("Position")], "TrySingle can only ever resolve to Reads, since there's no lambda to read ref/in from");
+        result.Should().BeEquivalentTo([assembly.GetType("Position")], "this chain used .With<Position>(), not .WithMut<Position>()");
+    }
+
+    [Fact]
+    public void ForeachOverQuery_IsTrackedTheSameAsForEachCall()
+    {
+        var assembly = GeneratorTestHost.CompileAndLoad(new QueryChainGenerator(), GeneratorTestHost.Compile(Harness));
+
+        var result = (Type[])assembly.GetType("Harness")!.GetMethod("ForeachQueryWrites")!.Invoke(null, null)!;
+
+        result.Should().BeEquivalentTo([assembly.GetType("Rotation")], "WithMut<Rotation>() declares write access the same way .ForEach() does");
     }
 
     [Fact]

@@ -156,48 +156,191 @@ internal static class QueryChainEmitter
     /// the rest of the query, so the reported count in the exception message is exactly 2,
     /// not the true total.
     /// </summary>
-    internal static string RenderTrySingleOverload(QueryShape shape, bool includesEntityView)
+    internal static string RenderTrySingleOverload(QueryShape shape)
     {
         var sb = new StringBuilder();
         AppendHeader(sb);
         var hash = shape.HashName();
-        var exactHash = ExactShapeHash(shape, includesEntityView);
+        var exactHash = ExactShapeHash(shape, includesEntityView: false);
         var ownElements = shape.OwnDataElements();
-
-        var outParamParts = new List<string>();
-        if (includesEntityView) outParamParts.Add("out EntityView entity");
-        outParamParts.AddRange(ownElements.Select(e => $"out {e.ComponentTypeName} {ParamName(e)}"));
-        var outParams = outParamParts.Count > 0 ? ", " + string.Join(", ", outParamParts) : "";
+        var rowType = $"QueryRow_{exactHash}";
 
         sb.AppendLine($"internal static class QueryChainTrySingleTerminals_{exactHash}");
         sb.AppendLine("{");
-        sb.AppendLine($"    internal static bool TrySingle(this {shape.ExactShapeTypeName} query{outParams})");
+        sb.AppendLine($"    internal static bool TrySingle(this {shape.ExactShapeTypeName} query, out {rowType} row)");
         sb.AppendLine("    {");
         sb.AppendLine("        var matchCount = 0;");
-        foreach (var e in ownElements)
-            sb.AppendLine($"        {e.ComponentTypeName} last{ParamName(e)} = default!;");
-        if (includesEntityView) sb.AppendLine("        Entity lastEntity = default;");
+        sb.AppendLine("        ArchetypeChunk lastChunk = default;");
+        sb.AppendLine("        var lastRow = -1;");
+        // One pass: ArchetypeChunk is a plain value (archetype + world + range), so storing
+        // the matching chunk and re-indexing it after the loop needs no second walk and no
+        // per-row snapshot -- chunk.Access<T>() stays valid however long the chunk value
+        // itself is kept around.
         sb.AppendLine($"        foreach (var chunk in QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter))");
         sb.AppendLine("        {");
-        foreach (var e in ownElements)
-            sb.AppendLine($"            var {ParamName(e)}Accessor = chunk.Access<{AccessorType(e)}>();");
         sb.AppendLine("            for (var i = 0; i < chunk.Count; i++)");
         sb.AppendLine("            {");
         sb.AppendLine("                matchCount++;");
         sb.AppendLine("                if (matchCount > 1) throw new System.InvalidOperationException($\"Query matched {matchCount} entities; TrySingle() requires at most one.\");");
-        foreach (var e in ownElements)
-            sb.AppendLine($"                last{ParamName(e)} = {ParamName(e)}Accessor[i];");
-        if (includesEntityView) sb.AppendLine("                lastEntity = chunk.Entities[i];");
+        sb.AppendLine("                lastChunk = chunk;");
+        sb.AppendLine("                lastRow = i;");
         sb.AppendLine("            }");
         sb.AppendLine("        }");
+        sb.AppendLine("        if (matchCount == 0)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            row = default;");
+        sb.AppendLine("            return false;");
+        sb.AppendLine("        }");
         foreach (var e in ownElements)
-            sb.AppendLine($"        {ParamName(e)} = last{ParamName(e)};");
-        if (includesEntityView) sb.AppendLine("        entity = query.World[lastEntity];");
-        sb.AppendLine("        return matchCount == 1;");
+            sb.AppendLine($"        var {ParamName(e)}Accessor = lastChunk.Access<{AccessorType(e)}>();");
+        var ctorArgs = string.Join(", ", new[] { "lastChunk.Entities[lastRow]" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}Accessor[lastRow]")).Concat(["query.World.Commands"]));
+        sb.AppendLine($"        row = new {rowType}({ctorArgs});");
+        sb.AppendLine("        return true;");
         sb.AppendLine("    }");
         sb.AppendLine("}");
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Emits one exact shape's named-field <c>ref struct</c> row (not a tuple -- see the
+    /// design doc's CS1654 finding: `Deconstruct` can only ever copy, never alias, so a
+    /// positional tuple can never preserve a `.WithMut&lt;T&gt;()` field's mutability). Always
+    /// includes a plain <c>Entity</c> field -- unlike `.ForEach()`'s opt-in `EntityView`
+    /// parameter, there's no reason not to have it, since the row costs nothing extra per the
+    /// composable-systems benchmark (`RowDesignBenchmarks.cs`). The row's `CommandBuffer`
+    /// -backed mutation verbs (<see cref="AppendRowMutationVerbs"/>) are the same text for
+    /// every shape, since they never reference a shape's own components. Shared by
+    /// <see cref="RenderQueryEnumerable"/> (a `foreach`-consumed query) and
+    /// <see cref="RenderTrySingleOverload"/> (`.TrySingle()`'s single-match result) -- callers
+    /// are responsible for emitting this at most once per exact shape even when both need it.
+    /// </summary>
+    internal static string RenderRow(QueryShape shape)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb);
+        var exactHash = ExactShapeHash(shape, includesEntityView: false);
+        var ownElements = shape.OwnDataElements();
+
+        // The struct itself must be public: foreach's pattern-based lookup requires
+        // QueryEnumerator's `Current` to be declared public (see RenderQueryEnumerable), and a
+        // public property can't return a less-accessible type (CS0053). Its members stay
+        // internal, though -- a public field would force CS0052 the moment a consumer's own
+        // component type is (the common case) declared internal, and internal fields are still
+        // reachable from foreach bodies since generated code always compiles into the
+        // consumer's own assembly.
+        sb.AppendLine($"public ref struct QueryRow_{exactHash} : IComponentSink");
+        sb.AppendLine("{");
+        sb.AppendLine("    internal Entity Entity;");
+        foreach (var e in ownElements)
+            sb.AppendLine($"    internal {RowFieldKind(e)} {e.ComponentTypeName} {RowFieldName(e)};");
+        sb.AppendLine("    private readonly CommandBuffer _commands;");
+        sb.AppendLine();
+        var ctorParams = string.Join(", ", new[] { "Entity entity" }.Concat(ownElements.Select(e => $"{RefKind(e)} {e.ComponentTypeName} {ParamName(e)}")).Concat(["CommandBuffer commands"]));
+        sb.AppendLine($"    internal QueryRow_{exactHash}({ctorParams})");
+        sb.AppendLine("    {");
+        sb.AppendLine("        Entity = entity;");
+        foreach (var e in ownElements)
+            sb.AppendLine($"        {RowFieldName(e)} = ref {ParamName(e)};");
+        sb.AppendLine("        _commands = commands;");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        AppendRowMutationVerbs(sb, exactHash);
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits a `foreach`-able <c>Query&lt;TShape&gt;.GetEnumerator()</c> for one exact shape: a
+    /// multi-chunk-crossing enumerator wrapping <see cref="ArchetypeChunks.Enumerator"/>
+    /// directly, yielding <see cref="RenderRow"/>'s row type -- the caller must have already
+    /// emitted that row (via <see cref="RenderRow"/>) for the same exact shape.
+    /// </summary>
+    internal static string RenderQueryEnumerable(QueryShape shape)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb);
+        var hash = shape.HashName();
+        var exactHash = ExactShapeHash(shape, includesEntityView: false);
+        var ownElements = shape.OwnDataElements();
+
+        sb.AppendLine($"internal ref struct QueryEnumerator_{exactHash}");
+        sb.AppendLine("{");
+        sb.AppendLine("    private ArchetypeChunks.Enumerator _chunks;");
+        sb.AppendLine("    private ArchetypeChunk _chunk;");
+        sb.AppendLine("    private readonly CommandBuffer _commands;");
+        sb.AppendLine("    private int _row;");
+        sb.AppendLine();
+        sb.AppendLine($"    internal QueryEnumerator_{exactHash}(ArchetypeChunks chunks, CommandBuffer commands)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        _chunks = chunks.GetEnumerator();");
+        sb.AppendLine("        _commands = commands;");
+        sb.AppendLine("        _row = -1;");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        // MoveNext/Current/GetEnumerator must be declared `public` specifically -- foreach's
+        // pattern-based lookup requires that literal accessibility on the members even though
+        // the containing types stay `internal`; effective accessibility is unaffected.
+        sb.AppendLine("    public bool MoveNext()");
+        sb.AppendLine("    {");
+        sb.AppendLine("        _row++;");
+        sb.AppendLine("        while (_chunk.Count == 0 || _row >= _chunk.Count)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            if (!_chunks.MoveNext()) return false;");
+        sb.AppendLine("            _chunk = _chunks.Current;");
+        sb.AppendLine("            _row = 0;");
+        sb.AppendLine("        }");
+        sb.AppendLine("        return true;");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine($"    public readonly QueryRow_{exactHash} Current");
+        sb.AppendLine("    {");
+        sb.AppendLine("        get");
+        sb.AppendLine("        {");
+        foreach (var e in ownElements)
+            sb.AppendLine($"            var {ParamName(e)}Accessor = _chunk.Access<{AccessorType(e)}>();");
+        var ctorArgs = string.Join(", ", new[] { "_chunk.Entities[_row]" }.Concat(ownElements.Select(e => $"{RefKind(e)} {ParamName(e)}Accessor[_row]")).Concat(["_commands"]));
+        sb.AppendLine($"            return new QueryRow_{exactHash}({ctorArgs});");
+        sb.AppendLine("        }");
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+        sb.AppendLine();
+
+        sb.AppendLine($"internal static class QueryEnumerable_{exactHash}");
+        sb.AppendLine("{");
+        sb.AppendLine($"    internal static QueryEnumerator_{exactHash} GetEnumerator(this {shape.ExactShapeTypeName} query) =>");
+        sb.AppendLine($"        new(QueryChainBackend_{hash}.Cached.Resolve(query.World, query.Filter), query.World.Commands);");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The `CommandBuffer`-backed subset of `EntityView`'s API (see the design doc, section
+    /// 3): every mutation verb `EntityView` can queue without also needing a `World`
+    /// reference, since those are the only ones a row can offer without doubling its field
+    /// count for no measured benefit. `EntityView`'s `World`-backed reads (`GetComponent`,
+    /// `Children()`, etc.) are deliberately not mirrored here -- a row's own declared fields
+    /// already give faster access to anything `.With`/`.WithMut` declared, and the rest
+    /// (graph traversal) isn't hot-loop-shaped on `EntityView` either. Identical text
+    /// regardless of shape, since none of it references a shape's own components.
+    /// </summary>
+    private static void AppendRowMutationVerbs(StringBuilder sb, string exactHash)
+    {
+        var row = $"QueryRow_{exactHash}";
+        sb.AppendLine($"    internal readonly {row} DestroyEntity() {{ _commands.DestroyEntity(Entity); return this; }}");
+        sb.AppendLine($"    internal readonly {row} AddComponent<T>(T value) where T : struct, IComponent {{ _commands.AddComponent(Entity, value); return this; }}");
+        sb.AppendLine($"    internal readonly {row} RemoveComponent<T>() where T : struct, IComponent {{ _commands.RemoveComponent<T>(Entity); return this; }}");
+        sb.AppendLine($"    internal readonly {row} AddTag<T>() where T : struct, ITag {{ _commands.AddTag<T>(Entity); return this; }}");
+        sb.AppendLine($"    internal readonly {row} RemoveTag<T>() where T : struct, ITag {{ _commands.RemoveTag<T>(Entity); return this; }}");
+        sb.AppendLine($"    internal readonly {row} AddRelation<T>(Entity target, T value) where T : struct, IRelation {{ _commands.AddRelation(Entity, target, value); return this; }}");
+        sb.AppendLine($"    internal readonly {row} AddRelation<T>(Entity target) where T : struct, IRelation {{ _commands.AddRelation<T>(Entity, target); return this; }}");
+        sb.AppendLine($"    internal readonly {row} RemoveRelation<T>(Entity target) where T : struct, IRelation {{ _commands.RemoveRelation<T>(Entity, target); return this; }}");
+        sb.AppendLine($"    internal readonly {row} SetParent(Entity parent) {{ _commands.AddRelation<Parent>(Entity, parent); return this; }}");
+        sb.AppendLine($"    internal readonly {row} AddChild(Entity child) {{ _commands.AddRelation<Parent>(child, Entity); return this; }}");
+        sb.AppendLine($"    internal readonly {row} RemoveChild(Entity child) {{ _commands.RemoveRelation<Parent>(child, Entity); return this; }}");
+        sb.AppendLine($"    readonly void IComponentSink.AddComponent<T>(T value) => AddComponent(value);");
+    }
+
+    private static string RowFieldKind(MarkerElement e) => e.Kind == MarkerKind.Writes ? "ref" : "ref readonly";
 
     private static void AppendHeader(StringBuilder sb)
     {
@@ -737,16 +880,29 @@ internal static class QueryChainEmitter
             : $"ref global::System.Runtime.CompilerServices.Unsafe.AsRef(in {ParamName(e)}[i])";
     }
 
-    private static string ParamName(MarkerElement e)
+    private static string ParamName(MarkerElement e) => char.ToLowerInvariant(SimpleTypeName(e)[0]) + SimpleTypeName(e)[1..];
+
+    /// <summary>
+    /// A row's public field name for <paramref name="e"/>'s component -- <see cref="ParamName"/>
+    /// with its first-letter lowercasing undone, matching ordinary C# public-field
+    /// convention (and the design doc's own worked examples, e.g. `row.Transform.Position`)
+    /// rather than <see cref="ParamName"/>'s lambda-parameter convention.
+    /// </summary>
+    private static string RowFieldName(MarkerElement e) => SimpleTypeName(e);
+
+    /// <summary>
+    /// <paramref name="e"/>'s component type name with namespace and generic arguments
+    /// stripped to its simple name. Namespace-strip only the outer type's own name, not the
+    /// last '.' anywhere in the fully-qualified name: for a generic component type (e.g.
+    /// RelationLinks&lt;Ns.Foo&gt;), the last '.' can sit inside a generic argument's
+    /// namespace, which would otherwise produce a garbage identifier (including the
+    /// argument's own '&gt;').
+    /// </summary>
+    private static string SimpleTypeName(MarkerElement e)
     {
         var name = e.ComponentTypeName;
-        // Namespace-strip only the outer type's own name, not the last '.' anywhere in the
-        // fully-qualified name: for a generic component type (e.g. RelationLinks<Ns.Foo>),
-        // the last '.' can sit inside a generic argument's namespace, which would otherwise
-        // produce a garbage identifier (including the argument's own '>').
         var genericStart = name.IndexOf('<');
         var outerTypeName = genericStart >= 0 ? name[..genericStart] : name;
-        var simple = outerTypeName.Contains('.') ? outerTypeName[(outerTypeName.LastIndexOf('.') + 1)..] : outerTypeName;
-        return char.ToLowerInvariant(simple[0]) + simple[1..];
+        return outerTypeName.Contains('.') ? outerTypeName[(outerTypeName.LastIndexOf('.') + 1)..] : outerTypeName;
     }
 }
