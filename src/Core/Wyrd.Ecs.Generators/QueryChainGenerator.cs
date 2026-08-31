@@ -98,23 +98,35 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
             .Select(static (c, _) => c!.Value)
             .WithTrackingName("ForeachQueryCandidate");
 
-        var collectedChains = chainCandidates.Collect();
-        var collectedQuerySystems = querySystemCandidates.Collect();
-        var collectedEdges = edgeCandidates.Collect();
-        var collectedConstructors = constructorCandidates.Collect();
-        var collectedEcsSystemResources = ecsSystemResourceCandidates.Collect();
-        var collectedResourceCalls = resourceCallCandidates.Collect();
-        var collectedTrySingles = trySingleCandidates.Collect();
-        var collectedForeachQueries = foreachQueryCandidates.Collect();
+        // .WithComparer(SequenceEqualComparer<T>.Instance) on each: ImmutableArray<T>.Equals
+        // compares the backing array by reference, so without this, a .Collect() that
+        // reproduces the same elements in a new array instance still reads as "changed" to
+        // every downstream .Combine() below.
+        var collectedChains = chainCandidates.Collect().WithComparer(SequenceEqualComparer<ChainCandidateResult>.Instance);
+        var collectedQuerySystems = querySystemCandidates.Collect().WithComparer(SequenceEqualComparer<QuerySystemResult>.Instance);
+        var collectedEdges = edgeCandidates.Collect().WithComparer(SequenceEqualComparer<EdgeResult>.Instance);
+        var collectedConstructors = constructorCandidates.Collect().WithComparer(SequenceEqualComparer<ConstructorCandidate?>.Instance);
+        var collectedEcsSystemResources = ecsSystemResourceCandidates.Collect().WithComparer(SequenceEqualComparer<EcsSystemResourceCandidate>.Instance);
+        var collectedResourceCalls = resourceCallCandidates.Collect().WithComparer(SequenceEqualComparer<ResourceCallCandidate>.Instance);
+        var collectedTrySingles = trySingleCandidates.Collect().WithComparer(SequenceEqualComparer<TrySingleCandidate>.Instance);
+        var collectedForeachQueries = foreachQueryCandidates.Collect().WithComparer(SequenceEqualComparer<ForeachQueryCandidate>.Instance);
 
-        // .Combine() only nests pairwise -- there's no wider-arity overload -- so adding a
+        // .Combine() only nests pairwise: there's no wider-arity overload, so adding a
         // pipeline always means inserting one more .Combine() link here and one more field in
-        // the flattening .Select() below, both places, in matching order. That's an
-        // unavoidable cost of the API's shape; what this .Select() buys is confining the
-        // resulting parenthesis-depth bookkeeping to this one spot, instead of leaving it
-        // smeared across RegisterSourceOutput's own opening line (which would otherwise need
-        // a matching nested-tuple destructuring pattern every time a pipeline is added).
-        var combined = collectedChains.Combine(collectedQuerySystems).Combine(collectedEdges).Combine(collectedConstructors).Combine(collectedEcsSystemResources).Combine(collectedResourceCalls).Combine(collectedTrySingles).Combine(collectedForeachQueries).Combine(context.CompilationProvider)
+        // the flattening .Select() below, both places, in matching order. What this .Select()
+        // buys is confining the resulting parenthesis-depth bookkeeping to this one spot,
+        // instead of leaving it smeared across RegisterSourceOutput's own opening line (which
+        // would otherwise need a matching nested-tuple destructuring pattern every time a
+        // pipeline is added).
+        var combined = collectedChains
+            .Combine(collectedQuerySystems)
+            .Combine(collectedEdges)
+            .Combine(collectedConstructors)
+            .Combine(collectedEcsSystemResources)
+            .Combine(collectedResourceCalls)
+            .Combine(collectedTrySingles)
+            .Combine(collectedForeachQueries)
+            .Combine(context.CompilationProvider)
             .Select(static (nested, _) =>
             {
                 var ((((((((chains, querySystems), edges), constructors), ecsSystemResources), resourceCalls), trySingles), foreachQueries), compilation) = nested;
@@ -462,15 +474,15 @@ public sealed class QueryChainGenerator : IIncrementalGenerator
     /// otherwise-unrelated queries can share the exact same closed <c>Query&lt;TShape&gt;</c>
     /// type while resolving different ref/in markers for it. Rather than erroring on that,
     /// every distinct variant is kept, for interceptor targeting (an internal detail of
-    /// this method -- see below for why it isn't returned).
+    /// this method: see below for why it isn't returned).
     ///
     /// <c>Canonical</c> is the single public overload every call site for that exact type
     /// name binds to. **When only one distinct variant exists for a type name (the common,
-    /// non-colliding case), that variant *is* canonical, unchanged** -- today's exact
+    /// non-colliding case), that variant *is* canonical, unchanged**: today's exact
     /// behavior, zero precision loss, no interceptor needed, regardless of whether it
     /// happens to be all-Writes, all-Reads, or mixed. Only when genuinely multiple distinct
     /// variants share one type name is canonical synthesized as an all-<c>Writes</c>
-    /// shape instead -- the one form every real variant's lambda can legally convert to
+    /// shape instead, the one form every real variant's lambda can legally convert to
     /// (an `in`-lambda converts to a `ref` delegate; not vice versa), so it alone can be
     /// unambiguous for every colliding call site. This is what "needs interception" means
     /// downstream: a call site whose own shape doesn't equal its group's canonical shape.
