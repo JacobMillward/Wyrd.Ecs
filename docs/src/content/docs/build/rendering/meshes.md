@@ -29,6 +29,8 @@ world.Commands.AddComponent(entity, new Material(ShaderKind.UnlitMesh, texture))
 
 `MeshRenderer` pairs a `Handle<Mesh>` (one part from `LoadModel`) with a `Tint`, the same per-instance-data role `Sprite` plays for 2D. Unlike `Material`, a mesh isn't pipeline-selecting state, two different meshes can share one `Material` and still batch separately per (material, mesh) pair.
 
+`Material`'s default `BlendMode.Opaque` is the right choice for solid geometry like this. For glass, foliage, or anything else that needs `Tint`'s alpha to show through, pass `BlendMode.Transparent`, see [BlendMode](/build/rendering/#blendmode).
+
 ## Unloading
 
 ```csharp

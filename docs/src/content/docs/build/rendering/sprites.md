@@ -12,11 +12,15 @@ var handle = renderer.LoadTexture("assets/hero.png");
 var sprite = world.Commands.CreateEntity();
 world.Commands.AddComponent(sprite, Transform.Identity);
 world.Commands.AddComponent(sprite, new Sprite(SourceRect: null, Tint: Color.White));
-world.Commands.AddComponent(sprite, new Material(ShaderKind.UnlitSprite, handle));
+world.Commands.AddComponent(sprite, new Material(ShaderKind.UnlitSprite, handle, BlendMode.Transparent));
 world.ApplyCommands();
 ```
 
-`SourceRect` is `null` for the whole texture, or a pixel-space `Rect` for one frame of a spritesheet. `Tint` multiplies the texture's own colors, `Color.White` leaves them unchanged.
+`SourceRect` is `null` for the whole texture, or a pixel-space `Rect` for one frame of a spritesheet. `Tint` multiplies the texture's own colors, `Color.White` leaves them unchanged, and `Tint`'s own alpha fades the sprite when `BlendMode` is `Transparent`.
+
+:::tip
+Sprite art usually has real alpha at its edges, so most sprites want `BlendMode.Transparent`. See [BlendMode](/build/rendering/#blendmode) for what it changes.
+:::
 
 :::note
 `Tint` lives on `Sprite`, not `Material`. Two sprites sharing one `Material` with different tints still batch into the same draw call, only the shader and texture have to match.

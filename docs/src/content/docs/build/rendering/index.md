@@ -46,7 +46,19 @@ world.ApplyCommands();
 world.Commands.AddComponent(entity, new Material(ShaderKind.UnlitSprite, textureHandle));
 ```
 
-`Material` is pipeline-selecting state only, the shader and the texture, the two things that have to match for two entities to batch into one draw call. Per-instance data like tint lives on the drawable component instead, see [Sprites](/build/rendering/sprites/) and [Meshes](/build/rendering/meshes/).
+`Material` is pipeline-selecting state only, the shader, the texture, and the blend mode, the things that have to match for two entities to batch into one draw call. Per-instance data like tint lives on the drawable component instead, see [Sprites](/build/rendering/sprites/) and [Meshes](/build/rendering/meshes/).
+
+### BlendMode
+
+```csharp
+new Material(ShaderKind.UnlitSprite, textureHandle, BlendMode.Transparent)
+```
+
+`BlendMode.Opaque`, `Material`'s default, writes depth and tests it, draw order doesn't matter. `BlendMode.Transparent` tests depth but doesn't write it, and needs back-to-front draw order for correct compositing, the renderer sorts every transparent entity by depth for you each frame, across sprites and meshes together.
+
+:::note
+The sprite/mesh shaders premultiply each pixel's alpha before blending, so texture files stay ordinary straight-alpha PNGs.
+:::
 
 ## Loading assets
 
