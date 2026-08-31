@@ -3,8 +3,11 @@ using Wyrd.Ecs.Examples.Asteroids.Events;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-public sealed class AudioCueSystem : EcsSystem
+public sealed partial class AudioCueSystem : EcsSystem
 {
+    [Resource] public partial AudioPlayer Audio { get; }
+    [Resource] public partial GameAssets Assets { get; }
+
     private readonly EventReader<AsteroidDestroyed> _asteroidDestroyed;
     private readonly EventReader<ShipDestroyed> _shipDestroyed;
 
@@ -20,10 +23,7 @@ public sealed class AudioCueSystem : EcsSystem
         var shipDestroyedCount = _shipDestroyed.Read().Count;
         if (asteroidDestroyedCount == 0 && shipDestroyedCount == 0) return;
 
-        var audio = world.GetResource<AudioPlayer>();
-        var assets = world.GetResource<GameAssets>();
-
-        for (var i = 0; i < asteroidDestroyedCount; i++) audio.Play(assets.ExplosionSound);
-        for (var i = 0; i < shipDestroyedCount; i++) audio.Play(assets.ExplosionSound);
+        for (var i = 0; i < asteroidDestroyedCount; i++) Audio.Play(Assets.ExplosionSound);
+        for (var i = 0; i < shipDestroyedCount; i++) Audio.Play(Assets.ExplosionSound);
     }
 }

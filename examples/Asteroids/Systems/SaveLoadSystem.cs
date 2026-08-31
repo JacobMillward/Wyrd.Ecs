@@ -6,15 +6,15 @@ using Wyrd.Ecs.Platform;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-public sealed class SaveLoadSystem : EcsSystem
+public sealed partial class SaveLoadSystem : EcsSystem
 {
+    [Resource] public partial IntentState<GameAction> Input { get; }
+
     protected override void Execute(World world, Time time)
     {
-        var input = world.GetResource<IntentState<GameAction>>();
+        if (Input[GameAction.Save].JustPressed) world.Save();
 
-        if (input[GameAction.Save].JustPressed) world.Save();
-
-        if (input[GameAction.Load].JustPressed)
+        if (Input[GameAction.Load].JustPressed)
         {
             world.Load();
             world.GetSystem<GameOverSystem>().Reset();

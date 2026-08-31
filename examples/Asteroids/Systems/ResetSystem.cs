@@ -6,14 +6,16 @@ using Wyrd.Ecs.Platform;
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
 /// <summary>Respawns the ship and asteroid field and zeroes the score, without a full process restart. Bound to R.</summary>
-public sealed class ResetSystem : EcsSystem
+public sealed partial class ResetSystem : EcsSystem
 {
+    [Resource] public partial IntentState<GameAction> Input { get; }
+    [Resource] public partial GameAssets Assets { get; }
+
     private readonly Random _rng = new();
 
     protected override void Execute(World world, Time time)
     {
-        var input = world.GetResource<IntentState<GameAction>>();
-        if (!input[GameAction.Reset].JustPressed) return;
+        if (!Input[GameAction.Reset].JustPressed) return;
 
         world.Query().Has<Bullet>().ForEach((EntityView entity) => entity.DestroyEntity());
         world.Query().Has<Asteroid>().ForEach((EntityView entity) => entity.DestroyEntity());
@@ -23,9 +25,8 @@ public sealed class ResetSystem : EcsSystem
 
         world.Query().With<Score>().ForEach((ref Score score) => score.Value = 0);
 
-        var assets = world.GetResource<GameAssets>();
-        world.Commands.CreateEntity(assets.ShipTemplate);
-        AsteroidSpawner.SpawnInitialWave(world.Commands, assets.AsteroidTemplate, _rng);
+        world.Commands.CreateEntity(Assets.ShipTemplate);
+        AsteroidSpawner.SpawnInitialWave(world.Commands, Assets.AsteroidTemplate, _rng);
 
         world.GetSystem<GameOverSystem>().Reset();
         world.TimeScale = 1.0;

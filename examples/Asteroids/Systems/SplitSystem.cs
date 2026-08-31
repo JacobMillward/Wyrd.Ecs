@@ -3,8 +3,10 @@ using Wyrd.Ecs.Examples.Asteroids.Events;
 
 namespace Wyrd.Ecs.Examples.Asteroids.Systems;
 
-public sealed class SplitSystem : EcsSystem
+public sealed partial class SplitSystem : EcsSystem
 {
+    [Resource] public partial GameAssets Assets { get; }
+
     private readonly EventReader<AsteroidDestroyed> _destroyed;
     private readonly Random _rng = new();
 
@@ -15,12 +17,11 @@ public sealed class SplitSystem : EcsSystem
         var destroyed = _destroyed.Read();
         if (destroyed.Count == 0) return;
 
-        var assets = world.GetResource<GameAssets>();
         foreach (var e in destroyed)
         {
             if (e.Size.Smaller() is not { } smaller) continue;
-            AsteroidSpawner.Spawn(world.Commands, assets.AsteroidTemplate, smaller, e.Position, _rng);
-            AsteroidSpawner.Spawn(world.Commands, assets.AsteroidTemplate, smaller, e.Position, _rng);
+            AsteroidSpawner.Spawn(world.Commands, Assets.AsteroidTemplate, smaller, e.Position, _rng);
+            AsteroidSpawner.Spawn(world.Commands, Assets.AsteroidTemplate, smaller, e.Position, _rng);
         }
     }
 }
