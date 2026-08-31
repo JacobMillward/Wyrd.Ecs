@@ -14,7 +14,7 @@ public sealed class GameOverSystem : EcsSystem
     private TimeSpan _slowMoRemaining;
 
     /// <summary>True once a ship death has started the slow-mo/game-over sequence. PauseSystem
-    /// checks this so a player's own P press can never un-freeze a game-over world - only
+    /// checks this so a player's own P press can never un-freeze a game-over world: only
     /// <see cref="Reset"/> (via a load) does.</summary>
     public bool HasTriggered => _triggered;
 
