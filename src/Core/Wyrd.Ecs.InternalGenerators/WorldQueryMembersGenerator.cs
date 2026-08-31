@@ -73,6 +73,8 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             {
                 query.AppendLine(ArityTemplates.QueryWithMember(n));
                 query.AppendLine();
+                query.AppendLine(ArityTemplates.QueryWithMutMember(n));
+                query.AppendLine();
                 query.AppendLine(ArityTemplates.QueryWithoutMember(n));
                 query.AppendLine();
                 query.AppendLine(ArityTemplates.QueryHasMember(n));
@@ -94,6 +96,8 @@ public sealed class WorldQueryMembersGenerator : IIncrementalGenerator
             for (var n = 2; n <= ArityCap.Max; n++)
             {
                 queryEntry.AppendLine(ArityTemplates.QueryEntryWithMember(n));
+                queryEntry.AppendLine();
+                queryEntry.AppendLine(ArityTemplates.QueryEntryWithMutMember(n));
                 queryEntry.AppendLine();
                 queryEntry.AppendLine(ArityTemplates.QueryEntryWithoutMember(n));
                 queryEntry.AppendLine();

@@ -272,6 +272,22 @@ internal static class ArityTemplates
         return sb.ToString();
     }
 
+    /// <summary>Emits the `Query&lt;TShape&gt;.WithMut&lt;T0..Tn-1&gt;()` overload for arity 2+ -- same nested-tuple construction as <see cref="QueryWithMember"/> (the two are indistinguishable by shape; only the generator's own reading of the chain's call-site syntax tells them apart), equivalent to chaining single-arg `.WithMut&lt;T&gt;()` calls individually.</summary>
+    internal static string QueryWithMutMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var nestedType = "TShape";
+        for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <summary>Adds T0..Tn-1 to the shape as mutable in one call, equivalent to chaining .WithMut&lt;T0&gt;()...WithMut&lt;Tn-1&gt;() individually.</summary>"
+            : "    /// <inheritdoc cref=\"WithMut{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<{nestedType}> WithMut<{tp}>() {where} => new(World, Filter);");
+        return sb.ToString();
+    }
+
     /// <summary>Emits the `Query&lt;TShape&gt;.Without&lt;T0..Tn-1&gt;()` overload for arity 2+. Forwards to `Filter`, same shape (`Query&lt;TShape&gt;`, unchanged) regardless of arity, since `Without` never touches `TShape`.</summary>
     internal static string QueryWithoutMember(int n)
     {
@@ -329,6 +345,22 @@ internal static class ArityTemplates
             ? "    /// <inheritdoc cref=\"Query{TShape}.With{T0, T1}\"/>"
             : "    /// <inheritdoc cref=\"With{T0, T1}\"/>");
         sb.AppendLine($"    public Query<{nestedType}> With<{tp}>() {where} => new(World, Filter);");
+        return sb.ToString();
+    }
+
+    /// <summary>Entry-point counterpart of <see cref="QueryWithMutMember"/>, same relationship as <see cref="QueryEntryWithMember"/> is to <see cref="QueryWithMember"/>.</summary>
+    internal static string QueryEntryWithMutMember(int n)
+    {
+        var tp = TypeParams(n);
+        var where = WhereClausesInline(n);
+        var nestedType = "Nil";
+        for (var i = 0; i < n; i++) nestedType = $"(T{i}, {nestedType})";
+
+        var sb = new StringBuilder();
+        sb.AppendLine(n == 2
+            ? "    /// <inheritdoc cref=\"Query{TShape}.WithMut{T0, T1}\"/>"
+            : "    /// <inheritdoc cref=\"WithMut{T0, T1}\"/>");
+        sb.AppendLine($"    public Query<{nestedType}> WithMut<{tp}>() {where} => new(World, Filter);");
         return sb.ToString();
     }
 

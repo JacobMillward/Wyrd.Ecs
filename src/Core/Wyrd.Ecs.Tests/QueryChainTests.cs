@@ -42,6 +42,39 @@ public class QueryChainTests
     }
 
     [Fact]
+    public void WithMut_ProducesTheSameShapeTypeAsWith()
+    {
+        var world = new World();
+
+        var chain = world.Query().WithMut<ChainPosition>();
+
+        // Same runtime shape as .With<ChainPosition>() -- With/WithMut are told apart by the
+        // generator reading the chain's own call-site syntax, not by anything this type carries.
+        chain.Should().BeOfType<Query<(ChainPosition, Nil)>>();
+    }
+
+    [Fact]
+    public void ChainedWithAndWithMut_NestInCallOrderTogether()
+    {
+        var world = new World();
+
+        var chain = world.Query().With<ChainPosition>().WithMut<ChainVelocity>();
+
+        chain.Should().BeOfType<Query<(ChainVelocity, (ChainPosition, Nil))>>();
+    }
+
+    [Fact]
+    public void WithMut_MultiArity_MatchesChainedSingleArityShape()
+    {
+        var world = new World();
+
+        var multiArity = world.Query().WithMut<ChainPosition, ChainVelocity>();
+        var chained = world.Query().WithMut<ChainPosition>().WithMut<ChainVelocity>();
+
+        multiArity.Should().BeOfType(chained.GetType());
+    }
+
+    [Fact]
     public void Without_DoesNotChangeTheShape_OnlyTheFilter()
     {
         var world = new World();
